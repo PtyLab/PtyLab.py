@@ -1,4 +1,4 @@
-from ptyLab import Ptylab
+from fracPy.ptyLab import Ptylab
 
 dataFolder = r'D:\ptyLab\ptyLabExport'
 

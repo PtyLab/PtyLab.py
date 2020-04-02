@@ -1,6 +1,5 @@
-from initialParams import parser
+from fracPy.initialParams import parser
 import pickle
-import numpy as np
 from pathlib import Path
 
 
