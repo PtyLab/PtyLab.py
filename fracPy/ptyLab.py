@@ -5,22 +5,15 @@ import logging
 
 logging.basicConfig(level=logging.DEBUG)
 
+class DataLoader:
+    """
+    This is a container class for all the data associated with the ptychography reconstruction.
 
-class Params:
-    """An empty class to have the same form of obj.params as in MATLAB.
+    It only holds attributes that are the same for every type of reconstruction.
 
-    See ptylab.initialParams for all the switches and properties.
+    Things that belong to a particular type of reconstructor are stored in the .params class of that particular reconstruction.
 
     """
-
-    def __init__(self):
-        # these parameters should be implemented in the reconstructor object.
-        return
-
-
-
-
-class Ptylab:
 
     def __init__(self, datafolder):
         self.logger = logging.getLogger('PtyLab')
@@ -117,8 +110,8 @@ class Ptylab:
         self.ptychogram = None
 
         # constructor
-        self.params = Params()
-        self.params.__dict__ = parser
+        #self.params = Params()
+        #self.params.__dict__ = parser
 
         # things that are implemented as a property:
         # checkGPU
@@ -204,4 +197,4 @@ class Ptylab:
 
 
 if __name__ == '__main__':
-    obj = Ptylab('.')
+    obj = DataLoader('.')

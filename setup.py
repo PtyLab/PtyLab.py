@@ -8,5 +8,5 @@ setup(
     license='',
     author='Lars Loetgering, fracPy team',
     author_email='',
-    description=''
+    description='', install_requires=['numpy']
 )
