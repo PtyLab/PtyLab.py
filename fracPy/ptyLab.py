@@ -7,18 +7,47 @@ logging.basicConfig(level=logging.DEBUG)
 
 
 class Params:
-    """A fudge empty class to have the same form of obj.params as in MATLAB"""
+    """An empty class to have the same form of obj.params as in MATLAB.
+
+    See ptylab.initialParams for all the switches and properties.
+
+    """
 
     def __init__(self):
+        # these parameters should be implemented in the reconstructor object.
         return
+
+
 
 
 class Ptylab:
 
     def __init__(self, datafolder):
         self.logger = logging.getLogger('PtyLab')
+        self.logger.debug('Initializing PtyLab object')
+        self.dataFolder = datafolder
+        self.initialize_attributes()
 
-        self.dataFolder = Path(datafolder)
+        #self.prepare_reconstruction()
+
+
+
+    def prepare_visualisation(self):
+        """ Create figure and axes for visual feedback.
+
+        """
+        return NotImplementedError()
+
+
+
+
+
+    def initialize_attributes(self):
+        """
+        Initialize all the attributes to PtyLab.
+        """
+
+        self.dataFolder = Path(self.dataFolder)
         if not self.dataFolder.exists():
             self.logger.info('Datafolder %s does not exist yet. Creating it.',
                              self.dataFolder)
@@ -87,9 +116,91 @@ class Ptylab:
 
         self.ptychogram = None
 
+        # constructor
+        self.params = Params()
+        self.params.__dict__ = parser
+
+        # things that are implemented as a property:
+        # checkGPU
+
+        # python-only
+        self._on_gpu = False # Sets wether things are on the GPU or not
+
     def save(self, name='obj'):
         with open(self.dataFolder.joinpath('%s.pkl' % name), 'wb') as openfile:
             pickle.dump(self, openfile)
+
+    def load_from_hdf5(self):
+        raise NotImplementedError()
+
+    def load(self, name='obj'):
+        raise NotImplementedError()
+
+    def transfer_to_gpu_if_applicable(self):
+        """ Implements checkGPU"""
+        pass
+
+
+
+    ### Functions that still have to be implemented
+    def checkDataset(self):
+        raise NotImplementedError()
+
+    def checkFFT(self):
+        raise NotImplementedError()
+
+    def getOverlap(self):
+        """
+        :return:
+        """
+        raise NotImplementedError()
+
+    def initialParams(self):
+        """ Initialize the params object and attach it to the object
+
+        Note that this is a little bit different from the matlab implementation
+        """
+        self.params = Params()
+
+    def setPositionOrder(self):
+        raise NotImplementedError()
+
+    def showDiffractionData(self):
+        raise NotImplementedError()
+
+    def showPtychogram(self):
+        raise NotImplementedError()
+
+    ## Special properties
+    # so far none
+
+    def prepare_reconstruction(self):
+        """
+        Prepare the reconstruction. So far, followin matlab, it checks the following things:
+
+        - minimize memory footprint
+        -
+        :return:
+        """
+        # delete parts of the memory that are not required.
+        self.checkMemory()
+        # do something with the modes
+        self.checkModes
+        # prepare FFTs
+        self.checkFFT()
+        # prepare vis
+        self.prepare_visualisation()
+        # This should not be necessary
+        # obj.checkMISC
+        # transfer to GPU if req'd
+        self.checkGPU()
+
+    # Things we'd like to change the name of
+    def checkGPU(self, *args, **kwargs):
+        return self.transfer_to_gpu_if_applicable(*args, **kwargs)
+
+
+
 
 
 if __name__ == '__main__':

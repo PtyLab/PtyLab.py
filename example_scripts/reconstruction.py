@@ -8,7 +8,6 @@ fileName = 'recent.pkl'
 obj = load(dataFolder.joinpath(fileName))
 
 ## manual params
-
 obj.params.objectPlot = 'complex'  # 'complex', 'piComlex', 'abs', 'angle', or 'piAngle'
 obj.params.intensityConstraint = 'standard'  # 'standard', 'exponential', fluctuation
 
