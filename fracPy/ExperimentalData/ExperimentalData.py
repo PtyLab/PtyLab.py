@@ -6,6 +6,8 @@ class ExperimentalData(object):
         # instance attributes are copied from ptyLab matlab implementation
         # @Tomas: You know best what the Matlab implementation will be like
         # so feel free to change the name of filename.
+
+        self.filename = filename
         self.initialize_attributes()
         self.load_data(filename)
 
@@ -17,11 +19,11 @@ class ExperimentalData(object):
         Initialize all the attributes to PtyLab.
         """
 
-        self.dataFolder = Path(self.dataFolder)
-        if not self.dataFolder.exists():
-            self.logger.info('Datafolder %s does not exist yet. Creating it.',
-                             self.dataFolder)
-            self.dataFolder.mkdir()
+        # self.dataFolder = Path(self.dataFolder)
+        # if not self.dataFolder.exists():
+        #     self.logger.info('Datafolder %s does not exist yet. Creating it.',
+        #                      self.dataFolder)
+        #     self.dataFolder.mkdir()
 
         # required properties
 
@@ -91,13 +93,33 @@ class ExperimentalData(object):
         self.to_GPU = False
 
 
+    def _load_dummy_data(self):
+        """
+        For testing purposes, we often don't need a full dataset. This function will populate the
+        attributes with dummy settings.
+        So far it performs the following tasks:
+            * it sets the wavelength to 1234
+            * if sets the positions to np.random.rand(100,2)
+        :return:
+        """
+        self.wavelength = 1234
+        self.positions = np.random.rand(100,2)
+
     def load_data(self, filename=None):
         """
         @Tomas: Please implement your hdf5 loader here
         :return:
         """
+
         if filename is not None:
             self.filename = filename
+
+        if filename == 'test:nodata':
+            # Just create the attributes but don't load data.
+            # This is mainly useful for testing the object structure
+            self._load_dummy_data()
+            return
+
 
         if self.filename is not None:
             # check that all the data is present.
