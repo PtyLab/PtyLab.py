@@ -1,74 +1,81 @@
 from fracPy import ptyLab
+import numpy as np
+import logging
+
+# fracPy imports
 from fracPy.utils.initialization_functions import initial_probe_or_object
+from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
+from fracPy.Optimizable.Optimizable import Optimizable
 
-class Params(object):
-    """ Contains settings that are in initialParams.
+class BaseReconstructor(object):
+    """
+    Common properties for any reconstruction engine are defined here.
 
-    Will be loaded into baseReconstruction"""
-    def __init__(self):
+    Unless you are testing the code, there's hardly any need to create this object. For your own implementation,
+    inherit from this object
 
-        self.deleteFrames = []
-        self.absorbingProbeBoundary = False
+    """
+    def __init__(self, optimizable: Optimizable, experimentalData:ExperimentalData):
+        # These statements don't copy any data, they just keep a reference to the object
+        self.optimizable = optimizable
+        self.experimentalData = experimentalData
+
+        # datalogger
+        self.logger = logging.getLogger('BaseReconstructor')
+
+        # Default settings
+        # settings that involve how things are computed
+        self.objectPlot = 'complex'
         self.fftshiftSwitch = True
         self.figureUpdateFrequency = 1
         self.FourierMaskSwitch = False
         self.fontSize = 17
+        self.intensityConstraint = 'standard'  # standard or sigmoid
+
+        # Settings involving the intitial estimates
+
         self.initialObject = 'ones'
         self.initialProbe = 'circ'
-        self.intensityConstraint = 'standard' # standard or sigmoid
-        self.npsm = 1 # number of probe state mixtures
-        self.nosm = 1 # number of object state mixtures
-        self.numIterations = 1 # number of iterations
-        self.objectPlot = 'complex'
+
+        # Specific reconstruction settings that are the same for all engines
+        self.absorbingProbeBoundary = False
+        self.npsm = 1  # number of probe state mixtures
+        self.nosm = 1  # number of object state mixtures
+
+        # Things that should be overridden in every reconstructor
+        self.numIterations = 1  # number of iterations
+
         self.objectUpdateStart = 1
         self.positionOrder = 'random'
+        # TODO This list is not finished yet.
 
 
-class BaseReconstructor(ptyLab.DataLoader):
-    """
-    Common properties for any reconstruction engine are defined here.
+    def change_experimentalData(self, experimentalData:ExperimentalData):
+        self.experimentalData = experimentalData
 
-    Example properties:
-        - propagation from one plane to another
-        - converting data to single precision
-        - general settings regarding reconstruction, like number of iterations
+    def change_optimizable(self, optimizable: Optimizable):
+        self.optimizable = optimizable
 
-    """
-    def __init__(self, datafolder=None):
-        super().__init__(datafolder=datafolder)
-
-        self.initialize_params()
-
-    def initialize_params(self):
-        """
-        Initialize attributes that are the same for all reconstructions and that are in the
-        params object.
-        :return:
-        """
-        self.params = Params()
-        # override stuff here
-
-        self.initialize_object()
-        self.initialize_probe()
 
     def start_reconstruction(self):
         raise NotImplementedError()
 
-    def saveMemory(self):
-        """
-        Deletes fields that are not required. Python-implementation of checkMemory.m
 
-        Should be implemented in the actual reconstruction script
-        :return:
-        """
-        raise NotImplementedError()
-
-    def convertToSingle(self):
+    def convert2single(self):
         """
         Convert the datasets to single precision. Matches: convert2single.m
         :return:
         """
-        raise NotImplementedError()
+        self.dtype_complex = np.complex64
+        self.dtype_real = np.float32
+        self._match_dtypes_complex()
+        self._match_dtypes_real()
+
+    def _match_dtypes_complex(self):
+        raise NotImplemented()
+
+    def _match_dtypes_real(self):
+        raise NotImplemented()
 
     def detector2object(self):
         """
