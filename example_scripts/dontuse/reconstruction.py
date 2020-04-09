@@ -2,6 +2,8 @@ from pathlib import Path
 from fracPy.utils import *
 from fracPy.reconstruct import reconstruct
 
+### NB DON'T use this file, it's
+
 dataFolder = Path(r'D:\ptyLab\ptyLabExport')
 fileName = 'recent.pkl'
 
