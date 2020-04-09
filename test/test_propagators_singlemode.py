@@ -1,5 +1,5 @@
 from unittest import TestCase
-from fracPy.operators import propagators_singlemode as pps
+from fracPy.physics import propagators_singlemode as pps
 import numpy as np
 from numpy.testing import assert_almost_equal
 

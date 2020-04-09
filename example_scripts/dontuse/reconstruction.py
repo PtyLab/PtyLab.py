@@ -1,6 +1,5 @@
 from pathlib import Path
-from fracPy.utils import *
-from fracPy.reconstruct import reconstruct
+from example_scripts.dontuse.reconstruct import reconstruct
 
 ### NB DON'T use this file, it's
 

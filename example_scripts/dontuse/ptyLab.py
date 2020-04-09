@@ -1,6 +1,4 @@
-from fracPy.initialParams import parser
 import pickle
-from pathlib import Path
 import logging
 
 logging.basicConfig(level=logging.DEBUG)

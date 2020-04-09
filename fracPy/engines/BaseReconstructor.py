@@ -1,4 +1,3 @@
-from fracPy import ptyLab
 import numpy as np
 import logging
 
