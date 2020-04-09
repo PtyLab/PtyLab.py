@@ -1,19 +1,27 @@
-from fracPy.engines.BaseReconstructor import BaseReconstructor
+
 import numpy as np
-from fracPy import reconstruction_object as ro
+
+# fracPy imports
+from fracPy.Optimizable.Optimizable import Optimizable
+from fracPy.engines.BaseReconstructor import BaseReconstructor
+from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.utils.gpu_utils import get_array_module
 from fracPy.Params import Params
 import logging
 
 class ePIE(BaseReconstructor):
-    def __init__(self, dataFolder=None):
+
+    def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData):
         # This contains reconstruction parameters that are specific to the reconstruction
         # but not necessarily to ePIE reconstruction
-        super().__init__(dataFolder)
+        super().__init__(optimizable, experimentalData)
         self.logger = logging.getLogger('ePIE')
-        self.logger.debug('Hello from ePIE')
-        self.logger.info('Wavelength attribute: %s', self.wavelength)
-        self.initialize_reconstruction_params()
+        self.logger.info('Sucesfully created ePIE engine')
+
+        self.logger.info('Wavelength attribute: %s', self.optimizable.wavelength)
+
+
+        #self.initialize_reconstruction_params()
 
     def initialize_reconstruction_params(self):
         """
