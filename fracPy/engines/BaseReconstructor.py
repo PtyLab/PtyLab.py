@@ -33,7 +33,6 @@ class BaseReconstructor(object):
         self.intensityConstraint = 'standard'  # standard or sigmoid
 
         # Settings involving the intitial estimates
-
         self.initialObject = 'ones'
         self.initialProbe = 'circ'
 
@@ -48,6 +47,14 @@ class BaseReconstructor(object):
         self.objectUpdateStart = 1
         self.positionOrder = 'random'
         # TODO This list is not finished yet.
+
+        self.probeSmoothnessSwitch = False
+        self.absObjectSwitch = False
+        self.comStabilizationSwitch = False
+        self.objectContrastSwitch = False
+
+    def setPositionOrder(self):
+        raise NotImplemented()
 
 
     def change_experimentalData(self, experimentalData:ExperimentalData):
@@ -137,8 +144,6 @@ class BaseReconstructor(object):
     def intensityProjection(self):
         """ Compute the projected intensity.
 
-        Should be implemented in the particular reconstruction object.
-
         """
         raise NotImplementedError()
 
@@ -177,4 +182,59 @@ class BaseReconstructor(object):
 
     def initialize_probe(self):
         self.params.initialProbe = initial_probe_or_object((self.params.npsm, self.Np, self.Np))
+
+    def showReconstruction(self, loop):
+        if loop == 0:
+            self.initialize_visualisation()
+        if np.mod(loop, self.figureUpdateFrequency) == 0:
+            # show a reconstruction
+            #self.showReconstruction()
+            raise NotImplemented()
+
+    def initialize_visualisation(self):
+        """
+        Create the figure and axes etc.
+        :return:
+        """
+        raise NotImplemented()
+
+
+    def apply_constraints(self, loop):
+        """
+        Apply constraints.
+        :param loop: loop number
+        :return:
+        """
+
+        # modulus enforced probe
+        if self.modulusEnforcesProbeSwitch:
+            raise NotImplementedError()
+            # # propagate probe to detector
+            # self.params.esw = self.probe
+            # self.object2detector()
+            #
+        if np.mod(loop, self.orthogonalizationFrequency) == 0:
+            self.orthogonalize()
+
+
+        if self.objectSmoothenessSwitch:
+            raise NotImplementedError()
+
+        # not specific to ePIE, -> baseReconstructor
+        if self.probeSmoothenessSwitch:
+            raise NotImplementedError()
+
+        # not specific to ePIE
+        if self.absObjectSwitch:
+            raise NotImplementedError()
+
+
+        if self.comStabilizationSwitch:
+            raise NotImplementedError()
+
+
+        if self.objectContrastSwitch():
+            raise NotImplementedError()
+
+
 
