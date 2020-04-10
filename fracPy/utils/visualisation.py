@@ -1,4 +1,4 @@
-# This file contains utilities required for visualisation
+# This file contains utilities required for monitors
 
 # TODO: copy-pase all relevant functions from Matlab implementation
 

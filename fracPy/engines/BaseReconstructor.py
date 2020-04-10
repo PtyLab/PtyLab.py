@@ -2,13 +2,13 @@ import numpy as np
 import logging
 
 # fracPy imports
-from fracPy.utils.initialization_functions import initial_probe_or_object
+from fracPy.utils.initializationFunctions import initialProbeOrObject
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Optimizable.Optimizable import Optimizable
 
 class BaseReconstructor(object):
     """
-    Common properties for any reconstruction engine are defined here.
+    Common properties for any reconstruction ePIE_engine are defined here.
 
     Unless you are testing the code, there's hardly any need to create this object. For your own implementation,
     inherit from this object
@@ -44,8 +44,7 @@ class BaseReconstructor(object):
         self.numIterations = 1  # number of iterations
 
         self.objectUpdateStart = 1
-        self.positionOrder = 'random'
-        # TODO This list is not finished yet.
+        self.positionOrder = 'random'  # 'random' or 'sequential'
 
         self.probeSmoothnessSwitch = False
         self.absObjectSwitch = False
@@ -56,14 +55,14 @@ class BaseReconstructor(object):
         raise NotImplemented()
 
 
-    def change_experimentalData(self, experimentalData:ExperimentalData):
+    def changeExperimentalData(self, experimentalData:ExperimentalData):
         self.experimentalData = experimentalData
 
-    def change_optimizable(self, optimizable: Optimizable):
+    def changeOptimizable(self, optimizable: Optimizable):
         self.optimizable = optimizable
 
 
-    def start_reconstruction(self):
+    def startReconstruction(self):
         raise NotImplementedError()
 
 
@@ -164,33 +163,33 @@ class BaseReconstructor(object):
         """
         Reconstruct the object based on all the parameters that have been set beforehand.
 
-        This method is overridden in every reconstruction engine, therefore it is already finished.
+        This method is overridden in every reconstruction ePIE_engine, therefore it is already finished.
         :return:
         """
         self.prepare_reconstruction()
         raise NotImplementedError()
 
 
-    def initialize_object(self):
+    def initializeObject(self):
         """
         Initialize the object.
         :return:
         """
-        self.params.initialObject = initial_probe_or_object((self.params.nosm, self.No, self.No),
-                                                            self.params.initialObject)
+        self.params.initialObject = initialProbeOrObject((self.params.nosm, self.No, self.No),
+                                                         self.params.initialObject)
 
-    def initialize_probe(self):
-        self.params.initialProbe = initial_probe_or_object((self.params.npsm, self.Np, self.Np))
+    def initializeProbe(self):
+        self.params.initialProbe = initialProbeOrObject((self.params.npsm, self.Np, self.Np))
 
     def showReconstruction(self, loop):
         if loop == 0:
-            self.initialize_visualisation()
+            self.initializeVisualisation()
         if np.mod(loop, self.figureUpdateFrequency) == 0:
             # show a reconstruction
             #self.showReconstruction()
             raise NotImplemented()
 
-    def initialize_visualisation(self):
+    def initializeVisualisation(self):
         """
         Create the figure and axes etc.
         :return:
@@ -198,7 +197,7 @@ class BaseReconstructor(object):
         raise NotImplemented()
 
 
-    def apply_constraints(self, loop):
+    def applyConstraints(self, loop):
         """
         Apply constraints.
         :param loop: loop number

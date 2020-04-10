@@ -15,7 +15,7 @@ class MyOwnReconstructor(BaseReconstructor.BaseReconstructor):
         # Add your own super-specific items here
 
 
-    def do_reconstruction(self):
-        """ This is where you implement your own engine."""
+    def doReconstruction(self):
+        """ This is where you implement your own ePIE_engine."""
         pass
 

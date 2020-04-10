@@ -1,1 +1,1 @@
-from . import propagators_singlemode, propagators_multimode
+from . import propagatorsSinglemode, propagatorsMultimode

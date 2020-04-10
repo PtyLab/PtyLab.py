@@ -19,5 +19,5 @@ class TestBaseReconstructor(TestCase):
         :return:
         """
         optimizable2 = Optimizable(self.experimentalData)
-        self.BR.change_optimizable(optimizable2)
+        self.BR.changeOptimizable(optimizable2)
         self.assertEqual(self.BR.optimizable, optimizable2)

@@ -1,6 +1,6 @@
 
 
-def check_data_fields(filename):
+def checkDataFields(filename):
     """
     Make sure that all the fields in a given .hdf5 file are supported and do some sanity checks.
 

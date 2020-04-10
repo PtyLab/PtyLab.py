@@ -8,13 +8,13 @@ class ExperimentalData(object):
         # so feel free to change the name of filename.
 
         self.filename = filename
-        self.initialize_attributes()
-        self.load_data(filename)
+        self.initializeAttributes()
+        self.loadData(filename)
 
 
 
 
-    def initialize_attributes(self):
+    def initializeAttributes(self):
         """
         Initialize all the attributes to PtyLab.
         """
@@ -86,14 +86,13 @@ class ExperimentalData(object):
         # in the spectrogram is updates a patch which has pixel coordinates
         # [3,4] in the high-resolution Fourier transform
 
-        self.ptychogram = None
 
         # Python-only
         # checkGPU
         self.to_GPU = False
 
 
-    def _load_dummy_data(self):
+    def _loadDummyData(self):
         """
         For testing purposes, we often don't need a full dataset. This function will populate the
         attributes with dummy settings.
@@ -105,7 +104,7 @@ class ExperimentalData(object):
         self.wavelength = 1234
         self.positions = np.random.rand(100,2)
 
-    def load_data(self, filename=None):
+    def loadData(self, filename=None):
         """
         @Tomas: Please implement your hdf5 loader here
         :return:
@@ -117,7 +116,7 @@ class ExperimentalData(object):
         if filename == 'test:nodata':
             # Just create the attributes but don't load data.
             # This is mainly useful for testing the object structure
-            self._load_dummy_data()
+            self._loadDummyData()
             return
 
 
@@ -127,9 +126,9 @@ class ExperimentalData(object):
             io.read_hdf5.check_data_fields(self.filename)
             raise NotImplementedError('Loading files is not implemented yet')
 
-        self._checkdata()
+        self._checkData()
 
-    def _checkdata(self):
+    def _checkData(self):
         """
         Check that at least all the data we need has been initialized.
         :return: None

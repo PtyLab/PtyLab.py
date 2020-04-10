@@ -1,6 +1,6 @@
 import numpy as np
 
-def initial_probe_or_object(shape, type_of_init):
+def initialProbeOrObject(shape, type_of_init):
     """
     Implements line 148 of initialParams.m
     :param shape:
