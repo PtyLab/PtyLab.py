@@ -1,11 +1,27 @@
 import numpy as np
 from pathlib import Path
+import logging
+import tables
 
-class ExperimentalData(object):
-    def __init__(self, filename=None):
-        # instance attributes are copied from ptyLab matlab implementation
-        # @Tomas: You know best what the Matlab implementation will be like
-        # so feel free to change the name of filename.
+logging.basicConfig(level=logging.DEBUG)
+
+class DataLoader:
+    """
+    This is a container class for all the data associated with the ptychography reconstruction.
+
+    It only holds attributes that are the same for every type of reconstruction.
+
+    Things that belong to a particular type of reconstructor are stored in the .params class of that particular reconstruction.
+
+    """
+
+    def __init__(self, datafolder):
+        self.logger = logging.getLogger('PtyLab')
+        self.logger.debug('Initializing PtyLab object')
+        self.dataFolder = datafolder
+        self.initialize_attributes()
+
+        #self.prepare_reconstruction()
 
         self.filename = filename
         self.initializeAttributes()
@@ -86,11 +102,45 @@ class ExperimentalData(object):
         # in the spectrogram is updates a patch which has pixel coordinates
         # [3,4] in the high-resolution Fourier transform
 
+        self.ptychogram = None
 
         # Python-only
         # checkGPU
-        self.to_GPU = False
 
+        # python-only
+        self._on_gpu = False # Sets wether things are on the GPU or not
+
+    def save(self, name='obj'):
+        with open(self.dataFolder.joinpath('%s.pkl' % name), 'wb') as openfile:
+            pickle.dump(self, openfile)
+
+    def load_from_hdf5(self):
+        try:
+            hdf5_file = tables.open_file(next(self.dataFolder.glob('*.hdf5')), mode='r')
+            # image_array_crops is name given for the images stored within hdf5
+            try:
+                images = hdf5_file.root.image_array_crops[:,:,:]
+            except Exception as e:
+                print(e)
+                hdf5_file.close()
+
+            return images
+        except Exception as e:
+            print(e)
+            return None
+
+    def load(self, name='obj'):
+        raise NotImplementedError()
+
+    def transfer_to_gpu_if_applicable(self):
+        """ Implements checkGPU"""
+        pass
+
+
+
+    ### Functions that still have to be implemented
+    def checkDataset(self):
+        raise NotImplementedError()
 
     def _loadDummyData(self):
         """
@@ -103,6 +153,28 @@ class ExperimentalData(object):
         """
         self.wavelength = 1234
         self.positions = np.random.rand(100,2)
+        raise NotImplementedError()
+
+    def initialParams(self):
+        """ Initialize the params object and attach it to the object
+
+        Note that this is a little bit different from the matlab implementation
+        """
+        # self.params = Params()
+        raise NotImplementedError()
+
+
+    def setPositionOrder(self):
+        raise NotImplementedError()
+
+    def showDiffractionData(self):
+        raise NotImplementedError()
+
+    def showPtychogram(self):
+        raise NotImplementedError()
+
+    ## Special properties
+    # so far none
 
     def loadData(self, filename=None):
         """
