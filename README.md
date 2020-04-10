@@ -13,11 +13,3 @@ To get started, clone the repository, run setup.py to install any dependencies, 
 Known issues:
 * Almost nothing is implemented yet.
 
-SimuData.mat description:
-ptychogram: 64*64*20 single, diffraction intensities
-xd: detector pixel size in meter
-Nd: Number of detector pixels in both x and y direction
-zo: distance between the detector and object
-wavelength: wavelength in meter
-positions: 20 scan positions
-probe: 64*64 complex single
