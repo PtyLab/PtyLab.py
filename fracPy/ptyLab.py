@@ -2,6 +2,7 @@ from fracPy.initialParams import parser
 import pickle
 from pathlib import Path
 import logging
+import tables
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -124,7 +125,19 @@ class DataLoader:
             pickle.dump(self, openfile)
 
     def load_from_hdf5(self):
-        raise NotImplementedError()
+        try:
+            hdf5_file = tables.open_file(next(self.dataFolder.glob('*.hdf5')), mode='r')
+            # image_array_crops is name given for the images stored within hdf5
+            try:
+                images = hdf5_file.root.image_array_crops[:,:,:]
+            except Exception as e:
+                print(e)
+                hdf5_file.close()   
+            
+            return images
+        except Exception as e:
+            print(e)
+            return None
 
     def load(self, name='obj'):
         raise NotImplementedError()
@@ -153,7 +166,9 @@ class DataLoader:
 
         Note that this is a little bit different from the matlab implementation
         """
-        self.params = Params()
+        # self.params = Params()
+        raise NotImplementedError()
+
 
     def setPositionOrder(self):
         raise NotImplementedError()
