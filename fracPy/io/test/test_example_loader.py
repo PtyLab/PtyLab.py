@@ -1,5 +1,5 @@
 from unittest import TestCase
-from fracPy.io import example_loader
+from fracPy.io import exampleLoader
 import numpy as np
 
 
@@ -10,6 +10,6 @@ class TestLoad_example(TestCase):
         with 32 pictures in it
         :return:
         """
-        archive = example_loader.load_example('simulation_tiny.mat')
+        archive = exampleLoader.load_example('simulation_tiny.mat')
         # check that we can read something
         self.assertEqual(np.array(archive['Nd'], int), 64)
