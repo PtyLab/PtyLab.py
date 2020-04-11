@@ -6,7 +6,7 @@ import numpy as np
 class TestLoad_example(TestCase):
     def test_load_example(self):
         """
-        Check that load_example works. Based on the input we know that it should give us a dataset
+        Check that loadExample works. Based on the input we know that it should give us a dataset
         with 32 pictures in it
         :return:
         """

@@ -5,7 +5,7 @@ import tables
 
 logging.basicConfig(level=logging.DEBUG)
 
-class DataLoader:
+class ExperimentalData:
     """
     This is a container class for all the data associated with the ptychography reconstruction.
 
@@ -15,32 +15,19 @@ class DataLoader:
 
     """
 
-    def __init__(self, datafolder):
-        self.logger = logging.getLogger('PtyLab')
-        self.logger.debug('Initializing PtyLab object')
-        self.dataFolder = datafolder
-        self.initialize_attributes()
-
-        #self.prepare_reconstruction()
+    def __init__(self, filename):
+        self.logger = logging.getLogger('ExperimentalData')
+        self.logger.debug('Initializing ExperimentalData object')
 
         self.filename = filename
         self.initializeAttributes()
         self.loadData(filename)
 
 
-
-
     def initializeAttributes(self):
         """
         Initialize all the attributes to PtyLab.
         """
-
-        # self.dataFolder = Path(self.dataFolder)
-        # if not self.dataFolder.exists():
-        #     self.logger.info('Datafolder %s does not exist yet. Creating it.',
-        #                      self.dataFolder)
-        #     self.dataFolder.mkdir()
-
         # required properties
 
         # operation
@@ -110,9 +97,6 @@ class DataLoader:
         # python-only
         self._on_gpu = False # Sets wether things are on the GPU or not
 
-    def save(self, name='obj'):
-        with open(self.dataFolder.joinpath('%s.pkl' % name), 'wb') as openfile:
-            pickle.dump(self, openfile)
 
     def load_from_hdf5(self):
         """ Load from hdf5 file and select the first node since I only expect
@@ -134,7 +118,6 @@ class DataLoader:
         pass
 
 
-
     ### Functions that still have to be implemented
     def checkDataset(self):
         raise NotImplementedError()
@@ -150,7 +133,7 @@ class DataLoader:
         """
         self.wavelength = 1234
         self.positions = np.random.rand(100,2)
-        raise NotImplementedError()
+
 
     def initialParams(self):
         """ Initialize the params object and attach it to the object
@@ -193,6 +176,7 @@ class DataLoader:
             # check that all the data is present.
             from fracPy import io
             io.read_hdf5.check_data_fields(self.filename)
+            #@Tomas: This is where you start
             raise NotImplementedError('Loading files is not implemented yet')
 
         self._checkData()
