@@ -59,6 +59,7 @@ class BaseReconstructor(object):
         self.experimentalData = experimentalData
 
     def changeOptimizable(self, optimizable: Optimizable):
+
         self.optimizable = optimizable
 
 
