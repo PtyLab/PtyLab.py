@@ -1,6 +1,8 @@
 from unittest import TestCase
 from fracPy.io import get_example_data_folder
 from fracPy.io.readHdf5 import loadInputData
+import logging
+
 
 class TestLoadInputData(TestCase):
     def test_loadInputData(self):
@@ -17,5 +19,7 @@ class TestLoadInputData(TestCase):
         result = loadInputData(filename)
         self.assertEqual(result['ptychogram'].shape, (441,128,128))
 
-
-
+if __name__ == '__main__':
+    logging.basicConfig(level=logging.DEBUG)
+    import unittest
+    unittest.main()

@@ -2,7 +2,7 @@ from pathlib import Path
 import tables
 import numpy as np
 import logging
-logging.basicConfig(level=logging.DEBUG)
+
 logger = logging.getLogger('readHdf5')
 
 # this is the list of things that a dataset has to incorporate
@@ -36,17 +36,17 @@ def loadInputData(filename:Path, python_order:bool=True):
     dataset = dict()
     try:
 
-        hdf5_file = tables.open_file(str(filename), mode='r')
-        # select the first node in the hdf5 hierarchy
-        # I assume that we expect one image array here
-        # ptychogram =
-        if python_order:
-            processor = pythonize_order
-        else:
-            processor = lambda x:x
-        # TODO (@Tomas): The file has to be updated with more meaningful names.
-        # Please change the names in here as well then
-        dataset['ptychogram'] = processor(next(hdf5_file.walk_nodes("/", "Array")).read())
+        with tables.open_file(str(filename), mode='r') as hdf5_file:
+            # select the first node in the hdf5 hierarchy
+            # I assume that we expect one image array here
+            # ptychogram =
+            if python_order:
+                processor = pythonize_order
+            else:
+                processor = lambda x:x
+            # TODO (@Tomas): The file has to be updated with more meaningful names.
+            # Please change the names in here as well then
+            dataset['ptychogram'] = processor(next(hdf5_file.walk_nodes("/", "Array")).read())
 
 
 

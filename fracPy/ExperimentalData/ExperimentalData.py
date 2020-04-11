@@ -3,7 +3,6 @@ from pathlib import Path
 import logging
 import tables
 
-logging.basicConfig(level=logging.DEBUG)
 from fracPy.io.readHdf5 import checkDataFields
 
 class ExperimentalData:
@@ -170,12 +169,15 @@ class ExperimentalData:
 
 
         if self.filename is not None:
-            pass
+            from fracPy.io.readHdf5 import loadInputData
+            dataset = loadInputData(self.filename, python_order=True)
             # check that all the data is present.
 
             # checkDataFields(self.filename)
             #@Tomas: This is where you start
             #raise NotImplementedError('Loading files is not implemented yet')
+            for k in dataset.keys():
+                setattr(self, k, dataset[k])
 
         self._checkData()
 
