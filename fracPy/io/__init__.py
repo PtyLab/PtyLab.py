@@ -5,7 +5,7 @@ def get_example_data_folder():
     """
     Returns a Path with the example data folder.
     """
-    fracPy_folder = Path(__file__).parent.parent
+    fracPy_folder = Path(__file__).parent.parent.parent
     return fracPy_folder / 'example_data'
 
 if __name__ == '__main__':
