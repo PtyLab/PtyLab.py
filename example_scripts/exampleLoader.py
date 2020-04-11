@@ -6,7 +6,8 @@ from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 
 # data directory
 fracpy_directory = Path(__file__).parent.parent
-example_data_folder = fracpy_directory / 'example_data/usaft2_441_LED/Image_section_0_color_1.hdf5'
+# example_data_folder = fracpy_directory / 'example_data/usaft2_441_LED/Image_section_0_color_1.hdf5'
+example_data_folder = fracpy_directory / 'example_data/simulationTiny.mat'
 
 ##############################################################################
 # 1. Loader with above implementations in DataLoader

@@ -102,11 +102,9 @@ class ExperimentalData:
         from fracPy.io import readHdf5
         measurement_dict = readHdf5.loadInputData(self.filename)
         attributes_to_set = ['ptychogram']
+        
         for a in attributes_to_set:
             setattr(self, a, measurement_dict[a])
-
-        """ Load from hdf5 file and select the first node since I only expect
-        one image stack / array per file?"""
 
 
     def transfer_to_gpu_if_applicable(self):

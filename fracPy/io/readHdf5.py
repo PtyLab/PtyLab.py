@@ -2,6 +2,8 @@ from pathlib import Path
 import tables
 import numpy as np
 import logging
+from scipy.io import loadmat
+import h5py
 
 logger = logging.getLogger('readHdf5')
 
@@ -34,25 +36,36 @@ def loadInputData(filename:Path, python_order:bool=True):
                                   (filename.suffix, ['   '.join(allowed_extensions)][0]))
     # TODO(tomas_aidukas): Please implement loading of the data here
     dataset = dict()
+    
+    # define data order
+    if python_order:
+        processor = pythonize_order
+    else:
+        processor = lambda x:x
+
+    # start h5 loading
     try:
-
-        with tables.open_file(str(filename), mode='r') as hdf5_file:
-            # select the first node in the hdf5 hierarchy
-            # I assume that we expect one image array here
-            # ptychogram =
-            if python_order:
-                processor = pythonize_order
-            else:
-                processor = lambda x:x
-            # TODO (@Tomas): The file has to be updated with more meaningful names.
-            # Please change the names in here as well then
-            dataset['ptychogram'] = processor(next(hdf5_file.walk_nodes("/", "Array")).read())
-
-
-
-        #self.ptychogram = array[:, :, :]
+        with h5py.File(str(filename), mode='r') as hdf5_file:
+            for name in hdf5_file.keys():
+                load_to_memory = hdf5_file[str(name)][:]
+                dataset[name] = processor(load_to_memory)
+                
+        # DOESN'T WORK WELL WITH COMPLEX FILES, WILL DELETE (IF LOADED FROM .MAT)
+        # with tables.open_file(str(filename), mode='r') as hdf5_file:
+        #     # PyTables hierarchy : Table -> Group -> Node
+        #     # Table = hdf5_file
+        #     # Group = '/' or 'RootGroup' by default (assumed here)
+        #     # Loop through Nodes stored in the root group
+        #     # 
+        #     # This library has problems loading complex arrays from .mat
+        #     # it is a problem wheb probe is stored in .mat files
+        #     for node in hdf5_file.root._f_walknodes():
+        #         try:
+        #             dataset[node._v_name] = processor(node.read())
+        #         except:
+        #             dataset[node._v_name] = None
     except Exception as e:
-        logger.error('Error reading h5file!')
+        logger.error('Error reading hdf5 file!')
         raise e
     return dataset
 
