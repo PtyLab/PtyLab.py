@@ -4,7 +4,7 @@ import numpy as np
 def fresnelPropagator():
     raise NotImplementedError
 
-def ang_spec_prop():
+def angularSpectrumPropagator():
     raise NotImplementedError
 
 def ft2():

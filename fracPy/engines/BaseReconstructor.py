@@ -1,74 +1,87 @@
-from fracPy import ptyLab
-from fracPy.utils.initialization_functions import initial_probe_or_object
+import numpy as np
+import logging
 
-class Params(object):
-    """ Contains settings that are in initialParams.
+# fracPy imports
+from fracPy.utils.initializationFunctions import initialProbeOrObject
+from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
+from fracPy.Optimizable.Optimizable import Optimizable
 
-    Will be loaded into baseReconstruction"""
-    def __init__(self):
+class BaseReconstructor(object):
+    """
+    Common properties for any reconstruction ePIE_engine are defined here.
 
-        self.deleteFrames = []
-        self.absorbingProbeBoundary = False
+    Unless you are testing the code, there's hardly any need to create this object. For your own implementation,
+    inherit from this object
+
+    """
+    def __init__(self, optimizable: Optimizable, experimentalData:ExperimentalData):
+        # These statements don't copy any data, they just keep a reference to the object
+        self.optimizable = optimizable
+        self.experimentalData = experimentalData
+
+        # datalogger
+        self.logger = logging.getLogger('BaseReconstructor')
+
+        # Default settings
+        # settings that involve how things are computed
+        self.objectPlot = 'complex'
         self.fftshiftSwitch = True
         self.figureUpdateFrequency = 1
         self.FourierMaskSwitch = False
         self.fontSize = 17
+        self.intensityConstraint = 'standard'  # standard or sigmoid
+
+        # Settings involving the intitial estimates
         self.initialObject = 'ones'
         self.initialProbe = 'circ'
-        self.intensityConstraint = 'standard' # standard or sigmoid
-        self.npsm = 1 # number of probe state mixtures
-        self.nosm = 1 # number of object state mixtures
-        self.numIterations = 1 # number of iterations
-        self.objectPlot = 'complex'
+
+        # Specific reconstruction settings that are the same for all engines
+        self.absorbingProbeBoundary = False
+        self.npsm = 1  # number of probe state mixtures
+        self.nosm = 1  # number of object state mixtures
+
+        # Things that should be overridden in every reconstructor
+        self.numIterations = 1  # number of iterations
+
         self.objectUpdateStart = 1
-        self.positionOrder = 'random'
+        self.positionOrder = 'random'  # 'random' or 'sequential'
+
+        self.probeSmoothnessSwitch = False
+        self.absObjectSwitch = False
+        self.comStabilizationSwitch = False
+        self.objectContrastSwitch = False
+
+    def setPositionOrder(self):
+        raise NotImplemented()
 
 
-class BaseReconstructor(ptyLab.DataLoader):
-    """
-    Common properties for any reconstruction engine are defined here.
+    def changeExperimentalData(self, experimentalData:ExperimentalData):
+        self.experimentalData = experimentalData
 
-    Example properties:
-        - propagation from one plane to another
-        - converting data to single precision
-        - general settings regarding reconstruction, like number of iterations
+    def changeOptimizable(self, optimizable: Optimizable):
 
-    """
-    def __init__(self, datafolder=None):
-        super().__init__(datafolder=datafolder)
+        self.optimizable = optimizable
 
-        self.initialize_params()
 
-    def initialize_params(self):
-        """
-        Initialize attributes that are the same for all reconstructions and that are in the
-        params object.
-        :return:
-        """
-        self.params = Params()
-        # override stuff here
-
-        self.initialize_object()
-        self.initialize_probe()
-
-    def start_reconstruction(self):
+    def startReconstruction(self):
         raise NotImplementedError()
 
-    def saveMemory(self):
-        """
-        Deletes fields that are not required. Python-implementation of checkMemory.m
 
-        Should be implemented in the actual reconstruction script
-        :return:
-        """
-        raise NotImplementedError()
-
-    def convertToSingle(self):
+    def convert2single(self):
         """
         Convert the datasets to single precision. Matches: convert2single.m
         :return:
         """
-        raise NotImplementedError()
+        self.dtype_complex = np.complex64
+        self.dtype_real = np.float32
+        self._match_dtypes_complex()
+        self._match_dtypes_real()
+
+    def _match_dtypes_complex(self):
+        raise NotImplemented()
+
+    def _match_dtypes_real(self):
+        raise NotImplemented()
 
     def detector2object(self):
         """
@@ -130,8 +143,6 @@ class BaseReconstructor(ptyLab.DataLoader):
     def intensityProjection(self):
         """ Compute the projected intensity.
 
-        Should be implemented in the particular reconstruction object.
-
         """
         raise NotImplementedError()
 
@@ -153,21 +164,76 @@ class BaseReconstructor(ptyLab.DataLoader):
         """
         Reconstruct the object based on all the parameters that have been set beforehand.
 
-        This method is overridden in every reconstruction engine, therefore it is already finished.
+        This method is overridden in every reconstruction ePIE_engine, therefore it is already finished.
         :return:
         """
         self.prepare_reconstruction()
         raise NotImplementedError()
 
 
-    def initialize_object(self):
+    def initializeObject(self):
         """
         Initialize the object.
         :return:
         """
-        self.params.initialObject = initial_probe_or_object((self.params.nosm, self.No, self.No),
-                                                            self.params.initialObject)
+        self.params.initialObject = initialProbeOrObject((self.params.nosm, self.No, self.No),
+                                                         self.params.initialObject)
 
-    def initialize_probe(self):
-        self.params.initialProbe = initial_probe_or_object((self.params.npsm, self.Np, self.Np))
+    def initializeProbe(self):
+        self.params.initialProbe = initialProbeOrObject((self.params.npsm, self.Np, self.Np))
+
+    def showReconstruction(self, loop):
+        if loop == 0:
+            self.initializeVisualisation()
+        if np.mod(loop, self.figureUpdateFrequency) == 0:
+            # show a reconstruction
+            #self.showReconstruction()
+            raise NotImplemented()
+
+    def initializeVisualisation(self):
+        """
+        Create the figure and axes etc.
+        :return:
+        """
+        raise NotImplemented()
+
+
+    def applyConstraints(self, loop):
+        """
+        Apply constraints.
+        :param loop: loop number
+        :return:
+        """
+
+        # modulus enforced probe
+        if self.modulusEnforcesProbeSwitch:
+            raise NotImplementedError()
+            # # propagate probe to detector
+            # self.params.esw = self.probe
+            # self.object2detector()
+            #
+        if np.mod(loop, self.orthogonalizationFrequency) == 0:
+            self.orthogonalize()
+
+
+        if self.objectSmoothenessSwitch:
+            raise NotImplementedError()
+
+        # not specific to ePIE, -> baseReconstructor
+        if self.probeSmoothenessSwitch:
+            raise NotImplementedError()
+
+        # not specific to ePIE
+        if self.absObjectSwitch:
+            raise NotImplementedError()
+
+
+        if self.comStabilizationSwitch:
+            raise NotImplementedError()
+
+
+        if self.objectContrastSwitch():
+            raise NotImplementedError()
+
+
 

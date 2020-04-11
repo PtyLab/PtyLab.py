@@ -9,11 +9,11 @@ except ImportError:
     CP_AVAILABLE = False
     cp = np
 
-def get_array_module(*args, **kwargs):
+def getArrayModule(*args, **kwargs):
     """
     Return a numerical array processing module based on wether the array lives on the CPU or on the GPU.
 
-    See cupy.get_array_module for details.
+    See cupy.getArrayModule for details.
     :param args:
     :param kwargs:
     :return:
@@ -24,12 +24,12 @@ def get_array_module(*args, **kwargs):
         return np
 
 
-def is_gpu_array(ary):
+def isGpuArray(ary):
     raise NotImplementedError()
 
 
 
-def as_numpy_array(ary) -> np.ndarray:
+def asNumpyArray(ary) -> np.ndarray:
     """
     Return a numpy.ndarray version of `ary`.
 

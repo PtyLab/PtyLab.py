@@ -1,6 +1,7 @@
 from pathlib import Path
-from fracPy.utils import *
-from fracPy.reconstruct import reconstruct
+from example_scripts.dontuse.reconstruct import reconstruct
+
+### NB DON'T use this file, it's
 
 dataFolder = Path(r'D:\ptyLab\ptyLabExport')
 fileName = 'recent.pkl'
@@ -11,7 +12,7 @@ obj = load(dataFolder.joinpath(fileName))
 obj.params.objectPlot = 'complex'  # 'complex', 'piComlex', 'abs', 'angle', or 'piAngle'
 obj.params.intensityConstraint = 'standard'  # 'standard', 'exponential', fluctuation
 
-# engine
+# ePIE_engine
 obj.params.engine = 'ePIE'  # 'ePIE', 'mPIE', 'zPIE, 'e3PIE', 'm3PIE', 'pcPIE', 'kPIE', 'OPRP', 'SD', 'msPIE', 'sDR'
 
 # main parameters

@@ -1,50 +1,29 @@
-from fracPy.initialParams import parser
-import pickle
+import numpy as np
 from pathlib import Path
-import logging
 
-logging.basicConfig(level=logging.DEBUG)
+class ExperimentalData(object):
+    def __init__(self, filename=None):
+        # instance attributes are copied from ptyLab matlab implementation
+        # @Tomas: You know best what the Matlab implementation will be like
+        # so feel free to change the name of filename.
 
-class DataLoader:
-    """
-    This is a container class for all the data associated with the ptychography reconstruction.
-
-    It only holds attributes that are the same for every type of reconstruction.
-
-    Things that belong to a particular type of reconstructor are stored in the .params class of that particular reconstruction.
-
-    """
-
-    def __init__(self, datafolder):
-        self.logger = logging.getLogger('PtyLab')
-        self.logger.debug('Initializing PtyLab object')
-        self.dataFolder = datafolder
-        self.initialize_attributes()
-
-        #self.prepare_reconstruction()
-
-
-
-    def prepare_visualisation(self):
-        """ Create figure and axes for visual feedback.
-
-        """
-        return NotImplementedError()
+        self.filename = filename
+        self.initializeAttributes()
+        self.loadData(filename)
 
 
 
 
-
-    def initialize_attributes(self):
+    def initializeAttributes(self):
         """
         Initialize all the attributes to PtyLab.
         """
 
-        self.dataFolder = Path(self.dataFolder)
-        if not self.dataFolder.exists():
-            self.logger.info('Datafolder %s does not exist yet. Creating it.',
-                             self.dataFolder)
-            self.dataFolder.mkdir()
+        # self.dataFolder = Path(self.dataFolder)
+        # if not self.dataFolder.exists():
+        #     self.logger.info('Datafolder %s does not exist yet. Creating it.',
+        #                      self.dataFolder)
+        #     self.dataFolder.mkdir()
 
         # required properties
 
@@ -107,94 +86,57 @@ class DataLoader:
         # in the spectrogram is updates a patch which has pixel coordinates
         # [3,4] in the high-resolution Fourier transform
 
-        self.ptychogram = None
 
-        # constructor
-        #self.params = Params()
-        #self.params.__dict__ = parser
-
-        # things that are implemented as a property:
+        # Python-only
         # checkGPU
-
-        # python-only
-        self._on_gpu = False # Sets wether things are on the GPU or not
-
-    def save(self, name='obj'):
-        with open(self.dataFolder.joinpath('%s.pkl' % name), 'wb') as openfile:
-            pickle.dump(self, openfile)
-
-    def load_from_hdf5(self):
-        raise NotImplementedError()
-
-    def load(self, name='obj'):
-        raise NotImplementedError()
-
-    def transfer_to_gpu_if_applicable(self):
-        """ Implements checkGPU"""
-        pass
+        self.to_GPU = False
 
 
-
-    ### Functions that still have to be implemented
-    def checkDataset(self):
-        raise NotImplementedError()
-
-    def checkFFT(self):
-        raise NotImplementedError()
-
-    def getOverlap(self):
+    def _loadDummyData(self):
         """
+        For testing purposes, we often don't need a full dataset. This function will populate the
+        attributes with dummy settings.
+        So far it performs the following tasks:
+            * it sets the wavelength to 1234
+            * if sets the positions to np.random.rand(100,2)
         :return:
         """
-        raise NotImplementedError()
+        self.wavelength = 1234
+        self.positions = np.random.rand(100,2)
 
-    def initialParams(self):
-        """ Initialize the params object and attach it to the object
-
-        Note that this is a little bit different from the matlab implementation
+    def loadData(self, filename=None):
         """
-        self.params = Params()
-
-    def setPositionOrder(self):
-        raise NotImplementedError()
-
-    def showDiffractionData(self):
-        raise NotImplementedError()
-
-    def showPtychogram(self):
-        raise NotImplementedError()
-
-    ## Special properties
-    # so far none
-
-    def prepare_reconstruction(self):
-        """
-        Prepare the reconstruction. So far, followin matlab, it checks the following things:
-
-        - minimize memory footprint
-        -
+        @Tomas: Please implement your hdf5 loader here
         :return:
         """
-        # delete parts of the memory that are not required.
-        self.checkMemory()
-        # do something with the modes
-        self.checkModes
-        # prepare FFTs
-        self.checkFFT()
-        # prepare vis
-        self.prepare_visualisation()
-        # This should not be necessary
-        # obj.checkMISC
-        # transfer to GPU if req'd
-        self.checkGPU()
 
-    # Things we'd like to change the name of
-    def checkGPU(self, *args, **kwargs):
-        return self.transfer_to_gpu_if_applicable(*args, **kwargs)
+        if filename is not None:
+            self.filename = filename
+
+        if filename == 'test:nodata':
+            # Just create the attributes but don't load data.
+            # This is mainly useful for testing the object structure
+            self._loadDummyData()
+            return
 
 
+        if self.filename is not None:
+            # check that all the data is present.
+            from fracPy import io
+            io.read_hdf5.check_data_fields(self.filename)
+            raise NotImplementedError('Loading files is not implemented yet')
 
+        self._checkData()
 
+    def _checkData(self):
+        """
+        Check that at least all the data we need has been initialized.
+        :return: None
+        :raise: ValueError when one of the required fields are missing.
+        """
+        if self.ptychogram is None:
+            raise ValueError('ptychogram is not loaded correctly.')
+        # TODO: Check all the necessary requirements
 
 if __name__ == '__main__':
-    obj = DataLoader('.')
+    e = ExperimentalData('hoi')

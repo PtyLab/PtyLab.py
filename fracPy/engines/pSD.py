@@ -1,5 +1,5 @@
+from fracPy.engines.BaseReconstructor import BaseReconstructor
 
 
-def pSD(obj):
-    return obj
-
+class pSD(BaseReconstructor):
+    pass
