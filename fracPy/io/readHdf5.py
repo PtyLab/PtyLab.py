@@ -1,22 +1,59 @@
 from pathlib import Path
 import tables
 import numpy as np
+import logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger('readHdf5')
+
+# this is the list of things that a dataset has to incorporate
+required_fields = [
+    'ptychogram'
+]
+# These extensions can be loaded
+allowed_extensions = ['.h5', '.hdf5', '.mat']
 
 
-def loadInputData(filename:Path):
+def pythonize_order(ary):
+    """ Change from matlab to python indexing. """
+    #TODO (@MaisieD) can you check that this is all we have to do?
+    return ary.T
+
+def loadInputData(filename:Path, python_order:bool=True):
     """
     Load an hdf5 file
     :param filename: the .hdf5 file that has to be loaded. If it's a .mat file it will attempt to load it
+    :param python_oder:
+            Wether to read in the files in a way that is common in python, aka for a list of images the first index is the image and not the pixel.
     :return:
     """
     filename = Path(filename)
-    allowed_extensions = ['.h5', 'hdf5', '.mat']
-    if not filename.suffix in allowed_extensions:
+    logger.debug('Loading input data: %s', filename)
+
+    if filename.suffix not in allowed_extensions:
         raise NotImplementedError('%s is not a valid extension. Currently, only these extensions are allowed: %s.' %\
                                   (filename.suffix, ['   '.join(allowed_extensions)][0]))
     # TODO(tomas_aidukas): Please implement loading of the data here
     dataset = dict()
-    dataset['whateveryouneed'] = np.random.rand()
+    try:
+
+        hdf5_file = tables.open_file(str(filename), mode='r')
+        # select the first node in the hdf5 hierarchy
+        # I assume that we expect one image array here
+        # ptychogram =
+        if python_order:
+            processor = pythonize_order
+        else:
+            processor = lambda x:x
+        # TODO (@Tomas): The file has to be updated with more meaningful names.
+        # Please change the names in here as well then
+        dataset['ptychogram'] = processor(next(hdf5_file.walk_nodes("/", "Array")).read())
+
+
+
+        #self.ptychogram = array[:, :, :]
+    except Exception as e:
+        logger.error('Error reading h5file!')
+        raise e
     return dataset
 
 
@@ -30,9 +67,8 @@ def checkDataFields(filename):
     :raise: KeyError if one of the attributes is missing.
     """
     # TODO(tomas_aidukas) Please implement this, I think it should go along these lines:
-    required_keys = ['I', 'dont', 'know']
-    archive = None # load_archive(filename) # This is your part
+    archive = tables.open_file(filename) # load_archive(filename) # This is your part
     # Feel free to change it but this is the gist
-    for k in required_keys:
-        if k not in archive.keys():
+    for k in required_fields:
+        if k not in archive.list_nodes():
             raise KeyError('hdf5 file misses key %s' % k)

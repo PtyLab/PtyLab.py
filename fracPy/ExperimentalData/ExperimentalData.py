@@ -4,6 +4,7 @@ import logging
 import tables
 
 logging.basicConfig(level=logging.DEBUG)
+from fracPy.io.readHdf5 import checkDataFields
 
 class ExperimentalData:
     """
@@ -99,19 +100,15 @@ class ExperimentalData:
 
 
     def load_from_hdf5(self):
+        from fracPy.io import readHdf5
+        measurement_dict = readHdf5.loadInputData(self.filename)
+        attributes_to_set = ['ptychogram']
+        for a in attributes_to_set:
+            setattr(self, a, measurement_dict[a])
+
         """ Load from hdf5 file and select the first node since I only expect
         one image stack / array per file?"""
-        try:
-            hdf5_file = tables.open_file(next(self.dataFolder.glob('*.hdf5')), mode='r')
-            # select the first node in the hdf5 hierarchy
-            # I assume that we expect one image array here
-            array =  next(hdf5_file.walk_nodes("/", "Array"))
-            self.ptychogram = array[:,:,:]
-        except Exception as e:
-            print(e)
 
-    def load(self, name='obj'):
-        raise NotImplementedError()
 
     def transfer_to_gpu_if_applicable(self):
         """ Implements checkGPU"""
@@ -173,11 +170,12 @@ class ExperimentalData:
 
 
         if self.filename is not None:
+            pass
             # check that all the data is present.
-            from fracPy import io
-            io.read_hdf5.check_data_fields(self.filename)
+
+            # checkDataFields(self.filename)
             #@Tomas: This is where you start
-            raise NotImplementedError('Loading files is not implemented yet')
+            #raise NotImplementedError('Loading files is not implemented yet')
 
         self._checkData()
 
