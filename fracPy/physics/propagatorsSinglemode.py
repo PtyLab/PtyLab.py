@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def fresnelPropagator():
+def fresnelPropagator(*args, **kwargs):
     raise NotImplementedError
 
 def angularSpectrumPropagator():

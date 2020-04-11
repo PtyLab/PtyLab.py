@@ -2,10 +2,12 @@ from unittest import TestCase
 from fracPy.physics import propagatorsSinglemode as pps
 import numpy as np
 from numpy.testing import assert_almost_equal
-
+import unittest
 
 # For every method, create a class with a testcase
 class TestFresnelPropagator(TestCase):
+
+    @unittest.skip
     def test_fresnelPropagator(self):
         # Implement anything here that enables us to test that it works as expected.
 

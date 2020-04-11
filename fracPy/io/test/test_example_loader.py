@@ -10,6 +10,6 @@ class TestLoad_example(TestCase):
         with 32 pictures in it
         :return:
         """
-        archive = exampleLoader.load_example('simulation_tiny.mat')
+        archive = exampleLoader.loadExample('simulationTiny.mat')
         # check that we can read something
         self.assertEqual(np.array(archive['Nd'], int), 64)
