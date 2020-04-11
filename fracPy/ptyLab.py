@@ -125,19 +125,16 @@ class DataLoader:
             pickle.dump(self, openfile)
 
     def load_from_hdf5(self):
+        """ Load from hdf5 file and select the first node since I only expect 
+        one image stack / array per file?"""
         try:
             hdf5_file = tables.open_file(next(self.dataFolder.glob('*.hdf5')), mode='r')
-            # image_array_crops is name given for the images stored within hdf5
-            try:
-                images = hdf5_file.root.image_array_crops[:,:,:]
-            except Exception as e:
-                print(e)
-                hdf5_file.close()   
-            
-            return images
+            # select the first node in the hdf5 hierarchy
+            # I assume that we expect one image array here
+            array =  next(hdf5_file.walk_nodes("/", "Array"))
+            self.ptychogram = array[:,:,:]
         except Exception as e:
             print(e)
-            return None
 
     def load(self, name='obj'):
         raise NotImplementedError()
