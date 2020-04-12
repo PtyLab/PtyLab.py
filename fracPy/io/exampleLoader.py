@@ -1,12 +1,11 @@
-import h5py  # for now
+from readHdf5 import loadInputData
 from pathlib import Path
 
-fracpy_directory = Path(__file__).parent.parent.parent
-example_data_directory = fracpy_directory / 'example_data'
-
-
-def loadExample(example_filename):
+def loadExample(example_data_folder):
     """ Load an example from the example_data folder. """
-    archive = h5py.File(example_data_directory / example_filename, 'r')
-    #TODO(@tomas_aidukas): Please reimplement this method to actually load our examples using read_hdf5.py
+    archive = loadInputData(example_data_folder)
     return archive
+
+fracpy_directory = Path(__file__).parent.parent.parent
+example_data_folder = fracpy_directory / 'example_data/simulationTiny.mat'
+data = loadExample(example_data_folder)

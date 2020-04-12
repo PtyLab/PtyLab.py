@@ -101,8 +101,10 @@ class ExperimentalData:
     def load_from_hdf5(self):
         from fracPy.io import readHdf5
         measurement_dict = readHdf5.loadInputData(self.filename)
-        attributes_to_set = ['ptychogram']
+        # attributes_to_set = ['ptychogram']
+        attributes_to_set = measurement_dict.keys()
         
+        # set object attributes as the essential data fields
         for a in attributes_to_set:
             setattr(self, a, measurement_dict[a])
 
