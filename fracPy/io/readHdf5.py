@@ -14,16 +14,16 @@ required_fields = [
     'probe',            # 2D complex probe
     'wavelength',       # illumination lambda
     'positions',        # diffracted field positions
-    'Nd',               # ?
-    'xd',               # ?
-    'zo'                # ?
+    'Nd',               # image pixel number
+    'xd',               # pixel size
+    'zo'                # sample to detector distance
 ]
 
 # These extensions can be loaded
 allowed_extensions = ['.h5', '.hdf5', '.mat']
 
 
-def pythonize_order(ary):
+def pythonizeOrder(ary):
     """ Change from matlab to python indexing. """
     #TODO (@MaisieD) can you check that this is all we have to do?
     return ary.T
@@ -31,7 +31,7 @@ def pythonize_order(ary):
 
 def loadInputData(filename:Path, python_order:bool=True):
     """
-    Load an hdf5 file
+    Load all values from an hdf5 file into a dictionary, but only with the required fields
     :param filename: the .hdf5 file that has to be loaded. If it's a .mat file it will attempt to load it
     :param python_oder:
             Wether to read in the files in a way that is common in python, aka for a list of images the first index is the image and not the pixel.
@@ -47,42 +47,33 @@ def loadInputData(filename:Path, python_order:bool=True):
     
     # define data order
     if python_order:
-        processor = pythonize_order
+        processor = pythonizeOrder
     else:
         processor = lambda x:x
 
     # start h5 loading, but check data fields first (defined above)
     dataset = dict()
-    if checkDataFields(filename) == None:
-        try:
-            with h5py.File(str(filename), mode='r') as hdf5_file:
-                for key, val in hdf5_file.items():
-                    # complex number stored as a structured numpy arrays
-                    # with separate real and imaginary arrays
-                    if key in required_fields:     
-                        print(key)
-                        if key == 'probe':
-                            dataset[key] = val[:]['real'] + 1j*val[:]['imag']
-                        else:
-                            dataset[key] = processor(val[:])
+    try:
 
-            # DOESN'T WORK WELL WITH COMPLEX FILES, NEED TO DISCUSS
-            # with tables.open_file(str(filename), mode='r') as hdf5_file:
-            #     # PyTables hierarchy : Table -> Group -> Node
-            #     # Table = hdf5_file
-            #     # Group = '/' or 'RootGroup' by default (assumed here)
-            #     # Loop through Nodes stored in the root group
-            #     # 
-            #     # This library has problems loading complex arrays from .mat
-            #     # it is a problem wheb probe is stored in .mat files
-            #     for node in hdf5_file.root._f_walknodes():
-            #         try:
-            #             dataset[node._v_name] = processor(node.read())
-            #         except:
-            #             dataset[node._v_name] = None
-        except Exception as e:
-            logger.error('Error reading hdf5 file!')
-            raise e
+        with tables.open_file(str(filename), mode='r') as hdf5_file:
+            # PyTables hierarchy : Table -> Group -> Node
+            # Go through all nodes hanging from the default
+            # 'root' group
+            # for node in hdf5_file.root._f_walknodes():
+            for node in hdf5_file.walk_nodes("/", "Array"):
+                key = node.name
+                value = node.read()   
+                
+                # change image array order
+                if key == 'ptychogram':
+                    value = processor(value)
+                    
+                # load only the required fields
+                if key in required_fields:                        
+                    dataset[key] = value
+    except Exception as e:
+        logger.error('Error reading hdf5 file!')
+        raise e
         
     return dataset
 
@@ -96,9 +87,14 @@ def checkDataFields(filename):
     :return: None if correct
     :raise: KeyError if one of the attributes is missing.
     """
-    with h5py.File(str(filename), mode='r') as hdf5_file:
-        file_fields = set(hdf5_file.keys())
+    with tables.open_file(str(filename), mode='r') as hdf5_file:
+        # get a list of nodes
+        nodes = hdf5_file.list_nodes("/")
+        # get the names of each node which will be the field names stored
+        # within the hdf5 file
+        file_fields = [node.name for node in nodes]
             
+    # check if all the required fields are within the file
     for k in required_fields:
         if k not in file_fields:
             raise KeyError('hdf5 file misses key %s' % k)

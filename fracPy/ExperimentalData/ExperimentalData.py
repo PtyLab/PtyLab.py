@@ -2,8 +2,7 @@ import numpy as np
 from pathlib import Path
 import logging
 import tables
-
-from fracPy.io.readHdf5 import checkDataFields
+from fracPy.io import readHdf5
 
 class ExperimentalData:
     """
@@ -21,7 +20,7 @@ class ExperimentalData:
 
         self.filename = filename
         self.initializeAttributes()
-        self.loadData(filename)
+        # self.loadData(filename)
 
 
     def initializeAttributes(self):
@@ -98,17 +97,6 @@ class ExperimentalData:
         self._on_gpu = False # Sets wether things are on the GPU or not
 
 
-    def load_from_hdf5(self):
-        from fracPy.io import readHdf5
-        measurement_dict = readHdf5.loadInputData(self.filename)
-        # attributes_to_set = ['ptychogram']
-        attributes_to_set = measurement_dict.keys()
-        
-        # set object attributes as the essential data fields
-        for a in attributes_to_set:
-            setattr(self, a, measurement_dict[a])
-
-
     def transfer_to_gpu_if_applicable(self):
         """ Implements checkGPU"""
         pass
@@ -152,7 +140,7 @@ class ExperimentalData:
     ## Special properties
     # so far none
 
-    def loadData(self, filename=None):
+    def loadData(self, filename=None, python_order=True):
         """
         @Tomas: Please implement your hdf5 loader here
         :return:
@@ -169,16 +157,17 @@ class ExperimentalData:
 
 
         if self.filename is not None:
-            from fracPy.io.readHdf5 import loadInputData
-            dataset = loadInputData(self.filename, python_order=True)
-            # check that all the data is present.
-
-            # checkDataFields(self.filename)
-            #@Tomas: This is where you start
-            #raise NotImplementedError('Loading files is not implemented yet')
-            for k in dataset.keys():
-                setattr(self, k, dataset[k])
-
+            # 1. check if the dataset contains what we need before loading
+            readHdf5.checkDataFields(self.filename)
+            # 2. load dictionary. Only the values specified by 'required_fields' 
+            # in readHdf.py file were loaded 
+            measurement_dict = readHdf5.loadInputData(self.filename, python_order)
+            # 3. 'required_fields' will be the attributes that must be set
+            attributes_to_set = measurement_dict.keys()
+            # 4. set object attributes as the essential data fields
+            for a in attributes_to_set:
+                setattr(self, a, measurement_dict[a])
+        
         self._checkData()
 
     def _checkData(self):

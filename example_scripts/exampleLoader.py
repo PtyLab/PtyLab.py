@@ -7,36 +7,21 @@ from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 fracpy_directory = Path(__file__).parent.parent
 
 ##############################################################################
-# Ptychography - matlab example using DataLoader
+# Fourier ptychography - hdf5 data example using fracPy/io
 ##############################################################################
-example_data_folder = fracpy_directory / 'example_data/simulationTiny.mat'
+example_data_folder = fracpy_directory / 'example_data/fpm_usaft_data.hdf5'
 
 loader_object = ExperimentalData(example_data_folder)
-loader_object.load_from_hdf5()
+loader_object.loadData(python_order=False)
 
 plt.figure(1)
 plt.subplot(131)
 plt.imshow(loader_object.ptychogram[:,:,0])
 plt.subplot(132)
-plt.imshow(abs(loader_object.probe))
+plt.imshow(np.abs(loader_object.probe))
 plt.subplot(133)
 plt.imshow(np.angle(loader_object.probe))
 plt.show()
 
-##############################################################################
-# Fourier ptychography - hdf5 data example using fracPy/io
-# TODO(@Tomas) : need to upload it properly
-##############################################################################
-# example_data_folder = fracpy_directory / 'example_data/USAFT_FPM_data.hdf5'
-
-# loader_object = ExperimentalData(example_data_folder)
-# loader_object.load_from_hdf5()
-
-# plt.figure(1)
-# plt.subplot(131)
-# plt.imshow(loader_object.ptychogram[:,:,0])
-# plt.subplot(132)
-# plt.imshow(abs(loader_object.probe))
-# plt.subplot(133)
-# plt.imshow(np.angle(loader_object.probe))
-# plt.show()
+plt.figure(2)
+plt.plot(loader_object.positions[:,0], loader_object.positions[:,1], '-o')
