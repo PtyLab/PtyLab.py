@@ -58,7 +58,6 @@ def loadInputData(filename:Path, python_order:bool=True):
         with tables.open_file(str(filename), mode='r') as hdf5_file:
             # PyTables hierarchy : Table -> Group -> Node
             # Go through all nodes hanging from the default
-            # 'root' group
             # for node in hdf5_file.root._f_walknodes():
             for node in hdf5_file.walk_nodes("/", "Array"):
                 key = node.name
