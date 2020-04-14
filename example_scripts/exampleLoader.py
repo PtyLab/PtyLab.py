@@ -2,17 +2,19 @@ from pathlib import Path
 import numpy as np
 from matplotlib import pyplot as plt
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
+from fracPy.io import readExample
 
-# data directory
-fracpy_directory = Path(__file__).parent.parent
+
+# This script loads an example dataset.
 
 ##############################################################################
 # Fourier ptychography - hdf5 data example using fracPy/io
 ##############################################################################
-example_data_folder = fracpy_directory / 'example_data/fpm_usaft_data.hdf5'
+#example_data_folder = fracpy_directory / 'example_data/fpm_usaft_data.hdf5'
 
-loader_object = ExperimentalData(example_data_folder)
-loader_object.loadData(python_order=False)
+loader_object = ExperimentalData()
+#example_data_folder)
+loader_object.loadExample('fpm_dataset')#loadData(python_order=False)
 
 plt.figure(1)
 plt.subplot(131)

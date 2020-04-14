@@ -3,6 +3,7 @@ from pathlib import Path
 import logging
 import tables
 from fracPy.io import readHdf5
+from fracPy.io import readExample
 
 class ExperimentalData:
     """
@@ -14,13 +15,14 @@ class ExperimentalData:
 
     """
 
-    def __init__(self, filename):
+    def __init__(self, filename=None):
         self.logger = logging.getLogger('ExperimentalData')
         self.logger.debug('Initializing ExperimentalData object')
 
         self.filename = filename
         self.initializeAttributes()
-        # self.loadData(filename)
+        if filename is not None:
+            self.loadData(filename)
 
 
     def initializeAttributes(self):
@@ -142,7 +144,16 @@ class ExperimentalData:
 
     def loadData(self, filename=None, python_order=True):
         """
-        @Tomas: Please implement your hdf5 loader here
+        Load data specified in filename.
+        
+        :type filename: str or Path
+            Filename of dataset. There are three additional options:
+                - example:simulationTiny will load a tiny simulation.
+                - example:fpm_dataset will load an example fpm dataset.
+                - test:nodata will load an essentially empty object
+        :param python_order: bool
+                Wether to change the input order of the files to match python convention.
+                 Only in very special cases should this be false.
         :return:
         """
 
@@ -154,6 +165,15 @@ class ExperimentalData:
             # This is mainly useful for testing the object structure
             self._loadDummyData()
             return
+
+        if str(filename).startswith('example:'):
+            # only take the key
+            filename = str(filename).split('example:')[-1]
+            # All the examples have the normal ordering of variables, so this should be true
+            if not python_order:
+                self.logger.error('Requested to load an example with python_order = False. ' +\
+                                  'All the examples are supposed to be loaded with python_order=True, so ignoring it.')
+            self.filename = readExample(filename, python_order=True)
 
 
         if self.filename is not None:
