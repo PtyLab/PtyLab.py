@@ -5,11 +5,11 @@ import logging
 import sys
 logger = logging.getLogger(__file__)
 logger.setLevel(logging.INFO)
-logger.addHandler(logging.StreamHandler(sys.stdout))
+#logger.addHandler(logging.StreamHandler(sys.stderr))
 
 example_files = {
     'fpm_dataset': 'fpm_usaft_data.hdf5',
-    'simulationTiny': 'simulationTiny.mat'
+    'simulationTiny': 'simulationTiny.hdf5'
 }
 
 # This is a convenience class to aid in loading a particular example
@@ -54,4 +54,4 @@ def loadExample(key:str, *args, **kwargs):
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     listExamples()
-    loadExample('fpm_dataset')
+    loadExample('simulationTiny')
