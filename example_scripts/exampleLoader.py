@@ -12,13 +12,13 @@ from fracPy.io import readExample
 ##############################################################################
 #example_data_folder = fracpy_directory / 'example_data/fpm_usaft_data.hdf5'
 
-loader_object = ExperimentalData()
+loader_object = ExperimentalData('example:fpm_dataset')
 #example_data_folder)
-loader_object.loadExample('fpm_dataset')#loadData(python_order=False)
+#loader_object.loadExample('fpm_dataset')#loadData(python_order=False)
 
 plt.figure(1)
 plt.subplot(131)
-plt.imshow(loader_object.ptychogram[:,:,0])
+plt.imshow(loader_object.ptychogram[0, :,:])
 plt.subplot(132)
 plt.imshow(np.abs(loader_object.probe))
 plt.subplot(133)
@@ -26,4 +26,4 @@ plt.imshow(np.angle(loader_object.probe))
 plt.show()
 
 plt.figure(2)
-plt.plot(loader_object.positions[:,0], loader_object.positions[:,1], '-o')
+plt.plot(loader_object.positions[0], loader_object.positions[1], '-o')

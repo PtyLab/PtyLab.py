@@ -173,7 +173,8 @@ class ExperimentalData:
             if not python_order:
                 self.logger.error('Requested to load an example with python_order = False. ' +\
                                   'All the examples are supposed to be loaded with python_order=True, so ignoring it.')
-            self.filename = readExample(filename, python_order=True)
+            from fracPy.io.readExample import examplePath
+            self.filename = examplePath(filename)#readExample(filename, python_order=True)
 
 
         if self.filename is not None:
