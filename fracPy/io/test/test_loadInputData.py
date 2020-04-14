@@ -1,5 +1,5 @@
 from unittest import TestCase
-from fracPy.io import get_example_data_folder
+from fracPy.io import getExampleDataFolder
 from fracPy.io.readHdf5 import loadInputData
 import logging
 
@@ -14,7 +14,7 @@ class TestLoadInputData(TestCase):
         :return:
         """
         # first, get the filename of the first .hdf5 dataset
-        example_data_folder = get_example_data_folder()
+        example_data_folder = getExampleDataFolder()
         filename = example_data_folder / 'fpm_usaft_data.hdf5'
         result = loadInputData(filename)
         self.assertEqual(result['ptychogram'].shape, (441,128,128))

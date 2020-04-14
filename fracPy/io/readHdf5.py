@@ -23,13 +23,7 @@ required_fields = [
 allowed_extensions = ['.h5', '.hdf5', '.mat']
 
 
-def pythonizeOrder(ary):
-    """ Change from matlab to python indexing. """
-    #TODO (@MaisieD) can you check that this is all we have to do?
-    return ary.T
-
-
-def loadInputData(filename:Path, python_order:bool=True):
+def loadInputData(filename:Path):
     """
     Load all values from an hdf5 file into a dictionary, but only with the required fields
     :param filename: the .hdf5 file that has to be loaded. If it's a .mat file it will attempt to load it
@@ -45,12 +39,7 @@ def loadInputData(filename:Path, python_order:bool=True):
     if filename.suffix not in allowed_extensions:
         raise NotImplementedError('%s is not a valid extension. Currently, only these extensions are allowed: %s.' %\
                                   (filename.suffix, ['   '.join(allowed_extensions)][0]))
-    
-    # define data order
-    if python_order:
-        processor = pythonizeOrder
-    else:
-        processor = lambda x:x
+
 
     # start h5 loading, but check data fields first (defined above)
     dataset = dict()
@@ -62,11 +51,7 @@ def loadInputData(filename:Path, python_order:bool=True):
             # for node in hdf5_file.root._f_walknodes():
             for node in hdf5_file.walk_nodes("/", "Array"):
                 key = node.name
-                value = node.read()   
-                
-                # change image array order
-                if key == 'ptychogram':
-                    value = processor(value)
+                value = node.read()
                     
                 # load only the required fields
                 if key in required_fields:                        

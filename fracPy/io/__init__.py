@@ -2,7 +2,7 @@ from fracPy.io import readHdf5
 from pathlib import Path
 
 
-def get_example_data_folder():
+def getExampleDataFolder():
     """
     Returns a Path with the example data folder.
     """

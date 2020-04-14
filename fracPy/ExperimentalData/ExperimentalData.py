@@ -182,7 +182,7 @@ class ExperimentalData:
             readHdf5.checkDataFields(self.filename)
             # 2. load dictionary. Only the values specified by 'required_fields' 
             # in readHdf.py file were loaded 
-            measurement_dict = readHdf5.loadInputData(self.filename, python_order)
+            measurement_dict = readHdf5.loadInputData(self.filename)
             # 3. 'required_fields' will be the attributes that must be set
             attributes_to_set = measurement_dict.keys()
             # 4. set object attributes as the essential data fields
