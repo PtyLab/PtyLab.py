@@ -12,10 +12,10 @@ class TestGet_example_data_folder(TestCase):
 
     def test_simulationTiny_in_example_data(self):
         """
-        The test folder always has simulationTiny.mat in it. Check that it's present.
+        The test folder always has simulationTiny.hdf5 in it. Check that it's present.
         :return:
         """
         example_data_folder = getExampleDataFolder()
-        matlabfile = example_data_folder / 'simulationTiny.mat'
-        self.assertTrue(matlabfile.exists(), '`simulationTiny.mat` is not present in the example data folder')
+        matlabfile = example_data_folder / 'simulationTiny.hdf5'
+        self.assertTrue(matlabfile.exists(), '`simulationTiny.hdf5` is not present in the example data folder')
 

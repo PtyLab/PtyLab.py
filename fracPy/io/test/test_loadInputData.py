@@ -15,7 +15,7 @@ class TestLoadInputData(TestCase):
         """
         # first, get the filename of the first .hdf5 dataset
         example_data_folder = getExampleDataFolder()
-        filename = example_data_folder / 'fpm_usaft_data.hdf5'
+        filename = example_data_folder / 'fourier.hdf5'
         result = loadInputData(filename)
         self.assertEqual(result['ptychogram'].shape, (441,128,128))
 

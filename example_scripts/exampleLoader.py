@@ -10,7 +10,7 @@ from fracPy.io import readExample
 ##############################################################################
 # Fourier ptychography - hdf5 data example using fracPy/io
 ##############################################################################
-#example_data_folder = fracpy_directory / 'example_data/fpm_usaft_data.hdf5'
+
 
 loaderObject = ExperimentalData('example:fpm_dataset')
 #example_data_folder)
