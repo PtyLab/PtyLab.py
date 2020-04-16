@@ -1,3 +1,4 @@
+from fracPy.monitors.default_visualisation import DefaultMonitor
 import numpy as np
 import logging
 
@@ -120,12 +121,15 @@ class BaseReconstructor(object):
         raise NotImplementedError()
 
 
-    def getErrorMetrics(self):
+    def getErrorMetrics(self, testing_mode=False):
         """
         matches getErrorMetrics.m
         :return:
         """
-        raise NotImplementedError()
+        if not testing_mode:
+            raise NotImplementedError()
+        else:
+            return np.random.rand(100)
 
     def getRMSD(self, positionIndex):
         """
@@ -176,27 +180,32 @@ class BaseReconstructor(object):
         Initialize the object.
         :return:
         """
-        self.params.initialObject = initialProbeOrObject((self.params.nosm, self.No, self.No),
-                                                         self.params.initialObject)
+        self.optimizable.initialize_object()
 
-    def initializeProbe(self):
-        self.params.initialProbe = initialProbeOrObject((self.params.npsm, self.Np, self.Np))
 
     def showReconstruction(self, loop):
+        """
+        Show the reconstruction process.
+        :param loop: the iteration number
+        :return:
+        """
         if loop == 0:
             self.initializeVisualisation()
-        if np.mod(loop, self.figureUpdateFrequency) == 0:
-            # show a reconstruction
-            #self.showReconstruction()
-            raise NotImplemented()
+        elif np.mod(loop, self.figureUpdateFrequency) == 0:
+            object_estimate = self.optimizable.object
+            errorMetric = self.getErrorMetrics(testing_mode=True)
+            self.monitor.updateError(errorMetric)
+            self.monitor.updateObject(object_estimate)
+            self.monitor.drawNow()
+
 
     def initializeVisualisation(self):
         """
         Create the figure and axes etc.
         :return:
         """
-        raise NotImplemented()
 
+        self.monitor = DefaultMonitor()
 
     def applyConstraints(self, loop):
         """

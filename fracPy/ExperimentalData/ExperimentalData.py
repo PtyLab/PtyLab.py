@@ -44,7 +44,9 @@ class ExperimentalData:
 
         # (entrance) pupil / probe sampling
         self.dxp = None  # pixel size (entrance pupil plane)
-        self.Np = None  # number of pixel (entrance pupil plane)
+        # automatically determined
+        #self.Np = None  # number of pixel (entrance pupil plane)
+
         self.xp = None  # 1D coordinates (entrance pupil plane)
         self.Xp = None  # 2D meshgrid in x-direction (entrance pupil plane)
         self.Yp = None  # 2D meshgrid in y-direction (entrance pupil plane)
@@ -185,11 +187,29 @@ class ExperimentalData:
             measurement_dict = readHdf5.loadInputData(self.filename)
             # 3. 'required_fields' will be the attributes that must be set
             attributes_to_set = measurement_dict.keys()
+            # print('Attributes_to_set:', list(attributes_to_set))
             # 4. set object attributes as the essential data fields
             for a in attributes_to_set:
-                setattr(self, a, measurement_dict[a])
-        
+                setattr(self, str(a), measurement_dict[a])
+                self.logger.debug('Setting %s', a)
+
+            # # 5. Set other attributes based on this
+            #self.Np = self.probe.shape[-1]
+            self.No = 64
+            # self.No = 64 # TODO (@MaisieD)
+            # self.Np = 64 # TODO(@MaisieD)
+            #
         self._checkData()
+
+    @property
+    def Np(self):
+        """ Number of pixels of the probe. Requires the probe to be set."""
+        try:
+            return self.probe.shape[-1]
+        except AttributeError as e:
+
+            raise AttributeError(e, 'probe is not defined yet')
+
 
     def _checkData(self):
         """
