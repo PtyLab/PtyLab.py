@@ -17,14 +17,14 @@ ePIE_engine = ePIE.ePIE(optimizable, exampleData)
 # set any settings involving ePIE in this object.
 ePIE_engine.numIterations = 1
 # now, run the reconstruction
-ePIE_engine.reconstruct()
+ePIE_engine.doReconstruction()
 
 # OK, now I want to run a different reconstruction algorithm, what now?
 # just create a new reconstruction ePIE_engine
 # we initialize it with our data and optimizable parameters so we can forget about them afterwards
 mPIE_engine = mPIE.mPIE(optimizable, exampleData)
 
-mPIE_engine.reconstruct()
+mPIE_engine.doReconstruction()
 
 # now save the data
 optimizable.saveResults('reconstruction.hdf5')

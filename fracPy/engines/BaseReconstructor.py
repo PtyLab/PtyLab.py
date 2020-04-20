@@ -53,7 +53,7 @@ class BaseReconstructor(object):
         self.objectContrastSwitch = False
 
     def setPositionOrder(self):
-        raise NotImplemented()
+        raise NotImplementedError()
 
 
     def changeExperimentalData(self, experimentalData:ExperimentalData):
@@ -79,10 +79,10 @@ class BaseReconstructor(object):
         self._match_dtypes_real()
 
     def _match_dtypes_complex(self):
-        raise NotImplemented()
+        raise NotImplementedError()
 
     def _match_dtypes_real(self):
-        raise NotImplemented()
+        raise NotImplementedError()
 
     def detector2object(self):
         """
@@ -164,7 +164,10 @@ class BaseReconstructor(object):
         """
         raise NotImplementedError()
 
-    def reconstruct(self):
+    def prepare_reconstruction(self):
+        pass
+
+    def doReconstruction(self):
         """
         Reconstruct the object based on all the parameters that have been set beforehand.
 

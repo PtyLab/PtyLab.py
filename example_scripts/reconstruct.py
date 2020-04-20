@@ -11,6 +11,6 @@
 #     # oops, forgot to set the wavelength
 #     reconstructor.wavelength = 1064e-9
 #     # do the reconstruction
-#     reconstructor.reconstruct()
+#     reconstructor.doReconstruction()
 
 
