@@ -6,7 +6,7 @@ def load(filename):
     with open(filename, 'rb') as f:
         return pickle.load(f)
 
-def circ(x,y,D)
+def circ(x,y,D):
     """
     generate a circle on a 2D grid
     :param x: 2D array

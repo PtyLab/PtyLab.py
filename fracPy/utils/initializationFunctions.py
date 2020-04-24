@@ -1,4 +1,5 @@
 import numpy as np
+from fracPy.utils.utils import circ
 
 def initialProbeOrObject(shape, type_of_init):
     """
@@ -16,5 +17,7 @@ def initialProbeOrObject(shape, type_of_init):
         shape = np.asarray(shape)
         #print(np.array(shape))
         return np.ones(shape) + 0.001 * np.random.rand(*shape)
-
-
+    # if type_of_init == 'circ':
+        # pupil = circ(obj.Xp, obj.Yp, obj.entrancePupilDiameter)
+        # return pupil
+        

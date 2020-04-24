@@ -19,14 +19,14 @@ class ePIE(BaseReconstructor):
 
         self.logger.info('Wavelength attribute: %s', self.optimizable.wavelength)
 
-        # self.initializeReconstructionParams()
+        self.initializeReconstructionParams()
 
     def initializeReconstructionParams(self):
         """
         Set parameters that are specific to the ePIE settings.
         :return:
         """
-        self.eswUpdate = self.optimizable.esw.copy()
+        # self.eswUpdate = self.optimizable.esw.copy()
         self.betaProbe = 0.25
         self.betaObject = 0.25
 
@@ -37,9 +37,10 @@ class ePIE(BaseReconstructor):
             self.positionIndices = self.setPositionOrder()
             for positionLoop, positionIndex in enumerate(self.positionIndices):
                 # get object patch
-                row, col = self.optimizable.positions[positionIndex]
+                row, col = self.optimizable.positions[:,positionIndex]
                 sy = slice(row, row + self.experimentalData.Np)
                 sx = slice(col, col + self.experimentalData.Np)
+
                 objectPatch = self.optimizable.object[sy, sx]
                 # note that object patch has size of probe array
 
@@ -51,13 +52,13 @@ class ePIE(BaseReconstructor):
                 self.intensityProjection(positionIndex)
 
                 # difference term
-                DELTA = self.eswUpdate - self.optimizable.esw
+                DELTA = self.optimizable.eswUpdate - self.optimizable.esw
 
                 # object update
-                objectPatch = self.objectPatchUpdate(self, objectPatch, DELTA)
+                objectPatch = self.objectPatchUpdate(objectPatch, DELTA)
 
                 # probe update
-                self.optimizable.probe = self.probeUpdate(self, objectPatch, DELTA)
+                self.optimizable.probe = self.probeUpdate( objectPatch, DELTA)
 
                 # set updated object patch
                 self.optimizable.object[sy, sx] = objectPatch
@@ -81,7 +82,7 @@ class ePIE(BaseReconstructor):
         frac = objectPatch.conj() / xp.max(xp.sum(abs(objectPatch) ** 2, 0))
         # this is two statements in matlab but it should only be one in python
         # TODO figure out unit tests and padding dimensions
-        r = self.optimizable.probe + self.betaProbe * frac * DELTA
+        r = self.optimizable.object + self.betaObject * frac * DELTA
         if self.absorbingProbeBoundary:
             aleph = 1e-3
             r = (1 - aleph) * r + aleph * r * self.probeWindow
@@ -94,4 +95,14 @@ class ePIE(BaseReconstructor):
         :param DELTA:
         :return:
         """
+        # find out which array module to use, numpy or cupy (or other...)
+        xp = getArrayModule(objectPatch)
+        frac = objectPatch.conj() / xp.max(xp.sum(abs(objectPatch) ** 2, 0))
+        # this is two statements in matlab but it should only be one in python
+        # TODO figure out unit tests and padding dimensions
+        r = self.optimizable.probe + self.betaProbe * frac * DELTA
+        if self.absorbingProbeBoundary:
+            aleph = 1e-3
+            r = (1 - aleph) * r + aleph * r * self.probeWindow
+        return r
 

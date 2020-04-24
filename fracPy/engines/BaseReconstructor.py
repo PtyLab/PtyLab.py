@@ -31,7 +31,8 @@ class BaseReconstructor(object):
         self.FourierMaskSwitch = False
         self.fontSize = 17
         self.intensityConstraint = 'standard'  # standard or sigmoid
-
+        self.propagator = 'fraunhofer'
+        
         # Settings involving the intitial estimates
         self.initialObject = 'ones'
         self.initialProbe = 'circ'
@@ -53,7 +54,12 @@ class BaseReconstructor(object):
         self.objectContrastSwitch = False
 
     def setPositionOrder(self):
-        raise NotImplementedError()
+        # Tomas: simple implemenattion to get the basic reconstruction going
+        positionNumber = self.experimentalData.positions.shape[1]
+        if self.positionOrder == 'random':
+            indices = np.arange(positionNumber)
+            np.random.shuffle(indices)
+        return indices
 
 
     def changeExperimentalData(self, experimentalData:ExperimentalData):
@@ -91,7 +97,10 @@ class BaseReconstructor(object):
         Matches: detector2object.m
         :return:
         """
-        raise NotImplementedError()
+        if self.propagator == 'fraunhofer':
+            self.ifft2s()
+        else:
+            raise NotImplementedError()
 
     def exportOjb(self, extension='.mat'):
         """
@@ -106,12 +115,15 @@ class BaseReconstructor(object):
         """
         raise NotImplementedError()
 
-    def ffts(self):
+    def fft2s(self):
         """
         fft2s.m
         :return:
         """
-        raise NotImplementedError()
+        if self.fftshiftSwitch:
+            self.optimizable.ESW = np.fft.fft2(self.optimizable.esw) / self.experimentalData.Np
+        else:
+            self.optimizable.ESW = np.fft.fftshift(np.fft.fft2(np.fft.ifftshift(self.optimizable.esw))) / self.experimentalData.Np
 
     def getBeamWidth(self):
         """
@@ -141,21 +153,38 @@ class BaseReconstructor(object):
 
     def ifft2s(self):
         """ Inverse FFT"""
-        raise NotImplementedError()
+        if self.fftshiftSwitch:
+            self.optimizable.eswUpdate = np.fft.fft2(self.optimizable.ESW) * self.experimentalData.Np
+        else:
+            self.optimizable.eswUpdate = np.fft.fftshift(np.fft.ifft2(np.fft.ifftshift(self.optimizable.ESW))) * self.experimentalData.Np
 
 
-    def intensityProjection(self):
+    def intensityProjection(self, positionIndex):
         """ Compute the projected intensity.
+            Barebones, need to implement other methods
+        """        
+        self.object2detector()
 
-        """
-        raise NotImplementedError()
+        gimmel = 1e-10
+        Iestimated = np.real(self.optimizable.ESW)
+        Imeasured = self.experimentalData.ptychogram[positionIndex]
+        
+        # TOOD: implement other update methods
+        frac = np.sqrt(Imeasured / (Iestimated + gimmel))
+        
+        self.optimizable.ESW = self.optimizable.ESW * frac
+        self.detector2object()
+        # raise NotImplementedError()
 
     def object2detector(self):
         """
         Implements object2detector.m
         :return:
         """
-        raise NotImplementedError()
+        if self.propagator == 'fraunhofer':
+            self.fft2s()
+        else:
+            raise NotImplementedError()
 
     def orthogonalize(self):
         """

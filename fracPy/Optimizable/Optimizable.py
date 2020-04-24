@@ -20,12 +20,15 @@ class Optimizable(object):
     listOfOptimizableProperties = [
         'wavelength',
         'positions',
+        'probe'
     ]
     def __init__(self, data:ExperimentalData):
         self.logger = logging.getLogger('Optimizable')
         self.copyAttributesFromExperiment(data)
         self.initialize_other_settings()
         self.data = data
+        self.prepare_reconstruction()
+
 
     def copyAttributesFromExperiment(self, data:ExperimentalData):
         """
@@ -61,7 +64,8 @@ class Optimizable(object):
         self.object = np.zeros((self.npsm, self.data.No, self.data.No), np.complex64)
         self.initializeObject()
         self.initializeProbe()
-
+        # Positions should be integers otherwise we won't be able to slice. Define here?
+        self.positions = self.positions.astype(int)
 
     def saveResults(self):
         raise NotImplementedError
