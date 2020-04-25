@@ -53,7 +53,20 @@ class BaseReconstructor(object):
         self.objectContrastSwitch = False
 
     def setPositionOrder(self):
-        raise NotImplementedError()
+        if self.positionOrder == 'sequential':
+            self.indices = np.arange(self.numFrames)
+
+        elif self.positionOrder == 'random':
+            if self.error.size == 0:
+                self.indices = np.arange(self.numFrames)
+            else:
+                if len(self.error) < 2:
+                    self.indices = np.arange(self.numFrames)
+                else:
+                    self.indices = np.random.shuffle(np.arange(self.numFrames))
+        else:
+            raise ValueError('position order not properly set')
+
 
 
     def changeExperimentalData(self, experimentalData:ExperimentalData):
