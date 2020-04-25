@@ -22,3 +22,10 @@ class TestBaseReconstructor(TestCase):
         optimizable2 = Optimizable(self.experimentalData)
         self.BR.changeOptimizable(optimizable2)
         self.assertEqual(self.BR.optimizable, optimizable2)
+    
+    def test_setPositionOrder(self):
+        '''
+        Make sure the position of indices is set 'sequential' or 'random'
+        :return:
+        '''
+        pass
