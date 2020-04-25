@@ -33,7 +33,7 @@ class BaseReconstructor(object):
         self.fontSize = 17
         self.intensityConstraint = 'standard'  # standard or sigmoid
         self.propagator = 'fraunhofer'
-        
+
         # Settings involving the intitial estimates
         # self.initialObject = 'ones'
         # self.initialProbe = 'circ'
@@ -55,14 +55,20 @@ class BaseReconstructor(object):
         self.objectContrastSwitch = False
 
     def setPositionOrder(self):
-        # Tomas: simple implemenattion to get the basic reconstruction going
-        positionNumber = self.experimentalData.positions.shape[0]
-        if self.positionOrder == 'random':
-            indices = np.arange(positionNumber)
-            np.random.shuffle(indices)
         if self.positionOrder == 'sequential':
-            indices = np.arange(positionNumber)
-        return indices
+            self.indices = np.arange(self.numFrames)
+
+        elif self.positionOrder == 'random':
+            if self.error.size == 0:
+                self.indices = np.arange(self.numFrames)
+            else:
+                if len(self.error) < 2:
+                    self.indices = np.arange(self.numFrames)
+                else:
+                    self.indices = np.random.shuffle(np.arange(self.numFrames))
+        else:
+            raise ValueError('position order not properly set')
+
 
 
     def changeExperimentalData(self, experimentalData:ExperimentalData):
@@ -165,17 +171,17 @@ class BaseReconstructor(object):
     def intensityProjection(self, positionIndex):
         """ Compute the projected intensity.
             Barebones, need to implement other methods
-        """        
+        """
         self.object2detector()
 
         gimmel = 1e-10
         # these are amplitudes rather than intensities
         Iestimated = np.abs(self.optimizable.ESW)**2
         Imeasured = self.experimentalData.ptychogram[positionIndex,:,:]
-        
+
         # TOOD: implement other update methods
         frac = np.sqrt(Imeasured / (Iestimated + gimmel))
-        
+
         self.optimizable.ESW = self.optimizable.ESW * frac
         self.detector2object()
         # raise NotImplementedError()
