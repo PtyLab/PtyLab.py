@@ -65,7 +65,8 @@ class BaseReconstructor(object):
                 if len(self.error) < 2:
                     self.indices = np.arange(self.numFrames)
                 else:
-                    self.indices = np.random.shuffle(np.arange(self.numFrames))
+                    self.indices = np.arange(self.numFrames)
+                    np.random.shuffle(self.indices)
         else:
             raise ValueError('position order not properly set')
 
