@@ -81,10 +81,10 @@ class Optimizable(object):
         raise NotImplementedError
 
     def initializeObject(self):
-        self.initialObject = initialProbeOrObject((self.nosm, self.data.No, self.data.No),
+        self.initialObject = initialProbeOrObject((self.nosm, np.int(self.data.No), np.int(self.data.No)),
                                                       self.initialObject, self.data)    
 
     def initializeProbe(self):
-        self.initialProbe = initialProbeOrObject((self.npsm, self.data.Np, self.data.Np),
+        self.initialProbe = initialProbeOrObject((self.npsm, np.int(self.data.Np), np.int(self.data.Np)),
                                                         self.initialProbe, self.data)
 

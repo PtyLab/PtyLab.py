@@ -86,7 +86,7 @@ class ePIE(BaseReconstructor):
         plt.subplot(223)
         plt.title('phase')
         plt.imshow(np.angle(recon))
-        plt.subplot(223)
+        plt.subplot(224)
         plt.title('probe phase')
         plt.imshow(np.angle(self.optimizable.probe[0,:,:]))
         plt.pause(10)
@@ -101,7 +101,7 @@ class ePIE(BaseReconstructor):
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
         
-        frac = objectPatch.conj() / xp.max(xp.sum(abs(objectPatch) ** 2, 0))
+        frac = self.optimizable.probe.conj() / xp.max(xp.sum(abs(self.optimizable.probe) ** 2, 0))
         # this is two statements in matlab but it should only be one in python
         return objectPatch + self.betaObject * frac * DELTA
        
