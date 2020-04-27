@@ -161,10 +161,9 @@ class ExperimentalData:
             # print('Attributes_to_set:', list(attributes_to_set))
             # 4. set object attributes as the essential data fields
             for a in attributes_to_set:
-                print(a)
                 setattr(self, str(a), measurement_dict[a])
                 self.logger.debug('Setting %s', a)
-            print(attributes_to_set)
+
             # 5. Set other attributes based on this
             # they are set automatically with the functions defined by the
             # @property operators
@@ -260,11 +259,11 @@ class ExperimentalData:
             return 1./(self.Ld/self.M)
         except AttributeError as e:
             raise AttributeError(e, 'Detector size "Ld" and/or magnification "M" not defined yet')
-            
+        
+    # TODO: how o set this parameter properly?        
     @property
     def No(self):
         """ Number of pixels of the object. Requires the probe to be set."""
-        print('"No" parameter definition is currently a dummy')
         return self.Np*2
 
     @property
@@ -305,4 +304,4 @@ class ExperimentalData:
         # TODO: Check all the necessary requirements
 
 if __name__ == '__main__':
-    e = ExperimentalData('hoi')
+    e = ExperimentalData('example:simulation_fpm')

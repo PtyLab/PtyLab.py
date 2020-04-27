@@ -57,13 +57,23 @@ class Optimizable(object):
         """
         self.npsm = 1
         self.nosm = 1
-        self.initialObject = 'rand'
-        self.initialProbe = 'circ'
+        self.initialObject = 'fpm'
+        self.initialProbe = 'fpm_circ'
 
     def prepare_reconstruction(self):
-        self.object = np.zeros((self.npsm, self.data.No, self.data.No), np.complex64)
+        
+        # initialize object and probe
         self.initializeObject()
         self.initializeProbe()
+        
+        # set object and probe objects
+        self.object = self.initialObject.copy()
+        self.probe = self.initialProbe.copy()
+        
+        # TODO: do you need both positions and positions0 to be re-centered here?
+        # center positions within the object grid
+        self.positions = self.positions + self.data.No/2 - self.data.Np/2
+        
         # Positions should be integers otherwise we won't be able to slice. Define here?
         self.positions = self.positions.astype(int) 
 

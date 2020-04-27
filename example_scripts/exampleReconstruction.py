@@ -1,6 +1,6 @@
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Optimizable.Optimizable import Optimizable
-from fracPy.engines import ePIE, mPIE
+from fracPy.engines import ePIE, mPIE, qNewton
 
 # create an experimentalData object and load a measurement
 exampleData = ExperimentalData()
@@ -15,18 +15,25 @@ optimizable = Optimizable(exampleData)
 # this will copy any attributes from experimental data that we might care to optimize
 
 # now we want to run an optimizer. First create it.
-ePIE_engine = ePIE.ePIE(optimizable, exampleData)
+qNewton_engine = qNewton.qNewton(optimizable, exampleData)
 # set any settings involving ePIE in this object.
-ePIE_engine.numIterations = 100
+qNewton_engine.numIterations = 20
 # now, run the reconstruction
-ePIE_engine.doReconstruction()
+qNewton_engine.doReconstruction()
 
-# OK, now I want to run a different reconstruction algorithm, what now?
-# just create a new reconstruction ePIE_engine
-# we initialize it with our data and optimizable parameters so we can forget about them afterwards
-mPIE_engine = mPIE.mPIE(optimizable, exampleData)
+# now we want to run an optimizer. First create it.
+# ePIE_engine = ePIE.ePIE(optimizable, exampleData)
+# # set any settings involving ePIE in this object.
+# ePIE_engine.numIterations = 3
+# # now, run the reconstruction
+# ePIE_engine.doReconstruction()
 
-mPIE_engine.doReconstruction()
+# # OK, now I want to run a different reconstruction algorithm, what now?
+# # just create a new reconstruction ePIE_engine
+# # we initialize it with our data and optimizable parameters so we can forget about them afterwards
+# mPIE_engine = mPIE.mPIE(optimizable, exampleData)
+
+# mPIE_engine.doReconstruction()
 
 # now save the data
-optimizable.saveResults('reconstruction.hdf5')
+# optimizable.saveResults('reconstruction.hdf5')

@@ -1,10 +1,11 @@
 import numpy as np
-
+from matplotlib import pyplot as plt
 # fracPy imports
 from fracPy.Optimizable.Optimizable import Optimizable
 from fracPy.engines.BaseReconstructor import BaseReconstructor
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.utils.gpuUtils import getArrayModule
+from fracPy.utils.utils import fft2c, ifft2c
 import logging
 
 
@@ -37,31 +38,32 @@ class ePIE(BaseReconstructor):
             self.positionIndices = self.setPositionOrder()
             for positionLoop, positionIndex in enumerate(self.positionIndices):
                 # get object patch
-                row, col = self.optimizable.positions[:,positionIndex]
+                row, col = self.optimizable.positions[positionIndex]
                 sy = slice(row, row + self.experimentalData.Np)
                 sx = slice(col, col + self.experimentalData.Np)
-
-                objectPatch = self.optimizable.object[sy, sx]
                 # note that object patch has size of probe array
-
+                objectPatch = self.optimizable.object[:, sy, sx].copy()
+                
                 # make exit surface wave
                 self.optimizable.esw = objectPatch * self.optimizable.probe
                 # TODO implementing esw for mix state, where the probe has one more dimension than the object patch
-
+                # plt.figure(1)
+                # plt.imshow(abs(self.optimizable.esw[0,:,:]))
+                # plt.pause(0.1)
+                
                 # propagate to camera, intensityProjection, propagate back to object
                 self.intensityProjection(positionIndex)
 
                 # difference term
                 DELTA = self.optimizable.eswUpdate - self.optimizable.esw
 
+                
                 # object update
-                objectPatch = self.objectPatchUpdate(objectPatch, DELTA)
+                self.optimizable.object[:, sy, sx] = self.objectPatchUpdate(objectPatch, DELTA)
 
                 # probe update
                 self.optimizable.probe = self.probeUpdate( objectPatch, DELTA)
 
-                # set updated object patch
-                self.optimizable.object[sy, sx] = objectPatch
             # get error metric
             # self.getErrorMetrics()
 
@@ -70,6 +72,25 @@ class ePIE(BaseReconstructor):
             # show reconstruction
             self.showReconstruction(loop)
 
+        # check recon
+        initial_guess = ifft2c(self.optimizable.initialObject[0,:,:])
+        recon = ifft2c(self.optimizable.object[0,:,:])
+        plt.figure(10)
+        plt.ioff()
+        plt.subplot(221)
+        plt.title('initial guess')
+        plt.imshow(abs(initial_guess))
+        plt.subplot(222)
+        plt.title('amplitude')
+        plt.imshow(abs(recon))
+        plt.subplot(223)
+        plt.title('phase')
+        plt.imshow(np.angle(recon))
+        plt.subplot(223)
+        plt.title('probe phase')
+        plt.imshow(np.angle(self.optimizable.probe[0,:,:]))
+        plt.pause(10)
+        
     def objectPatchUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
         """
         Todo add docstring
@@ -79,15 +100,11 @@ class ePIE(BaseReconstructor):
         """
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
+        
         frac = objectPatch.conj() / xp.max(xp.sum(abs(objectPatch) ** 2, 0))
         # this is two statements in matlab but it should only be one in python
-        # TODO figure out unit tests and padding dimensions
-        r = self.optimizable.object + self.betaObject * frac * DELTA
-        if self.absorbingProbeBoundary:
-            aleph = 1e-3
-            r = (1 - aleph) * r + aleph * r * self.probeWindow
-        return r
-
+        return objectPatch + self.betaObject * frac * DELTA
+       
     def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
         """
         Todo add docstring

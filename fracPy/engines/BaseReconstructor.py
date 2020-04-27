@@ -6,6 +6,7 @@ import logging
 from fracPy.utils.initializationFunctions import initialProbeOrObject
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Optimizable.Optimizable import Optimizable
+from fracPy.utils.utils import ifft2c, fft2c
 
 class BaseReconstructor(object):
     """
@@ -26,7 +27,7 @@ class BaseReconstructor(object):
         # Default settings
         # settings that involve how things are computed
         self.objectPlot = 'complex'
-        self.fftshiftSwitch = True
+        self.fftshiftSwitch = False
         self.figureUpdateFrequency = 1
         self.FourierMaskSwitch = False
         self.fontSize = 17
@@ -34,8 +35,8 @@ class BaseReconstructor(object):
         self.propagator = 'fraunhofer'
         
         # Settings involving the intitial estimates
-        self.initialObject = 'ones'
-        self.initialProbe = 'circ'
+        # self.initialObject = 'ones'
+        # self.initialProbe = 'circ'
 
         # Specific reconstruction settings that are the same for all engines
         self.absorbingProbeBoundary = False
@@ -55,10 +56,12 @@ class BaseReconstructor(object):
 
     def setPositionOrder(self):
         # Tomas: simple implemenattion to get the basic reconstruction going
-        positionNumber = self.experimentalData.positions.shape[1]
+        positionNumber = self.experimentalData.positions.shape[0]
         if self.positionOrder == 'random':
             indices = np.arange(positionNumber)
             np.random.shuffle(indices)
+        if self.positionOrder == 'sequential':
+            indices = np.arange(positionNumber)
         return indices
 
 
@@ -121,9 +124,9 @@ class BaseReconstructor(object):
         :return:
         """
         if self.fftshiftSwitch:
-            self.optimizable.ESW = np.fft.fft2(self.optimizable.esw) / self.experimentalData.Np
+            self.optimizable.ESW = np.fft.fft2(self.optimizable.esw, norm='ortho') #/ self.experimentalData.Np
         else:
-            self.optimizable.ESW = np.fft.fftshift(np.fft.fft2(np.fft.ifftshift(self.optimizable.esw))) / self.experimentalData.Np
+            self.optimizable.ESW = np.fft.fftshift(np.fft.fft2(np.fft.ifftshift(self.optimizable.esw),norm='ortho')) #/ self.experimentalData.Np
 
     def getBeamWidth(self):
         """
@@ -154,9 +157,9 @@ class BaseReconstructor(object):
     def ifft2s(self):
         """ Inverse FFT"""
         if self.fftshiftSwitch:
-            self.optimizable.eswUpdate = np.fft.fft2(self.optimizable.ESW) * self.experimentalData.Np
+            self.optimizable.eswUpdate = np.fft.ifft2(self.optimizable.ESW, norm='ortho')# * self.experimentalData.Np
         else:
-            self.optimizable.eswUpdate = np.fft.fftshift(np.fft.ifft2(np.fft.ifftshift(self.optimizable.ESW))) * self.experimentalData.Np
+            self.optimizable.eswUpdate = np.fft.fftshift(np.fft.ifft2(np.fft.ifftshift(self.optimizable.ESW),norm='ortho')) #* self.experimentalData.Np
 
 
     def intensityProjection(self, positionIndex):
@@ -166,8 +169,9 @@ class BaseReconstructor(object):
         self.object2detector()
 
         gimmel = 1e-10
-        Iestimated = np.real(self.optimizable.ESW)
-        Imeasured = self.experimentalData.ptychogram[positionIndex]
+        # these are amplitudes rather than intensities
+        Iestimated = np.abs(self.optimizable.ESW)**2
+        Imeasured = self.experimentalData.ptychogram[positionIndex,:,:]
         
         # TOOD: implement other update methods
         frac = np.sqrt(Imeasured / (Iestimated + gimmel))
@@ -221,15 +225,16 @@ class BaseReconstructor(object):
         :param loop: the iteration number
         :return:
         """
+        object_estimate = abs(fft2c(self.optimizable.object))
+
         if loop == 0:
             self.initializeVisualisation()
         elif np.mod(loop, self.figureUpdateFrequency) == 0:
-            object_estimate = self.optimizable.object
+            # fpm mode visualization
             errorMetric = self.getErrorMetrics(testing_mode=True)
             self.monitor.updateError(errorMetric)
             self.monitor.updateObject(object_estimate)
             self.monitor.drawNow()
-
 
     def initializeVisualisation(self):
         """

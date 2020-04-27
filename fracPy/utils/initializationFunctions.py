@@ -2,6 +2,7 @@ import numpy as np
 from fracPy.utils.utils import circ, fft2c, ifft2c
 from matplotlib import pyplot as plt
 from scipy.ndimage import gaussian_filter
+from skimage.transform import rescale
 
 def initialProbeOrObject(shape, type_of_init, data):
     """
@@ -13,7 +14,7 @@ def initialProbeOrObject(shape, type_of_init, data):
     if type(type_of_init) is np.ndarray: # it has already been implemented
         return type_of_init
     
-    if type_of_init not in ['circ', 'rand', 'gaussian', 'ones', 'fpm']:
+    if type_of_init not in ['circ', 'rand', 'gaussian', 'ones', 'fpm', 'fpm_circ']:
         raise NotImplementedError()
         
     if type_of_init == 'ones':
@@ -29,19 +30,40 @@ def initialProbeOrObject(shape, type_of_init, data):
         return obj
 
     if type_of_init == 'circ':
-        shape = np.asarray(shape)
+        # get the circular boundary constraints
         try:
-            pupil = circ(data.Xp, data.Yp, data.entrancePupilDiameter)
-            print(1)
-        except:
-            pupil = data.aperture.copy()
-        return np.ones(shape) * pupil + 0.001 * np.random.rand(*shape)
-    
+            shape = np.asarray(shape)
+            if 'aperture' in dir(data):
+                pupil = data.aperture.copy()
+            else:
+                pupil = circ(data.Xp, data.Yp, data.entrancePupilDiameter)
+            # return the initial low-pass filtered array
+            return np.ones(shape) * pupil + 0.001 * np.random.rand(*shape)
+        
+        except AttributeError as e:
+            raise AttributeError(e, 'probe/aperture/entrancePupilDiameter was not defined')
+
     if type_of_init == 'fpm':
         # upsample the ptychogram using fourier space padding to create an object
         # estimate
-        padSize = np.int((data.No - data.Np) / 2)
-        upsampledPtychogram = np.pad(fft2c(np.mean(data.ptychogram,0)), (padSize,padSize),'constant')     
-        # return the upsampled image
-        upsampledObjectSpectrum = fft2c(np.abs(ifft2c(upsampledPtychogram)))
-        return upsampledObjectSpectrum
+        # padSize = np.int((data.No - data.Np) / 2)
+        # upsampledObjectSpectrum = np.pad(fft2c(np.mean(data.ptychogram,0)), (padSize,padSize),'constant')     
+        # # return the upsampled image
+        # upsampledObjectSpectrum = fft2c(np.abs(ifft2c(upsampledObjectSpectrum)))
+        # return np.ones(shape)*upsampledObjectSpectrum
+        return np.ones(shape)*ifft2c(rescale(np.mean(data.ptychogram,0), data.No/data.Np))
+    
+    if type_of_init == 'fpm_circ':
+        # get the circular boundary constraints for FPM. Due to a physical aperture
+        # stop it must not have any random noise added
+        try:
+            shape = np.asarray(shape)
+            if 'aperture' in dir(data):
+                pupil = data.aperture.copy()
+            else:
+                pupil = circ(data.Xp, data.Yp, data.entrancePupilDiameter)
+            # return the initial low-pass filtered array
+            return np.ones(shape) * pupil
+        
+        except AttributeError as e:
+            raise AttributeError(e, 'probe/aperture/entrancePupilDiameter was not defined')
