@@ -71,7 +71,7 @@ class qNewton(BaseReconstructor):
             # show reconstruction
             self.showReconstruction(loop)
 
-        # check recon
+        # check FPM recon
         initial_guess = ifft2c(self.optimizable.initialObject[0,:,:])
         recon = ifft2c(self.optimizable.object[0,:,:])
         plt.figure(10)
@@ -82,10 +82,10 @@ class qNewton(BaseReconstructor):
         plt.subplot(222)
         plt.title('amplitude')
         plt.imshow(abs(recon))
-        plt.subplot(224)
+        plt.subplot(223)
         plt.title('phase')
         plt.imshow(np.angle(recon))
-        plt.subplot(223)
+        plt.subplot(224)
         plt.title('probe phase')
         plt.imshow(np.angle(self.optimizable.probe[0,:,:]))
         plt.pause(10)

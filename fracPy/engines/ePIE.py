@@ -72,7 +72,7 @@ class ePIE(BaseReconstructor):
             # show reconstruction
             self.showReconstruction(loop)
 
-        # check recon
+        # check FPM recon
         initial_guess = ifft2c(self.optimizable.initialObject[0,:,:])
         recon = ifft2c(self.optimizable.object[0,:,:])
         plt.figure(10)
