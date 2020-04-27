@@ -4,7 +4,8 @@ from fracPy.engines import ePIE, mPIE
 
 # create an experimentalData object and load a measurement
 exampleData = ExperimentalData()
-exampleData.loadData('example:simulationTiny')
+# exampleData.loadData('example:simulationTiny')
+exampleData.loadData('example:simulation_fpm')
 # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
 
 
@@ -15,7 +16,7 @@ optimizable = Optimizable(exampleData)
 # now we want to run an optimizer. First create it.
 ePIE_engine = ePIE.ePIE(optimizable, exampleData)
 # set any settings involving ePIE in this object.
-ePIE_engine.numIterations = 1
+ePIE_engine.numIterations = 100
 # now, run the reconstruction
 ePIE_engine.doReconstruction()
 

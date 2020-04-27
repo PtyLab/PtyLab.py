@@ -63,9 +63,9 @@ class ePIE(BaseReconstructor):
                 # set updated object patch
                 self.optimizable.object[sy, sx] = objectPatch
             # get error metric
-            self.getErrorMetrics()
+            # self.getErrorMetrics()
 
-            self.applyConstraints(loop)
+            # self.applyConstraints(loop)
 
             # show reconstruction
             self.showReconstruction(loop)

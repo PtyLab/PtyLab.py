@@ -9,6 +9,7 @@ logger.setLevel(logging.INFO)
 
 exampleFiles = {
     'fpm_dataset': 'fourier.hdf5',
+    'simulation_fpm': 'fourier_simulation.hdf5',
     'simulationTiny': 'simulationTiny.hdf5'
 }
 

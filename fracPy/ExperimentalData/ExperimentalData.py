@@ -42,36 +42,6 @@ class ExperimentalData:
         # pixel size of the meshgridgrid that all other wavelengths are
         # interpolated onto.
 
-        # (entrance) pupil / probe sampling
-        self.dxp = None  # pixel size (entrance pupil plane)
-        # automatically determined
-        #self.Np = None  # number of pixel (entrance pupil plane)
-
-        self.xp = None  # 1D coordinates (entrance pupil plane)
-        self.Xp = None  # 2D meshgrid in x-direction (entrance pupil plane)
-        self.Yp = None  # 2D meshgrid in y-direction (entrance pupil plane)
-        self.Lp = None  # field of view (entrance pupil plane)
-        self.zp = None  # distance to next plane of interest
-
-        # object sampling
-
-        # object sampling
-        self.dxo = None  # pixel size (object plane)
-        self.No = None  # number of pixel (object plane)
-        self.xo = None  # 1D coordinates (object plane)
-        self.Xo = None  # 2D meshgrid in x-direction (object plane)
-        self.Yo = None  # 2D meshgrid in y-direction (object plane)
-        self.Lo = None  # field of view (object plane)
-        self.zo = None  # distance to next plane of interest
-
-        # detector sampling
-        self.dxd = None  # pixel size (detector plane)
-        self.Nd = None  # number of pixel (detector plane)
-        self.xd = None  # 1D coordinates (detector plane)
-        self.Xd = None  # 2D meshgrid in x-direction (detector plane)
-        self.Yd = None  # 2D meshgrid in y-direction (detector plane)
-        self.Ld = None  # field of view (detector plane)
-
         # measured intensities
         self.ptychogram = None  # intensities [Nd, Nd, numPos]
         self.numFrames = None  # number of measurements (positions (CPM) / LED tilts (FPM))
@@ -190,27 +160,132 @@ class ExperimentalData:
             # print('Attributes_to_set:', list(attributes_to_set))
             # 4. set object attributes as the essential data fields
             for a in attributes_to_set:
+                print(a)
                 setattr(self, str(a), measurement_dict[a])
                 self.logger.debug('Setting %s', a)
-
-            # # 5. Set other attributes based on this
-            #self.Np = self.probe.shape[-1]
-            self.No = 64
-            # self.No = 64 # TODO (@MaisieD)
-            # self.Np = 64 # TODO(@MaisieD)
-            #
+            print(attributes_to_set)
+            # 5. Set other attributes based on this
+            # they are set automatically with the functions defined by the
+            # @property operators
+            
         self._checkData()
 
+
+    
+    # Detector property list
+    @property
+    def xd(self):
+        """ Detector coordinates 1D """
+        try:
+            return np.linspace(-self.Nd/2,self.Nd/2-0.5, np.int(self.Nd))*self.dxd
+        except AttributeError as e:
+            raise AttributeError(e, 'pixel number "Nd" and/or pixel size "dxd" not defined yet')
+
+    @property
+    def Xd(self):
+        """ Detector coordinates 2D """
+        Xd, Yd = np.meshgrid(self.xd, self.xd)
+        return Xd
+            
+    @property
+    def Yd(self):
+        """ Detector coordinates 2D """
+        Xd, Yd = np.meshgrid(self.xd, self.xd)
+        return Yd
+            
+    @property       
+    def Ld(self):
+        """ Detector size in SI units. """
+        try:
+            return self.Nd * self.dxd
+        except AttributeError as e:
+            raise AttributeError(e, 'pixel number "Nd" and/or pixel size "dxd" not defined yet')
+    
+    
+    
+    # Probe property list
+    @property
+    def dxp(self):
+        """ Probe sampling. Requires the probe to be set."""
+        try:
+            return 1./(self.Ld/self.M)
+        except AttributeError as e:
+            raise AttributeError(e, 'Detector size "Ld" and/or magnification "M" not defined yet')
+            
     @property
     def Np(self):
         """ Number of pixels of the probe. Requires the probe to be set."""
         try:
             return self.probe.shape[-1]
         except AttributeError as e:
-
             raise AttributeError(e, 'probe is not defined yet')
 
+    @property
+    def Lp(self):
+        """ Field of view (entrance pupil plane) """
+        return self.Np * self.dxp
+   
+    @property
+    def xp(self):
+        """ Detector coordinates 1D """
+        try:
+            return np.linspace(-self.Np/2,self.Np/2-0.5, np.int(self.Np))*self.dxp
+        except AttributeError as e:
+            raise AttributeError(e, 'probe pixel number "Np" and/or probe sampling "dxp" not defined yet')
+            
+    @property
+    def Xp(self):
+        """ Detector coordinates 2D """
+        Xp, Yp = np.meshgrid(self.xp, self.xp)
+        return Xp
+            
+    @property
+    def Yp(self):
+        """ Detector coordinates 2D """
+        Xp, Yp = np.meshgrid(self.xp, self.xp)
+        return Yp
+            
+    
+    # Object property list
+    @property
+    def dxo(self):
+        """ Probe sampling. Requires the probe to be set."""
+        try:
+            # also obj.lambda * obj.zo / obj.Ld ?
+            return 1./(self.Ld/self.M)
+        except AttributeError as e:
+            raise AttributeError(e, 'Detector size "Ld" and/or magnification "M" not defined yet')
+            
+    @property
+    def No(self):
+        """ Number of pixels of the object. Requires the probe to be set."""
+        return self.Np
 
+    @property
+    def Lo(self):
+        """ Field of view (entrance pupil plane) """
+        return self.No * self.dxo
+   
+    @property
+    def xo(self):
+        """ Detector coordinates 1D """
+        try:
+            return np.linspace(-self.No/2,self.No/2-0.5, np.int(self.No))*self.dxo
+        except AttributeError as e:
+            raise AttributeError(e, 'object pixel number "No" and/or pixel size "dxo" not defined yet')
+            
+    @property
+    def Xo(self):
+        """ Detector coordinates 2D """
+        Xo, Yo = np.meshgrid(self.xo, self.xo)
+        return Xo
+            
+    @property
+    def Yo(self):
+        """ Detector coordinates 2D """
+        Xo, Yo = np.meshgrid(self.xo, self.xo)
+        return Yo
+            
     def _checkData(self):
         """
         Check that at least all the data we need has been initialized.
