@@ -31,7 +31,7 @@ def examplePath(key:str):
     """
     try:
         filename = exampleFiles[key]
-    except KeyError:
+    except 'KeyErr':
         filename = key
     full_filename = getExampleDataFolder() / filename
     if not full_filename.exists():
@@ -55,4 +55,6 @@ def loadExample(key:str, *args, **kwargs):
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     listExamples()
-    loadExample('simulationTiny')
+    # loadExample('simulationTiny')
+    data = loadExample('fpm_dataset')
+    a = examplePath('fpm_dataset')

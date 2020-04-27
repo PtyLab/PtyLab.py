@@ -5,6 +5,7 @@ from fracPy.engines import ePIE, mPIE
 # create an experimentalData object and load a measurement
 exampleData = ExperimentalData()
 # exampleData.loadData('example:simulationTiny')
+# exampleData.loadData('example:fpm_dataset')
 exampleData.loadData('example:simulation_fpm')
 # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
 

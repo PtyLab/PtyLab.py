@@ -18,10 +18,6 @@ required_fields = [
     'Nd',               # detector pixel number
     'dxd',              # pixel size
     'zo',               # sample to detector distance
-    'M',                # magnification (FPM systems)
-    'f',                # focal length (FPM systems)
-    'LEDspacing',       # spacing between LEDs (FPM systems)
-    'z'                 # LED to object distance (FPM systems)
 ]
 
 # These extensions can be loaded
@@ -58,9 +54,9 @@ def loadInputData(filename:Path):
                 key = node.name
                 value = node.read()
                     
-                # load only the required fields
-                if key in required_fields:                        
-                    dataset[key] = value
+                # load all fields
+                # if key in required_fields:                        
+                dataset[key] = value
     except Exception as e:
         logger.error('Error reading hdf5 file!')
         raise e

@@ -37,11 +37,12 @@ class ExperimentalData:
         # physical properties
         self.wavelength = None  # (operational) wavelength, scalar quantity
         self.spectralDensity = None  # spectral density S = S(wavelength), vectorial quantity
+        self.M = 1 # magnification, will change if a lens is used (for FPM)               
         #  note: spectral density is required for polychromatic operation.
         # In this case, wavelength is still scalar and determines the lateral
         # pixel size of the meshgridgrid that all other wavelengths are
         # interpolated onto.
-
+        
         # measured intensities
         self.ptychogram = None  # intensities [Nd, Nd, numPos]
         self.numFrames = None  # number of measurements (positions (CPM) / LED tilts (FPM))
@@ -177,7 +178,7 @@ class ExperimentalData:
     def xd(self):
         """ Detector coordinates 1D """
         try:
-            return np.linspace(-self.Nd/2,self.Nd/2-0.5, np.int(self.Nd))*self.dxd
+            return np.linspace(-self.Nd/2,self.Nd/2-1, np.int(self.Nd))*self.dxd
         except AttributeError as e:
             raise AttributeError(e, 'pixel number "Nd" and/or pixel size "dxd" not defined yet')
 
@@ -229,7 +230,7 @@ class ExperimentalData:
     def xp(self):
         """ Detector coordinates 1D """
         try:
-            return np.linspace(-self.Np/2,self.Np/2-0.5, np.int(self.Np))*self.dxp
+            return np.linspace(-self.Np/2,self.Np/2-1, np.int(self.Np))*self.dxp
         except AttributeError as e:
             raise AttributeError(e, 'probe pixel number "Np" and/or probe sampling "dxp" not defined yet')
             
@@ -245,6 +246,10 @@ class ExperimentalData:
         Xp, Yp = np.meshgrid(self.xp, self.xp)
         return Yp
             
+    # @property
+    # def entrancePupilDiameter(self):
+    #     """ pupil diameter in pixels (FPM property, not CPM) """    
+    
     
     # Object property list
     @property
@@ -259,7 +264,8 @@ class ExperimentalData:
     @property
     def No(self):
         """ Number of pixels of the object. Requires the probe to be set."""
-        return self.Np
+        print('"No" parameter definition is currently a dummy')
+        return self.Np*2
 
     @property
     def Lo(self):
@@ -270,7 +276,7 @@ class ExperimentalData:
     def xo(self):
         """ Detector coordinates 1D """
         try:
-            return np.linspace(-self.No/2,self.No/2-0.5, np.int(self.No))*self.dxo
+            return np.linspace(-self.No/2,self.No/2-1, np.int(self.No))*self.dxo
         except AttributeError as e:
             raise AttributeError(e, 'object pixel number "No" and/or pixel size "dxo" not defined yet')
             
@@ -285,7 +291,9 @@ class ExperimentalData:
         """ Detector coordinates 2D """
         Xo, Yo = np.meshgrid(self.xo, self.xo)
         return Yo
-            
+
+
+                        
     def _checkData(self):
         """
         Check that at least all the data we need has been initialized.

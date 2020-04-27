@@ -57,24 +57,24 @@ class Optimizable(object):
         """
         self.npsm = 1
         self.nosm = 1
-        self.initialObject = 'ones'
-        self.initialProbe = 'ones'
+        self.initialObject = 'rand'
+        self.initialProbe = 'circ'
 
     def prepare_reconstruction(self):
         self.object = np.zeros((self.npsm, self.data.No, self.data.No), np.complex64)
         self.initializeObject()
         self.initializeProbe()
         # Positions should be integers otherwise we won't be able to slice. Define here?
-        self.positions = self.positions.astype(int)
+        self.positions = self.positions.astype(int) 
 
     def saveResults(self):
         raise NotImplementedError
 
     def initializeObject(self):
         self.initialObject = initialProbeOrObject((self.nosm, self.data.No, self.data.No),
-                                                     self.initialObject)
+                                                      self.initialObject, self.data)    
 
     def initializeProbe(self):
         self.initialProbe = initialProbeOrObject((self.npsm, self.data.Np, self.data.Np),
-                                                        self.initialProbe)
+                                                        self.initialProbe, self.data)
 

@@ -1,6 +1,12 @@
 import pickle
+import numpy as np
+import scipy.stats as st
 
+def fft2c(array):
+    return np.fft.fftshift(np.fft.fft2(np.fft.ifftshift(array),norm='ortho'))
 
+def ifft2c(array):
+    return np.fft.fftshift(np.fft.ifft2(np.fft.ifftshift(array),norm='ortho'))
 
 def load(filename):
     with open(filename, 'rb') as f:
