@@ -44,8 +44,8 @@ ePIE_engine.numIterations = 20
 ePIE_engine.doReconstruction()
 
 # check FPM recon
-initial_guess = abs(ifft2c(optimizable.initialObject[0,:,:]))
-reconstruction = abs(ifft2c(optimizable.object[0,:,:]))
+initial_guess = ifft2c(optimizable.initialObject[0,:,:])
+reconstruction = ifft2c(optimizable.object[0,:,:])
 probe = optimizable.probe[0,:,:]
 plt.figure(10)
 plt.ioff()
