@@ -126,24 +126,23 @@ class BaseReconstructor(object):
         matches getErrorMetrics.m
         :return:
         """
-        if not self.saveMemory:
-
-            #calculate mean error for all positions (make separate function for all of that)
-            if self.FourierMaskSwitch:
-                self.params.errorAtPos = np.sum(np.abs(self.params.detectorError) * self.params.W)
-            else:
-                self.params.errorAtPos = np.sum(np.abs(self.params.detectorError))
-
-        self.params.errorAtPos /= (self.params.energyAtPos + 1)
-        eAverage = np.sum(self.params.errorAtPos)
-
-        #append to error vector (for ploting error as function of iteration)
-        self.params.error = np.append(self.params.error, eAverage)
-
-        if not testing_mode:
-            raise NotImplementedError()
-        else:
+        if testing_mode: # just for testing visualisation, otherwise not useful.
             return np.random.rand(100)
+
+        if not self.saveMemory:
+            # Calculate mean error for all positions (make separate function for all of that)
+            if self.FourierMaskSwitch:
+                self.errorAtPos = np.sum(np.abs(self.detectorError) * self.W)
+            else:
+                self.errorAtPos = np.sum(np.abs(self.detectorError))
+
+        self.errorAtPos /= (self.energyAtPos + 1)
+        eAverage = np.sum(self.errorAtPos)
+
+        # append to error vector (for plotting error as function of iteration)
+        self.error = np.append(self.error, eAverage)
+
+
 
     def getRMSD(self, positionIndex):
         """
