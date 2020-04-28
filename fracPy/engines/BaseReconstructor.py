@@ -225,7 +225,8 @@ class BaseReconstructor(object):
         :param loop: the iteration number
         :return:
         """
-        object_estimate = abs(fft2c(self.optimizable.object))
+        object_estimate = abs(ifft2c(self.optimizable.object))
+
 
         if loop == 0:
             self.initializeVisualisation()

@@ -1,3 +1,5 @@
+import matplotlib
+matplotlib.use('tkagg')
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Optimizable.Optimizable import Optimizable
 from fracPy.engines import ePIE, mPIE, qNewton
