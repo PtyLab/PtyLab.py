@@ -16,13 +16,14 @@ change data visualization and initialization options manually for now
 # create an experimentalData object and load a measurement
 exampleData = ExperimentalData()
 exampleData.loadData('example:simulation_fpm')
+# exampleData.loadData('example:simulation_ptycho')
 exampleData.operationMode = 'FPM'
-# now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
-# now create an object to hold everything we're eventually interested in
+# # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
+# # now create an object to hold everything we're eventually interested in
 optimizable = Optimizable(exampleData)
-# this will copy any attributes from experimental data that we might care to optimize
+# # this will copy any attributes from experimental data that we might care to optimize
 #optimizable.initialObject = 'random'
-optimizable.initialObject = 'ones'
+#optimizable.initialObject = 'ones'
 # now we want to run an optimizer. First create it.
 qNewton_engine = qNewton.qNewton(optimizable, exampleData)
 # set any settings involving ePIE in this object.
