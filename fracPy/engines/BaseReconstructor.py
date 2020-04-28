@@ -55,7 +55,7 @@ class BaseReconstructor(object):
     def setPositionOrder(self, order='random'):
         if (order == 'sequential' or order == 'random'):
             self.positionOrder = order
-            self.indices = np.arange(self.params.numIterations)
+            self.indices = np.arange(self.numIterations)
             if order == 'random':
                 if (0 != self.error.size and len(self.error.flat) > 2):
                     np.random.shuffle(self.indices)
