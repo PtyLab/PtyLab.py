@@ -1,7 +1,9 @@
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Optimizable.Optimizable import Optimizable
 from fracPy.engines import ePIE, mPIE, qNewton
-
+from fracPy.utils.utils import ifft2c
+from matplotlib import pyplot as plt
+import numpy as np
 
 """ 
 FPM data reconstructor 
@@ -10,6 +12,7 @@ change data visualization and initialization options manually for now
 # create an experimentalData object and load a measurement
 exampleData = ExperimentalData()
 exampleData.loadData('example:simulation_fpm')
+exampleData.operationMode = 'FPM'
 # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
 # now create an object to hold everything we're eventually interested in
 optimizable = Optimizable(exampleData)
@@ -31,24 +34,64 @@ ePIE_engine.numIterations = 20
 # now, run the reconstruction
 ePIE_engine.doReconstruction()
 
-
+# check FPM recon
+initial_guess = abs(ifft2c(optimizable.initialObject[0,:,:]))
+reconstruction = abs(ifft2c(optimizable.object[0,:,:]))
+probe = optimizable.probe[0,:,:]
+plt.figure(10)
+plt.ioff()
+plt.subplot(221)
+plt.title('initial guess')
+plt.imshow(abs(initial_guess))
+plt.subplot(222)
+plt.title('amplitude')
+plt.imshow(abs(reconstruction))
+plt.subplot(223)
+plt.title('phase')
+plt.imshow(np.angle(reconstruction))
+plt.subplot(224)
+plt.title('probe phase')
+plt.imshow(np.abs(probe))
+plt.pause(10)
 
 """ 
 ptycho data reconstructor 
 change data visualization and initialization options manually for now
 """
-# exampleData = ExperimentalData()
-# exampleData.loadData('example:simulation_ptycho')
-# # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
-# # now create an object to hold everything we're eventually interested in
-# optimizable = Optimizable(exampleData)
-# # this will copy any attributes from experimental data that we might care to optimize
-# # now we want to run an optimizer. First create it.
-# ePIE_engine = ePIE.ePIE(optimizable, exampleData)
-# # set any settings involving ePIE in this object.
-# ePIE_engine.numIterations = 50
-# # now, run the reconstruction
-# ePIE_engine.doReconstruction()
+exampleData = ExperimentalData()
+exampleData.loadData('example:simulation_ptycho')
+exampleData.operationMode = 'CPM'
+
+# now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
+# now create an object to hold everything we're eventually interested in
+optimizable = Optimizable(exampleData)
+# this will copy any attributes from experimental data that we might care to optimize
+# now we want to run an optimizer. First create it.
+ePIE_engine = ePIE.ePIE(optimizable, exampleData)
+# set any settings involving ePIE in this object.
+ePIE_engine.numIterations = 50
+# now, run the reconstruction
+ePIE_engine.doReconstruction()
+
+# check ptycho recon
+initial_guess = optimizable.initialObject[0,:,:]
+reconstruction = optimizable.object[0,:,:]
+probe = optimizable.probe[0,:,:]
+plt.figure(10)
+plt.ioff()
+plt.subplot(221)
+plt.title('initial guess')
+plt.imshow(abs(initial_guess))
+plt.subplot(222)
+plt.title('amplitude')
+plt.imshow(abs(reconstruction))
+plt.subplot(223)
+plt.title('phase')
+plt.imshow(np.angle(reconstruction))
+plt.subplot(224)
+plt.title('probe phase')
+plt.imshow(np.abs(probe))
+plt.pause(10)
 
 # # # now save the data
 # # optimizable.saveResults('reconstruction.hdf5')

@@ -25,8 +25,8 @@ class Optimizable(object):
     def __init__(self, data:ExperimentalData):
         self.logger = logging.getLogger('Optimizable')
         self.copyAttributesFromExperiment(data)
-        self.initialize_other_settings()
         self.data = data
+        self.initialize_other_settings()
         self.prepare_reconstruction()
 
 
@@ -57,9 +57,17 @@ class Optimizable(object):
         """
         self.npsm = 1
         self.nosm = 1
-        self.initialObject = 'fpm'
-        self.initialProbe = 'fpm_circ'
-
+        
+        if self.data.operationMode == 'FPM':
+            self.initialObject = 'fpm'
+            self.initialProbe = 'fpm_circ'
+        elif self.data.operationMode == 'CPM':
+            self.initialProbe = 'circ'
+            self.initialObject = 'ones'
+        else:
+            self.initialProbe = 'circ'
+            self.initialObject = 'ones'
+            
     def prepare_reconstruction(self):
         
         # initialize object and probe
@@ -82,9 +90,9 @@ class Optimizable(object):
 
     def initializeObject(self):
         self.initialObject = initialProbeOrObject((self.nosm, np.int(self.data.No), np.int(self.data.No)),
-                                                      self.initialObject, self.data)    
+                                                      self.initialObject, self.data).astype(np.complex64)    
 
     def initializeProbe(self):
         self.initialProbe = initialProbeOrObject((self.npsm, np.int(self.data.Np), np.int(self.data.Np)),
-                                                        self.initialProbe, self.data)
+                                                        self.initialProbe, self.data).astype(np.complex64)    
 
