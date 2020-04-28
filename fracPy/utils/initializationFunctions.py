@@ -51,7 +51,7 @@ def initialProbeOrObject(shape, type_of_init, data):
         # # return the upsampled image
         # upsampledObjectSpectrum = fft2c(np.abs(ifft2c(upsampledObjectSpectrum)))
         # return np.ones(shape)*upsampledObjectSpectrum
-        return np.ones(shape)*ifft2c(rescale(np.mean(data.ptychogram,0), data.No/data.Np))
+        return np.ones(shape)*ifft2c(rescale(np.mean(data.ptychogram,0), np.int(data.No/data.Np)))
     
     if type_of_init == 'fpm_circ':
         # get the circular boundary constraints for FPM. Due to a physical aperture

@@ -8,7 +8,7 @@ logger.setLevel(logging.INFO)
 #logger.addHandler(logging.StreamHandler(sys.stderr))
 
 exampleFiles = {
-    'fpm_dataset': 'fourier.hdf5',
+    'simulation_ptycho': 'ptycho_simulation.hdf5',
     'simulation_fpm': 'fourier_simulation.hdf5',
     'simulationTiny': 'simulationTiny.hdf5'
 }
