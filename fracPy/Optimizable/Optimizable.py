@@ -81,6 +81,7 @@ class Optimizable(object):
         raise NotImplementedError
 
     def initializeObject(self):
+        self.logger.info('Initial object set to %s', self.initialObject)
         self.initialObject = initialProbeOrObject((self.nosm, self.data.No, self.data.No),
                                                       self.initialObject, self.data)    
 

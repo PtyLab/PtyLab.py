@@ -282,5 +282,23 @@ class BaseReconstructor(object):
         if self.objectContrastSwitch():
             raise NotImplementedError()
 
-
-
+    ## Python-specific things
+    def showEndResult(self):
+        import matplotlib.pyplot as plt
+        initial_guess = ifft2c(self.optimizable.initialObject[0, :, :])
+        recon = ifft2c(self.optimizable.object[0, :, :])
+        plt.figure(10)
+        plt.ioff()
+        plt.subplot(221)
+        plt.title('initial guess')
+        plt.imshow(abs(initial_guess))
+        plt.subplot(222)
+        plt.title('amplitude')
+        plt.imshow(abs(recon))
+        plt.subplot(224)
+        plt.title('phase')
+        plt.imshow(np.angle(recon))
+        plt.subplot(223)
+        plt.title('probe phase')
+        plt.imshow(np.angle(self.optimizable.probe[0, :, :]))
+        plt.pause(10)

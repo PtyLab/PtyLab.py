@@ -3,6 +3,8 @@ matplotlib.use('tkagg')
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Optimizable.Optimizable import Optimizable
 from fracPy.engines import ePIE, mPIE, qNewton
+import logging
+logging.basicConfig(level=logging.INFO)
 
 # create an experimentalData object and load a measurement
 exampleData = ExperimentalData()
@@ -15,13 +17,19 @@ exampleData.loadData('example:simulation_fpm')
 # now create an object to hold everything we're eventually interested in
 optimizable = Optimizable(exampleData)
 # this will copy any attributes from experimental data that we might care to optimize
-
+#optimizable.initialObject = 'random'
+optimizable.initialObject = 'ones'
 # now we want to run an optimizer. First create it.
-qNewton_engine = qNewton.qNewton(optimizable, exampleData)
+qNewton_engine = ePIE.ePIE(optimizable, exampleData)
+qNewton_engine.betaObject = 1
 # set any settings involving ePIE in this object.
-qNewton_engine.numIterations = 20
+qNewton_engine.numIterations = 200
 # now, run the reconstruction
 qNewton_engine.doReconstruction()
+qNewton_engine.showEndResult()
+
+# show it
+# check recon
 
 # now we want to run an optimizer. First create it.
 # ePIE_engine = ePIE.ePIE(optimizable, exampleData)
