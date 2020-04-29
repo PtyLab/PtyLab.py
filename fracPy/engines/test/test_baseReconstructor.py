@@ -27,4 +27,5 @@ class TestBaseReconstructor(TestCase):
         Make sure the position of indices is set 'sequential' or 'random'
         :return:
         '''
-        pass
+        self.BR.setPositionOrder()
+
