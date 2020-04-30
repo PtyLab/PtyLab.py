@@ -3,6 +3,13 @@ from .fft import fft2c, ifft2c
 
 
 def fresnelPropagator(u, z, wavelength, L):
+    """
+    :param u:   field distribution at z = 0(u is assumed to be square, i.e.N x N)
+    :param z:   propagation distance
+    :param wavelength: wavelength
+    :param L: total size[m] of
+    :return: propagated field
+    """
     k = 2 * np.pi /wavelength
     #source coordinates, this assumes that the field is NxN pixels
     N = u.shape[-1]
@@ -22,8 +29,32 @@ def fresnelPropagator(u, z, wavelength, L):
     r = fft2c(Qin * u)
     return r, dq, q, Qx, Qy
 
-def angularSpectrumPropagator():
-    raise NotImplementedError
+
+def angularSpectrumPropagator(u, z, wavelength, L):
+    """
+    ASPW wave propagation
+    :param u:   field distribution at z = 0(u is assumed to be square, i.e.N x N)
+    :param z:   propagation distance
+    :param wavelength: wavelength
+    :param L: total size[m] of
+    :return: propagated field
+
+    % following: Matsushima et al., "Band-Limited Angular Spectrum Method for
+    % Numerical    Simulation of Free - Space
+    % Propagation in Far and Near Fields", Optics Express, 2009
+    """
+    k = 2 * np.pi / wavelength
+    N = u.shape[-1]
+    x = np.arange(-N / 2, N / 2) / L
+    [Fy, Fx] = np.meshgrid(x, x)
+
+    f_max = L / (wavelength *np.sqrt(L**2 + 4*z**2))
+    W = np.logical_and((abs(Fx / f_max) < 1), (abs(Fy / f_max) < 1))
+    H = np.exp(1j * k * z * np.sqrt(1 - (Fx * wavelength) ** 2 - (Fy * wavelength) ** 2))
+    U = fft2c(u) * H * W
+    u = ifft2c(U)
+
+    return u, H
 
 
 def ft2(f, delta):
