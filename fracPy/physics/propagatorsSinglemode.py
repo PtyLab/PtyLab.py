@@ -1,8 +1,9 @@
 import numpy as np
 from .fft import fft2c, ifft2c
 
-def fresnelPropagator(u,z,wavelenght,L):
-    k = 2 * np.pi /wavelenght
+
+def fresnelPropagator(u, z, wavelength, L):
+    k = 2 * np.pi /wavelength
     #source coordinates, this assumes that the field is NxN pixels
     N = u.shape[-1]
     dx = L / N
@@ -10,12 +11,12 @@ def fresnelPropagator(u,z,wavelenght,L):
     [Y, X] = np.meshgrid(x,x)
 
     #target coordinates
-    dq = wavelenght *z / L;
+    dq = wavelength *z / L
     q = np.arange(-N / 2, N / 2) * dq
     [Qy, Qx] = np.meshgrid(q,q);
 
     #phase terms
-    Qin = np.exp(1j * k / (2 * z) * (np.square(X) + np.square(Y)) )
+    Qin = np.exp(1j * k / (2 * z) * (np.square(X) + np.square(Y)))
     #Qout = exp(1i * k / (2 * z) * (Qx. ^ 2 + Qy. ^ 2));
     #r = Qout. * fft2c(Qin. * u)
     r = fft2c(Qin * u)
@@ -24,11 +25,16 @@ def fresnelPropagator(u,z,wavelenght,L):
 def angularSpectrumPropagator():
     raise NotImplementedError
 
-def ft2():
-    raise NotImplementedError
 
-def ift2():
-    raise NotImplementedError
+def ft2(f, delta):
+    g = fft2c(f) * delta**2
+    return g
+
+
+def ift2(g, delta):
+    N = g.shape[-1]
+    f = ifft2c(g) * (N * delta)**2
+    return f
 
 def generateFresnelIR():
     raise NotImplementedError
