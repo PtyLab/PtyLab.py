@@ -73,8 +73,50 @@ def generateFresnelIR():
 def inverseTwoStepPropagator():
     raise NotImplementedError
 
-def scaledASP():
-    raise NotImplementedError
+
+def scaledASP(u, z, wavelength, dx, dq):
+    """
+    :param u:   field distribution at z = 0(u is assumed to be square, i.e.N x N)
+    :param z:   propagation distance
+    :param wavelength: wavelength
+    :param dx:  grid spacing in original plane (u)
+    :param dq:  grid spacing in destination plane (Uout)
+    :return: propagated field
+
+    #note: to be analytically correct, add Q3
+    if only intensities matter, leave it out(see below)
+    q = np.arange(-N / 2, N / 2) * dq
+    [y2, x2] = np.meshgrid(q, q)
+    r2sq = np.square(x2) + np.square(y2)
+    Q3 = np.exp(1j * k / 2 * (m - 1) / (m * z) * r2sq)
+    compute the propagated field
+    Uout = Q3 * ifft2c(Q2 * fft2c(Q1 * u))
+    """
+    #optical wavenumber
+    k = 2 * np.pi / wavelength
+    #assume square grid
+    N = u.shape[-1]
+    #source-plane coordinates
+    x = np.arange(-N / 2, N / 2) * dx
+    [y1, x1] = np.meshgrid(x, x)
+
+    r1sq = np.square(x1) + np.square(y1)
+    #spatial frequencies(of source plane)
+    df1 = 1 / (N * dx)
+    x = np.arange(-N / 2, N / 2) * df1
+    [fy, fx] = np.meshgrid(x, x)
+
+    fsq = np.square(fx) + np.square(fy)
+    #scaling parameter
+    m = dq / dx
+
+    #quadratic phase factors
+    Q1 = np.exp(1j * k / 2 * (1 - m) / z * r1sq)
+    Q2 = np.exp(-1j * 2 * np.pi**2 * z / m / k * fsq)
+    Uout = ifft2c(Q2 * fft2c(Q1 * u))
+
+    return Uout, Q1, Q2
+
 
 def scaledSPinv():
     raise NotImplementedError
