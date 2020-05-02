@@ -43,6 +43,9 @@ class BaseReconstructor(object):
         self.npsm = 1  # number of probe state mixtures
         self.nosm = 1  # number of object state mixtures
 
+        # This only makes sense on a GPU, not there yet
+        self.saveMemory = False
+
         # Things that should be overridden in every reconstructor
         self.numIterations = 1  # number of iterations
 
