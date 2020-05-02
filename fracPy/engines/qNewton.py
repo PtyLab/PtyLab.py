@@ -36,7 +36,8 @@ class qNewton(BaseReconstructor):
         # actual reconstruction ePIE_engine
         for loop in range(self.numIterations):
             # set position order
-            self.positionIndices = self.setPositionOrder()
+            #self.positionIndices = \
+            self.setPositionOrder()
             for positionLoop, positionIndex in enumerate(self.positionIndices):
                 # get object patch
                 row, col = self.optimizable.positions[positionIndex]

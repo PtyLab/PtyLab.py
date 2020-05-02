@@ -58,17 +58,17 @@ class BaseReconstructor(object):
 
     def setPositionOrder(self):
         if self.positionOrder == 'sequential':
-            self.indices = np.arange(self.experimentalData.numFrames)
+            self.positionIndices = np.arange(self.experimentalData.numFrames)
 
         elif self.positionOrder == 'random':
             if self.error.size == 0:
-                self.indices = np.arange(self.experimentalData.numFrames)
+                self.positionIndices = np.arange(self.experimentalData.numFrames)
             else:
                 if len(self.error) < 2:
-                    self.indices = np.arange(self.experimentalData.numFrames)
+                    self.positionIndices = np.arange(self.experimentalData.numFrames)
                 else:
-                    self.indices = np.arange(self.experimentalData.numFrames)
-                    np.random.shuffle(self.indices)
+                    self.positionIndices = np.arange(self.experimentalData.numFrames)
+                    np.random.shuffle(self.positionIndices)
         else:
             raise ValueError('position order not properly set')
 

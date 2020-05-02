@@ -24,7 +24,7 @@ class TestBaseReconstructor(TestCase):
 
     def test_setPositionOrder(self):
         '''
-        Make sure the position of indices is set 'sequential' or 'random'
+        Make sure the position of positionIndices is set 'sequential' or 'random'
         :return:
         '''
         pass
