@@ -16,7 +16,7 @@ class DefaultMonitor(object):
         For example usage, see test_matplot_monitor.py.
 
         """
-        self.fig_num = figNum
+        self.figNum = figNum
         self._createFigure()
 
     def _createFigure(self) -> None:
@@ -26,24 +26,48 @@ class DefaultMonitor(object):
         """
 
         # add an axis for the object
-        self.figure, axes= plt.subplots(1, 2, num=self.fig_num, squeeze=False, clear=True)
+        self.figure, axes= plt.subplots(1, 3, num=self.figNum, squeeze=False, clear=True)
         self.ax_object = axes[0][0]
-        self.ax_error_metric = axes[0][1]
+        self.ax_probe = axes[0][1]
+        self.ax_error_metric = axes[0][2]
         self.ax_object.set_title('Object estimate')
+        self.ax_probe.set_title('Probe estimate')
         self.ax_error_metric.set_title('Error metric')
         self.firstrun = True
 
-    def updateObject(self, object_estimate):
-        OE = abs(object_estimate)
+    def updateObject(self, object_estimate, objectPlot,**kwargs):
+        if objectPlot == 'complex':
+            OE = object_estimate
+        elif objectPlot == 'abs':
+            OE = abs(object_estimate)
+            vmin = 0
+            vmax = 1
+        elif objectPlot == 'angle':
+            OE = np.angle(object_estimate)
+            vmin = 0
+            vmax= 2
         if OE.ndim == 3:
             # Put the object estimate components next to each other.
             OE = np.hstack(OE)
 
         if self.firstrun:
-            self.im_object = self.ax_object.imshow(OE, cmap='gray')
+            # self.im_object = self.ax_object.imshow(OE, cmap='gray',vmin=vmin,vmax=vmax)
+            self.im_object = hsvplot(OE, ax=self.ax_object)
 
         else:
             self.im_object.set_data(OE)
+
+    def updateProbe(self, probe_estimate,probeROI):
+        PE = abs(probe_estimate)
+        if PE.ndim == 3:
+            # Put the object estimate components next to each other.
+            PE = np.hstack(PE)
+
+        if self.firstrun:
+            self.im_probe = self.ax_object.imshow(PE, cmap='gray')
+
+        else:
+            self.im_object.set_data(PE)
 
     def updateError(self, error_estimate: np.ndarray) -> None:
         """

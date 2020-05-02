@@ -1,4 +1,8 @@
 # This file contains utilities required for monitors
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib as mpl
+import math
 
 # TODO: copy-pase all relevant functions from Matlab implementation
 
@@ -7,4 +11,91 @@ def CoherencePlot():
 
 def grs2rgb():
     raise NotImplementedError
+
+def hsv_to_rgb(hsv: np.ndarray) -> np.ndarray:
+    """
+    Convert a 3D hsv np.ndarray to rgb (5 times faster than colorsys).
+    https://stackoverflow.com/questions/27041559/rgb-to-hsv-python-change-hue-continuously
+    h,s should be a numpy arrays with values between 0.0 and 1.0
+    v should be a numpy array with values between 0.0 and 255.0
+    :param hsv: np.ndarray of shape (x,y,3)
+    :return: hsv_to_rgb returns an array of uints between 0 and 255.
+    """
+    rgb = np.empty_like(hsv)
+    rgb[..., 3:] = hsv[..., 3:]
+    h, s, v = hsv[..., 0], hsv[..., 1], hsv[..., 2]
+    i = (h * 6.0).astype('uint8')
+    f = (h * 6.0) - i
+    p = v * (1.0 - s)
+    q = v * (1.0 - s * f)
+    t = v * (1.0 - s * (1.0 - f))
+    i = i % 6
+    conditions = [s == 0.0, i == 1, i == 2, i == 3, i == 4, i == 5]
+    rgb[..., 0] = np.select(conditions, [v, q, p, p, t, v], default=v)
+    rgb[..., 1] = np.select(conditions, [v, v, v, q, p, p], default=t)
+    rgb[..., 2] = np.select(conditions, [v, p, t, v, v, q], default=p)
+    return rgb.astype('uint8')
+
+
+def hsvplot(u, ax=None, pixelSize=1):
+    """
+    Plot a 2D complex np.ndarray, hue for phase, brightness for amplitude
+    :param u: A 2D complex np.ndarray
+    :param pixelSize: pixelSize in x and y, to display the physical dimension of the plot
+    :return: An hsv plot
+    """
+
+    # hue (normalize angle)
+    h = np.angle(u)
+    h = (h + np.pi) / (2 * np.pi)
+    # saturation  (ones)
+    s = np.ones_like(h)
+    # value (normalize brightness to 8-bit)
+    v = abs(u)
+    v = v / (np.max(v) + np.finfo(float).eps) * 2 ** 8
+
+    hsv = np.dstack([h, s, v])
+    w = hsv_to_rgb(hsv)
+
+
+    if not ax:
+        fig, ax = plt.subplots()
+
+    extent = [0, pixelSize * w.shape[0], 0, pixelSize * w.shape[1]]
+    im = ax.imshow(w, extent=extent)
+
+    cmap = mpl.cm.hsv
+    norm = mpl.colors.Normalize(vmin=-np.pi, vmax=np.pi)
+    cbar = plt.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap), ax=ax, ticks=[-np.pi, 0, np.pi])
+    cbar.ax.set_yticklabels(['$-\pi$', '0', '$\pi$'])
+
+    return im
+
+
+
+def hsvmodeplot(P,normalize = True, pixelSize =1):
+    """
+    Place multi complex images in a squre grid and use hsvplot to display
+    :param P: A complex np.ndarray
+    :param normalize: normalize each mode individually
+    :param pixelSize: pixelSize in x and y, to display the physical dimension of the plot
+    :return: A big array with flattened modes
+    """
+    if P.ndim>2:
+        S = P.shape[0]
+        s = math.floor(np.sqrt(S))
+        if normalize:
+            maxs = np.max(P, axis=(1, 2))
+            P = (P.T/maxs).T
+
+        P = P.reshape((s, s) + P.shape[1:]).transpose(
+            (1, 2, 0, 3) + tuple(range(4, P.ndim + 1)))
+        P = P.reshape(
+            (s * P.shape[1], s * P.shape[3]) + P.shape[4:])
+
+    hsvplot(P,pixelSize)
+
+    return P
+
+
 
