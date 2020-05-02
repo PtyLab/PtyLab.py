@@ -25,13 +25,13 @@ def listExamples():
 
 def examplePath(key:str):
     """
-    Return the full path to a particular example file.
+    Return the full path to a particular example file. If the key is not found, the key is returned as path.
     :param key: which dataset to look for.
     :return:
     """
     try:
         filename = exampleFiles[key]
-    except 'KeyErr':
+    except KeyError:
         filename = key
     full_filename = getExampleDataFolder() / filename
     if not full_filename.exists():

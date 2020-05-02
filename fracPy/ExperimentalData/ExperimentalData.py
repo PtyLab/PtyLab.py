@@ -63,6 +63,8 @@ class ExperimentalData:
         # in the spectrogram is updates a patch which has pixel coordinates
         # [3,4] in the high-resolution Fourier transform
 
+        self.probe = None
+
         self.ptychogram = None
 
         # Python-only
@@ -92,6 +94,14 @@ class ExperimentalData:
         """
         self.wavelength = 1234
         self.positions = np.random.rand(100,2)
+        self.probe = np.zeros((1, 32,32), np.complex64)
+        self.object = np.zeros((1,33,33), np.complex64)
+        self.No = 32
+        self.Nd = 55
+        self.dxd = 1
+        self.entrancePupilDiameter = 10
+
+        #self.Np = 33
 
 
     def initialParams(self):
