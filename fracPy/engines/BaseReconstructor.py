@@ -33,7 +33,7 @@ class BaseReconstructor(object):
         self.fontSize = 17
         self.intensityConstraint = 'standard'  # standard or sigmoid
         self.propagator = 'fraunhofer'
-        
+
         # Settings involving the intitial estimates
         # self.initialObject = 'ones'
         # self.initialProbe = 'circ'
@@ -42,6 +42,9 @@ class BaseReconstructor(object):
         self.absorbingProbeBoundary = False
         self.npsm = 1  # number of probe state mixtures
         self.nosm = 1  # number of object state mixtures
+
+        # This only makes sense on a GPU, not there yet
+        self.saveMemory = False
 
         # Things that should be overridden in every reconstructor
         self.numIterations = 1  # number of iterations
@@ -54,15 +57,24 @@ class BaseReconstructor(object):
         self.comStabilizationSwitch = False
         self.objectContrastSwitch = False
 
+        self.error = np.zeros(0, dtype=np.float32)
+
     def setPositionOrder(self):
-        # Tomas: simple implemenattion to get the basic reconstruction going
-        positionNumber = self.experimentalData.positions.shape[0]
-        if self.positionOrder == 'random':
-            indices = np.arange(positionNumber)
-            np.random.shuffle(indices)
         if self.positionOrder == 'sequential':
-            indices = np.arange(positionNumber)
-        return indices
+            self.positionIndices = np.arange(self.experimentalData.numFrames)
+
+        elif self.positionOrder == 'random':
+            if self.error.size == 0:
+                self.positionIndices = np.arange(self.experimentalData.numFrames)
+            else:
+                if len(self.error) < 2:
+                    self.positionIndices = np.arange(self.experimentalData.numFrames)
+                else:
+                    self.positionIndices = np.arange(self.experimentalData.numFrames)
+                    np.random.shuffle(self.positionIndices)
+        else:
+            raise ValueError('position order not properly set')
+
 
 
     def changeExperimentalData(self, experimentalData:ExperimentalData):
@@ -141,10 +153,23 @@ class BaseReconstructor(object):
         matches getErrorMetrics.m
         :return:
         """
-        if not testing_mode:
-            raise NotImplementedError()
-        else:
+        if testing_mode: # just for testing visualisation, otherwise not useful.
             return np.random.rand(100)
+
+        if not self.saveMemory:
+            # Calculate mean error for all positions (make separate function for all of that)
+            if self.FourierMaskSwitch:
+                self.errorAtPos = np.sum(np.abs(self.detectorError) * self.W)
+            else:
+                self.errorAtPos = np.sum(np.abs(self.detectorError))
+
+        self.errorAtPos /= (self.energyAtPos + 1)
+        eAverage = np.sum(self.errorAtPos)
+
+        # append to error vector (for plotting error as function of iteration)
+        self.error = np.append(self.error, eAverage)
+
+
 
     def getRMSD(self, positionIndex):
         """
@@ -165,17 +190,17 @@ class BaseReconstructor(object):
     def intensityProjection(self, positionIndex):
         """ Compute the projected intensity.
             Barebones, need to implement other methods
-        """        
+        """
         self.object2detector()
 
         gimmel = 1e-10
         # these are amplitudes rather than intensities
         Iestimated = np.abs(self.optimizable.ESW)**2
         Imeasured = self.experimentalData.ptychogram[positionIndex,:,:]
-        
+
         # TOOD: implement other update methods
         frac = np.sqrt(Imeasured / (Iestimated + gimmel))
-        
+
         self.optimizable.ESW = self.optimizable.ESW * frac
         self.detector2object()
         # raise NotImplementedError()

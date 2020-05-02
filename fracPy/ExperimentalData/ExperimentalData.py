@@ -45,7 +45,8 @@ class ExperimentalData:
         
         # measured intensities
         self.ptychogram = None  # intensities [Nd, Nd, numPos]
-        self.numFrames = None  # number of measurements (positions (CPM) / LED tilts (FPM))
+
+
         self.background = None  # background
         self.binningFactor = None  # binning factor that was applied to raw data
 
@@ -66,6 +67,9 @@ class ExperimentalData:
         self.probe = None
 
         self.ptychogram = None
+
+        # Things implemented as property :
+        # self.numFrames = None  # number of measurements (positions (CPM) / LED tilts (FPM))
 
         # Python-only
         # checkGPU
@@ -170,6 +174,7 @@ class ExperimentalData:
             attributes_to_set = measurement_dict.keys()
             # print('Attributes_to_set:', list(attributes_to_set))
             # 4. set object attributes as the essential data fields
+            # self.logger.setLevel(logging.DEBUG)
             for a in attributes_to_set:
                 setattr(self, str(a), measurement_dict[a])
                 self.logger.debug('Setting %s', a)
@@ -254,7 +259,10 @@ class ExperimentalData:
         """ Detector coordinates 2D """
         Xp, Yp = np.meshgrid(self.xp, self.xp)
         return Yp
-            
+
+    @property
+    def numFrames(self):
+        return self.ptychogram.shape[0]
     # @property
     # def entrancePupilDiameter(self):
     #     """ pupil diameter in pixels (FPM property, not CPM) """    
