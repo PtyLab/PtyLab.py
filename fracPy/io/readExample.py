@@ -8,7 +8,8 @@ logger.setLevel(logging.INFO)
 #logger.addHandler(logging.StreamHandler(sys.stderr))
 
 exampleFiles = {
-    'fpm_dataset': 'fourier.hdf5',
+    'simulation_ptycho': 'ptycho_simulation.hdf5',
+    'simulation_fpm': 'fourier_simulation.hdf5',
     'simulationTiny': 'simulationTiny.hdf5'
 }
 
@@ -24,7 +25,7 @@ def listExamples():
 
 def examplePath(key:str):
     """
-    Return the full path to a particular example file.
+    Return the full path to a particular example file. If the key is not found, the key is returned as path.
     :param key: which dataset to look for.
     :return:
     """
@@ -54,4 +55,6 @@ def loadExample(key:str, *args, **kwargs):
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     listExamples()
-    loadExample('simulationTiny')
+    # loadExample('simulationTiny')
+    data = loadExample('fpm_dataset')
+    a = examplePath('fpm_dataset')

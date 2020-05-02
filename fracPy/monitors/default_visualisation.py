@@ -34,6 +34,10 @@ class DefaultMonitor(object):
         self.firstrun = True
 
     def updateObject(self, object_estimate):
+        from fracPy.utils.utils import ifft2c
+
+
+        #OE = abs(ifft2c(object_estimate))
         OE = abs(object_estimate)
         if OE.ndim == 3:
             # Put the object estimate components next to each other.

@@ -37,41 +37,12 @@ class ExperimentalData:
         # physical properties
         self.wavelength = None  # (operational) wavelength, scalar quantity
         self.spectralDensity = None  # spectral density S = S(wavelength), vectorial quantity
+        self.M = 1 # magnification, will change if a lens is used (for FPM)               
         #  note: spectral density is required for polychromatic operation.
         # In this case, wavelength is still scalar and determines the lateral
         # pixel size of the meshgridgrid that all other wavelengths are
         # interpolated onto.
-
-        # (entrance) pupil / probe sampling
-        self.dxp = None  # pixel size (entrance pupil plane)
-        # automatically determined
-        #self.Np = None  # number of pixel (entrance pupil plane)
-
-        self.xp = None  # 1D coordinates (entrance pupil plane)
-        self.Xp = None  # 2D meshgrid in x-direction (entrance pupil plane)
-        self.Yp = None  # 2D meshgrid in y-direction (entrance pupil plane)
-        self.Lp = None  # field of view (entrance pupil plane)
-        self.zp = None  # distance to next plane of interest
-
-        # object sampling
-
-        # object sampling
-        self.dxo = None  # pixel size (object plane)
-        self.No = None  # number of pixel (object plane)
-        self.xo = None  # 1D coordinates (object plane)
-        self.Xo = None  # 2D meshgrid in x-direction (object plane)
-        self.Yo = None  # 2D meshgrid in y-direction (object plane)
-        self.Lo = None  # field of view (object plane)
-        self.zo = None  # distance to next plane of interest
-
-        # detector sampling
-        self.dxd = None  # pixel size (detector plane)
-        self.Nd = None  # number of pixel (detector plane)
-        self.xd = None  # 1D coordinates (detector plane)
-        self.Xd = None  # 2D meshgrid in x-direction (detector plane)
-        self.Yd = None  # 2D meshgrid in y-direction (detector plane)
-        self.Ld = None  # field of view (detector plane)
-
+        
         # measured intensities
         self.ptychogram = None  # intensities [Nd, Nd, numPos]
         self.numFrames = None  # number of measurements (positions (CPM) / LED tilts (FPM))
@@ -91,6 +62,8 @@ class ExperimentalData:
         # operation mode is 'FPM'. That implies that the second intensity
         # in the spectrogram is updates a patch which has pixel coordinates
         # [3,4] in the high-resolution Fourier transform
+
+        self.probe = None
 
         self.ptychogram = None
 
@@ -121,6 +94,14 @@ class ExperimentalData:
         """
         self.wavelength = 1234
         self.positions = np.random.rand(100,2)
+        self.probe = np.zeros((1, 32,32), np.complex64)
+        self.object = np.zeros((1,33,33), np.complex64)
+        self.No = 32
+        self.Nd = 55
+        self.dxd = 1
+        self.entrancePupilDiameter = 10
+
+        #self.Np = 33
 
 
     def initialParams(self):
@@ -193,24 +174,137 @@ class ExperimentalData:
                 setattr(self, str(a), measurement_dict[a])
                 self.logger.debug('Setting %s', a)
 
-            # # 5. Set other attributes based on this
-            #self.Np = self.probe.shape[-1]
-            self.No = 64
-            # self.No = 64 # TODO (@MaisieD)
-            # self.Np = 64 # TODO(@MaisieD)
-            #
+            # 5. Set other attributes based on this
+            # they are set automatically with the functions defined by the
+            # @property operators
+            
         self._checkData()
 
+
+    
+    # Detector property list
+    @property
+    def xd(self):
+        """ Detector coordinates 1D """
+        try:
+            return np.linspace(-self.Nd/2,self.Nd/2-1, np.int(self.Nd))*self.dxd
+        except AttributeError as e:
+            raise AttributeError(e, 'pixel number "Nd" and/or pixel size "dxd" not defined yet')
+
+    @property
+    def Xd(self):
+        """ Detector coordinates 2D """
+        Xd, Yd = np.meshgrid(self.xd, self.xd)
+        return Xd
+            
+    @property
+    def Yd(self):
+        """ Detector coordinates 2D """
+        Xd, Yd = np.meshgrid(self.xd, self.xd)
+        return Yd
+            
+    @property       
+    def Ld(self):
+        """ Detector size in SI units. """
+        try:
+            return self.Nd * self.dxd
+        except AttributeError as e:
+            raise AttributeError(e, 'pixel number "Nd" and/or pixel size "dxd" not defined yet')
+    
+    
+    
+    # Probe property list
+    @property
+    def dxp(self):
+        """ Probe sampling. Requires the probe to be set."""
+        try:
+            return 1./(self.Ld/self.M)
+        except AttributeError as e:
+            raise AttributeError(e, 'Detector size "Ld" and/or magnification "M" not defined yet')
+            
     @property
     def Np(self):
         """ Number of pixels of the probe. Requires the probe to be set."""
         try:
             return self.probe.shape[-1]
         except AttributeError as e:
-
             raise AttributeError(e, 'probe is not defined yet')
 
+    @property
+    def Lp(self):
+        """ Field of view (entrance pupil plane) """
+        return self.Np * self.dxp
+   
+    @property
+    def xp(self):
+        """ Detector coordinates 1D """
+        try:
+            return np.linspace(-self.Np/2,self.Np/2-1, np.int(self.Np))*self.dxp
+        except AttributeError as e:
+            raise AttributeError(e, 'probe pixel number "Np" and/or probe sampling "dxp" not defined yet')
+            
+    @property
+    def Xp(self):
+        """ Detector coordinates 2D """
+        Xp, Yp = np.meshgrid(self.xp, self.xp)
+        return Xp
+            
+    @property
+    def Yp(self):
+        """ Detector coordinates 2D """
+        Xp, Yp = np.meshgrid(self.xp, self.xp)
+        return Yp
+            
+    # @property
+    # def entrancePupilDiameter(self):
+    #     """ pupil diameter in pixels (FPM property, not CPM) """    
+    
+    
+    # Object property list
+    @property
+    def dxo(self):
+        """ Probe sampling. Requires the probe to be set."""
+        try:
+            # also obj.lambda * obj.zo / obj.Ld ?
+            return 1./(self.Ld/self.M)
+        except AttributeError as e:
+            raise AttributeError(e, 'Detector size "Ld" and/or magnification "M" not defined yet')
+        
+    # TODO: how o set this parameter properly? Now I just added it
+    # together with the data
+    # @property
+    # def No(self):
+    #     """ Number of pixels of the object. Requires the probe to be set."""
+        # return self.Np*4 # < - ptychography simulated data 
+        # return self.Np*2 # < - FPM simulated data
 
+    @property
+    def Lo(self):
+        """ Field of view (entrance pupil plane) """
+        return self.No * self.dxo
+   
+    @property
+    def xo(self):
+        """ Detector coordinates 1D """
+        try:
+            return np.linspace(-self.No/2,self.No/2-1, np.int(self.No))*self.dxo
+        except AttributeError as e:
+            raise AttributeError(e, 'object pixel number "No" and/or pixel size "dxo" not defined yet')
+            
+    @property
+    def Xo(self):
+        """ Detector coordinates 2D """
+        Xo, Yo = np.meshgrid(self.xo, self.xo)
+        return Xo
+            
+    @property
+    def Yo(self):
+        """ Detector coordinates 2D """
+        Xo, Yo = np.meshgrid(self.xo, self.xo)
+        return Yo
+
+
+                        
     def _checkData(self):
         """
         Check that at least all the data we need has been initialized.
@@ -222,4 +316,4 @@ class ExperimentalData:
         # TODO: Check all the necessary requirements
 
 if __name__ == '__main__':
-    e = ExperimentalData('hoi')
+    e = ExperimentalData('example:simulation_fpm')

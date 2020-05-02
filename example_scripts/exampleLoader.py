@@ -26,4 +26,4 @@ plt.imshow(np.angle(loaderObject.probe))
 plt.show()
 
 plt.figure(2)
-plt.plot(loaderObject.positions[0], loaderObject.positions[1], '-o')
+plt.plot(loaderObject.positions[:,0], loaderObject.positions[:,1], '-o')
