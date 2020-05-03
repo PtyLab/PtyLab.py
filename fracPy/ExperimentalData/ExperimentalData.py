@@ -102,6 +102,7 @@ class ExperimentalData:
         self.object = np.zeros((1,33,33), np.complex64)
         self.No = 32
         self.Nd = 55
+        self.Np = 32
         self.dxd = 1
         self.entrancePupilDiameter = 10
 
@@ -183,9 +184,9 @@ class ExperimentalData:
             # they are set automatically with the functions defined by the
             # @property operators
                     
-            # Positions should be integers otherwise we won't be able to slice. Define here?
+            # Positions and Np should be integers otherwise we won't be able to slice. Define here?
             self.positions = self.positions.astype(int) 
-            
+            self.Np = self.Np.astype(int)
         self._checkData()
 
 
@@ -229,14 +230,15 @@ class ExperimentalData:
             return 1./(self.Ld/self.M)
         except AttributeError as e:
             raise AttributeError(e, 'Detector size "Ld" and/or magnification "M" not defined yet')
-            
-    @property
-    def Np(self):
-        """ Number of pixels of the probe. Requires the probe to be set."""
-        try:
-            return self.probe.shape[-1]
-        except AttributeError as e:
-            raise AttributeError(e, 'probe is not defined yet')
+         
+    # if thre is no probe known let the user just provide Np
+    # @property
+    # def Np(self):
+    #     """ Number of pixels of the probe. Requires the probe to be set."""
+    #     try:
+    #         return self.probe.shape[-1]
+    #     except AttributeError as e:
+    #         raise AttributeError(e, 'probe is not defined yet')
 
     @property
     def Lp(self):

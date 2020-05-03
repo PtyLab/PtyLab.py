@@ -17,6 +17,8 @@ required_fields = [
     'Nd',               # detector pixel number
     'dxd',              # pixel size
     'zo',               # sample to detector distance
+    'Np',
+    'No'
 ]
 
 # These extensions can be loaded

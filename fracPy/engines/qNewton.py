@@ -47,7 +47,7 @@ class qNewton(BaseReconstructor):
                 objectPatch = self.optimizable.object[:, sy, sx].copy()
                 
                 # make exit surface wave
-                self.optimizable.esw = objectPatch * self.optimizable.probe * self.apertureConstraint
+                self.optimizable.esw = objectPatch * self.optimizable.probe 
                 # TODO implementing esw for mix state, where the probe has one more dimension than the object patch
                 
                 # propagate to camera, intensityProjection, propagate back to object
@@ -91,7 +91,7 @@ class qNewton(BaseReconstructor):
         Omax = np.max(np.abs(self.optimizable.object[:]))
 
         r = self.optimizable.probe +  self.betaProbe * np.abs(objectPatch) * np.conj(objectPatch) * DELTA \
-            / (Omax * (np.abs(objectPatch)**2 + 1 )) * self.apertureConstraint
+            / (Omax * (np.abs(objectPatch)**2 + 1 )) 
        
         return r
 
