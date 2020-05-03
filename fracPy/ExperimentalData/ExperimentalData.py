@@ -281,14 +281,6 @@ class ExperimentalData:
         except AttributeError as e:
             raise AttributeError(e, 'Detector size "Ld" and/or magnification "M" not defined yet')
         
-    # TODO: how o set this parameter properly? Now I just added it
-    # together with the data
-    # @property
-    # def No(self):
-    #     """ Number of pixels of the object. Requires the probe to be set."""
-        # return self.Np*4 # < - ptychography simulated data 
-        # return self.Np*2 # < - FPM simulated data
-
     @property
     def Lo(self):
         """ Field of view (entrance pupil plane) """

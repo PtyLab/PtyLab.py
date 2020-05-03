@@ -27,13 +27,13 @@ optimizable = Optimizable(exampleData)
 # now we want to run an optimizer. First create it.
 qNewton_engine = qNewton.qNewton(optimizable, exampleData)
 # set any settings involving ePIE in this object.
-qNewton_engine.numIterations = 20
+qNewton_engine.numIterations = 100
+qNewton_engine.figureUpdateFrequency = 10
+
 # now, run the reconstruction
 qNewton_engine.doReconstruction()
 qNewton_engine.showEndResult()
-print(optimizable.positions[0,0], exampleData.positions[0,0])
-optimizable.positions[:,:] += 1
-print(optimizable.positions[0,0], exampleData.positions[0,0])
+
 
 """ 
 ptycho data reconstructor 
