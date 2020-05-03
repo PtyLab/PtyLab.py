@@ -182,6 +182,9 @@ class ExperimentalData:
             # 5. Set other attributes based on this
             # they are set automatically with the functions defined by the
             # @property operators
+                    
+            # Positions should be integers otherwise we won't be able to slice. Define here?
+            self.positions = self.positions.astype(int) 
             
         self._checkData()
 

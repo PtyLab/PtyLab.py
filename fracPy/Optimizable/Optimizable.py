@@ -77,15 +77,6 @@ class Optimizable(object):
         # set object and probe objects
         self.object = self.initialObject.copy()
         self.probe = self.initialProbe.copy()
-        
-        # TODO: do you need both positions and positions0 to be re-centered here?
-        # Dirk says: This is really confusing, we should definitely avoid this.
-        # center positions within the object grid
-
-        self.positions = self.positions + self.data.No/2 - self.data.Np/2
-        
-        # Positions should be integers otherwise we won't be able to slice. Define here?
-        self.positions = self.positions.astype(int) 
 
     def saveResults(self):
         raise NotImplementedError

@@ -23,6 +23,13 @@ required_fields = [
 allowed_extensions = ['.h5', '.hdf5', '.mat']
 
 
+def scalify(l):
+    """
+    hdf5 file storing (especially when using matlab) can store integers as
+    Numpy arrays of size [1,1]. Convert to scalar if that's the case
+    """
+    return l if len(l) > 1 else l[0]
+
 def loadInputData(filename:Path):
     """
     Load all values from an hdf5 file into a dictionary, but only with the required fields
@@ -55,11 +62,7 @@ def loadInputData(filename:Path):
                     
                 # load all fields
                 # if key in required_fields:  
-                # sometimes matlab hdf5 files store integers as 1x1 arrays                      
-                try:
-                    dataset[key] = value.item()
-                except:
-                    dataset[key] = value
+                dataset[key] = scalify(value)
 
     except Exception as e:
         logger.error('Error reading hdf5 file!')
