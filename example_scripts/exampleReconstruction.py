@@ -27,8 +27,8 @@ optimizable = Optimizable(exampleData)
 # now we want to run an optimizer. First create it.
 qNewton_engine = qNewton.qNewton(optimizable, exampleData)
 # set any settings involving ePIE in this object.
-qNewton_engine.numIterations = 100
-qNewton_engine.figureUpdateFrequency = 10
+qNewton_engine.numIterations = 20
+qNewton_engine.figureUpdateFrequency = 1
 
 # now, run the reconstruction
 qNewton_engine.doReconstruction()
@@ -50,7 +50,7 @@ optimizable = Optimizable(exampleData)
 # now we want to run an optimizer. First create it.
 ePIE_engine = ePIE.ePIE(optimizable, exampleData)
 # set any settings involving ePIE in this object.
-ePIE_engine.numIterations = 50
+ePIE_engine.numIterations = 100
 # now, run the reconstruction
 ePIE_engine.doReconstruction()
 
