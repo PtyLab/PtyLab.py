@@ -227,7 +227,7 @@ class ExperimentalData:
     def dxp(self):
         """ Probe sampling. Requires the probe to be set."""
         try:
-            return 1./(self.Ld/self.M)
+            return self.wavelength * self.zo / self.Ld # 1./(self.Ld/self.M)
         except AttributeError as e:
             raise AttributeError(e, 'Detector size "Ld" and/or magnification "M" not defined yet')
          

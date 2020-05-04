@@ -83,7 +83,7 @@ class ePIE(BaseReconstructor):
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
         
-        frac = objectPatch.conj() / xp.max(xp.sum(abs(objectPatch) ** 2, 0))
+        frac = self.optimizable.probe.conj() / xp.max(xp.sum(xp.abs(self.optimizable.probe) ** 2, 0))
         # this is two statements in matlab but it should only be one in python
         return objectPatch + self.betaObject * frac * DELTA
        
@@ -96,7 +96,7 @@ class ePIE(BaseReconstructor):
         """
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
-        frac = objectPatch.conj() / xp.max(xp.sum(abs(objectPatch) ** 2, 0))
+        frac = objectPatch.conj() / xp.max(xp.sum(xp.abs(objectPatch) ** 2, 0))
         # this is two statements in matlab but it should only be one in python
         # TODO figure out unit tests and padding dimensions
         r = self.optimizable.probe + self.betaProbe * frac * DELTA

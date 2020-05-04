@@ -33,10 +33,10 @@ def initialProbeOrObject(shape, type_of_init, data):
         # get the circular boundary constraints
         try:
             shape = np.asarray(shape)
-            if 'aperture' in dir(data):
-                pupil = data.aperture.copy()
-            else:
-                pupil = circ(data.Xp, data.Yp, data.entrancePupilDiameter)
+            # if 'aperture' in dir(data):
+            #     pupil = data.aperture.copy()
+            # else:
+            pupil = circ(data.Xp, data.Yp, data.entrancePupilDiameter)
             # return the initial low-pass filtered array
             return np.ones(shape) * pupil + 0.001 * np.random.rand(*shape)
         

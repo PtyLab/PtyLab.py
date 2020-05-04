@@ -39,6 +39,7 @@ qNewton_engine.showEndResult()
 ptycho data reconstructor 
 change data visualization and initialization options manually for now
 """
+
 exampleData = ExperimentalData()
 exampleData.loadData('example:simulation_ptycho')
 exampleData.operationMode = 'CPM'
@@ -53,6 +54,7 @@ ePIE_engine = ePIE.ePIE(optimizable, exampleData)
 ePIE_engine.numIterations = 100
 # now, run the reconstruction
 ePIE_engine.doReconstruction()
+ePIE_engine.showEndResult()
 
 # now save the data
 # optimizable.saveResults('reconstruction.hdf5')
