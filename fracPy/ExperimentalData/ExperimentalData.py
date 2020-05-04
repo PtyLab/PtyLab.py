@@ -99,13 +99,14 @@ class ExperimentalData:
         self.wavelength = 1234
         self.positions = np.random.rand(100,2)
         self.probe = np.zeros((1, 32,32), np.complex64)
+        self.aperture = np.zeros((1, 32,32), np.complex64)
         self.object = np.zeros((1,33,33), np.complex64)
         self.No = 32
         self.Nd = 55
         self.Np = 32
+        self.zo = 1
         self.dxd = 1
         self.entrancePupilDiameter = 10
-
         #self.Np = 33
 
 

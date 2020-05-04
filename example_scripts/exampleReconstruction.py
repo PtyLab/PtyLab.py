@@ -23,23 +23,14 @@ exampleData.operationMode = 'FPM'
 optimizable = Optimizable(exampleData)
 # # this will copy any attributes from experimental data that we might care to optimize
 
-# # now we want to run an optimizer. First create it.
-# qNewton_engine = qNewton.qNewton(optimizable, exampleData)
-# # set any settings involving ePIE in this object.
-# qNewton_engine.numIterations = 20
-# # now, run the reconstruction
-# qNewton_engine.doReconstruction()
-# qNewton_engine.showEndResult()
-
-# OK, now I want to run a different reconstruction algorithm, what now?
-# just create a new reconstruction ePIE_engine
-# we initialize it with our data and optimizable parameters so we can forget about them afterwards
-ePIE_engine = ePIE.ePIE(optimizable, exampleData)
+# now we want to run an optimizer. First create it.
+qNewton_engine = qNewton.qNewton(optimizable, exampleData)
 # set any settings involving ePIE in this object.
-ePIE_engine.numIterations = 20
+qNewton_engine.numIterations = 20
 # now, run the reconstruction
-ePIE_engine.doReconstruction()
-ePIE_engine.showEndResult()
+qNewton_engine.doReconstruction()
+qNewton_engine.showEndResult()
+
 
 """ 
 ptycho data reconstructor 
