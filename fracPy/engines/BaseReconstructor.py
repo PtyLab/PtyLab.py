@@ -253,7 +253,7 @@ class BaseReconstructor(object):
         if self.experimentalData.operationMode == 'FPM':
             object_estimate = abs(fft2c(self.optimizable.object))
         else:
-            object_estimate = abs(self.optimizable.object)
+            object_estimate = self.optimizable.object
 
         if loop == 0:
             self.initializeVisualisation()
@@ -261,7 +261,8 @@ class BaseReconstructor(object):
             # fpm mode visualization
             errorMetric = self.getErrorMetrics(testing_mode=True)
             self.monitor.updateError(errorMetric)
-            self.monitor.updateObject(object_estimate)
+            self.monitor.updateObject(object_estimate,objectPlot=self.objectPlot)
+            self.monitor.updateProbe(self.optimizable.probe)
             self.monitor.drawNow()
 
     def initializeVisualisation(self):

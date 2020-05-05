@@ -36,15 +36,12 @@ def hsv_to_rgb(hsv: np.ndarray) -> np.ndarray:
     rgb[..., 2] = np.select(conditions, [v, p, t, v, v, q], default=p)
     return rgb.astype('uint8')
 
-
-def hsvplot(u, ax=None, pixelSize=1):
+def complex_to_rgb(u):
     """
-    Plot a 2D complex np.ndarray, hue for phase, brightness for amplitude
-    :param u: A 2D complex np.ndarray
-    :param pixelSize: pixelSize in x and y, to display the physical dimension of the plot
-    :return: An hsv plot
+    Preparation function for a complex plot, converting a 2D complex array into an rgb array
+    :param u: a 2D complex array
+    :return: an rgb array for complex plot
     """
-
     # hue (normalize angle)
     h = np.angle(u)
     h = (h + np.pi) / (2 * np.pi)
@@ -55,14 +52,26 @@ def hsvplot(u, ax=None, pixelSize=1):
     v = v / (np.max(v) + np.finfo(float).eps) * 2 ** 8
 
     hsv = np.dstack([h, s, v])
-    w = hsv_to_rgb(hsv)
+    rgb = hsv_to_rgb(hsv)
+    return rgb
 
+
+
+def complex_plot(rgb, ax=None, pixelSize=1):
+    """
+    Plot a 2D complex np.ndarray, hue for phase, brightness for amplitude. Prepare a 2D complex array by using
+    complex_to_rgb function.
+    :param rgb: A 2D complex np.ndarray
+    :param ax: optional axis to plot in
+    :param pixelSize: pixelSize in x and y, to display the physical dimension of the plot
+    :return: An hsv plot
+    """
 
     if not ax:
         fig, ax = plt.subplots()
 
-    extent = [0, pixelSize * w.shape[0], 0, pixelSize * w.shape[1]]
-    im = ax.imshow(w, extent=extent)
+    extent = [0, pixelSize * rgb.shape[0], 0, pixelSize * rgb.shape[1]]
+    im = ax.imshow(rgb, extent=extent)
 
     cmap = mpl.cm.hsv
     norm = mpl.colors.Normalize(vmin=-np.pi, vmax=np.pi)
@@ -73,15 +82,40 @@ def hsvplot(u, ax=None, pixelSize=1):
 
 
 
-def hsvmodeplot(P,normalize = True, pixelSize =1):
+# def hsvmodeplot(P,ax=None ,normalize = True, pixelSize =1):
+#     """
+#     Place multi complex images in a squre grid and use hsvplot to display
+#     :param P: A complex np.ndarray
+#     :param normalize: normalize each mode individually
+#     :param pixelSize: pixelSize in x and y, to display the physical dimension of the plot
+#     :return: A big array with flattened modes
+#     """
+#     if P.ndim>2 and P.shape[0]>1:
+#         S = P.shape[0]
+#         s = math.floor(np.sqrt(S))
+#         if normalize:
+#             maxs = np.max(P, axis=(1, 2))
+#             P = (P.T/maxs).T
+#
+#         P = P.reshape((s, s) + P.shape[1:]).transpose(
+#             (1, 2, 0, 3) + tuple(range(4, P.ndim + 1)))
+#         P = P.reshape(
+#             (s * P.shape[1], s * P.shape[3]) + P.shape[4:])
+#     else:
+#         P = np.squeeze(P)
+#     im = hsvplot(P, ax = ax, pixelSize = pixelSize)
+#
+#     return im
+
+def modeTile(P,normalize = True):
     """
-    Place multi complex images in a squre grid and use hsvplot to display
+    Tile 3D data into a single 2D array
     :param P: A complex np.ndarray
     :param normalize: normalize each mode individually
     :param pixelSize: pixelSize in x and y, to display the physical dimension of the plot
     :return: A big array with flattened modes
     """
-    if P.ndim>2:
+    if P.ndim>2 and P.shape[0]>1:
         S = P.shape[0]
         s = math.floor(np.sqrt(S))
         if normalize:
@@ -92,10 +126,7 @@ def hsvmodeplot(P,normalize = True, pixelSize =1):
             (1, 2, 0, 3) + tuple(range(4, P.ndim + 1)))
         P = P.reshape(
             (s * P.shape[1], s * P.shape[3]) + P.shape[4:])
-
-    hsvplot(P,pixelSize)
-
+    else:
+        P = np.squeeze(P)
     return P
-
-
 

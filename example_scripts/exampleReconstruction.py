@@ -1,5 +1,5 @@
 import matplotlib
-matplotlib.use('tkagg')
+# matplotlib.use('tkagg')
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Optimizable.Optimizable import Optimizable
 from fracPy.engines import ePIE, mPIE, qNewton
@@ -26,7 +26,7 @@ optimizable = Optimizable(exampleData)
 # now we want to run an optimizer. First create it.
 qNewton_engine = qNewton.qNewton(optimizable, exampleData)
 # set any settings involving ePIE in this object.
-qNewton_engine.numIterations = 20
+qNewton_engine.numIterations = 10
 # now, run the reconstruction
 qNewton_engine.doReconstruction()
 qNewton_engine.showEndResult()

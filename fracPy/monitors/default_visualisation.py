@@ -1,7 +1,8 @@
 import matplotlib as mpl
-mpl.use('TkAgg')
+# mpl.use('TkAgg')
 from matplotlib import pyplot as plt
 import numpy as np
+from fracPy.utils.visualisation import modeTile, complex_plot, complex_to_rgb
 
 
 class DefaultMonitor(object):
@@ -36,38 +37,31 @@ class DefaultMonitor(object):
         self.firstrun = True
 
     def updateObject(self, object_estimate, objectPlot,**kwargs):
+        OE = modeTile(object_estimate, normalize=True)
         if objectPlot == 'complex':
-            OE = object_estimate
+            OE = complex_to_rgb(OE)
         elif objectPlot == 'abs':
-            OE = abs(object_estimate)
-            vmin = 0
-            vmax = 1
+            OE = abs(OE)
         elif objectPlot == 'angle':
-            OE = np.angle(object_estimate)
-            vmin = 0
-            vmax= 2
-        if OE.ndim == 3:
-            # Put the object estimate components next to each other.
-            OE = np.hstack(OE)
+            OE = np.angle(OE)
 
         if self.firstrun:
-            # self.im_object = self.ax_object.imshow(OE, cmap='gray',vmin=vmin,vmax=vmax)
-            self.im_object = hsvplot(OE, ax=self.ax_object)
+            if objectPlot == 'complex':
+                self.im_object = complex_plot(OE, ax=self.ax_object)
+            else:
+                self.im_object = self.ax_object.imshow(OE, cmap='gray')
 
         else:
             self.im_object.set_data(OE)
 
-    def updateProbe(self, probe_estimate,probeROI):
-        PE = abs(probe_estimate)
-        if PE.ndim == 3:
-            # Put the object estimate components next to each other.
-            PE = np.hstack(PE)
+    def updateProbe(self, probe_estimate,probeROI = None):
+
+        PE = complex_to_rgb(modeTile(probe_estimate,normalize=True))
 
         if self.firstrun:
-            self.im_probe = self.ax_object.imshow(PE, cmap='gray')
-
+            self.im_probe = complex_plot(PE, ax=self.ax_probe)
         else:
-            self.im_object.set_data(PE)
+            self.im_probe.set_data(PE)
 
     def updateError(self, error_estimate: np.ndarray) -> None:
         """
