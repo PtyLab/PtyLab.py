@@ -13,9 +13,9 @@ class TestRead_example(TestCase):
         """
 
         readExample.listExamples()
-        archive = readExample.loadExample('fpm_dataset')
+        archive = readExample.loadExample('simulation_fpm')
         # check that we can read something
-        self.assertEqual(128, np.array(archive['Nd'], int))
+        self.assertEqual(256, np.array(archive['Nd'], int))
 
         archive = readExample.loadExample('simulationTiny')
         self.assertEqual(64, np.array(archive['Nd'], int))

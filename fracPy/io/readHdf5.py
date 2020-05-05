@@ -7,21 +7,30 @@ import h5py
 
 logger = logging.getLogger('readHdf5')
 
-# TODO (@MaisieD): I used the fields which I found in your .mat file
-# this is the list of things that a dataset has to incorporate
+
+# these are the fields required for an FPM dataset (preliminary)
+# need a clause such that
 required_fields = [
     'ptychogram',       # 3D image stack 
-    'probe',            # 2D complex probe
     'wavelength',       # illumination lambda
     'positions',        # diffracted field positions
-    'Nd',               # image pixel number
-    'xd',               # pixel size
-    'zo'                # sample to detector distance
+    'Nd',               # detector pixel number
+    'dxd',              # pixel size
+    'zo',               # sample to detector distance
+    'Np',
+    'No'
 ]
 
 # These extensions can be loaded
 allowed_extensions = ['.h5', '.hdf5', '.mat']
 
+
+def scalify(l):
+    """
+    hdf5 file storing (especially when using matlab) can store integers as
+    Numpy arrays of size [1,1]. Convert to scalar if that's the case
+    """
+    return l if len(l) > 1 else l[0]
 
 def loadInputData(filename:Path):
     """
@@ -53,9 +62,10 @@ def loadInputData(filename:Path):
                 key = node.name
                 value = node.read()
                     
-                # load only the required fields
-                if key in required_fields:                        
-                    dataset[key] = value
+                # load all fields
+                # if key in required_fields:  
+                dataset[key] = scalify(value)
+
     except Exception as e:
         logger.error('Error reading hdf5 file!')
         raise e

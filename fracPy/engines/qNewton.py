@@ -9,7 +9,7 @@ from fracPy.utils.utils import fft2c, ifft2c
 import logging
 
 
-class ePIE(BaseReconstructor):
+class qNewton(BaseReconstructor):
 
     def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData):
         # This contains reconstruction parameters that are specific to the reconstruction
@@ -28,13 +28,15 @@ class ePIE(BaseReconstructor):
         :return:
         """
         # self.eswUpdate = self.optimizable.esw.copy()
-        self.betaProbe = 0.25
-        self.betaObject = 0.25
-
+        self.betaProbe = 1
+        self.betaObject = 1
+        self.apertureConstraint = (np.abs(self.optimizable.probe) == 1)
+        
     def doReconstruction(self):
         # actual reconstruction ePIE_engine
         for loop in range(self.numIterations):
             # set position order
+            #self.positionIndices = \
             self.setPositionOrder()
             for positionLoop, positionIndex in enumerate(self.positionIndices):
                 # get object patch
@@ -45,11 +47,8 @@ class ePIE(BaseReconstructor):
                 objectPatch = self.optimizable.object[:, sy, sx].copy()
                 
                 # make exit surface wave
-                self.optimizable.esw = objectPatch * self.optimizable.probe
+                self.optimizable.esw = objectPatch * self.optimizable.probe 
                 # TODO implementing esw for mix state, where the probe has one more dimension than the object patch
-                # plt.figure(1)
-                # plt.imshow(abs(self.optimizable.esw[0,:,:]))
-                # plt.pause(0.1)
                 
                 # propagate to camera, intensityProjection, propagate back to object
                 self.intensityProjection(positionIndex)
@@ -67,41 +66,32 @@ class ePIE(BaseReconstructor):
             # get error metric
             # self.getErrorMetrics()
 
+            # add the aperture constraint onto the probe
             # self.applyConstraints(loop)
 
             # show reconstruction
             self.showReconstruction(loop)
 
 
+        
     def objectPatchUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
         """
-        Todo add docstring
-        :param objectPatch:
-        :param DELTA:
-        :return:
+        Temporary barebones update
         """
-        # find out which array module to use, numpy or cupy (or other...)
-        xp = getArrayModule(objectPatch)
-        
-        frac = self.optimizable.probe.conj() / xp.max(xp.sum(xp.abs(self.optimizable.probe) ** 2, 0))
-        # this is two statements in matlab but it should only be one in python
-        return objectPatch + self.betaObject * frac * DELTA
+        objectPatch = objectPatch + self.betaObject * np.abs(self.optimizable.probe) * np.conj(self.optimizable.probe) * DELTA \
+            / (np.max(np.abs(self.optimizable.probe[:])) * (np.abs(self.optimizable.probe)**2 + 1))
+
+        return objectPatch
        
     def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
         """
-        Todo add docstring
-        :param objectPatch:
-        :param DELTA:
-        :return:
+        Temporary barebones update
+
         """
-        # find out which array module to use, numpy or cupy (or other...)
-        xp = getArrayModule(objectPatch)
-        frac = objectPatch.conj() / xp.max(xp.sum(xp.abs(objectPatch) ** 2, 0))
-        # this is two statements in matlab but it should only be one in python
-        # TODO figure out unit tests and padding dimensions
-        r = self.optimizable.probe + self.betaProbe * frac * DELTA
-        if self.absorbingProbeBoundary:
-            aleph = 1e-3
-            r = (1 - aleph) * r + aleph * r * self.probeWindow
+        Omax = np.max(np.abs(self.optimizable.object[:]))
+
+        r = self.optimizable.probe +  self.betaProbe * np.abs(objectPatch) * np.conj(objectPatch) * DELTA \
+            / (Omax * (np.abs(objectPatch)**2 + 1 )) 
+       
         return r
 

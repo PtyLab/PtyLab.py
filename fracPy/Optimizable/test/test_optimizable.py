@@ -1,7 +1,7 @@
 from unittest import TestCase
 import logging
 logging.basicConfig(level=logging.DEBUG)
-from numpy.testing import assert_almost_equal
+from numpy.testing import assert_almost_equal, assert_array_almost_equal
 
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Optimizable.Optimizable import Optimizable
@@ -10,6 +10,8 @@ class TestOptimizable(TestCase):
     def setUp(self):
         # first, create a ExperimentalData dataset
         data = ExperimentalData('test:nodata')
+        #data = ExperimentalData('example:simulation_fpm')
+
         data.wavelength = 1234
         optimizable = Optimizable(data)
         self.data = data
@@ -32,7 +34,6 @@ class TestOptimizable(TestCase):
         Arrays are passed by reference by default. Check that they are properly copied as well
         :return:
         """
-        assert_almost_equal(self.optimizable.positions, self.data.positions)
         self.optimizable.positions += 1
-        assert_almost_equal(self.optimizable.positions - 1, self.data.positions)
+        assert_array_almost_equal(self.optimizable.positions - 1, self.data.positions)
 

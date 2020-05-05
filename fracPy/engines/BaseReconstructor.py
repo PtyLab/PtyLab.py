@@ -6,6 +6,7 @@ import logging
 from fracPy.utils.initializationFunctions import initialProbeOrObject
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Optimizable.Optimizable import Optimizable
+from fracPy.utils.utils import ifft2c, fft2c
 
 class BaseReconstructor(object):
     """
@@ -26,20 +27,24 @@ class BaseReconstructor(object):
         # Default settings
         # settings that involve how things are computed
         self.objectPlot = 'complex'
-        self.fftshiftSwitch = True
+        self.fftshiftSwitch = False
         self.figureUpdateFrequency = 1
         self.FourierMaskSwitch = False
         self.fontSize = 17
         self.intensityConstraint = 'standard'  # standard or sigmoid
+        self.propagator = 'fraunhofer'
 
         # Settings involving the intitial estimates
-        self.initialObject = 'ones'
-        self.initialProbe = 'circ'
+        # self.initialObject = 'ones'
+        # self.initialProbe = 'circ'
 
         # Specific reconstruction settings that are the same for all engines
         self.absorbingProbeBoundary = False
         self.npsm = 1  # number of probe state mixtures
         self.nosm = 1  # number of object state mixtures
+
+        # This only makes sense on a GPU, not there yet
+        self.saveMemory = False
 
         # Things that should be overridden in every reconstructor
         self.numIterations = 1  # number of iterations
@@ -52,8 +57,24 @@ class BaseReconstructor(object):
         self.comStabilizationSwitch = False
         self.objectContrastSwitch = False
 
+        self.error = np.zeros(0, dtype=np.float32)
+
     def setPositionOrder(self):
-        raise NotImplementedError()
+        if self.positionOrder == 'sequential':
+            self.positionIndices = np.arange(self.experimentalData.numFrames)
+
+        elif self.positionOrder == 'random':
+            if self.error.size == 0:
+                self.positionIndices = np.arange(self.experimentalData.numFrames)
+            else:
+                if len(self.error) < 2:
+                    self.positionIndices = np.arange(self.experimentalData.numFrames)
+                else:
+                    self.positionIndices = np.arange(self.experimentalData.numFrames)
+                    np.random.shuffle(self.positionIndices)
+        else:
+            raise ValueError('position order not properly set')
+
 
 
     def changeExperimentalData(self, experimentalData:ExperimentalData):
@@ -91,7 +112,10 @@ class BaseReconstructor(object):
         Matches: detector2object.m
         :return:
         """
-        raise NotImplementedError()
+        if self.propagator == 'fraunhofer':
+            self.ifft2s()
+        else:
+            raise NotImplementedError()
 
     def exportOjb(self, extension='.mat'):
         """
@@ -106,12 +130,15 @@ class BaseReconstructor(object):
         """
         raise NotImplementedError()
 
-    def ffts(self):
+    def fft2s(self):
         """
         fft2s.m
         :return:
         """
-        raise NotImplementedError()
+        if self.fftshiftSwitch:
+            self.optimizable.ESW = np.fft.fft2(self.optimizable.esw, norm='ortho') #/ self.experimentalData.Np
+        else:
+            self.optimizable.ESW = np.fft.fftshift(np.fft.fft2(np.fft.ifftshift(self.optimizable.esw),norm='ortho')) #/ self.experimentalData.Np
 
     def getBeamWidth(self):
         """
@@ -126,10 +153,23 @@ class BaseReconstructor(object):
         matches getErrorMetrics.m
         :return:
         """
-        if not testing_mode:
-            raise NotImplementedError()
-        else:
+        if testing_mode: # just for testing visualisation, otherwise not useful.
             return np.random.rand(100)
+
+        if not self.saveMemory:
+            # Calculate mean error for all positions (make separate function for all of that)
+            if self.FourierMaskSwitch:
+                self.errorAtPos = np.sum(np.abs(self.detectorError) * self.W)
+            else:
+                self.errorAtPos = np.sum(np.abs(self.detectorError))
+
+        self.errorAtPos /= (self.energyAtPos + 1)
+        eAverage = np.sum(self.errorAtPos)
+
+        # append to error vector (for plotting error as function of iteration)
+        self.error = np.append(self.error, eAverage)
+
+
 
     def getRMSD(self, positionIndex):
         """
@@ -141,21 +181,39 @@ class BaseReconstructor(object):
 
     def ifft2s(self):
         """ Inverse FFT"""
-        raise NotImplementedError()
+        if self.fftshiftSwitch:
+            self.optimizable.eswUpdate = np.fft.ifft2(self.optimizable.ESW, norm='ortho')# * self.experimentalData.Np
+        else:
+            self.optimizable.eswUpdate = np.fft.fftshift(np.fft.ifft2(np.fft.ifftshift(self.optimizable.ESW),norm='ortho')) #* self.experimentalData.Np
 
 
-    def intensityProjection(self):
+    def intensityProjection(self, positionIndex):
         """ Compute the projected intensity.
-
+            Barebones, need to implement other methods
         """
-        raise NotImplementedError()
+        self.object2detector()
+
+        gimmel = 1e-10
+        # these are amplitudes rather than intensities
+        Iestimated = np.abs(self.optimizable.ESW)**2
+        Imeasured = self.experimentalData.ptychogram[positionIndex,:,:]
+
+        # TOOD: implement other update methods
+        frac = np.sqrt(Imeasured / (Iestimated + gimmel))
+
+        self.optimizable.ESW = self.optimizable.ESW * frac
+        self.detector2object()
+        # raise NotImplementedError()
 
     def object2detector(self):
         """
         Implements object2detector.m
         :return:
         """
-        raise NotImplementedError()
+        if self.propagator == 'fraunhofer':
+            self.fft2s()
+        else:
+            raise NotImplementedError()
 
     def orthogonalize(self):
         """
@@ -192,15 +250,19 @@ class BaseReconstructor(object):
         :param loop: the iteration number
         :return:
         """
+        if self.experimentalData.operationMode == 'FPM':
+            object_estimate = abs(fft2c(self.optimizable.object))
+        else:
+            object_estimate = abs(self.optimizable.object)
+
         if loop == 0:
             self.initializeVisualisation()
         elif np.mod(loop, self.figureUpdateFrequency) == 0:
-            object_estimate = self.optimizable.object
+            # fpm mode visualization
             errorMetric = self.getErrorMetrics(testing_mode=True)
             self.monitor.updateError(errorMetric)
             self.monitor.updateObject(object_estimate)
             self.monitor.drawNow()
-
 
     def initializeVisualisation(self):
         """
@@ -247,5 +309,23 @@ class BaseReconstructor(object):
         if self.objectContrastSwitch():
             raise NotImplementedError()
 
-
-
+    ## Python-specific things
+    def showEndResult(self):
+        import matplotlib.pyplot as plt
+        initial_guess = ifft2c(self.optimizable.initialObject[0, :, :])
+        recon = ifft2c(self.optimizable.object[0, :, :])
+        plt.figure(10)
+        plt.ioff()
+        plt.subplot(221)
+        plt.title('initial guess')
+        plt.imshow(abs(initial_guess))
+        plt.subplot(222)
+        plt.title('amplitude')
+        plt.imshow(abs(recon))
+        plt.subplot(224)
+        plt.title('phase')
+        plt.imshow(np.angle(recon))
+        plt.subplot(223)
+        plt.title('probe phase')
+        plt.imshow(np.angle(self.optimizable.probe[0, :, :]))
+        plt.pause(10)

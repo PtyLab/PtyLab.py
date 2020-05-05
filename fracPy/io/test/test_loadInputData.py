@@ -15,9 +15,9 @@ class TestLoadInputData(TestCase):
         """
         # first, get the filename of the first .hdf5 dataset
         example_data_folder = getExampleDataFolder()
-        filename = example_data_folder / 'fourier.hdf5'
+        filename = example_data_folder / 'fourier_simulation.hdf5'
         result = loadInputData(filename)
-        self.assertEqual(result['ptychogram'].shape, (441,128,128))
+        self.assertEqual(result['ptychogram'].shape, (49,256,256))
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
