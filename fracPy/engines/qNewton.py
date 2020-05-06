@@ -4,6 +4,7 @@ from matplotlib import pyplot as plt
 from fracPy.Optimizable.Optimizable import Optimizable
 from fracPy.engines.BaseReconstructor import BaseReconstructor
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
+from fracPy.monitors.Monitor import Monitor
 from fracPy.utils.gpuUtils import getArrayModule
 from fracPy.utils.utils import fft2c, ifft2c
 import logging
@@ -11,10 +12,10 @@ import logging
 
 class qNewton(BaseReconstructor):
 
-    def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData):
+    def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData, monitor: Monitor):
         # This contains reconstruction parameters that are specific to the reconstruction
         # but not necessarily to ePIE reconstruction
-        super().__init__(optimizable, experimentalData)
+        super().__init__(optimizable, experimentalData, monitor)
         self.logger = logging.getLogger('ePIE')
         self.logger.info('Sucesfully created ePIE ePIE_engine')
 

@@ -7,6 +7,7 @@ from fracPy.utils.initializationFunctions import initialProbeOrObject
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Optimizable.Optimizable import Optimizable
 from fracPy.utils.utils import ifft2c, fft2c
+from fracPy.monitors.Monitor import Monitor
 
 class BaseReconstructor(object):
     """
@@ -16,10 +17,11 @@ class BaseReconstructor(object):
     inherit from this object
 
     """
-    def __init__(self, optimizable: Optimizable, experimentalData:ExperimentalData):
+    def __init__(self, optimizable: Optimizable, experimentalData:ExperimentalData, monitor:Monitor):
         # These statements don't copy any data, they just keep a reference to the object
         self.optimizable = optimizable
         self.experimentalData = experimentalData
+        self.monitor = monitor
 
         # datalogger
         self.logger = logging.getLogger('BaseReconstructor')
@@ -31,11 +33,6 @@ class BaseReconstructor(object):
         self.fontSize = 17
         self.intensityConstraint = 'standard'  # standard or sigmoid
         self.propagator = 'fraunhofer'
-
-        # settings for visualization
-        self.figureUpdateFrequency = 1
-        self.objectPlot = 'complex'
-        self.verboseLevel = 'high'
 
         # Settings involving the intitial estimates
         # self.initialObject = 'ones'
@@ -60,17 +57,16 @@ class BaseReconstructor(object):
         self.comStabilizationSwitch = False
         self.objectContrastSwitch = False
 
-        self.error = np.zeros(0, dtype=np.float32)
 
     def setPositionOrder(self):
         if self.positionOrder == 'sequential':
             self.positionIndices = np.arange(self.experimentalData.numFrames)
 
         elif self.positionOrder == 'random':
-            if self.error.size == 0:
+            if self.optimizable.error.size == 0:
                 self.positionIndices = np.arange(self.experimentalData.numFrames)
             else:
-                if len(self.error) < 2:
+                if len(self.optimizable.error) < 2:
                     self.positionIndices = np.arange(self.experimentalData.numFrames)
                 else:
                     self.positionIndices = np.arange(self.experimentalData.numFrames)
@@ -157,7 +153,7 @@ class BaseReconstructor(object):
         :return:
         """
         if testing_mode: # just for testing visualisation, otherwise not useful.
-            self.error = np.append(self.error, np.random.rand(1))
+            self.optimizable.error = np.append(self.optimizable.error, np.random.rand(1))
             return
 
         if not self.saveMemory:
@@ -171,7 +167,7 @@ class BaseReconstructor(object):
         eAverage = np.sum(self.errorAtPos)
 
         # append to error vector (for plotting error as function of iteration)
-        self.error = np.append(self.error, eAverage)
+        self.optimizable.error = np.append(self.optimizable.error, eAverage)
 
 
 
@@ -261,29 +257,13 @@ class BaseReconstructor(object):
             object_estimate = self.optimizable.object
 
         if loop == 0:
-            self.initializeVisualisation()
-        elif np.mod(loop, self.figureUpdateFrequency) == 0:
+            self.monitor.initializeVisualisation()
+        elif np.mod(loop, self.monitor.figureUpdateFrequency) == 0:
             # fpm mode visualization
             self.getErrorMetrics(testing_mode=True)
-            self.monitor.updateError(self.error)
-            self.monitor.updateObject(object_estimate,objectPlot=self.objectPlot, pixelSize=self.optimizable.data.dxo)
-            self.monitor.updateProbe(self.optimizable.probe, pixelSize=self.optimizable.data.dxp)
-            self.monitor.drawNow()
-            if self.verboseLevel == 'high':
-                self.DiffarctionDataMonitor.updateIestimated(self.optimizable.Iestimated)
-                self.DiffarctionDataMonitor.updateImeasured(self.optimizable.Imeasured)
-                self.DiffarctionDataMonitor.drawNow()
+            self.monitor.updatePlot(object_estimate)
 
-
-
-    def initializeVisualisation(self):
-        """
-        Create the figure and axes etc.
-        :return:
-        """
-        self.monitor = DefaultMonitor()
-        if self.verboseLevel == 'high':
-            self.DiffarctionDataMonitor = DiffractionDataMonitor()
+        print('iteration:%i' %len(self.optimizable.error))
 
 
     def applyConstraints(self, loop):

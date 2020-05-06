@@ -78,6 +78,9 @@ class Optimizable(object):
         self.object = self.initialObject.copy()
         self.probe = self.initialProbe.copy()
 
+        # initialize error
+        self.error = np.zeros(0, dtype=np.float32)
+
     def saveResults(self):
         raise NotImplementedError
 
