@@ -98,7 +98,7 @@ class DefaultMonitor(object):
 
 
 
-class DiffarctionDataMonitor(object):
+class DiffractionDataMonitor(object):
     def __init__(self, figNum=2):
         """ Create a monitor.
 

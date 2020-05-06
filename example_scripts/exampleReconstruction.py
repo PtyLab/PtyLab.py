@@ -51,6 +51,7 @@ ePIE_engine = ePIE.ePIE(optimizable, exampleData)
 ePIE_engine.numIterations = 10
 # set monitor scheme
 ePIE_engine.verboseLevel = 'high'
+ePIE_engine.objectPlot = 'abs'
 # now, run the reconstruction
 ePIE_engine.doReconstruction()
 # ePIE_engine.showEndResult()

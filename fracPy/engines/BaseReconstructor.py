@@ -1,4 +1,4 @@
-from fracPy.monitors.default_visualisation import DefaultMonitor,DiffarctionDataMonitor
+from fracPy.monitors.default_visualisation import DefaultMonitor,DiffractionDataMonitor
 import numpy as np
 import logging
 
@@ -33,9 +33,9 @@ class BaseReconstructor(object):
         self.propagator = 'fraunhofer'
 
         # settings for visualization
-        self.figureUpdateFrequency = 2
+        self.figureUpdateFrequency = 1
         self.objectPlot = 'complex'
-        self.verboseLevel  = 'high'
+        self.verboseLevel = 'high'
 
         # Settings involving the intitial estimates
         # self.initialObject = 'ones'
@@ -157,7 +157,8 @@ class BaseReconstructor(object):
         :return:
         """
         if testing_mode: # just for testing visualisation, otherwise not useful.
-            return np.random.rand(100)
+            self.error = np.append(self.error, np.random.rand(1))
+            return
 
         if not self.saveMemory:
             # Calculate mean error for all positions (make separate function for all of that)
@@ -200,6 +201,7 @@ class BaseReconstructor(object):
         # these are amplitudes rather than intensities
         self.optimizable.Iestimated = np.abs(self.optimizable.ESW)**2
         self.optimizable.Imeasured = self.experimentalData.ptychogram[positionIndex,:,:]
+
 
         # TOOD: implement other update methods
         frac = np.sqrt(self.optimizable.Imeasured / (self.optimizable.Iestimated + gimmel))
@@ -262,8 +264,8 @@ class BaseReconstructor(object):
             self.initializeVisualisation()
         elif np.mod(loop, self.figureUpdateFrequency) == 0:
             # fpm mode visualization
-            errorMetric = self.getErrorMetrics(testing_mode=True)
-            self.monitor.updateError(errorMetric)
+            self.getErrorMetrics(testing_mode=True)
+            self.monitor.updateError(self.error)
             self.monitor.updateObject(object_estimate,objectPlot=self.objectPlot, pixelSize=self.optimizable.data.dxo)
             self.monitor.updateProbe(self.optimizable.probe, pixelSize=self.optimizable.data.dxp)
             self.monitor.drawNow()
@@ -281,7 +283,7 @@ class BaseReconstructor(object):
         """
         self.monitor = DefaultMonitor()
         if self.verboseLevel == 'high':
-            self.DiffarctionDataMonitor = DiffarctionDataMonitor()
+            self.DiffarctionDataMonitor = DiffractionDataMonitor()
 
 
     def applyConstraints(self, loop):
