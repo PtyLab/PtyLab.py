@@ -1,4 +1,4 @@
-from fracPy.monitors.default_visualisation import DefaultMonitor
+from fracPy.monitors.default_visualisation import DefaultMonitor,DiffarctionDataMonitor
 import numpy as np
 import logging
 
@@ -26,13 +26,16 @@ class BaseReconstructor(object):
 
         # Default settings
         # settings that involve how things are computed
-        self.objectPlot = 'complex'
         self.fftshiftSwitch = False
-        self.figureUpdateFrequency = 1
         self.FourierMaskSwitch = False
         self.fontSize = 17
         self.intensityConstraint = 'standard'  # standard or sigmoid
         self.propagator = 'fraunhofer'
+
+        # settings for visualization
+        self.figureUpdateFrequency = 2
+        self.objectPlot = 'complex'
+        self.verboseLevel  = 'high'
 
         # Settings involving the intitial estimates
         # self.initialObject = 'ones'
@@ -195,11 +198,11 @@ class BaseReconstructor(object):
 
         gimmel = 1e-10
         # these are amplitudes rather than intensities
-        Iestimated = np.abs(self.optimizable.ESW)**2
-        Imeasured = self.experimentalData.ptychogram[positionIndex,:,:]
+        self.optimizable.Iestimated = np.abs(self.optimizable.ESW)**2
+        self.optimizable.Imeasured = self.experimentalData.ptychogram[positionIndex,:,:]
 
         # TOOD: implement other update methods
-        frac = np.sqrt(Imeasured / (Iestimated + gimmel))
+        frac = np.sqrt(self.optimizable.Imeasured / (self.optimizable.Iestimated + gimmel))
 
         self.optimizable.ESW = self.optimizable.ESW * frac
         self.detector2object()
@@ -261,17 +264,25 @@ class BaseReconstructor(object):
             # fpm mode visualization
             errorMetric = self.getErrorMetrics(testing_mode=True)
             self.monitor.updateError(errorMetric)
-            self.monitor.updateObject(object_estimate,objectPlot=self.objectPlot)
-            self.monitor.updateProbe(self.optimizable.probe)
+            self.monitor.updateObject(object_estimate,objectPlot=self.objectPlot, pixelSize=self.optimizable.data.dxo)
+            self.monitor.updateProbe(self.optimizable.probe, pixelSize=self.optimizable.data.dxp)
             self.monitor.drawNow()
+            if self.verboseLevel == 'high':
+                self.DiffarctionDataMonitor.updateIestimated(self.optimizable.Iestimated)
+                self.DiffarctionDataMonitor.updateImeasured(self.optimizable.Imeasured)
+                self.DiffarctionDataMonitor.drawNow()
+
+
 
     def initializeVisualisation(self):
         """
         Create the figure and axes etc.
         :return:
         """
-
         self.monitor = DefaultMonitor()
+        if self.verboseLevel == 'high':
+            self.DiffarctionDataMonitor = DiffarctionDataMonitor()
+
 
     def applyConstraints(self, loop):
         """

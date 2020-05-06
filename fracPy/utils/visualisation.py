@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import math
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 # TODO: copy-pase all relevant functions from Matlab implementation
 
@@ -57,25 +58,31 @@ def complex_to_rgb(u):
 
 
 
-def complex_plot(rgb, ax=None, pixelSize=1):
+def complex_plot(rgb, ax=None, pixelSize=1, axisUnit = 'mm'):
     """
     Plot a 2D complex np.ndarray, hue for phase, brightness for amplitude. Prepare a 2D complex array by using
     complex_to_rgb function.
     :param rgb: A 2D complex np.ndarray
-    :param ax: optional axis to plot in
+    :param ax: Optional axis to plot in
     :param pixelSize: pixelSize in x and y, to display the physical dimension of the plot
+    :param str axisUnit: Options: 'm', 'cm', 'mm', 'um'
     :return: An hsv plot
     """
 
     if not ax:
         fig, ax = plt.subplots()
-
+    unitRatio = {'m': 1, 'cm':1e2, 'mm': 1e3, 'um': 1e6}
+    pixelSize = pixelSize*unitRatio[axisUnit]
     extent = [0, pixelSize * rgb.shape[0], 0, pixelSize * rgb.shape[1]]
     im = ax.imshow(rgb, extent=extent)
+    ax.set_ylabel(axisUnit)
+    ax.set_xlabel(axisUnit)
 
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="5%", pad=0.1)
     cmap = mpl.cm.hsv
     norm = mpl.colors.Normalize(vmin=-np.pi, vmax=np.pi)
-    cbar = plt.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap), ax=ax, ticks=[-np.pi, 0, np.pi])
+    cbar = plt.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap), ax=ax, cax=cax, ticks=[-np.pi, 0, np.pi])
     cbar.ax.set_yticklabels(['$-\pi$', '0', '$\pi$'])
 
     return im

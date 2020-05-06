@@ -12,7 +12,7 @@ class DefaultMonitor(object):
 
         In principle, to use this method all you have to do is initialize the monitor and then call
 
-        updateObject, updateErrorMetric and drawnow to ensure that something is drawn immediately.
+        updateObject, updateProbe, updateErrorMetric and drawnow to ensure that something is drawn immediately.
 
         For example usage, see test_matplot_monitor.py.
 
@@ -34,9 +34,11 @@ class DefaultMonitor(object):
         self.ax_object.set_title('Object estimate')
         self.ax_probe.set_title('Probe estimate')
         self.ax_error_metric.set_title('Error metric')
+        plt.tight_layout()
         self.firstrun = True
 
-    def updateObject(self, object_estimate, objectPlot,**kwargs):
+
+    def updateObject(self, object_estimate, objectPlot, pixelSize= 1, **kwargs):
         OE = modeTile(object_estimate, normalize=True)
         if objectPlot == 'complex':
             OE = complex_to_rgb(OE)
@@ -47,19 +49,19 @@ class DefaultMonitor(object):
 
         if self.firstrun:
             if objectPlot == 'complex':
-                self.im_object = complex_plot(OE, ax=self.ax_object)
+                self.im_object = complex_plot(OE, ax=self.ax_object, pixelSize=pixelSize)
             else:
                 self.im_object = self.ax_object.imshow(OE, cmap='gray')
 
         else:
             self.im_object.set_data(OE)
 
-    def updateProbe(self, probe_estimate,probeROI = None):
+    def updateProbe(self, probe_estimate,pixelSize= 1,probeROI = None):
 
         PE = complex_to_rgb(modeTile(probe_estimate,normalize=True))
 
         if self.firstrun:
-            self.im_probe = complex_plot(PE, ax=self.ax_probe)
+            self.im_probe = complex_plot(PE, ax=self.ax_probe, pixelSize= pixelSize)
         else:
             self.im_probe.set_data(PE)
 
@@ -75,6 +77,7 @@ class DefaultMonitor(object):
             self.error_metric_plot.set_data(range(len(error_estimate)), error_estimate)
             self.ax_error_metric.set_ylim(0, np.max(error_estimate))
             self.ax_error_metric.set_xlim(0, len(error_estimate))
+        self.ax_error_metric.set_aspect(1/self.ax_error_metric.get_data_ratio())
 
 
     def drawNow(self):
@@ -85,5 +88,72 @@ class DefaultMonitor(object):
         if self.firstrun:
             self.figure.show()
             self.firstrun = False
+
+        # Reopen the figure if the window is closed
+        if not plt.fignum_exists(self.figNum):
+            self.figure.show()
+
+        self.figure.canvas.draw()
+        self.figure.canvas.flush_events()
+
+
+
+class DiffarctionDataMonitor(object):
+    def __init__(self, figNum=2):
+        """ Create a monitor.
+
+        In principle, to use this method all you have to do is initialize the monitor and then call
+
+        updateImeasured, updateIestimated and drawnow to ensure that something is drawn immediately.
+
+        For example usage, see test_matplot_monitor.py.
+
+        """
+        self.figNum = figNum
+        self._createFigure()
+
+    def _createFigure(self) -> None:
+        """
+        Create the figure.
+        :return:
+        """
+
+        # add an axis for the object
+        self.figure, axes= plt.subplots(1, 2, num=self.figNum, squeeze=False, clear=True)
+        self.ax_Iestimated = axes[0][0]
+        self.ax_Imeasured = axes[0][1]
+        self.ax_Iestimated.set_title('Estimated intensity')
+        self.ax_Imeasured.set_title('Measured intensity')
+        plt.tight_layout()
+        self.firstrun = True
+
+
+    def updateIestimated(self, Iestimate, cmap='gray',**kwargs):
+
+        if self.firstrun:
+            self.im_Iestimated = self.ax_Iestimated.imshow(np.log10(np.squeeze(Iestimate+1)), cmap=cmap)
+        else:
+            self.im_Iestimated.set_data(np.log10(np.squeeze(Iestimate+1)))
+
+    def updateImeasured(self, Imeausred, cmap='gray', **kwargs):
+
+        if self.firstrun:
+            self.im_Imeasured = self.ax_Imeasured.imshow(np.log10(np.squeeze(Imeausred+1)), cmap=cmap)
+        else:
+            self.im_Imeasured.set_data(np.log10(np.squeeze(Imeausred+1)))
+
+    def drawNow(self):
+        """
+        Forces the image to be drawn
+        :return:
+        """
+        if self.firstrun:
+            self.figure.show()
+            self.firstrun = False
+
+        # Reopen the figure if the window is closed
+        if not plt.fignum_exists(self.figNum):
+            self.figure.show()
+
         self.figure.canvas.draw()
         self.figure.canvas.flush_events()

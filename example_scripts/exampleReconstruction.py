@@ -48,10 +48,12 @@ optimizable = Optimizable(exampleData)
 # now we want to run an optimizer. First create it.
 ePIE_engine = ePIE.ePIE(optimizable, exampleData)
 # set any settings involving ePIE in this object.
-ePIE_engine.numIterations = 100
+ePIE_engine.numIterations = 10
+# set monitor scheme
+ePIE_engine.verboseLevel = 'high'
 # now, run the reconstruction
 ePIE_engine.doReconstruction()
-ePIE_engine.showEndResult()
+# ePIE_engine.showEndResult()
 
 
 # now save the data
