@@ -66,7 +66,7 @@ class ePIE(BaseReconstructor):
                 self.optimizable.probe = self.probeUpdate( objectPatch, DELTA)
 
             # get error metric
-            # self.getErrorMetrics()
+            self.getErrorMetrics()
 
             # self.applyConstraints(loop)
 

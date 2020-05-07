@@ -188,6 +188,7 @@ class ExperimentalData:
             # Positions and Np should be integers otherwise we won't be able to slice. Define here?
             self.positions = self.positions.astype(int) 
             self.Np = self.Np.astype(int)
+            self.Nd = self.Nd.astype(int)
         self._checkData()
 
 

@@ -31,6 +31,7 @@ class BaseReconstructor(object):
         # settings that involve how things are computed
         self.fftshiftSwitch = False
         self.FourierMaskSwitch = False
+        self.CPSCswitch = False
         self.fontSize = 17
         self.intensityConstraint = 'standard'  # standard or sigmoid
         self.propagator = 'fraunhofer'
@@ -58,6 +59,21 @@ class BaseReconstructor(object):
         self.comStabilizationSwitch = False
         self.objectContrastSwitch = False
 
+        # initialize detector error matrices
+        if self.saveMemory:
+            self.detectorError = 0
+        else:
+            self.detectorError = np.zeros((self.experimentalData.numFrames,
+                                          self.experimentalData.Nd, self.experimentalData.Nd))
+
+
+        if not hasattr(self,'errorAtPos'):
+            self.errorAtPos = np.zeros((self.experimentalData.numFrames, 1), dtype=np.float32)
+
+        if not len(self.experimentalData.ptychogram)==0:
+            self.energyAtPos = np.sum(np.sum(abs(self.experimentalData.ptychogram), axis=-1), axis=-1)
+        else:
+            raise NotImplementedError
 
     def setPositionOrder(self):
         if self.positionOrder == 'sequential':
@@ -148,19 +164,16 @@ class BaseReconstructor(object):
         raise NotImplementedError()
 
 
-    def getErrorMetrics(self, testing_mode=False):
+    def getErrorMetrics(self):
         """
         matches getErrorMetrics.m
         :return:
         """
-        if testing_mode: # just for testing visualisation, otherwise not useful.
-            self.optimizable.error = np.append(self.optimizable.error, np.random.rand(1))
-            return
 
         if not self.saveMemory:
             # Calculate mean error for all positions (make separate function for all of that)
             if self.FourierMaskSwitch:
-                self.errorAtPos = np.sum(np.abs(self.detectorError) * self.W)
+                self.errorAtPos = np.sum(np.abs(self.detectorError[:, ...]) * self.W)
             else:
                 self.errorAtPos = np.sum(np.abs(self.detectorError))
 
@@ -174,11 +187,22 @@ class BaseReconstructor(object):
 
     def getRMSD(self, positionIndex):
         """
-        matches getRMSD.m
+        Root mean square deviation between ptychogram and intensity estimate
         :param positionIndex:
         :return:
         """
-        raise NotImplementedError()
+        currentDetectorError = abs(self.optimizable.Imeasured-self.optimizable.Iestimated)
+        if self.saveMemory:
+            if self.FourierMaskSwitch and not self.CPSCswitch:
+                self.errorAtPos[positionIndex] = np.sum(currentDetectorError*self.W)
+            elif self.FourierMaskSwitch and self.CPSCswitch:
+                raise NotImplementedError
+            else:
+                self.errorAtPos[positionIndex] = np.sum(currentDetectorError)
+        else:
+            self.detectorError[positionIndex] = currentDetectorError
+
+
 
     def ifft2s(self):
         """ Inverse FFT"""
@@ -199,6 +223,7 @@ class BaseReconstructor(object):
         self.optimizable.Iestimated = np.abs(self.optimizable.ESW)**2
         self.optimizable.Imeasured = self.experimentalData.ptychogram[positionIndex,:,:]
 
+        self.getRMSD(positionIndex)
 
         # TOOD: implement other update methods
         frac = np.sqrt(self.optimizable.Imeasured / (self.optimizable.Iestimated + gimmel))
@@ -260,11 +285,11 @@ class BaseReconstructor(object):
         if loop == 0:
             self.monitor.initializeVisualisation()
         elif np.mod(loop, self.monitor.figureUpdateFrequency) == 0:
-            # fpm mode visualization
-            self.getErrorMetrics(testing_mode=True)
             self.monitor.updatePlot(object_estimate)
 
         print('iteration:%i' %len(self.optimizable.error))
+        # print('runtime:')
+        # print('error:')
 
 
     def applyConstraints(self, loop):
