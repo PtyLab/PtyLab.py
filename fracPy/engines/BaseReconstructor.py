@@ -22,6 +22,7 @@ class BaseReconstructor(object):
         self.optimizable = optimizable
         self.experimentalData = experimentalData
         self.monitor = monitor
+        self.monitor.optimizable = optimizable
 
         # datalogger
         self.logger = logging.getLogger('BaseReconstructor')

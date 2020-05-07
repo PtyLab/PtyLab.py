@@ -25,7 +25,7 @@ optimizable = Optimizable(exampleData)
 # # this will copy any attributes from experimental data that we might care to optimize
 
 # Set monitor properties
-monitor = Monitor(optimizable)
+monitor = Monitor()
 monitor.figureUpdateFrequency = 1
 monitor.objectPlot = 'complex'
 monitor.verboseLevel = 'high'
@@ -54,13 +54,13 @@ optimizable = Optimizable(exampleData)
 
 # this will copy any attributes from experimental data that we might care to optimize
 # # Set monitor properties
-monitor = Monitor(optimizable)
+monitor = Monitor()
 monitor.figureUpdateFrequency = 1
 monitor.objectPlot = 'complex'
 monitor.verboseLevel = 'high'
 
 # now we want to run an optimizer. First create it.
-ePIE_engine = ePIE.ePIE(optimizable, exampleData,monitor)
+ePIE_engine = ePIE.ePIE(optimizable, exampleData, monitor)
 # set any settings involving ePIE in this object.
 ePIE_engine.numIterations = 100
 # now, run the reconstruction

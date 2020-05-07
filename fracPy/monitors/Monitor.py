@@ -4,12 +4,12 @@ class Monitor(object):
     """
 
     """
-    def __init__(self, optimizable):
+    def __init__(self):
         # settings for visualization
         self.figureUpdateFrequency = 1
         self.objectPlot = 'complex'
         self.verboseLevel = 'high'
-        self.optimizable = optimizable
+        self.optimizable = None
 
     def initializeVisualisation(self):
         """
