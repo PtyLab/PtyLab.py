@@ -45,11 +45,7 @@ class ePIE(BaseReconstructor):
                 objectPatch = self.optimizable.object[:, sy, sx].copy()
                 
                 # make exit surface wave
-                self.optimizable.esw = objectPatch * self.optimizable.probe
-                # TODO implementing esw for mix state, where the probe has one more dimension than the object patch
-                # plt.figure(1)
-                # plt.imshow(abs(self.optimizable.esw[0,:,:]))
-                # plt.pause(0.1)
+                self.optimizable.esw = objectPatch[:, ...] * self.optimizable.probe[:, ...]
                 
                 # propagate to camera, intensityProjection, propagate back to object
                 self.intensityProjection(positionIndex)
@@ -57,15 +53,18 @@ class ePIE(BaseReconstructor):
                 # difference term
                 DELTA = self.optimizable.eswUpdate - self.optimizable.esw
 
-                
                 # object update
                 self.optimizable.object[:, sy, sx] = self.objectPatchUpdate(objectPatch, DELTA)
 
                 # probe update
-                self.optimizable.probe = self.probeUpdate( objectPatch, DELTA)
+                self.optimizable.probe = self.probeUpdate(objectPatch, DELTA)
 
             # get error metric
             # self.getErrorMetrics()
+
+            # Todo: modulus enforce probe, orthogonalize modes, probePowerCorrection,
+            #  probeSmoothnessSwitch, absObjectSwitch, comStabilizationSwitch, objectContrastSwitch
+
 
             # self.applyConstraints(loop)
 
@@ -85,7 +84,7 @@ class ePIE(BaseReconstructor):
         
         frac = self.optimizable.probe.conj() / xp.max(xp.sum(xp.abs(self.optimizable.probe) ** 2, 0))
         # this is two statements in matlab but it should only be one in python
-        return objectPatch + self.betaObject * frac * DELTA
+        return objectPatch + self.betaObject * frac[:, ...] * DELTA[:, ...]
        
     def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
         """
@@ -99,9 +98,9 @@ class ePIE(BaseReconstructor):
         frac = objectPatch.conj() / xp.max(xp.sum(xp.abs(objectPatch) ** 2, 0))
         # this is two statements in matlab but it should only be one in python
         # TODO figure out unit tests and padding dimensions
-        r = self.optimizable.probe + self.betaProbe * frac * DELTA
+        r = self.optimizable.probe + self.betaProbe * frac[:, ...] * DELTA[:, ...]
         if self.absorbingProbeBoundary:
             aleph = 1e-3
-            r = (1 - aleph) * r + aleph * r * self.probeWindow
+            r = (1 - aleph) * r + aleph * r[:, ...] * self.probeWindow
         return r
 

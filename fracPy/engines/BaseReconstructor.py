@@ -114,6 +114,15 @@ class BaseReconstructor(object):
         """
         if self.propagator == 'fraunhofer':
             self.ifft2s()
+        # Todo Fresnel, ASP, scaledASP propagators
+        elif self.propagator == 'Fresnel':
+            self.ifft2s()
+            self.optimizable.esw = self.optimizable.esw[:, ...] * np.conj(self.quadraticPhase)
+            raise NotImplementedError()
+        elif self.propagator == 'ASP':
+            raise NotImplementedError()
+        elif self.propagator == 'scaledASP':
+            raise NotImplementedError()
         else:
             raise NotImplementedError()
 
@@ -193,15 +202,20 @@ class BaseReconstructor(object):
         """
         self.object2detector()
 
+        # zero division mitigator
         gimmel = 1e-10
+
+        # Todo: Background mode, CPSCswitch, Fourier mask
+
         # these are amplitudes rather than intensities
         Iestimated = np.abs(self.optimizable.ESW)**2
         Imeasured = self.experimentalData.ptychogram[positionIndex,:,:]
 
-        # TOOD: implement other update methods
+        # TODO: implement other update methods
         frac = np.sqrt(Imeasured / (Iestimated + gimmel))
 
-        self.optimizable.ESW = self.optimizable.ESW * frac
+        # update ESW
+        self.optimizable.ESW = self.optimizable.ESW[:, ...] * frac
         self.detector2object()
         # raise NotImplementedError()
 
@@ -212,6 +226,14 @@ class BaseReconstructor(object):
         """
         if self.propagator == 'fraunhofer':
             self.fft2s()
+        # Todo Fresnel, ASP, scaledASP propagators
+        elif self.propagator == 'Fresnel':
+            self.optimizable.esw = self.optimizable.esw[:, ...] * self.quadraticPhase
+            self.fft2s()
+        elif self.propagator == 'ASP':
+            raise NotImplementedError()
+        elif self.propagator == 'scaledASP':
+            raise NotImplementedError()
         else:
             raise NotImplementedError()
 
