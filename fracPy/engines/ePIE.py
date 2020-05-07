@@ -85,7 +85,13 @@ class ePIE(BaseReconstructor):
         
         frac = self.optimizable.probe.conj() / xp.max(xp.sum(xp.abs(self.optimizable.probe) ** 2, 0))
         # this is two statements in matlab but it should only be one in python
-        return objectPatch + self.betaObject * frac[:, ...] * DELTA[:, ...]
+        if self.optimizable.nosm == 1:
+            return objectPatch[:, ...] + self.betaObject * frac[0] * DELTA[0]
+        elif self.optimizable.npsm == 1:
+            return objectPatch + self.betaObject * frac * DELTA[:,...]
+        else:
+            raise NotImplementedError
+
        
     def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
         """
@@ -99,7 +105,10 @@ class ePIE(BaseReconstructor):
         frac = objectPatch.conj() / xp.max(xp.sum(xp.abs(objectPatch) ** 2, 0))
         # this is two statements in matlab but it should only be one in python
         # TODO figure out unit tests and padding dimensions
-        r = self.optimizable.probe + self.betaProbe * frac[:, ...] * DELTA[:, ...]
+        if self.optimizable.npsm == 1:
+            r = self.optimizable.probe[:,...] + self.betaProbe * frac[0] * DELTA[0]
+        elif self.optimizable.nosm == 1:
+            r = self.optimizable.probe + self.betaProbe * frac * DELTA[:, ...]
         if self.absorbingProbeBoundary:
             aleph = 1e-3
             r = (1 - aleph) * r + aleph * r[:, ...] * self.probeWindow

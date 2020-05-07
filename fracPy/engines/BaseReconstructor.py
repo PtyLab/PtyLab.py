@@ -42,8 +42,8 @@ class BaseReconstructor(object):
 
         # Specific reconstruction settings that are the same for all engines
         self.absorbingProbeBoundary = False
-        self.npsm = 1  # number of probe state mixtures
-        self.nosm = 1  # number of object state mixtures
+        # self.npsm = 1  # number of probe state mixtures
+        # self.nosm = 1  # number of object state mixtures
 
         # This only makes sense on a GPU, not there yet
         self.saveMemory = False
@@ -233,8 +233,8 @@ class BaseReconstructor(object):
         # Todo: Background mode, CPSCswitch, Fourier mask
 
         # these are amplitudes rather than intensities
-        self.optimizable.Iestimated = np.abs(self.optimizable.ESW)**2
-        self.optimizable.Imeasured = self.experimentalData.ptychogram[positionIndex,:,:]
+        self.optimizable.Iestimated = np.sum(np.abs(self.optimizable.ESW)**2, axis = 0)
+        self.optimizable.Imeasured = self.experimentalData.ptychogram[positionIndex]
 
         self.getRMSD(positionIndex)
 
@@ -271,18 +271,18 @@ class BaseReconstructor(object):
         """
         raise NotImplementedError()
 
-    def prepare_reconstruction(self):
-        pass
-
-    def doReconstruction(self):
-        """
-        Reconstruct the object based on all the parameters that have been set beforehand.
-
-        This method is overridden in every reconstruction ePIE_engine, therefore it is already finished.
-        :return:
-        """
-        self.prepare_reconstruction()
-        raise NotImplementedError()
+    # def prepare_reconstruction(self):
+    #     pass
+    #
+    # def doReconstruction(self):
+    #     """
+    #     Reconstruct the object based on all the parameters that have been set beforehand.
+    #
+    #     This method is overridden in every reconstruction ePIE_engine, therefore it is already finished.
+    #     :return:
+    #     """
+    #     self.prepare_reconstruction()
+    #     raise NotImplementedError()
 
 
     def initializeObject(self):

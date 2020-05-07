@@ -72,7 +72,8 @@ class DefaultMonitor(object):
         :return:
         """
         if self.firstrun:
-            self.error_metric_plot = self.ax_error_metric.plot(error_estimate)[0]
+            self.error_metric_plot = self.ax_error_metric.plot(error_estimate, 'o-',
+                                                               mfc='none')[0]
         else:
             self.error_metric_plot.set_data(range(len(error_estimate)), error_estimate)
             self.ax_error_metric.set_ylim(0, np.max(error_estimate))
