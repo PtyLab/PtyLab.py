@@ -44,27 +44,31 @@ ptycho data reconstructor
 change data visualization and initialization options manually for now
 """
 
-# exampleData = ExperimentalData()
-# exampleData.loadData('example:simulation_ptycho')
-# exampleData.operationMode = 'CPM'
-#
-# # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
-# # now create an object to hold everything we're eventually interested in
-# optimizable = Optimizable(exampleData)
-#
-# # this will copy any attributes from experimental data that we might care to optimize
-# # # Set monitor properties
-# monitor = Monitor()
-# monitor.figureUpdateFrequency = 2
-# monitor.objectPlot = 'complex'
-# monitor.verboseLevel = 'high'
-#
-# # now we want to run an optimizer. First create it.
-# ePIE_engine = ePIE.ePIE(optimizable, exampleData, monitor)
-# # set any settings involving ePIE in this object.
-# ePIE_engine.numIterations = 100
-# # now, run the reconstruction
-# ePIE_engine.doReconstruction()
+exampleData = ExperimentalData()
+exampleData.loadData('example:simulation_ptycho')
+exampleData.operationMode = 'CPM'
+
+# now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
+# now create an object to hold everything we're eventually interested in
+optimizable = Optimizable(exampleData)
+
+# this will copy any attributes from experimental data that we might care to optimize
+# # Set monitor properties
+monitor = Monitor()
+monitor.figureUpdateFrequency = 2
+monitor.objectPlot = 'complex'
+monitor.verboseLevel = 'high'
+
+# now we want to run an optimizer. First create it.
+ePIE_engine = ePIE.ePIE(optimizable, exampleData, monitor)
+# set any settings involving ePIE in this object.
+ePIE_engine.numIterations = 100
+ePIE_engine.npsm = 4
+# now, run the reconstruction
+ePIE_engine.doReconstruction()
+
+
+
 
 
 
