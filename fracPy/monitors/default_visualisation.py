@@ -32,7 +32,8 @@ class DefaultMonitor(object):
         self.ax_probe = axes[0][1]
         self.ax_error_metric = axes[0][2]
         self.ax_object.set_title('Object estimate')
-        self.ax_probe.set_title('Probe estimate')
+        self.txt_purity = self.ax_probe.set_title('Probe estimate')
+        # self.txt_purity = plt.text(0,1.2,'',transform = self.ax_probe.transAxes)
         self.ax_error_metric.set_title('Error metric')
         plt.tight_layout()
         self.firstrun = True
@@ -56,14 +57,17 @@ class DefaultMonitor(object):
         else:
             self.im_object.set_data(OE)
 
-    def updateProbe(self, probe_estimate,pixelSize= 1,probeROI = None):
+    def updateProbe(self, optimizable,pixelSize= 1,probeROI = None):
 
+        probe_estimate = optimizable.probe
         PE = complex_to_rgb(modeTile(probe_estimate,normalize=True))
 
         if self.firstrun:
             self.im_probe = complex_plot(PE, ax=self.ax_probe, pixelSize= pixelSize)
         else:
             self.im_probe.set_data(PE)
+            if optimizable.npsm > 1:
+                self.txt_purity.set_text('Probe estimate\nPurity: %i' %(100*optimizable.purity)+'%')
 
     def updateError(self, error_estimate: np.ndarray) -> None:
         """

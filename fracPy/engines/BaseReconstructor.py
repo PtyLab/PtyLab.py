@@ -6,7 +6,7 @@ import logging
 from fracPy.utils.initializationFunctions import initialProbeOrObject
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Optimizable.Optimizable import Optimizable
-from fracPy.utils.utils import ifft2c, fft2c
+from fracPy.utils.utils import ifft2c, fft2c, orthogonalizeModes
 from fracPy.monitors.Monitor import Monitor
 
 class BaseReconstructor(object):
@@ -42,22 +42,23 @@ class BaseReconstructor(object):
 
         # Specific reconstruction settings that are the same for all engines
         self.absorbingProbeBoundary = False
-        # self.npsm = 1  # number of probe state mixtures
-        # self.nosm = 1  # number of object state mixtures
 
         # This only makes sense on a GPU, not there yet
         self.saveMemory = False
 
-        # Things that should be overridden in every reconstructor
-        self.numIterations = 1  # number of iterations
-
         self.objectUpdateStart = 1
         self.positionOrder = 'random'  # 'random' or 'sequential'
 
-        self.probeSmoothnessSwitch = False
+        # Swtiches used in applyConstraints method:
+        self.orthogonalizationFrequency = 1  # probe orthogonalization frequency
+        self.modulusEnforcesProbeSwitch = False
+        self.objectSmoothenessSwitch = False
+        self.probeSmoothenessSwitch = False
         self.absObjectSwitch = False
         self.comStabilizationSwitch = False
         self.objectContrastSwitch = False
+
+
 
         # initialize detector error matrices
         if self.saveMemory:
@@ -264,25 +265,20 @@ class BaseReconstructor(object):
         else:
             raise NotImplementedError()
 
-    def orthogonalize(self):
+    def orthogonalization(self):
         """
-        Implement orhtogonalize.m
+        Perform orthogonalization
         :return:
         """
-        raise NotImplementedError()
-
-    # def prepare_reconstruction(self):
-    #     pass
-    #
-    # def doReconstruction(self):
-    #     """
-    #     Reconstruct the object based on all the parameters that have been set beforehand.
-    #
-    #     This method is overridden in every reconstruction ePIE_engine, therefore it is already finished.
-    #     :return:
-    #     """
-    #     self.prepare_reconstruction()
-    #     raise NotImplementedError()
+        if self.optimizable.npsm > 1:
+            self.optimizable.probe, self.normalizedEigenvaluesProbe, self.MSPVprobe =\
+                orthogonalizeModes(self.optimizable.probe)
+            self.optimizable.purity = np.sqrt(np.sum(self.normalizedEigenvaluesProbe**2))
+        elif self.optimizable.nosm > 1:
+            self.optimizable.object, self.normalizedEigenvaluesObject, self.MSPVobject = \
+                orthogonalizeModes(self.optimizable.object)
+        else:
+            pass
 
 
     def initializeObject(self):
@@ -310,9 +306,9 @@ class BaseReconstructor(object):
             self.monitor.updatePlot(object_estimate)
 
         print('iteration:%i' %len(self.optimizable.error))
-        # print('runtime:')
-        # print('error:')
-
+        print('runtime:')
+        print('error:')
+        # TODO: print info
 
     def applyConstraints(self, loop):
         """
@@ -321,6 +317,14 @@ class BaseReconstructor(object):
         :return:
         """
 
+
+        if np.mod(loop, self.orthogonalizationFrequency) == 0:
+            self.orthogonalization()
+
+
+        # Todo: modulusEnforceProbe, objectSmoothenessSwitch,
+        #  probeSmoothenessSwitch, absObjectSwitch, comStabilizationSwitch, objectContrastSwitch
+
         # modulus enforced probe
         if self.modulusEnforcesProbeSwitch:
             raise NotImplementedError()
@@ -328,9 +332,6 @@ class BaseReconstructor(object):
             # self.params.esw = self.probe
             # self.object2detector()
             #
-        if np.mod(loop, self.orthogonalizationFrequency) == 0:
-            self.orthogonalize()
-
 
         if self.objectSmoothenessSwitch:
             raise NotImplementedError()
@@ -347,8 +348,7 @@ class BaseReconstructor(object):
         if self.comStabilizationSwitch:
             raise NotImplementedError()
 
-
-        if self.objectContrastSwitch():
+        if self.objectContrastSwitch:
             raise NotImplementedError()
 
     ## Python-specific things

@@ -1,6 +1,8 @@
 import pickle
 import numpy as np
+from scipy import linalg
 import scipy.stats as st
+
 
 
 def fft2c(array):
@@ -26,3 +28,13 @@ def circ(x,y,D):
     """
     circle = (x**2+y**2)<(D/2)**2
     return circle
+
+def orthogonalizeModes(p):
+    """
+    Imposes orthogonality through singular value decomposition
+    :return:
+    """
+    U, s, V = linalg.svd(p.reshape(p.shape[0], p.shape[1]*p.shape[2]), full_matrices=False )
+    p = np.dot(np.diag(s), V).reshape(p.shape[0], p.shape[1], p.shape[2])
+    normalizedEigenvalues = s**2/np.sum(s**2)
+    return p, normalizedEigenvalues, U

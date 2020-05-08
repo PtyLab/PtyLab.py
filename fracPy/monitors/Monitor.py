@@ -29,7 +29,7 @@ class Monitor(object):
         """
         self.defaultMonitor.updateError(self.optimizable.error)
         self.defaultMonitor.updateObject(object_estimate, objectPlot=self.objectPlot, pixelSize=self.optimizable.data.dxo)
-        self.defaultMonitor.updateProbe(self.optimizable.probe, pixelSize=self.optimizable.data.dxp)
+        self.defaultMonitor.updateProbe(self.optimizable, pixelSize=self.optimizable.data.dxp)
         self.defaultMonitor.drawNow()
         if self.verboseLevel == 'high':
             self.diffractionDataMonitor.updateIestimated(self.optimizable.Iestimated)

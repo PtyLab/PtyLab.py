@@ -63,11 +63,8 @@ class ePIE(BaseReconstructor):
             # get error metric
             self.getErrorMetrics()
 
-            # Todo: modulus enforce probe, orthogonalize modes, probePowerCorrection,
-            #  probeSmoothnessSwitch, absObjectSwitch, comStabilizationSwitch, objectContrastSwitch
-
-
-            # self.applyConstraints(loop)
+            # apply Constraints
+            self.applyConstraints(loop)
 
             # show reconstruction
             self.showReconstruction(loop)
