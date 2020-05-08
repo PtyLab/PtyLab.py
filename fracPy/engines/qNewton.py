@@ -68,7 +68,7 @@ class qNewton(BaseReconstructor):
             self.getErrorMetrics()
 
             # add the aperture constraint onto the probe
-            # self.applyConstraints(loop)
+            self.applyConstraints(loop)
 
             # show reconstruction
             self.showReconstruction(loop)

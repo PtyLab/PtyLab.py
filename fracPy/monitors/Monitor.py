@@ -1,4 +1,4 @@
-from .default_visualisation import DefaultMonitor,DiffractionDataMonitor
+from .default_visualisation import DefaultMonitor, DiffractionDataMonitor
 
 class Monitor(object):
     """

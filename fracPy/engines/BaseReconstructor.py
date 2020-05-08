@@ -36,9 +36,6 @@ class BaseReconstructor(object):
         self.intensityConstraint = 'standard'  # standard or sigmoid
         self.propagator = 'fraunhofer'
 
-        # Settings involving the intitial estimates
-        # self.initialObject = 'ones'
-        # self.initialProbe = 'circ'
 
         # Specific reconstruction settings that are the same for all engines
         self.absorbingProbeBoundary = False
@@ -49,14 +46,28 @@ class BaseReconstructor(object):
         self.objectUpdateStart = 1
         self.positionOrder = 'random'  # 'random' or 'sequential'
 
-        # Swtiches used in applyConstraints method:
-        self.orthogonalizationFrequency = 1  # probe orthogonalization frequency
-        self.modulusEnforcesProbeSwitch = False
+        ## Swtiches used in applyConstraints method:
+        self.orthogonalizationFrequency = 10  # probe orthogonalization frequency
+        # object regularization
         self.objectSmoothenessSwitch = False
-        self.probeSmoothenessSwitch = False
-        self.absObjectSwitch = False
-        self.comStabilizationSwitch = False
-        self.objectContrastSwitch = False
+        self.objectSmoothenessWidth = 2  # # pixels over which object is assumed fairly smooth
+        self.objectSmoothnessAleph = 1e-2  # relaxation constant that determines strength of regularization
+        self.absObjectSwitch = False  # force the object to be abs-only
+        self.absObjectBeta = 1e-2  # relaxation parameter for abs-only constraint
+        self.objectContrastSwitch = False  # pushes object to zero outside ROI
+        # probe regularization
+        self.probeSmoothenessSwitch = False # enforce probe smootheness
+        self.probeSmoothnessAleph = 5e-2  # relaxation parameter for probe smootheness
+        self.probeSmoothenessWidth = 3  # loose object support diameter
+        self.absorbingProbeBoundary = False  # controls if probe has period boundary conditions (zero)
+        self.probePowerCorrectionSwitch = False  # probe normalization to measured PSD
+        self.modulusEnforcedProbeSwitch = False  # enforce empty beam
+        self.comStabilizationSwitch = False  # center of mass stabilization for probe
+        # other
+        self.backgroundModeSwitch = False  # background estimate
+        self.comStabilizationSwitch = False # center of mass stabilization for probe
+        self.PSDestimationSwitch = False
+        self.objectContrastSwitch = False # pushes object to zero outside ROI
 
 
 
@@ -201,16 +212,16 @@ class BaseReconstructor(object):
         :param positionIndex:
         :return:
         """
-        currentDetectorError = abs(self.optimizable.Imeasured-self.optimizable.Iestimated)
+        self.currentDetectorError = abs(self.optimizable.Imeasured-self.optimizable.Iestimated)
         if self.saveMemory:
             if self.FourierMaskSwitch and not self.CPSCswitch:
-                self.errorAtPos[positionIndex] = np.sum(currentDetectorError*self.W)
+                self.errorAtPos[positionIndex] = np.sum(self.currentDetectorError*self.W)
             elif self.FourierMaskSwitch and self.CPSCswitch:
                 raise NotImplementedError
             else:
-                self.errorAtPos[positionIndex] = np.sum(currentDetectorError)
+                self.errorAtPos[positionIndex] = np.sum(self.currentDetectorError)
         else:
-            self.detectorError[positionIndex] = currentDetectorError
+            self.detectorError[positionIndex] = self.currentDetectorError
 
 
 
@@ -239,13 +250,13 @@ class BaseReconstructor(object):
 
         self.getRMSD(positionIndex)
 
-        # TOOD: implement other update methods
+        # TODO: implement other update methods
         frac = np.sqrt(self.optimizable.Imeasured / (self.optimizable.Iestimated + gimmel))
 
         # update ESW
         self.optimizable.ESW = self.optimizable.ESW[:, ...] * frac
         self.detector2object()
-        # raise NotImplementedError()
+
 
     def object2detector(self):
         """
@@ -304,10 +315,9 @@ class BaseReconstructor(object):
             self.monitor.initializeVisualisation()
         elif np.mod(loop, self.monitor.figureUpdateFrequency) == 0:
             self.monitor.updatePlot(object_estimate)
-
-        print('iteration:%i' %len(self.optimizable.error))
-        print('runtime:')
-        print('error:')
+            print('iteration:%i' %len(self.optimizable.error))
+            print('runtime:')
+            print('error:')
         # TODO: print info
 
     def applyConstraints(self, loop):
@@ -322,16 +332,12 @@ class BaseReconstructor(object):
             self.orthogonalization()
 
 
-        # Todo: modulusEnforceProbe, objectSmoothenessSwitch,
+        # Todo: probePowerCorrectionSwitch, objectSmoothenessSwitch,
         #  probeSmoothenessSwitch, absObjectSwitch, comStabilizationSwitch, objectContrastSwitch
 
         # modulus enforced probe
-        if self.modulusEnforcesProbeSwitch:
+        if self.probePowerCorrectionSwitch:
             raise NotImplementedError()
-            # # propagate probe to detector
-            # self.params.esw = self.probe
-            # self.object2detector()
-            #
 
         if self.objectSmoothenessSwitch:
             raise NotImplementedError()
@@ -344,8 +350,10 @@ class BaseReconstructor(object):
         if self.absObjectSwitch:
             raise NotImplementedError()
 
-
         if self.comStabilizationSwitch:
+            raise NotImplementedError()
+
+        if self.PSDestimationSwitch:
             raise NotImplementedError()
 
         if self.objectContrastSwitch:

@@ -58,7 +58,7 @@ optimizable.prepare_reconstruction()
 monitor = Monitor()
 monitor.figureUpdateFrequency = 2
 monitor.objectPlot = 'complex'
-monitor.verboseLevel = 'high'
+monitor.verboseLevel = 'low'
 
 # now we want to run an optimizer. First create it.
 ePIE_engine = ePIE.ePIE(optimizable, exampleData, monitor)
