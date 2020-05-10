@@ -74,17 +74,19 @@ def complex_plot(rgb, ax=None, pixelSize=1, axisUnit = 'mm'):
     unitRatio = {'m': 1, 'cm':1e2, 'mm': 1e3, 'um': 1e6}
     pixelSize = pixelSize*unitRatio[axisUnit]
     extent = [0, pixelSize * rgb.shape[0], 0, pixelSize * rgb.shape[1]]
+
     im = ax.imshow(rgb, extent=extent)
     ax.set_ylabel(axisUnit)
     ax.set_xlabel(axisUnit)
 
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="5%", pad=0.1)
-    cmap = mpl.cm.hsv
-    norm = mpl.colors.Normalize(vmin=-np.pi, vmax=np.pi)
-    cbar = plt.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap), ax=ax, cax=cax, ticks=[-np.pi, 0, np.pi])
-    cbar.ax.set_yticklabels(['$-\pi$', '0', '$\pi$'])
 
+    norm = mpl.colors.Normalize(vmin=-np.pi, vmax=np.pi)
+    scalar_mappable  = mpl.cm.ScalarMappable(norm=norm, cmap=mpl.cm.hsv)
+    scalar_mappable.set_array(rgb)
+    cbar = plt.colorbar(scalar_mappable, ax=ax, cax=cax, ticks=[-np.pi, 0, np.pi])
+    cbar.ax.set_yticklabels(['$-\pi$', '0', '$\pi$'])
     return im
 
 
