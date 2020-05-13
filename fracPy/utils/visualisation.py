@@ -60,9 +60,9 @@ def complex_to_rgb(u):
 
 def complex_plot(rgb, ax=None, pixelSize=1, axisUnit = 'mm'):
     """
-    Plot a 2D complex np.ndarray, hue for phase, brightness for amplitude. Prepare a 2D complex array by using
-    complex_to_rgb function.
-    :param rgb: A 2D complex np.ndarray
+    Plot a 2D complex plot (hue for phase, brightness for amplitude). Input array need to be prepared by using
+    the complex_to_rgb function.
+    :param rgb: a rgb array that is converted from a 2D complex np.ndarray by using complex_to_rgb
     :param ax: Optional axis to plot in
     :param pixelSize: pixelSize in x and y, to display the physical dimension of the plot
     :param str axisUnit: Options: 'm', 'cm', 'mm', 'um'
