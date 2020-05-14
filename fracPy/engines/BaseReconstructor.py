@@ -1,4 +1,4 @@
-from fracPy.monitors.default_visualisation import DefaultMonitor
+from fracPy.monitors.default_visualisation import DefaultMonitor,DiffractionDataMonitor
 import numpy as np
 import logging
 
@@ -6,7 +6,8 @@ import logging
 from fracPy.utils.initializationFunctions import initialProbeOrObject
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Optimizable.Optimizable import Optimizable
-from fracPy.utils.utils import ifft2c, fft2c
+from fracPy.utils.utils import ifft2c, fft2c, orthogonalizeModes
+from fracPy.monitors.Monitor import Monitor
 
 class BaseReconstructor(object):
     """
@@ -16,58 +17,85 @@ class BaseReconstructor(object):
     inherit from this object
 
     """
-    def __init__(self, optimizable: Optimizable, experimentalData:ExperimentalData):
+    def __init__(self, optimizable: Optimizable, experimentalData:ExperimentalData, monitor:Monitor):
         # These statements don't copy any data, they just keep a reference to the object
         self.optimizable = optimizable
         self.experimentalData = experimentalData
+        self.monitor = monitor
+        self.monitor.optimizable = optimizable
 
         # datalogger
         self.logger = logging.getLogger('BaseReconstructor')
 
         # Default settings
         # settings that involve how things are computed
-        self.objectPlot = 'complex'
         self.fftshiftSwitch = False
-        self.figureUpdateFrequency = 1
         self.FourierMaskSwitch = False
+        self.CPSCswitch = False
         self.fontSize = 17
         self.intensityConstraint = 'standard'  # standard or sigmoid
         self.propagator = 'fraunhofer'
 
-        # Settings involving the intitial estimates
-        # self.initialObject = 'ones'
-        # self.initialProbe = 'circ'
 
         # Specific reconstruction settings that are the same for all engines
         self.absorbingProbeBoundary = False
-        self.npsm = 1  # number of probe state mixtures
-        self.nosm = 1  # number of object state mixtures
 
         # This only makes sense on a GPU, not there yet
         self.saveMemory = False
 
-        # Things that should be overridden in every reconstructor
-        self.numIterations = 1  # number of iterations
-
         self.objectUpdateStart = 1
         self.positionOrder = 'random'  # 'random' or 'sequential'
 
-        self.probeSmoothnessSwitch = False
-        self.absObjectSwitch = False
-        self.comStabilizationSwitch = False
-        self.objectContrastSwitch = False
+        ## Swtiches used in applyConstraints method:
+        self.orthogonalizationFrequency = 10  # probe orthogonalization frequency
+        # object regularization
+        self.objectSmoothenessSwitch = False
+        self.objectSmoothenessWidth = 2  # # pixels over which object is assumed fairly smooth
+        self.objectSmoothnessAleph = 1e-2  # relaxation constant that determines strength of regularization
+        self.absObjectSwitch = False  # force the object to be abs-only
+        self.absObjectBeta = 1e-2  # relaxation parameter for abs-only constraint
+        self.objectContrastSwitch = False  # pushes object to zero outside ROI
+        # probe regularization
+        self.probeSmoothenessSwitch = False # enforce probe smootheness
+        self.probeSmoothnessAleph = 5e-2  # relaxation parameter for probe smootheness
+        self.probeSmoothenessWidth = 3  # loose object support diameter
+        self.absorbingProbeBoundary = False  # controls if probe has period boundary conditions (zero)
+        self.probePowerCorrectionSwitch = False  # probe normalization to measured PSD
+        self.modulusEnforcedProbeSwitch = False  # enforce empty beam
+        self.comStabilizationSwitch = False  # center of mass stabilization for probe
+        # other
+        self.backgroundModeSwitch = False  # background estimate
+        self.comStabilizationSwitch = False # center of mass stabilization for probe
+        self.PSDestimationSwitch = False
+        self.objectContrastSwitch = False # pushes object to zero outside ROI
 
-        self.error = np.zeros(0, dtype=np.float32)
+
+
+        # initialize detector error matrices
+        if self.saveMemory:
+            self.detectorError = 0
+        else:
+            self.detectorError = np.zeros((self.experimentalData.numFrames,
+                                          self.experimentalData.Nd, self.experimentalData.Nd))
+
+
+        if not hasattr(self,'errorAtPos'):
+            self.errorAtPos = np.zeros((self.experimentalData.numFrames, 1), dtype=np.float32)
+
+        if not len(self.experimentalData.ptychogram)==0:
+            self.energyAtPos = np.sum(np.sum(abs(self.experimentalData.ptychogram), axis=-1), axis=-1)
+        else:
+            raise NotImplementedError
 
     def setPositionOrder(self):
         if self.positionOrder == 'sequential':
             self.positionIndices = np.arange(self.experimentalData.numFrames)
 
         elif self.positionOrder == 'random':
-            if self.error.size == 0:
+            if self.optimizable.error.size == 0:
                 self.positionIndices = np.arange(self.experimentalData.numFrames)
             else:
-                if len(self.error) < 2:
+                if len(self.optimizable.error) < 2:
                     self.positionIndices = np.arange(self.experimentalData.numFrames)
                 else:
                     self.positionIndices = np.arange(self.experimentalData.numFrames)
@@ -114,6 +142,15 @@ class BaseReconstructor(object):
         """
         if self.propagator == 'fraunhofer':
             self.ifft2s()
+        # Todo Fresnel, ASP, scaledASP propagators
+        elif self.propagator == 'Fresnel':
+            self.ifft2s()
+            self.optimizable.esw = self.optimizable.esw[:, ...] * np.conj(self.quadraticPhase)
+            raise NotImplementedError()
+        elif self.propagator == 'ASP':
+            raise NotImplementedError()
+        elif self.propagator == 'scaledASP':
+            raise NotImplementedError()
         else:
             raise NotImplementedError()
 
@@ -148,18 +185,16 @@ class BaseReconstructor(object):
         raise NotImplementedError()
 
 
-    def getErrorMetrics(self, testing_mode=False):
+    def getErrorMetrics(self):
         """
         matches getErrorMetrics.m
         :return:
         """
-        if testing_mode: # just for testing visualisation, otherwise not useful.
-            return np.random.rand(100)
 
         if not self.saveMemory:
             # Calculate mean error for all positions (make separate function for all of that)
             if self.FourierMaskSwitch:
-                self.errorAtPos = np.sum(np.abs(self.detectorError) * self.W)
+                self.errorAtPos = np.sum(np.abs(self.detectorError[:, ...]) * self.W)
             else:
                 self.errorAtPos = np.sum(np.abs(self.detectorError))
 
@@ -167,17 +202,28 @@ class BaseReconstructor(object):
         eAverage = np.sum(self.errorAtPos)
 
         # append to error vector (for plotting error as function of iteration)
-        self.error = np.append(self.error, eAverage)
+        self.optimizable.error = np.append(self.optimizable.error, eAverage)
 
 
 
     def getRMSD(self, positionIndex):
         """
-        matches getRMSD.m
+        Root mean square deviation between ptychogram and intensity estimate
         :param positionIndex:
         :return:
         """
-        raise NotImplementedError()
+        self.currentDetectorError = abs(self.optimizable.Imeasured-self.optimizable.Iestimated)
+        if self.saveMemory:
+            if self.FourierMaskSwitch and not self.CPSCswitch:
+                self.errorAtPos[positionIndex] = np.sum(self.currentDetectorError*self.W)
+            elif self.FourierMaskSwitch and self.CPSCswitch:
+                raise NotImplementedError
+            else:
+                self.errorAtPos[positionIndex] = np.sum(self.currentDetectorError)
+        else:
+            self.detectorError[positionIndex] = self.currentDetectorError
+
+
 
     def ifft2s(self):
         """ Inverse FFT"""
@@ -193,17 +239,24 @@ class BaseReconstructor(object):
         """
         self.object2detector()
 
+        # zero division mitigator
         gimmel = 1e-10
+
+        # Todo: Background mode, CPSCswitch, Fourier mask
+
         # these are amplitudes rather than intensities
-        Iestimated = np.abs(self.optimizable.ESW)**2
-        Imeasured = self.experimentalData.ptychogram[positionIndex,:,:]
+        self.optimizable.Iestimated = np.sum(np.abs(self.optimizable.ESW)**2, axis = 0)
+        self.optimizable.Imeasured = self.experimentalData.ptychogram[positionIndex]
 
-        # TOOD: implement other update methods
-        frac = np.sqrt(Imeasured / (Iestimated + gimmel))
+        self.getRMSD(positionIndex)
 
-        self.optimizable.ESW = self.optimizable.ESW * frac
+        # TODO: implement other update methods
+        frac = np.sqrt(self.optimizable.Imeasured / (self.optimizable.Iestimated + gimmel))
+
+        # update ESW
+        self.optimizable.ESW = self.optimizable.ESW[:, ...] * frac
         self.detector2object()
-        # raise NotImplementedError()
+
 
     def object2detector(self):
         """
@@ -212,28 +265,31 @@ class BaseReconstructor(object):
         """
         if self.propagator == 'fraunhofer':
             self.fft2s()
+        # Todo Fresnel, ASP, scaledASP propagators
+        elif self.propagator == 'Fresnel':
+            self.optimizable.esw = self.optimizable.esw[:, ...] * self.quadraticPhase
+            self.fft2s()
+        elif self.propagator == 'ASP':
+            raise NotImplementedError()
+        elif self.propagator == 'scaledASP':
+            raise NotImplementedError()
         else:
             raise NotImplementedError()
 
-    def orthogonalize(self):
+    def orthogonalization(self):
         """
-        Implement orhtogonalize.m
+        Perform orthogonalization
         :return:
         """
-        raise NotImplementedError()
-
-    def prepare_reconstruction(self):
-        pass
-
-    def doReconstruction(self):
-        """
-        Reconstruct the object based on all the parameters that have been set beforehand.
-
-        This method is overridden in every reconstruction ePIE_engine, therefore it is already finished.
-        :return:
-        """
-        self.prepare_reconstruction()
-        raise NotImplementedError()
+        if self.optimizable.npsm > 1:
+            self.optimizable.probe, self.normalizedEigenvaluesProbe, self.MSPVprobe =\
+                orthogonalizeModes(self.optimizable.probe)
+            self.optimizable.purity = np.sqrt(np.sum(self.normalizedEigenvaluesProbe**2))
+        elif self.optimizable.nosm > 1:
+            self.optimizable.object, self.normalizedEigenvaluesObject, self.MSPVobject = \
+                orthogonalizeModes(self.optimizable.object)
+        else:
+            pass
 
 
     def initializeObject(self):
@@ -253,24 +309,16 @@ class BaseReconstructor(object):
         if self.experimentalData.operationMode == 'FPM':
             object_estimate = abs(fft2c(self.optimizable.object))
         else:
-            object_estimate = abs(self.optimizable.object)
+            object_estimate = self.optimizable.object
 
         if loop == 0:
-            self.initializeVisualisation()
-        elif np.mod(loop, self.figureUpdateFrequency) == 0:
-            # fpm mode visualization
-            errorMetric = self.getErrorMetrics(testing_mode=True)
-            self.monitor.updateError(errorMetric)
-            self.monitor.updateObject(object_estimate)
-            self.monitor.drawNow()
-
-    def initializeVisualisation(self):
-        """
-        Create the figure and axes etc.
-        :return:
-        """
-
-        self.monitor = DefaultMonitor()
+            self.monitor.initializeVisualisation()
+        elif np.mod(loop, self.monitor.figureUpdateFrequency) == 0:
+            self.monitor.updatePlot(object_estimate)
+            print('iteration:%i' %len(self.optimizable.error))
+            print('runtime:')
+            print('error:')
+        # TODO: print info
 
     def applyConstraints(self, loop):
         """
@@ -279,16 +327,17 @@ class BaseReconstructor(object):
         :return:
         """
 
-        # modulus enforced probe
-        if self.modulusEnforcesProbeSwitch:
-            raise NotImplementedError()
-            # # propagate probe to detector
-            # self.params.esw = self.probe
-            # self.object2detector()
-            #
-        if np.mod(loop, self.orthogonalizationFrequency) == 0:
-            self.orthogonalize()
 
+        if np.mod(loop, self.orthogonalizationFrequency) == 0:
+            self.orthogonalization()
+
+
+        # Todo: probePowerCorrectionSwitch, objectSmoothenessSwitch,
+        #  probeSmoothenessSwitch, absObjectSwitch, comStabilizationSwitch, objectContrastSwitch
+
+        # modulus enforced probe
+        if self.probePowerCorrectionSwitch:
+            raise NotImplementedError()
 
         if self.objectSmoothenessSwitch:
             raise NotImplementedError()
@@ -301,12 +350,13 @@ class BaseReconstructor(object):
         if self.absObjectSwitch:
             raise NotImplementedError()
 
-
         if self.comStabilizationSwitch:
             raise NotImplementedError()
 
+        if self.PSDestimationSwitch:
+            raise NotImplementedError()
 
-        if self.objectContrastSwitch():
+        if self.objectContrastSwitch:
             raise NotImplementedError()
 
     ## Python-specific things

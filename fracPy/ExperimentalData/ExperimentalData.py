@@ -188,6 +188,7 @@ class ExperimentalData:
             # Positions and Np should be integers otherwise we won't be able to slice. Define here?
             self.positions = self.positions.astype(int) 
             self.Np = self.Np.astype(int)
+            self.Nd = self.Nd.astype(int)
         self._checkData()
 
 
@@ -280,7 +281,8 @@ class ExperimentalData:
         """ Probe sampling. Requires the probe to be set."""
         try:
             # also obj.lambda * obj.zo / obj.Ld ?
-            return 1./(self.Ld/self.M)
+            # return 1./(self.Ld/self.M)
+            return self.wavelength * self.zo / self.Ld
         except AttributeError as e:
             raise AttributeError(e, 'Detector size "Ld" and/or magnification "M" not defined yet')
         

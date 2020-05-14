@@ -27,7 +27,7 @@ class Optimizable(object):
         self.copyAttributesFromExperiment(data)
         self.data = data
         self.initialize_other_settings()
-        self.prepare_reconstruction()
+        # self.prepare_reconstruction()
 
 
     def copyAttributesFromExperiment(self, data:ExperimentalData):
@@ -73,10 +73,14 @@ class Optimizable(object):
         # initialize object and probe
         self.initializeObject()
         self.initializeProbe()
+
         
         # set object and probe objects
         self.object = self.initialObject.copy()
         self.probe = self.initialProbe.copy()
+
+        # initialize error
+        self.error = np.zeros(0, dtype=np.float32)
 
     def saveResults(self):
         raise NotImplementedError

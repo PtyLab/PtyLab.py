@@ -5,16 +5,17 @@ from fracPy.Optimizable.Optimizable import Optimizable
 from fracPy.engines.BaseReconstructor import BaseReconstructor
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.utils.gpuUtils import getArrayModule
+from fracPy.monitors.Monitor import Monitor
 from fracPy.utils.utils import fft2c, ifft2c
 import logging
 
 
 class ePIE(BaseReconstructor):
 
-    def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData):
+    def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData, monitor:Monitor):
         # This contains reconstruction parameters that are specific to the reconstruction
         # but not necessarily to ePIE reconstruction
-        super().__init__(optimizable, experimentalData)
+        super().__init__(optimizable, experimentalData,monitor)
         self.logger = logging.getLogger('ePIE')
         self.logger.info('Sucesfully created ePIE ePIE_engine')
 
@@ -45,11 +46,7 @@ class ePIE(BaseReconstructor):
                 objectPatch = self.optimizable.object[:, sy, sx].copy()
                 
                 # make exit surface wave
-                self.optimizable.esw = objectPatch * self.optimizable.probe
-                # TODO implementing esw for mix state, where the probe has one more dimension than the object patch
-                # plt.figure(1)
-                # plt.imshow(abs(self.optimizable.esw[0,:,:]))
-                # plt.pause(0.1)
+                self.optimizable.esw = objectPatch[:, ...] * self.optimizable.probe[:, ...]
                 
                 # propagate to camera, intensityProjection, propagate back to object
                 self.intensityProjection(positionIndex)
@@ -57,19 +54,20 @@ class ePIE(BaseReconstructor):
                 # difference term
                 DELTA = self.optimizable.eswUpdate - self.optimizable.esw
 
-                
                 # object update
                 self.optimizable.object[:, sy, sx] = self.objectPatchUpdate(objectPatch, DELTA)
 
                 # probe update
-                self.optimizable.probe = self.probeUpdate( objectPatch, DELTA)
+                self.optimizable.probe = self.probeUpdate(objectPatch, DELTA)
 
             # get error metric
-            # self.getErrorMetrics()
+            self.getErrorMetrics()
 
-            # self.applyConstraints(loop)
+            # apply Constraints
+            self.applyConstraints(loop)
 
             # show reconstruction
+            
             self.showReconstruction(loop)
 
 
@@ -85,7 +83,13 @@ class ePIE(BaseReconstructor):
         
         frac = self.optimizable.probe.conj() / xp.max(xp.sum(xp.abs(self.optimizable.probe) ** 2, 0))
         # this is two statements in matlab but it should only be one in python
-        return objectPatch + self.betaObject * frac * DELTA
+        if self.optimizable.nosm == 1:
+            return objectPatch[:, ...] + self.betaObject * frac[0] * DELTA[0]
+        elif self.optimizable.npsm == 1:
+            return objectPatch + self.betaObject * frac * DELTA[:,...]
+        else:
+            raise NotImplementedError
+
        
     def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
         """
@@ -99,9 +103,12 @@ class ePIE(BaseReconstructor):
         frac = objectPatch.conj() / xp.max(xp.sum(xp.abs(objectPatch) ** 2, 0))
         # this is two statements in matlab but it should only be one in python
         # TODO figure out unit tests and padding dimensions
-        r = self.optimizable.probe + self.betaProbe * frac * DELTA
+        if self.optimizable.npsm == 1:
+            r = self.optimizable.probe[:,...] + self.betaProbe * frac[0] * DELTA[0]
+        elif self.optimizable.nosm == 1:
+            r = self.optimizable.probe + self.betaProbe * frac * DELTA[:, ...]
         if self.absorbingProbeBoundary:
             aleph = 1e-3
-            r = (1 - aleph) * r + aleph * r * self.probeWindow
+            r = (1 - aleph) * r + aleph * r[:, ...] * self.probeWindow
         return r
 

@@ -52,7 +52,7 @@ obj.params.verboseLevel = 'high'  # control how much output is plotted
 obj.params.fftshiftSwitch = True
 # obj.params.probeROI = [1 obj.Np 1 obj.Np]
 obj.params.objectZoom = 1
-obj.monitor.objectMax = 1
+obj.defaultMonitor.objectMax = 1
 
 obj = reconstruct(obj)
 
