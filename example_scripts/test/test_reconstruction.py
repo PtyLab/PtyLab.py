@@ -1,3 +1,5 @@
+import matplotlib
+matplotlib.use('tkagg')
 import unittest
 
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
@@ -6,13 +8,12 @@ from fracPy.engines import ePIE
 from fracPy.monitors.Monitor import Monitor
 
 
-class TestReconstruction(unittest.TestCase):
+class test_singlemode_multimode_reconstruction(unittest.TestCase):
 
     def setUp(self) -> None:
         self.exampleData = ExperimentalData()
         self.exampleData.loadData('example:simulation_ptycho')
         self.exampleData.operationMode = 'CPM'
-
         self.optimizable = Optimizable(self.exampleData)
 
 
