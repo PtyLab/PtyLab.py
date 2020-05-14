@@ -67,6 +67,7 @@ class ePIE(BaseReconstructor):
             self.applyConstraints(loop)
 
             # show reconstruction
+            
             self.showReconstruction(loop)
 
 

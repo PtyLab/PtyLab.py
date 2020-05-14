@@ -1,5 +1,5 @@
 import matplotlib
-# matplotlib.use('tkagg')
+matplotlib.use('tkagg')
 #matplotlib.use('qt5agg')
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Optimizable.Optimizable import Optimizable
@@ -38,7 +38,7 @@ qNewton_engine = qNewton.qNewton(optimizable, exampleData, monitor)
 qNewton_engine.numIterations = 10
 # now, run the reconstruction
 qNewton_engine.doReconstruction()
-# # qNewton_engine.showEndResult()
+qNewton_engine.showEndResult()
 
 
 """ 
