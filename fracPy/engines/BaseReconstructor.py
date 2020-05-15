@@ -323,8 +323,8 @@ class BaseReconstructor(object):
             probe_estimate = self.optimizable.probe
         else:
             # object_estimate = self.optimizable.object
-            object_estimate = np.squeeze(self.optimizable.object[:,:,0,:,:,:])
-            probe_estimate = np.squeeze(self.optimizable.probe[:,0,:,:,:,:])
+            object_estimate = np.squeeze(self.optimizable.object)
+            probe_estimate = np.squeeze(self.optimizable.probe)
 
         if loop == 0:
             self.monitor.initializeVisualisation()
