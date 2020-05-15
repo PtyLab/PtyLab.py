@@ -247,7 +247,8 @@ class BaseReconstructor(object):
         # Todo: Background mode, CPSCswitch, Fourier mask
 
         # these are amplitudes rather than intensities
-        self.optimizable.Iestimated = np.sum(np.abs(self.optimizable.ESW)**2, axis = 0)
+        # self.optimizable.Iestimated = np.sum(np.abs(self.optimizable.ESW)**2, axis = 0)
+        self.optimizable.Iestimated = np.sum(np.abs(self.optimizable.ESW) ** 2, axis= (0,1,2,3), keepdims=True)
         self.optimizable.Imeasured = self.experimentalData.ptychogram[positionIndex]
 
         self.getRMSD(positionIndex)
@@ -319,13 +320,17 @@ class BaseReconstructor(object):
         """
         if self.experimentalData.operationMode == 'FPM':
             object_estimate = abs(fft2c(self.optimizable.object))
+            probe_estimate = self.optimizable.probe
         else:
-            object_estimate = self.optimizable.object
+            # object_estimate = self.optimizable.object
+            object_estimate = np.squeeze(self.optimizable.object[:,:,0,:,:,:])
+            probe_estimate = np.squeeze(self.optimizable.probe[:,0,:,:,:,:])
 
         if loop == 0:
             self.monitor.initializeVisualisation()
         elif np.mod(loop, self.monitor.figureUpdateFrequency) == 0:
-            self.monitor.updatePlot(object_estimate[0,0,:,0,:,:])
+            # self.monitor.updatePlot(object_estimate[0,0,:,0,:,:])
+            self.monitor.updatePlot(object_estimate=object_estimate,probe_estimate=probe_estimate)
             print('iteration:%i' %len(self.optimizable.error))
             print('runtime:')
             print('error:')

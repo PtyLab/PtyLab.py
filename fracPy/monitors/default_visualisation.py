@@ -57,9 +57,8 @@ class DefaultMonitor(object):
         else:
             self.im_object.set_data(OE)
 
-    def updateProbe(self, optimizable,pixelSize= 1,probeROI = None):
+    def updateProbe(self, probe_estimate, optimizable, pixelSize= 1,probeROI = None):
 
-        probe_estimate = optimizable.probe
         PE = complex_to_rgb(modeTile(probe_estimate,normalize=True))
 
         if self.firstrun:
