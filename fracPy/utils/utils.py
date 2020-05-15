@@ -34,6 +34,7 @@ def orthogonalizeModes(p):
     Imposes orthogonality through singular value decomposition
     :return:
     """
+    # orthogonolize modes only for npsm and nosm which are lcoated and indices 1, 2
     U, s, V = linalg.svd(p.reshape(p.shape[0], p.shape[1]*p.shape[2]), full_matrices=False )
     p = np.dot(np.diag(s), V).reshape(p.shape[0], p.shape[1], p.shape[2])
     normalizedEigenvalues = s**2/np.sum(s**2)

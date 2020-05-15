@@ -6,64 +6,50 @@ from skimage.transform import rescale
 
 def initialProbeOrObject(shape, type_of_init, data):
     """
-    Implements line 148 of initialParams.m
-    :param shape:
-    :param type_of_init:
+    Initialization objects are created for the reconstruction. Currently
+    implemented:
+        ones - every element is set to 1 + random noise
+        circ - same as 'ones' but with a circular boundary constraint
+        upsampled - upsampled low-resolution estimate (used for FPM)
+        
+    Random noise is added to the arrays to enforce linear independence required
+    for orthogonalization of modes
+    
+    TODO: Currently there seems to be some ambiguity in the way FPM and CPM
+          entraPupilDiameters were defined in the simulation code (seem to be
+          inconsisten). Left the computations to work as they should for CPM
+          and for FPM the pupil/aperture will be loaded instead
+    
     :return:
     """
     if type(type_of_init) is np.ndarray: # it has already been implemented
         return type_of_init
     
-    if type_of_init not in ['circ', 'rand', 'gaussian', 'ones', 'fpm', 'fpm_circ']:
+    if type_of_init not in ['circ', 'rand', 'gaussian', 'ones', 'upsampled']:
         raise NotImplementedError()
         
     if type_of_init == 'ones':
-        # NB this is how it's implemented, there's a bit of noise
-        shape = np.asarray(shape)
         return np.ones(shape) + 0.001 * np.random.rand(*shape)
     
-    if type_of_init == 'rand':
-        # TODO: improve
-        obj = np.exp(1j * 2*np.pi * (np.random.rand(*shape)-1/2))
-        for idx in range(shape[0]):
-            obj[idx,:,:] =  gaussian_filter(np.abs(obj[idx,:,:]), 3) * np.exp(1j * gaussian_filter(np.angle(obj[idx,:,:]), 3))
-        return obj
-
     if type_of_init == 'circ':
-        # get the circular boundary constraints
         try:
-            shape = np.asarray(shape)
-            # if 'aperture' in dir(data):
-            #     pupil = data.aperture.copy()
-            # else:
-            pupil = circ(data.Xp, data.Yp, data.entrancePupilDiameter)
-            # return the initial low-pass filtered array
+            if 'aperture' in dir(data):
+                pupil = data.aperture.copy()
+            else:
+                pupil = circ(data.Xp, data.Yp, data.entrancePupilDiameter)
             return np.ones(shape) * pupil + 0.001 * np.random.rand(*shape)
         
         except AttributeError as e:
             raise AttributeError(e, 'probe/aperture/entrancePupilDiameter was not defined')
 
-    if type_of_init == 'fpm':
-        # upsample the ptychogram using fourier space padding to create an object
-        # estimate
-        # padSize = np.int((data.No - data.Np) / 2)
-        # upsampledObjectSpectrum = np.pad(fft2c(np.mean(data.ptychogram,0)), (padSize,padSize),'constant')     
-        # # return the upsampled image
-        # upsampledObjectSpectrum = fft2c(np.abs(ifft2c(upsampledObjectSpectrum)))
-        # return np.ones(shape)*upsampledObjectSpectrum
+    if type_of_init == 'upsampled':
         return np.ones(shape)*ifft2c(rescale(np.mean(data.ptychogram,0), np.int(data.No/data.Np)))
-    
-    if type_of_init == 'fpm_circ':
-        # get the circular boundary constraints for FPM. Due to a physical aperture
-        # stop it must not have any random noise added
-        try:
-            shape = np.asarray(shape)
-            if 'aperture' in dir(data):
-                pupil = data.aperture.copy()
-            else:
-                pupil = circ(data.Xp, data.Yp, data.entrancePupilDiameter)
-            # return the initial low-pass filtered array
-            return np.ones(shape) * pupil
         
-        except AttributeError as e:
-            raise AttributeError(e, 'probe/aperture/entrancePupilDiameter was not defined')
+    # if type_of_init == 'rand':
+    #     # TODO: improve
+    #     obj = np.exp(1j * 2*np.pi * (np.random.rand(*shape)-1/2))
+    #     for idx in range(shape[0]):
+    #         obj[idx,:,:] =  gaussian_filter(np.abs(obj[idx,:,:]), 3) * np.exp(1j * gaussian_filter(np.angle(obj[idx,:,:]), 3))
+    #     return obj
+
+   

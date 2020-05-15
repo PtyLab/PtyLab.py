@@ -55,12 +55,20 @@ class Optimizable(object):
 
         :return:
         """
+        # create a 6D object where which allows to have:
+        # 1. polychromatic = nlambda
+        # 2. mixed state object - nosm
+        # 3. mixed state probe - npsm
+        # 4. multislice object (thick) - nslice
         self.npsm = 1
         self.nosm = 1
+        self.nlambda = 1
+        self.nslice = 1
+        
 
         if self.data.operationMode == 'FPM':
-            self.initialObject = 'fpm'
-            self.initialProbe = 'fpm_circ'
+            self.initialObject = 'upsampled'
+            self.initialProbe = 'circ'
         elif self.data.operationMode == 'CPM':
             self.initialProbe = 'circ'
             self.initialObject = 'ones'
@@ -87,10 +95,11 @@ class Optimizable(object):
 
     def initializeObject(self):
         self.logger.info('Initial object set to %s', self.initialObject)
-        self.initialObject = initialProbeOrObject((self.nosm, np.int(self.data.No), np.int(self.data.No)),
-                                                      self.initialObject, self.data).astype(np.complex64)
+        self.shape_O = (self.nlambda, self.nosm, self.npsm, self.nslice, np.int(self.data.No), np.int(self.data.No))
+        self.initialObject = initialProbeOrObject(self.shape_O, self.initialObject, self.data).astype(np.complex64)
 
     def initializeProbe(self):
-        self.initialProbe = initialProbeOrObject((self.npsm, np.int(self.data.Np), np.int(self.data.Np)),
-                                                        self.initialProbe, self.data).astype(np.complex64)
+        self.logger.info('Initial probe set to %s', self.initialProbe)
+        self.shape_P = (self.nlambda, self.nosm, self.npsm, self.nslice, np.int(self.data.Np), np.int(self.data.Np))
+        self.initialProbe = initialProbeOrObject(self.shape_P, self.initialProbe, self.data).astype(np.complex64)
 

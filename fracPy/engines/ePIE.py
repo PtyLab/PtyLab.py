@@ -43,10 +43,10 @@ class ePIE(BaseReconstructor):
                 sy = slice(row, row + self.experimentalData.Np)
                 sx = slice(col, col + self.experimentalData.Np)
                 # note that object patch has size of probe array
-                objectPatch = self.optimizable.object[:, sy, sx].copy()
+                objectPatch = self.optimizable.object[..., sy, sx].copy()
                 
                 # make exit surface wave
-                self.optimizable.esw = objectPatch[:, ...] * self.optimizable.probe[:, ...]
+                self.optimizable.esw = objectPatch * self.optimizable.probe
                 
                 # propagate to camera, intensityProjection, propagate back to object
                 self.intensityProjection(positionIndex)
@@ -55,7 +55,7 @@ class ePIE(BaseReconstructor):
                 DELTA = self.optimizable.eswUpdate - self.optimizable.esw
 
                 # object update
-                self.optimizable.object[:, sy, sx] = self.objectPatchUpdate(objectPatch, DELTA)
+                self.optimizable.object[..., sy, sx] = self.objectPatchUpdate(objectPatch, DELTA)
 
                 # probe update
                 self.optimizable.probe = self.probeUpdate(objectPatch, DELTA)
@@ -67,7 +67,6 @@ class ePIE(BaseReconstructor):
             self.applyConstraints(loop)
 
             # show reconstruction
-            
             self.showReconstruction(loop)
 
 
@@ -81,14 +80,16 @@ class ePIE(BaseReconstructor):
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
         
-        frac = self.optimizable.probe.conj() / xp.max(xp.sum(xp.abs(self.optimizable.probe) ** 2, 0))
+        frac = self.optimizable.probe.conj() / xp.max(xp.sum(xp.abs(self.optimizable.probe) ** 2, axis = (0,1,2,3)))
+        return objectPatch + self.betaObject * np.sum(frac * DELTA, axis = (0,1,2,3), keepdims=True)
+
         # this is two statements in matlab but it should only be one in python
-        if self.optimizable.nosm == 1:
-            return objectPatch[:, ...] + self.betaObject * frac[0] * DELTA[0]
-        elif self.optimizable.npsm == 1:
-            return objectPatch + self.betaObject * frac * DELTA[:,...]
-        else:
-            raise NotImplementedError
+        # if self.optimizable.nosm == 1:
+        #     return objectPatch[:, ...] + self.betaObject * frac[0] * DELTA[0]
+        # elif self.optimizable.npsm == 1:
+        #     return objectPatch + self.betaObject * frac * DELTA[:,...]
+        # else:
+        #     raise NotImplementedError
 
        
     def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
@@ -100,15 +101,16 @@ class ePIE(BaseReconstructor):
         """
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
-        frac = objectPatch.conj() / xp.max(xp.sum(xp.abs(objectPatch) ** 2, 0))
+        frac = objectPatch.conj() / xp.max(xp.sum(xp.abs(objectPatch) ** 2, axis = (0,1,2,3)))
+        r = self.optimizable.probe + self.betaObject * np.sum(frac * DELTA, axis = (0,1,2,3), keepdims=True)
         # this is two statements in matlab but it should only be one in python
         # TODO figure out unit tests and padding dimensions
-        if self.optimizable.npsm == 1:
-            r = self.optimizable.probe[:,...] + self.betaProbe * frac[0] * DELTA[0]
-        elif self.optimizable.nosm == 1:
-            r = self.optimizable.probe + self.betaProbe * frac * DELTA[:, ...]
+        # if self.optimizable.npsm == 1:
+        #     r = self.optimizable.probe[:,...] + self.betaProbe * frac[0] * DELTA[0]
+        # elif self.optimizable.nosm == 1:
+        #     r = self.optimizable.probe + self.betaProbe * frac * DELTA[:, ...]
         if self.absorbingProbeBoundary:
             aleph = 1e-3
-            r = (1 - aleph) * r + aleph * r[:, ...] * self.probeWindow
+            r = (1 - aleph) * r + aleph * r * self.probeWindow
         return r
 

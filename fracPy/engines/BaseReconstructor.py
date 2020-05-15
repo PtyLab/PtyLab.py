@@ -145,7 +145,7 @@ class BaseReconstructor(object):
         # Todo Fresnel, ASP, scaledASP propagators
         elif self.propagator == 'Fresnel':
             self.ifft2s()
-            self.optimizable.esw = self.optimizable.esw[:, ...] * np.conj(self.quadraticPhase)
+            self.optimizable.esw = self.optimizable.esw * np.conj(self.quadraticPhase)
             raise NotImplementedError()
         elif self.propagator == 'ASP':
             raise NotImplementedError()
@@ -194,7 +194,7 @@ class BaseReconstructor(object):
         if not self.saveMemory:
             # Calculate mean error for all positions (make separate function for all of that)
             if self.FourierMaskSwitch:
-                self.errorAtPos = np.sum(np.abs(self.detectorError[:, ...]) * self.W)
+                self.errorAtPos = np.sum(np.abs(self.detectorError) * self.W)
             else:
                 self.errorAtPos = np.sum(np.abs(self.detectorError))
 
@@ -212,7 +212,9 @@ class BaseReconstructor(object):
         :param positionIndex:
         :return:
         """
-        self.currentDetectorError = abs(self.optimizable.Imeasured-self.optimizable.Iestimated)
+        # TODO: change error for the 6D array
+        # self.currentDetectorError = abs(self.optimizable.Imeasured-self.optimizable.Iestimated)
+        self.currentDetectorError = np.sum(abs(self.optimizable.Imeasured-self.optimizable.Iestimated),axis=(0,1,2,3))
         if self.saveMemory:
             if self.FourierMaskSwitch and not self.CPSCswitch:
                 self.errorAtPos[positionIndex] = np.sum(self.currentDetectorError*self.W)
@@ -254,7 +256,7 @@ class BaseReconstructor(object):
         frac = np.sqrt(self.optimizable.Imeasured / (self.optimizable.Iestimated + gimmel))
 
         # update ESW
-        self.optimizable.ESW = self.optimizable.ESW[:, ...] * frac
+        self.optimizable.ESW = self.optimizable.ESW * frac
         self.detector2object()
 
 
@@ -267,7 +269,7 @@ class BaseReconstructor(object):
             self.fft2s()
         # Todo Fresnel, ASP, scaledASP propagators
         elif self.propagator == 'Fresnel':
-            self.optimizable.esw = self.optimizable.esw[:, ...] * self.quadraticPhase
+            self.optimizable.esw = self.optimizable.esw * self.quadraticPhase
             self.fft2s()
         elif self.propagator == 'ASP':
             raise NotImplementedError()
@@ -282,12 +284,21 @@ class BaseReconstructor(object):
         :return:
         """
         if self.optimizable.npsm > 1:
-            self.optimizable.probe, self.normalizedEigenvaluesProbe, self.MSPVprobe =\
-                orthogonalizeModes(self.optimizable.probe)
-            self.optimizable.purity = np.sqrt(np.sum(self.normalizedEigenvaluesProbe**2))
+            for id_l in range(self.optimizable.nlambda):
+                for id_s in range(self.optimizable.nslice):
+                    self.optimizable.probe[id_l,0,:,id_s,:,:], self.normalizedEigenvaluesProbe, self.MSPVprobe =\
+                        orthogonalizeModes(self.optimizable.probe[id_l,0,:,id_s,:,:])
+                    self.optimizable.purity = np.sqrt(np.sum(self.normalizedEigenvaluesProbe**2))
+            # self.optimizable.probe, self.normalizedEigenvaluesProbe, self.MSPVprobe =\
+            #     orthogonalizeModes(self.optimizable.probe)
+            # self.optimizable.purity = np.sqrt(np.sum(self.normalizedEigenvaluesProbe**2))
         elif self.optimizable.nosm > 1:
-            self.optimizable.object, self.normalizedEigenvaluesObject, self.MSPVobject = \
-                orthogonalizeModes(self.optimizable.object)
+            for id_l in range(self.optimizable.nlambda):
+                for id_s in range(self.optimizable.nslice):
+                    self.optimizable.object[id_l,:,0,id_s,:,:], self.normalizedEigenvaluesObject, self.MSPVobject =\
+                        orthogonalizeModes(self.optimizable.object[id_l,:,0,id_s,:,:])
+            # self.optimizable.object, self.normalizedEigenvaluesObject, self.MSPVobject = \
+            #     orthogonalizeModes(self.optimizable.object)
         else:
             pass
 
@@ -314,7 +325,7 @@ class BaseReconstructor(object):
         if loop == 0:
             self.monitor.initializeVisualisation()
         elif np.mod(loop, self.monitor.figureUpdateFrequency) == 0:
-            self.monitor.updatePlot(object_estimate)
+            self.monitor.updatePlot(object_estimate[0,0,:,0,:,:])
             print('iteration:%i' %len(self.optimizable.error))
             print('runtime:')
             print('error:')
