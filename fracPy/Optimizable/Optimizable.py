@@ -95,11 +95,11 @@ class Optimizable(object):
 
     def initializeObject(self):
         self.logger.info('Initial object set to %s', self.initialObject)
-        self.shape_O = (self.nlambda, self.nosm, self.npsm, self.nslice, np.int(self.data.No), np.int(self.data.No))
+        self.shape_O = (self.nlambda, self.nosm, 1, self.nslice, np.int(self.data.No), np.int(self.data.No))
         self.initialObject = initialProbeOrObject(self.shape_O, self.initialObject, self.data).astype(np.complex64)
 
     def initializeProbe(self):
         self.logger.info('Initial probe set to %s', self.initialProbe)
-        self.shape_P = (self.nlambda, self.nosm, self.npsm, self.nslice, np.int(self.data.Np), np.int(self.data.Np))
+        self.shape_P = (self.nlambda, 1, self.npsm, self.nslice, np.int(self.data.Np), np.int(self.data.Np))
         self.initialProbe = initialProbeOrObject(self.shape_P, self.initialProbe, self.data).astype(np.complex64)
 

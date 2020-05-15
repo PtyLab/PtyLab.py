@@ -12,7 +12,7 @@ import logging
 
 class ePIE(BaseReconstructor):
 
-    def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData, monitor:Monitor):
+    def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData, monitor: Monitor):
         # This contains reconstruction parameters that are specific to the reconstruction
         # but not necessarily to ePIE reconstruction
         super().__init__(optimizable, experimentalData,monitor)
