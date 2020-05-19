@@ -102,7 +102,6 @@ class DefaultMonitor(object):
             self.figure.show()
 
         self.figure.canvas.draw()
-        self.figure.tight_layout()
         self.figure.canvas.flush_events()
 
 
@@ -165,5 +164,4 @@ class DiffractionDataMonitor(object):
             self.figure.show()
 
         self.figure.canvas.draw()
-        self.figure.tight_layout()
         self.figure.canvas.flush_events()
