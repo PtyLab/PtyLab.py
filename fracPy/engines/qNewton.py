@@ -79,8 +79,9 @@ class qNewton(BaseReconstructor):
         """
         Temporary barebones update
         """
-        objectPatch = objectPatch + self.betaObject * np.abs(self.optimizable.probe) * np.conj(self.optimizable.probe) * DELTA \
-            / (np.max(np.abs(self.optimizable.probe[:])) * (np.abs(self.optimizable.probe)**2 + 1))
+
+        objectPatch += self.betaObject * np.abs(self.optimizable.probe) * np.conj(self.optimizable.probe) * DELTA \
+            / (np.max(np.abs(self.optimizable.probe)) * (np.abs(self.optimizable.probe)**2 + 1))
 
         return objectPatch
        

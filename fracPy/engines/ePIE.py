@@ -79,9 +79,9 @@ class ePIE(BaseReconstructor):
         """
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
-        
-        frac = self.optimizable.probe.conj() / xp.max(xp.sum(xp.abs(self.optimizable.probe) ** 2, axis = (0,1,2,3)))
-        return objectPatch + self.betaObject * np.sum(frac * DELTA, axis = (0,1,2,3), keepdims=True)
+
+        frac = self.optimizable.probe.conj() / xp.max(xp.sum(xp.abs(self.optimizable.probe) ** 2, axis=(0, 1, 2, 3)))
+        return objectPatch + self.betaObject * np.sum(frac * DELTA, axis=(0, 1, 2, 3), keepdims=True)
 
         # this is two statements in matlab but it should only be one in python
         # if self.optimizable.nosm == 1:
@@ -102,7 +102,7 @@ class ePIE(BaseReconstructor):
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
         frac = objectPatch.conj() / xp.max(xp.sum(xp.abs(objectPatch) ** 2, axis = (0,1,2,3)))
-        r = self.optimizable.probe + self.betaObject * np.sum(frac * DELTA, axis = (0,1,2,3), keepdims=True)
+        r = self.optimizable.probe + self.betaObject * xp.sum(frac * DELTA, axis = (0,1,2,3), keepdims=True)
         # this is two statements in matlab but it should only be one in python
         # TODO figure out unit tests and padding dimensions
         # if self.optimizable.npsm == 1:
