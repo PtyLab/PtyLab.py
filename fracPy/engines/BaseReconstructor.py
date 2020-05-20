@@ -6,7 +6,7 @@ import logging
 from fracPy.utils.initializationFunctions import initialProbeOrObject
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Optimizable.Optimizable import Optimizable
-from fracPy.utils.utils import ifft2c, fft2c, orthogonalizeModes
+from fracPy.utils.utils import ifft2c, fft2c, orthogonalizeModes, aspw, scaledASP
 from fracPy.monitors.Monitor import Monitor
 
 class BaseReconstructor(object):
@@ -34,7 +34,7 @@ class BaseReconstructor(object):
         self.CPSCswitch = False
         self.fontSize = 17
         self.intensityConstraint = 'standard'  # standard or sigmoid
-        self.propagator = 'fraunhofer'
+        self.propagator = 'Fraunhofer' # 'Fresnel' 'ASP'
 
 
         # Specific reconstruction settings that are the same for all engines
@@ -78,14 +78,35 @@ class BaseReconstructor(object):
             self.detectorError = np.zeros((self.experimentalData.numFrames,
                                           self.experimentalData.Nd, self.experimentalData.Nd))
 
-
-        if not hasattr(self,'errorAtPos'):
+        # initialize energy at each scan position
+        if not hasattr(self, 'errorAtPos'):
             self.errorAtPos = np.zeros((self.experimentalData.numFrames, 1), dtype=np.float32)
 
-        if not len(self.experimentalData.ptychogram)==0:
+        if len(self.experimentalData.ptychogram) != 0:
             self.energyAtPos = np.sum(np.sum(abs(self.experimentalData.ptychogram), axis=-1), axis=-1)
         else:
-            raise NotImplementedError
+            raise Exception('ptychogram is empty')
+
+        # initialize quadraticPhase term
+        # todo multiwavelength implementation
+        # todo check why fraunhofer also need quadraticPhase term
+
+        if self.propagator == 'Fresnel':
+            self.propagator.quadraticPhase = np.exp(1.j * np.pi/(self.experimentalData.wavelength * self.experimentalData.zo)
+                                         * (self.experimentalData.Xp**2 + self.experimentalData.Yp**2))
+        elif self.propagator == 'ASP':
+            _, self.propagator.transferFunction = aspw(np.squeeze(self.optimizable.probe[0, 0, 0, 0, :, :]),
+                                                       self.experimentalData.zo, self.experimentalData.wavelength,
+                                                       self.experimentalData.Lp)
+            if self.fftshiftSwitch:
+                raise ValueError('ASP propagator works only with fftshiftSwitch = False!')
+
+        elif self.propagator =='scaledASP':
+            _,self.propagator.Q1,self.propagator.Q2 = scaledASP(np.squeeze(self.optimizable.probe[0, 0, 0, 0, :, :]),
+                                                                self.experimentalData.zo, self.experimentalData.wavelength,
+                                                                self.experimentalData.dxo,self.experimentalData.dxd)
+
+
 
     def setPositionOrder(self):
         if self.positionOrder == 'sequential':
@@ -140,19 +161,19 @@ class BaseReconstructor(object):
         Matches: detector2object.m
         :return:
         """
-        if self.propagator == 'fraunhofer':
+        if self.propagator == 'Fraunhofer':
             self.ifft2s()
-        # Todo Fresnel, ASP, scaledASP propagators
         elif self.propagator == 'Fresnel':
             self.ifft2s()
-            self.optimizable.esw = self.optimizable.esw * np.conj(self.quadraticPhase)
-            raise NotImplementedError()
+            self.optimizable.esw = self.optimizable.esw * np.conj(self.propagator.quadraticPhase)
         elif self.propagator == 'ASP':
-            raise NotImplementedError()
+            self.optimizable.esw = ifft2c(fft2c(self.optimizable.esw) * np.conj(self.propagator.transferFunction))
         elif self.propagator == 'scaledASP':
-            raise NotImplementedError()
+            self.optimizable.esw = ifft2c(fft2c(self.optimizable.esw) * np.conj(self.propagator.Q2)
+                                          ) * np.conj(self.propagator.Q1)
         else:
-            raise NotImplementedError()
+            raise Exception('Propagator is not properly set, choose from Fraunhofer, Fresnel, ASP and scaledASP')
+
 
     def exportOjb(self, extension='.mat'):
         """
@@ -266,18 +287,17 @@ class BaseReconstructor(object):
         Implements object2detector.m
         :return:
         """
-        if self.propagator == 'fraunhofer':
+        if self.propagator == 'Fraunhofer':
             self.fft2s()
-        # Todo Fresnel, ASP, scaledASP propagators
         elif self.propagator == 'Fresnel':
-            self.optimizable.esw = self.optimizable.esw * self.quadraticPhase
+            self.optimizable.esw = self.optimizable.esw * self.propagator.quadraticPhase
             self.fft2s()
         elif self.propagator == 'ASP':
-            raise NotImplementedError()
+            self.optimizable.esw = ifft2c( fft2c(self.optimizable.esw) * self.propagator.transferFunction)
         elif self.propagator == 'scaledASP':
-            raise NotImplementedError()
+            self.optimizable.esw = ifft2c(fft2c(self.optimizable.esw * self.propagator.Q1) * self.propagator.Q2)
         else:
-            raise NotImplementedError()
+            raise Exception('Propagator is not properly set, choose from Fraunhofer, Fresnel, ASP and scaledASP')
 
     def orthogonalization(self):
         """
