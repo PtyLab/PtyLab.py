@@ -1,5 +1,5 @@
 import matplotlib
-matplotlib.use('tkagg')
+# matplotlib.use('tkagg')
 #matplotlib.use('qt5agg')
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Optimizable.Optimizable import Optimizable
@@ -16,7 +16,7 @@ FPM data reconstructor
 change data visualization and initialization options manually for now
 """
 
-FPM_simulation = True
+FPM_simulation = False
 ptycho_simulation = True
 
 if FPM_simulation:
@@ -29,7 +29,7 @@ if FPM_simulation:
     # # now create an object to hold everything we're eventually interested in
     optimizable = Optimizable(exampleData)
 
-    optimizable.npsm = 1  # Number of probe modes to reconstruct
+    optimizable.npsm = 4  # Number of probe modes to reconstruct
     optimizable.nosm = 1  # Number of object modes to reconstruct
     optimizable.nlambda = 1  # Number of wavelength
     optimizable.prepare_reconstruction()
@@ -44,10 +44,9 @@ if FPM_simulation:
     # now we want to run an optimizer. First create it.
     qNewton_engine = qNewton.qNewton(optimizable, exampleData, monitor)
     # set any settings involving ePIE in this object.
-    qNewton_engine.numIterations = 10
+    qNewton_engine.numIterations = 50
     # now, run the reconstruction
     qNewton_engine.doReconstruction()
-    qNewton_engine.showEndResult()
 
 
 """ 
@@ -62,7 +61,7 @@ if ptycho_simulation:
     # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
     # now create an object to hold everything we're eventually interested in
     optimizable = Optimizable(exampleData)
-    optimizable.npsm = 1 # Number of probe modes to reconstruct
+    optimizable.npsm = 4 # Number of probe modes to reconstruct
     optimizable.nosm = 1 # Number of object modes to reconstruct
     optimizable.nlambda = 1 # Number of wavelength
     optimizable.prepare_reconstruction()

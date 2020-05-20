@@ -16,8 +16,8 @@ class qNewton(BaseReconstructor):
         # This contains reconstruction parameters that are specific to the reconstruction
         # but not necessarily to ePIE reconstruction
         super().__init__(optimizable, experimentalData, monitor)
-        self.logger = logging.getLogger('ePIE')
-        self.logger.info('Sucesfully created ePIE ePIE_engine')
+        self.logger = logging.getLogger('qNewton')
+        self.logger.info('Sucesfully created qNewton qNewton_engine')
 
         self.logger.info('Wavelength attribute: %s', self.optimizable.wavelength)
 
@@ -28,16 +28,16 @@ class qNewton(BaseReconstructor):
         Set parameters that are specific to the ePIE settings.
         :return:
         """
-        # self.eswUpdate = self.optimizable.esw.copy()
         self.betaProbe = 1
         self.betaObject = 1
-        self.apertureConstraint = (np.abs(self.optimizable.probe) == 1)
+        self.regObject = 1
+        self.regProbe = 1
+        self.positionOrder = 'NA'
         
     def doReconstruction(self):
         # actual reconstruction ePIE_engine
         for loop in range(self.numIterations):
             # set position order
-            #self.positionIndices = \
             self.setPositionOrder()
             for positionLoop, positionIndex in enumerate(self.positionIndices):
                 # get object patch
@@ -45,7 +45,7 @@ class qNewton(BaseReconstructor):
                 sy = slice(row, row + self.experimentalData.Np)
                 sx = slice(col, col + self.experimentalData.Np)
                 # note that object patch has size of probe array
-                objectPatch = self.optimizable.object[:, sy, sx].copy()
+                objectPatch = self.optimizable.object[..., sy, sx].copy()
                 
                 # make exit surface wave
                 self.optimizable.esw = objectPatch * self.optimizable.probe
@@ -59,7 +59,7 @@ class qNewton(BaseReconstructor):
 
                 
                 # object update
-                self.optimizable.object[:, sy, sx] = self.objectPatchUpdate(objectPatch, DELTA)
+                self.optimizable.object[..., sy, sx] = self.objectPatchUpdate(objectPatch, DELTA)
 
                 # probe update
                 self.optimizable.probe = self.probeUpdate( objectPatch, DELTA)
@@ -79,21 +79,24 @@ class qNewton(BaseReconstructor):
         """
         Temporary barebones update
         """
+        xp = getArrayModule(objectPatch)
+        
+        Pmax = xp.max(xp.sum(xp.abs(self.optimizable.probe), axis=(0,1,2,3)))
+        # Pmax = xp.max(xp.abs(self.optimizable.probe))
+        frac = xp.abs(self.optimizable.probe) * self.optimizable.probe.conj() /  (Pmax * (xp.abs(self.optimizable.probe)**2 + self.regObject)) 
+        return objectPatch + self.betaObject * np.sum(frac * DELTA, axis=(0,2,3), keepdims=True)
 
-        objectPatch += self.betaObject * np.abs(self.optimizable.probe) * np.conj(self.optimizable.probe) * DELTA \
-            / (np.max(np.abs(self.optimizable.probe)) * (np.abs(self.optimizable.probe)**2 + 1))
-
-        return objectPatch
        
     def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
         """
         Temporary barebones update
 
         """
-        Omax = np.max(np.abs(self.optimizable.object[:]))
+        xp = getArrayModule(objectPatch)
 
-        r = self.optimizable.probe +  self.betaProbe * np.abs(objectPatch) * np.conj(objectPatch) * DELTA \
-            / (Omax * (np.abs(objectPatch)**2 + 1 )) 
-       
+        Omax = xp.max(xp.sum(xp.abs(self.optimizable.object), axis=(0,1,2,3)))
+        # Omax = xp.max(xp.abs(self.optimizable.object))
+        frac = xp.abs(objectPatch) * objectPatch.conj() /  (Omax * (xp.abs(objectPatch)**2 + self.regProbe)) 
+        r = self.optimizable.probe + self.betaObject * xp.sum(frac * DELTA, axis = (0,1,3), keepdims=True)
         return r
 

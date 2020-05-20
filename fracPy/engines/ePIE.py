@@ -80,16 +80,8 @@ class ePIE(BaseReconstructor):
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
 
-        frac = self.optimizable.probe.conj() / xp.max(xp.sum(xp.abs(self.optimizable.probe) ** 2, axis=(0, 1, 2, 3)))
-        return objectPatch + self.betaObject * np.sum(frac * DELTA, axis=(0, 1, 2, 3), keepdims=True)
-
-        # this is two statements in matlab but it should only be one in python
-        # if self.optimizable.nosm == 1:
-        #     return objectPatch[:, ...] + self.betaObject * frac[0] * DELTA[0]
-        # elif self.optimizable.npsm == 1:
-        #     return objectPatch + self.betaObject * frac * DELTA[:,...]
-        # else:
-        #     raise NotImplementedError
+        frac = self.optimizable.probe.conj() / xp.max(xp.sum(xp.abs(self.optimizable.probe) ** 2, axis=(0,1,2,3)))
+        return objectPatch + self.betaObject * np.sum(frac * DELTA, axis=(0,2,3), keepdims=True)
 
        
     def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
@@ -102,13 +94,7 @@ class ePIE(BaseReconstructor):
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
         frac = objectPatch.conj() / xp.max(xp.sum(xp.abs(objectPatch) ** 2, axis = (0,1,2,3)))
-        r = self.optimizable.probe + self.betaObject * xp.sum(frac * DELTA, axis = (0,1,2,3), keepdims=True)
-        # this is two statements in matlab but it should only be one in python
-        # TODO figure out unit tests and padding dimensions
-        # if self.optimizable.npsm == 1:
-        #     r = self.optimizable.probe[:,...] + self.betaProbe * frac[0] * DELTA[0]
-        # elif self.optimizable.nosm == 1:
-        #     r = self.optimizable.probe + self.betaProbe * frac * DELTA[:, ...]
+        r = self.optimizable.probe + self.betaObject * xp.sum(frac * DELTA, axis = (0,1,3), keepdims=True)
         if self.absorbingProbeBoundary:
             aleph = 1e-3
             r = (1 - aleph) * r + aleph * r * self.probeWindow

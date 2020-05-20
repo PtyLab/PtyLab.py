@@ -100,6 +100,15 @@ class BaseReconstructor(object):
                 else:
                     self.positionIndices = np.arange(self.experimentalData.numFrames)
                     np.random.shuffle(self.positionIndices)
+        
+        # order by illumiantion angles. Use smallest angles first
+        # (i.e. start with brightfield data first, then add the low SNR
+        # darkfield)
+        elif self.positionOrder == 'NA':
+            rows = self.experimentalData.positions[:,0] - np.mean( self.experimentalData.positions[:,0])
+            cols = self.experimentalData.positions[:,1] - np.mean( self.experimentalData.positions[:,1])
+            dist = np.sqrt(rows**2 + cols**2)
+            self.positionIndices = np.argsort(dist)
         else:
             raise ValueError('position order not properly set')
 
@@ -319,8 +328,8 @@ class BaseReconstructor(object):
         :return:
         """
         if self.experimentalData.operationMode == 'FPM':
-            object_estimate = abs(fft2c(self.optimizable.object))
-            probe_estimate = self.optimizable.probe
+            object_estimate = np.squeeze(fft2c(self.optimizable.object))
+            probe_estimate = np.squeeze(self.optimizable.probe)
         else:
             # object_estimate = self.optimizable.object
             object_estimate = np.squeeze(self.optimizable.object)
@@ -374,24 +383,3 @@ class BaseReconstructor(object):
 
         if self.objectContrastSwitch:
             raise NotImplementedError()
-
-    ## Python-specific things
-    def showEndResult(self):
-        import matplotlib.pyplot as plt
-        initial_guess = ifft2c(self.optimizable.initialObject[0, :, :])
-        recon = ifft2c(self.optimizable.object[0, :, :])
-        plt.figure(10)
-        plt.ioff()
-        plt.subplot(221)
-        plt.title('initial guess')
-        plt.imshow(abs(initial_guess))
-        plt.subplot(222)
-        plt.title('amplitude')
-        plt.imshow(abs(recon))
-        plt.subplot(224)
-        plt.title('phase')
-        plt.imshow(np.angle(recon))
-        plt.subplot(223)
-        plt.title('probe phase')
-        plt.imshow(np.angle(self.optimizable.probe[0, :, :]))
-        plt.pause(10)
