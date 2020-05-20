@@ -6,7 +6,8 @@ import logging
 from fracPy.utils.initializationFunctions import initialProbeOrObject
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Optimizable.Optimizable import Optimizable
-from fracPy.utils.utils import ifft2c, fft2c, orthogonalizeModes, aspw, scaledASP
+from fracPy.utils.utils import ifft2c, fft2c, orthogonalizeModes
+from fracPy.operators.operators import aspw, scaledASP
 from fracPy.monitors.Monitor import Monitor
 
 class BaseReconstructor(object):
