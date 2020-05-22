@@ -16,8 +16,8 @@ FPM data reconstructor
 change data visualization and initialization options manually for now
 """
 
-FPM_simulation = False
-ptycho_simulation = True
+FPM_simulation = False # not working at the moment
+ptycho_simulation = False
 
 if FPM_simulation:
     # create an experimentalData object and load a measurement
