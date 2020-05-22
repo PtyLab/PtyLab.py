@@ -1,5 +1,5 @@
 import matplotlib
-# matplotlib.use('tkagg')
+matplotlib.use('tkagg')
 #matplotlib.use('qt5agg')
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Optimizable.Optimizable import Optimizable
@@ -61,8 +61,8 @@ if ptycho_simulation:
     # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
     # now create an object to hold everything we're eventually interested in
     optimizable = Optimizable(exampleData)
-    optimizable.npsm = 4 # Number of probe modes to reconstruct
-    optimizable.nosm = 1 # Number of object modes to reconstruct
+    optimizable.npsm = 9 # Number of probe modes to reconstruct
+    optimizable.nosm = 4 # Number of object modes to reconstruct
     optimizable.nlambda = 1 # Number of wavelength
     optimizable.prepare_reconstruction()
     # this will copy any attributes from experimental data that we might care to optimize
