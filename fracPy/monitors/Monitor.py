@@ -1,4 +1,5 @@
 from .default_visualisation import DefaultMonitor, DiffractionDataMonitor
+import numpy as np
 
 class Monitor(object):
     """
@@ -21,7 +22,7 @@ class Monitor(object):
             self.diffractionDataMonitor = DiffractionDataMonitor()
 
 
-    def updatePlot(self, object_estimate):
+    def updatePlot(self, object_estimate, probe_estimate):
         """
         update initialized plots
         :param object_estimate:
@@ -29,10 +30,10 @@ class Monitor(object):
         """
         self.defaultMonitor.updateError(self.optimizable.error)
         self.defaultMonitor.updateObject(object_estimate, objectPlot=self.objectPlot, pixelSize=self.optimizable.data.dxo)
-        self.defaultMonitor.updateProbe(self.optimizable, pixelSize=self.optimizable.data.dxp)
+        self.defaultMonitor.updateProbe(probe_estimate, self.optimizable, pixelSize=self.optimizable.data.dxp)
         self.defaultMonitor.drawNow()
         if self.verboseLevel == 'high':
-            self.diffractionDataMonitor.updateIestimated(self.optimizable.Iestimated)
+            self.diffractionDataMonitor.updateIestimated(np.squeeze(self.optimizable.Iestimated))
             self.diffractionDataMonitor.updateImeasured(self.optimizable.Imeasured)
             self.diffractionDataMonitor.drawNow()
 

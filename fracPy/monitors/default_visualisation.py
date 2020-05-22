@@ -27,7 +27,7 @@ class DefaultMonitor(object):
         """
 
         # add an axis for the object
-        self.figure, axes= plt.subplots(1, 3, num=self.figNum, squeeze=False, clear=True)
+        self.figure, axes= plt.subplots(1, 3, num=self.figNum, squeeze=False, clear=True, figsize=(9,3))
         self.ax_object = axes[0][0]
         self.ax_probe = axes[0][1]
         self.ax_error_metric = axes[0][2]
@@ -35,7 +35,11 @@ class DefaultMonitor(object):
         self.txt_purity = self.ax_probe.set_title('Probe estimate')
         # self.txt_purity = plt.text(0,1.2,'',transform = self.ax_probe.transAxes)
         self.ax_error_metric.set_title('Error metric')
-        plt.tight_layout()
+        self.ax_error_metric.grid(True)
+        self.ax_error_metric.grid(b=True, which='minor', color='#999999', linestyle='-', alpha=0.2)
+        self.ax_error_metric.set_xlabel('iterations')
+        self.ax_error_metric.set_ylabel('error')
+        self.figure.tight_layout()
         self.firstrun = True
 
 
@@ -57,9 +61,8 @@ class DefaultMonitor(object):
         else:
             self.im_object.set_data(OE)
 
-    def updateProbe(self, optimizable,pixelSize= 1,probeROI = None):
+    def updateProbe(self, probe_estimate, optimizable, pixelSize= 1,probeROI = None):
 
-        probe_estimate = optimizable.probe
         PE = complex_to_rgb(modeTile(probe_estimate,normalize=True))
 
         if self.firstrun:
@@ -124,12 +127,12 @@ class DiffractionDataMonitor(object):
         """
 
         # add an axis for the object
-        self.figure, axes= plt.subplots(1, 2, num=self.figNum, squeeze=False, clear=True)
+        self.figure, axes= plt.subplots(1, 2, num=self.figNum, squeeze=False, clear=True, figsize=(9,3))
         self.ax_Iestimated = axes[0][0]
         self.ax_Imeasured = axes[0][1]
         self.ax_Iestimated.set_title('Estimated intensity')
         self.ax_Imeasured.set_title('Measured intensity')
-        plt.tight_layout()
+        self.figure.tight_layout()
         self.firstrun = True
 
 

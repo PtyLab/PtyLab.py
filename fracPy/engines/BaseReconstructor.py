@@ -7,6 +7,7 @@ from fracPy.utils.initializationFunctions import initialProbeOrObject
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Optimizable.Optimizable import Optimizable
 from fracPy.utils.utils import ifft2c, fft2c, orthogonalizeModes
+from fracPy.operators.operators import aspw, scaledASP
 from fracPy.monitors.Monitor import Monitor
 
 class BaseReconstructor(object):
@@ -34,7 +35,7 @@ class BaseReconstructor(object):
         self.CPSCswitch = False
         self.fontSize = 17
         self.intensityConstraint = 'standard'  # standard or sigmoid
-        self.propagator = 'fraunhofer'
+        self.propagator = 'Fraunhofer' # 'Fresnel' 'ASP'
 
 
         # Specific reconstruction settings that are the same for all engines
@@ -78,14 +79,35 @@ class BaseReconstructor(object):
             self.detectorError = np.zeros((self.experimentalData.numFrames,
                                           self.experimentalData.Nd, self.experimentalData.Nd))
 
-
-        if not hasattr(self,'errorAtPos'):
+        # initialize energy at each scan position
+        if not hasattr(self, 'errorAtPos'):
             self.errorAtPos = np.zeros((self.experimentalData.numFrames, 1), dtype=np.float32)
 
-        if not len(self.experimentalData.ptychogram)==0:
+        if len(self.experimentalData.ptychogram) != 0:
             self.energyAtPos = np.sum(np.sum(abs(self.experimentalData.ptychogram), axis=-1), axis=-1)
         else:
-            raise NotImplementedError
+            raise Exception('ptychogram is empty')
+
+        # initialize quadraticPhase term
+        # todo multiwavelength implementation
+        # todo check why fraunhofer also need quadraticPhase term
+
+        if self.propagator == 'Fresnel':
+            self.propagator.quadraticPhase = np.exp(1.j * np.pi/(self.experimentalData.wavelength * self.experimentalData.zo)
+                                         * (self.experimentalData.Xp**2 + self.experimentalData.Yp**2))
+        elif self.propagator == 'ASP':
+            _, self.propagator.transferFunction = aspw(np.squeeze(self.optimizable.probe[0, 0, 0, 0, :, :]),
+                                                       self.experimentalData.zo, self.experimentalData.wavelength,
+                                                       self.experimentalData.Lp)
+            if self.fftshiftSwitch:
+                raise ValueError('ASP propagator works only with fftshiftSwitch = False!')
+
+        elif self.propagator =='scaledASP':
+            _,self.propagator.Q1,self.propagator.Q2 = scaledASP(np.squeeze(self.optimizable.probe[0, 0, 0, 0, :, :]),
+                                                                self.experimentalData.zo, self.experimentalData.wavelength,
+                                                                self.experimentalData.dxo,self.experimentalData.dxd)
+
+
 
     def setPositionOrder(self):
         if self.positionOrder == 'sequential':
@@ -140,19 +162,19 @@ class BaseReconstructor(object):
         Matches: detector2object.m
         :return:
         """
-        if self.propagator == 'fraunhofer':
+        if self.propagator == 'Fraunhofer':
             self.ifft2s()
-        # Todo Fresnel, ASP, scaledASP propagators
         elif self.propagator == 'Fresnel':
             self.ifft2s()
-            self.optimizable.esw = self.optimizable.esw[:, ...] * np.conj(self.quadraticPhase)
-            raise NotImplementedError()
+            self.optimizable.esw = self.optimizable.esw * np.conj(self.propagator.quadraticPhase)
         elif self.propagator == 'ASP':
-            raise NotImplementedError()
+            self.optimizable.esw = ifft2c(fft2c(self.optimizable.esw) * np.conj(self.propagator.transferFunction))
         elif self.propagator == 'scaledASP':
-            raise NotImplementedError()
+            self.optimizable.esw = ifft2c(fft2c(self.optimizable.esw) * np.conj(self.propagator.Q2)
+                                          ) * np.conj(self.propagator.Q1)
         else:
-            raise NotImplementedError()
+            raise Exception('Propagator is not properly set, choose from Fraunhofer, Fresnel, ASP and scaledASP')
+
 
     def exportOjb(self, extension='.mat'):
         """
@@ -194,7 +216,7 @@ class BaseReconstructor(object):
         if not self.saveMemory:
             # Calculate mean error for all positions (make separate function for all of that)
             if self.FourierMaskSwitch:
-                self.errorAtPos = np.sum(np.abs(self.detectorError[:, ...]) * self.W)
+                self.errorAtPos = np.sum(np.abs(self.detectorError) * self.W)
             else:
                 self.errorAtPos = np.sum(np.abs(self.detectorError))
 
@@ -212,7 +234,9 @@ class BaseReconstructor(object):
         :param positionIndex:
         :return:
         """
-        self.currentDetectorError = abs(self.optimizable.Imeasured-self.optimizable.Iestimated)
+        # TODO: change error for the 6D array
+        # self.currentDetectorError = abs(self.optimizable.Imeasured-self.optimizable.Iestimated)
+        self.currentDetectorError = np.sum(abs(self.optimizable.Imeasured-self.optimizable.Iestimated),axis=(0,1,2,3))
         if self.saveMemory:
             if self.FourierMaskSwitch and not self.CPSCswitch:
                 self.errorAtPos[positionIndex] = np.sum(self.currentDetectorError*self.W)
@@ -245,7 +269,8 @@ class BaseReconstructor(object):
         # Todo: Background mode, CPSCswitch, Fourier mask
 
         # these are amplitudes rather than intensities
-        self.optimizable.Iestimated = np.sum(np.abs(self.optimizable.ESW)**2, axis = 0)
+        # self.optimizable.Iestimated = np.sum(np.abs(self.optimizable.ESW)**2, axis = 0)
+        self.optimizable.Iestimated = np.sum(np.abs(self.optimizable.ESW) ** 2, axis= (0,1,2,3), keepdims=True)
         self.optimizable.Imeasured = self.experimentalData.ptychogram[positionIndex]
 
         self.getRMSD(positionIndex)
@@ -254,7 +279,7 @@ class BaseReconstructor(object):
         frac = np.sqrt(self.optimizable.Imeasured / (self.optimizable.Iestimated + gimmel))
 
         # update ESW
-        self.optimizable.ESW = self.optimizable.ESW[:, ...] * frac
+        self.optimizable.ESW = self.optimizable.ESW * frac
         self.detector2object()
 
 
@@ -263,18 +288,17 @@ class BaseReconstructor(object):
         Implements object2detector.m
         :return:
         """
-        if self.propagator == 'fraunhofer':
+        if self.propagator == 'Fraunhofer':
             self.fft2s()
-        # Todo Fresnel, ASP, scaledASP propagators
         elif self.propagator == 'Fresnel':
-            self.optimizable.esw = self.optimizable.esw[:, ...] * self.quadraticPhase
+            self.optimizable.esw = self.optimizable.esw * self.propagator.quadraticPhase
             self.fft2s()
         elif self.propagator == 'ASP':
-            raise NotImplementedError()
+            self.optimizable.esw = ifft2c( fft2c(self.optimizable.esw) * self.propagator.transferFunction)
         elif self.propagator == 'scaledASP':
-            raise NotImplementedError()
+            self.optimizable.esw = ifft2c(fft2c(self.optimizable.esw * self.propagator.Q1) * self.propagator.Q2)
         else:
-            raise NotImplementedError()
+            raise Exception('Propagator is not properly set, choose from Fraunhofer, Fresnel, ASP and scaledASP')
 
     def orthogonalization(self):
         """
@@ -282,12 +306,21 @@ class BaseReconstructor(object):
         :return:
         """
         if self.optimizable.npsm > 1:
-            self.optimizable.probe, self.normalizedEigenvaluesProbe, self.MSPVprobe =\
-                orthogonalizeModes(self.optimizable.probe)
-            self.optimizable.purity = np.sqrt(np.sum(self.normalizedEigenvaluesProbe**2))
+            for id_l in range(self.optimizable.nlambda):
+                for id_s in range(self.optimizable.nslice):
+                    self.optimizable.probe[id_l,0,:,id_s,:,:], self.normalizedEigenvaluesProbe, self.MSPVprobe =\
+                        orthogonalizeModes(self.optimizable.probe[id_l,0,:,id_s,:,:])
+                    self.optimizable.purity = np.sqrt(np.sum(self.normalizedEigenvaluesProbe**2))
+            # self.optimizable.probe, self.normalizedEigenvaluesProbe, self.MSPVprobe =\
+            #     orthogonalizeModes(self.optimizable.probe)
+            # self.optimizable.purity = np.sqrt(np.sum(self.normalizedEigenvaluesProbe**2))
         elif self.optimizable.nosm > 1:
-            self.optimizable.object, self.normalizedEigenvaluesObject, self.MSPVobject = \
-                orthogonalizeModes(self.optimizable.object)
+            for id_l in range(self.optimizable.nlambda):
+                for id_s in range(self.optimizable.nslice):
+                    self.optimizable.object[id_l,:,0,id_s,:,:], self.normalizedEigenvaluesObject, self.MSPVobject =\
+                        orthogonalizeModes(self.optimizable.object[id_l,:,0,id_s,:,:])
+            # self.optimizable.object, self.normalizedEigenvaluesObject, self.MSPVobject = \
+            #     orthogonalizeModes(self.optimizable.object)
         else:
             pass
 
@@ -308,13 +341,17 @@ class BaseReconstructor(object):
         """
         if self.experimentalData.operationMode == 'FPM':
             object_estimate = abs(fft2c(self.optimizable.object))
+            probe_estimate = self.optimizable.probe
         else:
-            object_estimate = self.optimizable.object
+            # object_estimate = self.optimizable.object
+            object_estimate = np.squeeze(self.optimizable.object)
+            probe_estimate = np.squeeze(self.optimizable.probe)
 
         if loop == 0:
             self.monitor.initializeVisualisation()
         elif np.mod(loop, self.monitor.figureUpdateFrequency) == 0:
-            self.monitor.updatePlot(object_estimate)
+            # self.monitor.updatePlot(object_estimate[0,0,:,0,:,:])
+            self.monitor.updatePlot(object_estimate=object_estimate,probe_estimate=probe_estimate)
             print('iteration:%i' %len(self.optimizable.error))
             print('runtime:')
             print('error:')

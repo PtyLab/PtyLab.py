@@ -1,3 +1,5 @@
+import matplotlib
+matplotlib.use('tkagg')
 import unittest
 import numpy as np
 import matplotlib.pyplot as plt

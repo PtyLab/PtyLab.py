@@ -130,7 +130,7 @@ def modeTile(P,normalize = True):
         if normalize:
             maxs = np.max(P, axis=(1, 2))
             P = (P.T/maxs).T
-
+        P = P[:s**2,:,:]
         P = P.reshape((s, s) + P.shape[1:]).transpose(
             (1, 2, 0, 3) + tuple(range(4, P.ndim + 1)))
         P = P.reshape(
