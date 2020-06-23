@@ -141,8 +141,13 @@ class gPIE(ePIE):
         Move the data to the GPU
         :return:
         """
-        self.optimizable.probe = cp.array(self.optimizable.probe)
-        self.optimizable.object = cp.array(self.optimizable.object)
+        # optimizable parameters
+        self.optimizable.probe = cp.array(self.optimizable.probe, cp.complex64)
+        self.optimizable.object = cp.array(self.optimizable.object, cp.complex64)
+
+        # non-optimizable parameters
+        self.experimentalData.ptychogram = cp.array(self.experimentalData.ptychogram, cp.float32)
+        self.experimentalData.probe = cp.array(self.experimentalData.probe, cp.complex64)
         #self.optimizable.Imeasured = cp.array(self.optimizable.Imeasured)
 
 

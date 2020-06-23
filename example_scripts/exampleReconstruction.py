@@ -4,7 +4,7 @@ matplotlib.use('tkagg')
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Optimizable.Optimizable import Optimizable
 from fracPy.engines import ePIE, mPIE, qNewton
-from fracPy.monitors.Monitor import Monitor
+from fracPy.monitors.Monitor import DummyMonitor as Monitor
 import logging
 logging.basicConfig(level=logging.INFO)
 from fracPy.utils.utils import ifft2c
@@ -18,6 +18,7 @@ change data visualization and initialization options manually for now
 
 FPM_simulation = False
 ptycho_simulation = True
+
 
 if FPM_simulation:
     # create an experimentalData object and load a measurement
