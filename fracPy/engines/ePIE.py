@@ -150,4 +150,8 @@ class gPIE(ePIE):
         self.experimentalData.probe = cp.array(self.experimentalData.probe, cp.complex64)
         #self.optimizable.Imeasured = cp.array(self.optimizable.Imeasured)
 
+        # ePIE parameters
+        self.logger.info('Detector error shape: %s', self.detectorError.shape)
+        self.detectorError = cp.array(self.detectorError)
+
 

@@ -3,7 +3,7 @@ import numpy as np
 import logging
 
 # fracPy imports
-from fracPy.utils.gpuUtils import getArrayModule
+from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray
 from fracPy.utils.initializationFunctions import initialProbeOrObject
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Optimizable.Optimizable import Optimizable
@@ -225,16 +225,36 @@ class BaseReconstructor(object):
         matches getErrorMetrics.m
         :return:
         """
+        # TODO: Check this, I don't think that it makes sense.
+        # Old code:
+        # if not self.saveMemory:
+        #     # Calculate mean error for all positions (make separate function for all of that)
+        #     if self.FourierMaskSwitch:
+        #         self.errorAtPos = np.sum(np.abs(self.detectorError) * self.W)
+        #     else:
+        #         self.errorAtPos = np.sum(np.abs(self.detectorError))
+        # #print(self.errorAtPos, self.energyAtPos)
+        # self.errorAtPos /= (self.energyAtPos + 1)
+        # print(self.errorAtPos)
+        # eAverage = np.sum(self.errorAtPos)
+        #
+        # # append to error vector (for plotting error as function of iteration)
+        # self.optimizable.error = np.append(self.optimizable.error, eAverage)
 
+
+        # new code:
+        xp = getArrayModule(self.detectorError)
         if not self.saveMemory:
             # Calculate mean error for all positions (make separate function for all of that)
             if self.FourierMaskSwitch:
-                self.errorAtPos = np.sum(np.abs(self.detectorError) * self.W)
+                self.errorAtPos = np.sum(np.abs(self.detectorError) * self.W) / xp.asarray(1+self.energyAtPos)
             else:
-                self.errorAtPos = np.sum(np.abs(self.detectorError))
+                self.errorAtPos = np.sum(np.abs(self.detectorError)) / xp.asarray(1+self.energyAtPos)
+        #print(self.errorAtPos, self.energyAtPos)
+        #self.errorAtPos /= (self.energyAtPos + 1)
+        #print(self.errorAtPos)
+        eAverage = asNumpyArray(xp.sum(self.errorAtPos))
 
-        self.errorAtPos /= (self.energyAtPos + 1)
-        eAverage = np.sum(self.errorAtPos)
 
         # append to error vector (for plotting error as function of iteration)
         self.optimizable.error = np.append(self.optimizable.error, eAverage)
@@ -253,9 +273,10 @@ class BaseReconstructor(object):
         # TODO: change error for the 6D array
         # self.currentDetectorError = abs(self.optimizable.Imeasured-self.optimizable.Iestimated)
         self.currentDetectorError = xp.sum(abs(self.optimizable.Imeasured-self.optimizable.Iestimated),axis=(0,1,2,3))
+
         # if it's on the GPU, transfer it back
-        if hasattr(self.currentDetectorError, 'device'):
-            self.currentDetectorError = self.currentDetectorError.get()
+        # if hasattr(self.currentDetectorError, 'device'):
+        #     self.currentDetectorError = self.currentDetectorError.get()
         if self.saveMemory:
             if self.FourierMaskSwitch and not self.CPSCswitch:
                 self.errorAtPos[positionIndex] = xp.sum(self.currentDetectorError*self.W)

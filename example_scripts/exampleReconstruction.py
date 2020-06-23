@@ -4,7 +4,7 @@ matplotlib.use('tkagg')
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Optimizable.Optimizable import Optimizable
 from fracPy.engines import ePIE, mPIE, qNewton
-from fracPy.monitors.Monitor import DummyMonitor as Monitor
+from fracPy.monitors.Monitor import Monitor as Monitor
 import logging
 logging.basicConfig(level=logging.INFO)
 from fracPy.utils.utils import ifft2c
