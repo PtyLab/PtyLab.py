@@ -3,6 +3,9 @@ import numpy as np
 from scipy import linalg
 import scipy.stats as st
 
+from fracPy.utils.gpuUtils import getArrayModule
+
+
 def fft2c(array):
     """
     performs 2 - dimensional unitary Fourier transformation, where energy is reserved abs(g)**2==abs(fft2c(g))**2
@@ -43,8 +46,12 @@ def orthogonalizeModes(p):
     :return:
     """
     # orthogonolize modes only for npsm and nosm which are lcoated and indices 1, 2
-    U, s, V = linalg.svd(p.reshape(p.shape[0], p.shape[1]*p.shape[2]), full_matrices=False )
+    xp = getArrayModule(p)
+    # TODO: check, most likely this is faster to perform on the CPU rather than GPU
+    if hasattr(p, 'device'):
+        p = p.get()
+    U, s, V = np.linalg.svd(p.reshape(p.shape[0], p.shape[1]*p.shape[2]), full_matrices=False )
     p = np.dot(np.diag(s), V).reshape(p.shape[0], p.shape[1], p.shape[2])
-    normalizedEigenvalues = s**2/np.sum(s**2)
-    return p, normalizedEigenvalues, U
+    normalizedEigenvalues = s**2/xp.sum(s**2)
+    return xp.array(p), normalizedEigenvalues, U
 

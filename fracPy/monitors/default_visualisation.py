@@ -2,6 +2,8 @@ import matplotlib as mpl
 # mpl.use('TkAgg')
 from matplotlib import pyplot as plt
 import numpy as np
+
+from fracPy.utils import gpuUtils
 from fracPy.utils.visualisation import modeTile, complex_plot, complex_to_rgb
 
 
@@ -137,18 +139,21 @@ class DiffractionDataMonitor(object):
 
 
     def updateIestimated(self, Iestimate, cmap='gray',**kwargs):
+        # move it to CPU if it's on the GPU
+        if hasattr(Iestimate, 'device'):
+            Iestimate = Iestimate.get()
 
         if self.firstrun:
             self.im_Iestimated = self.ax_Iestimated.imshow(np.log10(np.squeeze(Iestimate+1)), cmap=cmap)
         else:
             self.im_Iestimated.set_data(np.log10(np.squeeze(Iestimate+1)))
 
-    def updateImeasured(self, Imeausred, cmap='gray', **kwargs):
-
+    def updateImeasured(self, Imeasured, cmap='gray', **kwargs):
+        Imeasured = gpuUtils.asNumpyArray(Imeasured)
         if self.firstrun:
-            self.im_Imeasured = self.ax_Imeasured.imshow(np.log10(np.squeeze(Imeausred+1)), cmap=cmap)
+            self.im_Imeasured = self.ax_Imeasured.imshow(np.log10(np.squeeze(Imeasured + 1)), cmap=cmap)
         else:
-            self.im_Imeasured.set_data(np.log10(np.squeeze(Imeausred+1)))
+            self.im_Imeasured.set_data(np.log10(np.squeeze(Imeasured + 1)))
 
     def drawNow(self):
         """

@@ -3,6 +3,7 @@ import numpy as np
 import logging
 
 # fracPy imports
+from fracPy.utils.gpuUtils import getArrayModule
 from fracPy.utils.initializationFunctions import initialProbeOrObject
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Optimizable.Optimizable import Optimizable
@@ -200,13 +201,16 @@ class BaseReconstructor(object):
 
     def fft2s(self):
         """
-        fft2s.m
+        Computes the fourier transform of the exit surface wave.
         :return:
         """
+        # find out if this should be performed on the GPU
+        xp = getArrayModule(self.optimizable.esw)
+
         if self.fftshiftSwitch:
-            self.optimizable.ESW = np.fft.fft2(self.optimizable.esw, norm='ortho') #/ self.experimentalData.Np
+            self.optimizable.ESW = xp.fft.fft2(self.optimizable.esw, norm='ortho') #/ self.experimentalData.Np
         else:
-            self.optimizable.ESW = np.fft.fftshift(np.fft.fft2(np.fft.ifftshift(self.optimizable.esw),norm='ortho')) #/ self.experimentalData.Np
+            self.optimizable.ESW = xp.fft.fftshift(xp.fft.fft2(xp.fft.ifftshift(self.optimizable.esw),norm='ortho')) #/ self.experimentalData.Np
 
     def getBeamWidth(self):
         """
@@ -243,16 +247,22 @@ class BaseReconstructor(object):
         :param positionIndex:
         :return:
         """
+        # find out wether or not to use the GPU
+        xp = getArrayModule(self.optimizable.Iestimated)
+
         # TODO: change error for the 6D array
         # self.currentDetectorError = abs(self.optimizable.Imeasured-self.optimizable.Iestimated)
-        self.currentDetectorError = np.sum(abs(self.optimizable.Imeasured-self.optimizable.Iestimated),axis=(0,1,2,3))
+        self.currentDetectorError = xp.sum(abs(self.optimizable.Imeasured-self.optimizable.Iestimated),axis=(0,1,2,3))
+        # if it's on the GPU, transfer it back
+        if hasattr(self.currentDetectorError, 'device'):
+            self.currentDetectorError = self.currentDetectorError.get()
         if self.saveMemory:
             if self.FourierMaskSwitch and not self.CPSCswitch:
-                self.errorAtPos[positionIndex] = np.sum(self.currentDetectorError*self.W)
+                self.errorAtPos[positionIndex] = xp.sum(self.currentDetectorError*self.W)
             elif self.FourierMaskSwitch and self.CPSCswitch:
                 raise NotImplementedError
             else:
-                self.errorAtPos[positionIndex] = np.sum(self.currentDetectorError)
+                self.errorAtPos[positionIndex] = xp.sum(self.currentDetectorError)
         else:
             self.detectorError[positionIndex] = self.currentDetectorError
 
@@ -260,16 +270,21 @@ class BaseReconstructor(object):
 
     def ifft2s(self):
         """ Inverse FFT"""
+        # find out if this should be performed on the GPU
+        xp = getArrayModule(self.optimizable.esw)
+
         if self.fftshiftSwitch:
-            self.optimizable.eswUpdate = np.fft.ifft2(self.optimizable.ESW, norm='ortho')# * self.experimentalData.Np
+            self.optimizable.eswUpdate = xp.fft.ifft2(self.optimizable.ESW, norm='ortho')# * self.experimentalData.Np
         else:
-            self.optimizable.eswUpdate = np.fft.fftshift(np.fft.ifft2(np.fft.ifftshift(self.optimizable.ESW),norm='ortho')) #* self.experimentalData.Np
+            self.optimizable.eswUpdate = xp.fft.fftshift(xp.fft.ifft2(xp.fft.ifftshift(self.optimizable.ESW),norm='ortho')) #* self.experimentalData.Np
 
 
     def intensityProjection(self, positionIndex):
         """ Compute the projected intensity.
             Barebones, need to implement other methods
         """
+        # figure out wether or not to use the GPU
+        xp = getArrayModule(self.optimizable.esw)
         self.object2detector()
 
         # zero division mitigator
@@ -279,13 +294,14 @@ class BaseReconstructor(object):
 
         # these are amplitudes rather than intensities
         # self.optimizable.Iestimated = np.sum(np.abs(self.optimizable.ESW)**2, axis = 0)
-        self.optimizable.Iestimated = np.sum(np.abs(self.optimizable.ESW) ** 2, axis= (0,1,2,3), keepdims=True)
-        self.optimizable.Imeasured = self.experimentalData.ptychogram[positionIndex]
+        self.optimizable.Iestimated = xp.sum(xp.abs(self.optimizable.ESW) ** 2, axis= (0,1,2,3), keepdims=True)
+        # This should not be in optimizable
+        self.optimizable.Imeasured = xp.array(self.experimentalData.ptychogram[positionIndex])
 
         self.getRMSD(positionIndex)
 
         # TODO: implement other update methods
-        frac = np.sqrt(self.optimizable.Imeasured / (self.optimizable.Iestimated + gimmel))
+        frac = xp.sqrt(self.optimizable.Imeasured / (self.optimizable.Iestimated + gimmel))
 
         # update ESW
         self.optimizable.ESW = self.optimizable.ESW * frac
@@ -361,9 +377,9 @@ class BaseReconstructor(object):
         elif np.mod(loop, self.monitor.figureUpdateFrequency) == 0:
             # self.monitor.updatePlot(object_estimate[0,0,:,0,:,:])
             self.monitor.updatePlot(object_estimate=object_estimate,probe_estimate=probe_estimate)
-            print('iteration:%i' %len(self.optimizable.error))
-            print('runtime:')
-            print('error:')
+            # print('iteration:%i' %len(self.optimizable.error))
+            # print('runtime:')
+            # print('error:')
         # TODO: print info
 
     def applyConstraints(self, loop):
