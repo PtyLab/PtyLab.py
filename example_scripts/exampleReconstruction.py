@@ -16,8 +16,8 @@ FPM data reconstructor
 change data visualization and initialization options manually for now
 """
 
-FPM_simulation = False
-ptycho_simulation = True
+FPM_simulation = True
+ptycho_simulation = False
 
 
 if FPM_simulation:
@@ -33,6 +33,7 @@ if FPM_simulation:
     optimizable.npsm = 4  # Number of probe modes to reconstruct
     optimizable.nosm = 1  # Number of object modes to reconstruct
     optimizable.nlambda = 1  # Number of wavelength
+
     optimizable.prepare_reconstruction()
     # # this will copy any attributes from experimental data that we might care to optimize
 
@@ -43,7 +44,8 @@ if FPM_simulation:
     monitor.verboseLevel = 'high'
 
     # now we want to run an optimizer. First create it.
-    qNewton_engine = qNewton.qNewton(optimizable, exampleData, monitor)
+    # qNewton_engine = qNewton.qNewton(optimizable, exampleData, monitor)
+    qNewton_engine = qNewton.gqNewton(optimizable, exampleData, monitor)
     # set any settings involving ePIE in this object.
     qNewton_engine.numIterations = 50
     # now, run the reconstruction

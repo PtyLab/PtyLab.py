@@ -1,6 +1,13 @@
 import numpy as np
 from matplotlib import pyplot as plt
 # fracPy imports
+try:
+    import cupy as cp
+except ImportError:
+    print('Cupy not available, will not be able to run GPU based computation')
+    # Still define the name, we'll take care of it later but in this way it's still possible
+    # to see that gPIE exists for example.
+    cp = None
 from fracPy.Optimizable.Optimizable import Optimizable
 from fracPy.engines.BaseReconstructor import BaseReconstructor
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
@@ -33,10 +40,21 @@ class qNewton(BaseReconstructor):
         self.regObject = 1
         self.regProbe = 1
         self.positionOrder = 'NA'
-        
+    
+    def _prepare_doReconstruction(self):
+        """
+        This function is called just before the reconstructions start.
+
+        Can be used to (for instance) transfer data to the GPU at the last moment.
+        :return:
+        """
+        pass
+
     def doReconstruction(self):
-        # actual reconstruction ePIE_engine
-        for loop in range(self.numIterations):
+        self._prepare_doReconstruction()
+
+        import tqdm
+        for loop in tqdm.tqdm(range(self.numIterations)):
             # set position order
             self.setPositionOrder()
             for positionLoop, positionIndex in enumerate(self.positionIndices):
@@ -80,10 +98,10 @@ class qNewton(BaseReconstructor):
         Temporary barebones update
         """
         xp = getArrayModule(objectPatch)
-        
+
         Pmax = xp.max(xp.sum(xp.abs(self.optimizable.probe), axis=(0,1,2,3)))
         # Pmax = xp.max(xp.abs(self.optimizable.probe))
-        frac = xp.abs(self.optimizable.probe) * self.optimizable.probe.conj() /  (Pmax * (xp.abs(self.optimizable.probe)**2 + self.regObject)) 
+        frac = xp.abs(self.optimizable.probe)/Pmax * self.optimizable.probe.conj() / (xp.abs(self.optimizable.probe)**2 + self.regObject)
         return objectPatch + self.betaObject * np.sum(frac * DELTA, axis=(0,2,3), keepdims=True)
 
        
@@ -96,7 +114,43 @@ class qNewton(BaseReconstructor):
 
         Omax = xp.max(xp.sum(xp.abs(self.optimizable.object), axis=(0,1,2,3)))
         # Omax = xp.max(xp.abs(self.optimizable.object))
-        frac = xp.abs(objectPatch) * objectPatch.conj() /  (Omax * (xp.abs(objectPatch)**2 + self.regProbe)) 
+        frac = xp.abs(objectPatch)/Omax * objectPatch.conj() /  (xp.abs(objectPatch)**2 + self.regProbe)
         r = self.optimizable.probe + self.betaObject * xp.sum(frac * DELTA, axis = (0,1,3), keepdims=True)
         return r
+
+
+
+class gqNewton(qNewton):
+    """
+    GPU-based implementation of qNewton
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if cp is None:
+            raise ImportError('Could not import cupy')
+        self.logger = logging.getLogger('gqNewton')
+        self.logger.info('Hello from gqNewton')
+
+    def _prepare_doReconstruction(self):
+        self.logger.info('Ready to start transfering stuff to the GPU')
+        self._move_data_to_gpu()
+
+    def _move_data_to_gpu(self):
+        """
+        Move the data to the GPU
+        :return:
+        """
+        # optimizable parameters
+        self.optimizable.probe = cp.array(self.optimizable.probe, cp.complex64)
+        self.optimizable.object = cp.array(self.optimizable.object, cp.complex64)
+
+        # non-optimizable parameters
+        self.experimentalData.ptychogram = cp.array(self.experimentalData.ptychogram, cp.float32)
+        self.experimentalData.probe = cp.array(self.experimentalData.probe, cp.complex64)
+        #self.optimizable.Imeasured = cp.array(self.optimizable.Imeasured)
+
+        # ePIE parameters
+        self.logger.info('Detector error shape: %s', self.detectorError.shape)
+        self.detectorError = cp.array(self.detectorError)
 
