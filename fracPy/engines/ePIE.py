@@ -1,5 +1,13 @@
 import numpy as np
 from matplotlib import pyplot as plt
+try:
+    import cupy as cp
+except ImportError:
+    print('Cupy not available, will not be able to run GPU based computation')
+    # Still define the name, we'll take care of it later but in this way it's still possible
+    # to see that gPIE exists for example.
+    cp = None
+
 # fracPy imports
 from fracPy.Optimizable.Optimizable import Optimizable
 from fracPy.engines.BaseReconstructor import BaseReconstructor
@@ -32,9 +40,20 @@ class ePIE(BaseReconstructor):
         self.betaProbe = 0.25
         self.betaObject = 0.25
 
+    def _prepare_doReconstruction(self):
+        """
+        This function is called just before the reconstructions start.
+
+        Can be used to (for instance) transfer data to the GPU at the last moment.
+        :return:
+        """
+        pass
+
     def doReconstruction(self):
+        self._prepare_doReconstruction()
         # actual reconstruction ePIE_engine
-        for loop in range(self.numIterations):
+        import tqdm
+        for loop in tqdm.tqdm(range(self.numIterations)):
             # set position order
             self.setPositionOrder()
             for positionLoop, positionIndex in enumerate(self.positionIndices):
@@ -99,4 +118,40 @@ class ePIE(BaseReconstructor):
             aleph = 1e-3
             r = (1 - aleph) * r + aleph * r * self.probeWindow
         return r
+
+
+class gPIE(ePIE):
+    """
+    GPU-based implementation of ePIE
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if cp is None:
+            raise ImportError('Could not import cupy')
+        self.logger = logging.getLogger('gPIE')
+        self.logger.info('Hello from gPIE')
+
+    def _prepare_doReconstruction(self):
+        self.logger.info('Ready to start transfering stuff to the GPU')
+        self._move_data_to_gpu()
+
+    def _move_data_to_gpu(self):
+        """
+        Move the data to the GPU
+        :return:
+        """
+        # optimizable parameters
+        self.optimizable.probe = cp.array(self.optimizable.probe, cp.complex64)
+        self.optimizable.object = cp.array(self.optimizable.object, cp.complex64)
+
+        # non-optimizable parameters
+        self.experimentalData.ptychogram = cp.array(self.experimentalData.ptychogram, cp.float32)
+        self.experimentalData.probe = cp.array(self.experimentalData.probe, cp.complex64)
+        #self.optimizable.Imeasured = cp.array(self.optimizable.Imeasured)
+
+        # ePIE parameters
+        self.logger.info('Detector error shape: %s', self.detectorError.shape)
+        self.detectorError = cp.array(self.detectorError)
+
 

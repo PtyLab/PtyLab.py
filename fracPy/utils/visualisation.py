@@ -6,6 +6,8 @@ import math
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 # TODO: copy-pase all relevant functions from Matlab implementation
+from fracPy.utils import gpuUtils
+
 
 def CoherencePlot():
     raise NotImplementedError
@@ -44,6 +46,8 @@ def complex_to_rgb(u):
     :return: an rgb array for complex plot
     """
     # hue (normalize angle)
+    # if u is on the GPU, remove it as we can toss it now.
+    u = gpuUtils.asNumpyArray(u)
     h = np.angle(u)
     h = (h + np.pi) / (2 * np.pi)
     # saturation  (ones)

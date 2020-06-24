@@ -1,6 +1,8 @@
 from .default_visualisation import DefaultMonitor, DiffractionDataMonitor
 import numpy as np
 
+
+
 class Monitor(object):
     """
 
@@ -47,3 +49,15 @@ class Monitor(object):
         sy = abs(self.optimizable.positions(ind2, 1) - self.optimizable.positions(ind1, 1)) * probePixelsize
         sx = abs(self.optimizable.positions(ind2, 2) - self.optimizable.positions(ind1, 2)) * probePixelsize
         raise NotImplementedError()
+
+class DummyMonitor(object):
+    """ Monitor without any visualisation so it won't consume any time """
+
+    def updatePlot(self, object_estimate, probe_estimate):
+        pass
+
+    def getOverlap(self, ind1, ind2, probePixelsize):
+        pass
+
+    def initializeVisualisation(self):
+        pass

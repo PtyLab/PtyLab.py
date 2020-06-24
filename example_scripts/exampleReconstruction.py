@@ -4,7 +4,7 @@ matplotlib.use('tkagg')
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Optimizable.Optimizable import Optimizable
 from fracPy.engines import ePIE, mPIE, qNewton
-from fracPy.monitors.Monitor import Monitor
+from fracPy.monitors.Monitor import Monitor as Monitor
 import logging
 logging.basicConfig(level=logging.INFO)
 from fracPy.utils.utils import ifft2c
@@ -18,6 +18,7 @@ change data visualization and initialization options manually for now
 
 FPM_simulation = False
 ptycho_simulation = True
+
 
 if FPM_simulation:
     # create an experimentalData object and load a measurement
@@ -61,8 +62,8 @@ if ptycho_simulation:
     # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
     # now create an object to hold everything we're eventually interested in
     optimizable = Optimizable(exampleData)
-    optimizable.npsm = 9 # Number of probe modes to reconstruct
-    optimizable.nosm = 4 # Number of object modes to reconstruct
+    optimizable.npsm = 2 # Number of probe modes to reconstruct
+    optimizable.nosm = 1 # Number of object modes to reconstruct
     optimizable.nlambda = 1 # Number of wavelength
     optimizable.prepare_reconstruction()
     # this will copy any attributes from experimental data that we might care to optimize
@@ -73,7 +74,7 @@ if ptycho_simulation:
     monitor.verboseLevel = 'high' # high: plot two figures, low: plot only one figure
 
     # now we want to run an optimizer. First create it.
-    ePIE_engine = ePIE.ePIE(optimizable, exampleData, monitor)
+    ePIE_engine = ePIE.gPIE(optimizable, exampleData, monitor)
     # set any settings involving ePIE in this object.
     ePIE_engine.numIterations = 100
 
