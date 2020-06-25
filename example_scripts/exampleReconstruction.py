@@ -30,7 +30,7 @@ if FPM_simulation:
     # # now create an object to hold everything we're eventually interested in
     optimizable = Optimizable(exampleData)
 
-    optimizable.npsm = 4  # Number of probe modes to reconstruct
+    optimizable.npsm = 9  # Number of probe modes to reconstruct
     optimizable.nosm = 1  # Number of object modes to reconstruct
     optimizable.nlambda = 1  # Number of wavelength
     optimizable.prepare_reconstruction()
