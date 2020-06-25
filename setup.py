@@ -8,5 +8,6 @@ setup(
     license='',
     author='Lars Loetgering, fracPy team',
     author_email='',
-    description='', install_requires=['numpy', 'matplotlib', 'h5py', 'tables', 'scipy', 'scikit-image']
+    description='', install_requires=['numpy', 'matplotlib', 'h5py', 'scipy', 'scikit-image',
+                                      'tqdm']
 )

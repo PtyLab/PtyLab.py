@@ -103,3 +103,14 @@ class Optimizable(object):
         self.shape_P = (self.nlambda, 1, self.npsm, self.nslice, np.int(self.data.Np), np.int(self.data.Np))
         self.initialProbe = initialProbeOrObject(self.shape_P, self.initialProbe, self.data).astype(np.complex64)
 
+    def initializeObjectMomentum(self):
+        self.objectMomentum = np.zeros_like(self.initialObject)
+        
+    def initializeProbeMomentum(self):
+        self.probeMomentum = np.zeros_like(self.initialProbe)
+        
+    def initializeObjectBuffer(self):
+        self.objectBuffer = self.initialObject.copy()
+        
+    def initializeProbeBuffer(self):
+        self.probeBuffer = self.initialProbe.copy()
