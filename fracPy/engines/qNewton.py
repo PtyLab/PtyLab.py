@@ -32,7 +32,7 @@ class qNewton(BaseReconstructor):
 
     def initializeReconstructionParams(self):
         """
-        Set parameters that are specific to the ePIE settings.
+        Set parameters that are specific to the qNewton settings.
         :return:
         """
         self.betaProbe = 1
@@ -100,9 +100,8 @@ class qNewton(BaseReconstructor):
         xp = getArrayModule(objectPatch)
 
         Pmax = xp.max(xp.sum(xp.abs(self.optimizable.probe), axis=(0,1,2,3)))
-        # Pmax = xp.max(xp.abs(self.optimizable.probe))
         frac = xp.abs(self.optimizable.probe)/Pmax * self.optimizable.probe.conj() / (xp.abs(self.optimizable.probe)**2 + self.regObject)
-        return objectPatch + self.betaObject * np.sum(frac * DELTA, axis=(0,2,3), keepdims=True)
+        return objectPatch + self.betaObject * xp.sum(frac * DELTA, axis=(0,2,3), keepdims=True)
 
        
     def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
@@ -112,15 +111,15 @@ class qNewton(BaseReconstructor):
         """
         xp = getArrayModule(objectPatch)
 
-        Omax = xp.max(xp.sum(xp.abs(self.optimizable.object), axis=(0,1,2,3)))
-        # Omax = xp.max(xp.abs(self.optimizable.object))
+        # Omax = xp.max(xp.sum(xp.abs(self.optimizable.object), axis=(0,1,2,3)))
+        Omax = xp.max(xp.sum(xp.abs(objectPatch), axis=(0,1,2,3)))
         frac = xp.abs(objectPatch)/Omax * objectPatch.conj() /  (xp.abs(objectPatch)**2 + self.regProbe)
         r = self.optimizable.probe + self.betaObject * xp.sum(frac * DELTA, axis = (0,1,3), keepdims=True)
         return r
 
 
 
-class gqNewton(qNewton):
+class qNewton_GPU(qNewton):
     """
     GPU-based implementation of qNewton
     """
@@ -129,8 +128,8 @@ class gqNewton(qNewton):
         super().__init__(*args, **kwargs)
         if cp is None:
             raise ImportError('Could not import cupy')
-        self.logger = logging.getLogger('gqNewton')
-        self.logger.info('Hello from gqNewton')
+        self.logger = logging.getLogger('qNewton_GPU')
+        self.logger.info('Hello from qNewton_GPU')
 
     def _prepare_doReconstruction(self):
         self.logger.info('Ready to start transfering stuff to the GPU')

@@ -45,7 +45,7 @@ if FPM_simulation:
 
     # now we want to run an optimizer. First create it.
     # qNewton_engine = qNewton.qNewton(optimizable, exampleData, monitor)
-    qNewton_engine = qNewton.gqNewton(optimizable, exampleData, monitor)
+    qNewton_engine = qNewton.qNewton_GPU(optimizable, exampleData, monitor)
     # set any settings involving ePIE in this object.
     qNewton_engine.numIterations = 50
     # now, run the reconstruction
