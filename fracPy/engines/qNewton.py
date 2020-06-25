@@ -82,9 +82,8 @@ class qNewton(BaseReconstructor):
         xp = getArrayModule(objectPatch)
         
         Pmax = xp.max(xp.sum(xp.abs(self.optimizable.probe), axis=(0,1,2,3)))
-        # Pmax = xp.max(xp.abs(self.optimizable.probe))
         frac = xp.abs(self.optimizable.probe) * self.optimizable.probe.conj() /  (Pmax * (xp.abs(self.optimizable.probe)**2 + self.regObject)) 
-        return objectPatch + self.betaObject * np.sum(frac * DELTA, axis=(0,2,3), keepdims=True)
+        return objectPatch + self.betaObject * xp.sum(frac * DELTA, axis=(0,2,3), keepdims=True)
 
        
     def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
@@ -94,8 +93,8 @@ class qNewton(BaseReconstructor):
         """
         xp = getArrayModule(objectPatch)
 
-        Omax = xp.max(xp.sum(xp.abs(self.optimizable.object), axis=(0,1,2,3)))
-        # Omax = xp.max(xp.abs(self.optimizable.object))
+        # Omax = xp.max(xp.sum(xp.abs(self.optimizable.object), axis=(0,1,2,3)))
+        Omax = xp.max(xp.sum(xp.abs(objectPatch), axis=(0,1,2,3)))
         frac = xp.abs(objectPatch) * objectPatch.conj() /  (Omax * (xp.abs(objectPatch)**2 + self.regProbe)) 
         r = self.optimizable.probe + self.betaObject * xp.sum(frac * DELTA, axis = (0,1,3), keepdims=True)
         return r

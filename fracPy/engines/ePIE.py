@@ -100,7 +100,7 @@ class ePIE(BaseReconstructor):
         xp = getArrayModule(objectPatch)
 
         frac = self.optimizable.probe.conj() / xp.max(xp.sum(xp.abs(self.optimizable.probe) ** 2, axis=(0,1,2,3)))
-        return objectPatch + self.betaObject * np.sum(frac * DELTA, axis=(0,2,3), keepdims=True)
+        return objectPatch + self.betaObject * xp.sum(frac * DELTA, axis=(0,2,3), keepdims=True)
 
        
     def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
@@ -120,7 +120,7 @@ class ePIE(BaseReconstructor):
         return r
 
 
-class gPIE(ePIE):
+class ePIE_GPU(ePIE):
     """
     GPU-based implementation of ePIE
     """
@@ -129,8 +129,8 @@ class gPIE(ePIE):
         super().__init__(*args, **kwargs)
         if cp is None:
             raise ImportError('Could not import cupy')
-        self.logger = logging.getLogger('gPIE')
-        self.logger.info('Hello from gPIE')
+        self.logger = logging.getLogger('ePIE_GPU')
+        self.logger.info('Hello from ePIE_GPU')
 
     def _prepare_doReconstruction(self):
         self.logger.info('Ready to start transfering stuff to the GPU')

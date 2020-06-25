@@ -30,7 +30,7 @@ if FPM_simulation:
     # # now create an object to hold everything we're eventually interested in
     optimizable = Optimizable(exampleData)
 
-    optimizable.npsm = 4  # Number of probe modes to reconstruct
+    optimizable.npsm = 9  # Number of probe modes to reconstruct
     optimizable.nosm = 1  # Number of object modes to reconstruct
     optimizable.nlambda = 1  # Number of wavelength
     optimizable.prepare_reconstruction()
@@ -62,10 +62,11 @@ if ptycho_simulation:
     # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
     # now create an object to hold everything we're eventually interested in
     optimizable = Optimizable(exampleData)
-    optimizable.npsm = 2 # Number of probe modes to reconstruct
+    optimizable.npsm = 1 # Number of probe modes to reconstruct
     optimizable.nosm = 1 # Number of object modes to reconstruct
     optimizable.nlambda = 1 # Number of wavelength
     optimizable.prepare_reconstruction()
+    
     # this will copy any attributes from experimental data that we might care to optimize
     # # Set monitor properties
     monitor = Monitor()
@@ -73,14 +74,17 @@ if ptycho_simulation:
     monitor.objectPlot = 'complex'
     monitor.verboseLevel = 'high' # high: plot two figures, low: plot only one figure
 
-    # now we want to run an optimizer. First create it.
-    ePIE_engine = ePIE.gPIE(optimizable, exampleData, monitor)
-    # set any settings involving ePIE in this object.
-    ePIE_engine.numIterations = 100
-
-    # now, run the reconstruction
-    ePIE_engine.doReconstruction()
+    # Run the reconstruction
+    mPIE_engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
+    mPIE_engine.numIterations = 50
+    mPIE_engine.doReconstruction()
+    
+    # Compare mPIE to ePIE
+    # ePIE_engine = ePIE.ePIE_GPU(optimizable, exampleData, monitor)
+    # ePIE_engine.numIterations = 20
+    # ePIE_engine.doReconstruction()
 
 
     # now save the data
     # optimizable.saveResults('reconstruction.hdf5')
+# 
