@@ -120,7 +120,7 @@ class ePIE(BaseReconstructor):
         return r
 
 
-class gPIE(ePIE):
+class ePIE_GPU(ePIE):
     """
     GPU-based implementation of ePIE
     """
@@ -129,8 +129,8 @@ class gPIE(ePIE):
         super().__init__(*args, **kwargs)
         if cp is None:
             raise ImportError('Could not import cupy')
-        self.logger = logging.getLogger('gPIE')
-        self.logger.info('Hello from gPIE')
+        self.logger = logging.getLogger('ePIE_GPU')
+        self.logger.info('Hello from ePIE_GPU')
 
     def _prepare_doReconstruction(self):
         self.logger.info('Ready to start transfering stuff to the GPU')
