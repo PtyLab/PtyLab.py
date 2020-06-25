@@ -48,6 +48,7 @@ class mPIE(BaseReconstructor):
         self.alphaObject = 0.1
         self.betaM = 0.3
         self.stepM = 0.7
+        self.probeWindow = np.abs(self.optimizable.probe)
         
     def _prepare_doReconstruction(self):
         """
@@ -91,10 +92,10 @@ class mPIE(BaseReconstructor):
                 # momentum updates
                 self.objectMomentumUpdate()
                 self.probeMomentumUpdate()
-                # self.optimizable.object[..., sy, sx], self.objectBuffer[..., sy, sx], self.objectMomentum[..., sy, sx] =\
-                #     self.momentumUpdate(self.optimizable.object[..., sy, sx], self.objectBuffer[..., sy, sx], self.objectMomentum[..., sy, sx])
-                # self.optimizable.probe, self.probeBuffer, self.probeMomentum =\
-                #     self.momentumUpdate(self.optimizable.probe, self.probeBuffer, self.probeMomentum)
+                # self.optimizable.object[..., sy, sx], self.optimizable.objectBuffer[..., sy, sx], self.optimizable.objectMomentum[..., sy, sx] =\
+                #     self.momentumUpdate(self.optimizable.object[..., sy, sx], self.optimizable.objectBuffer[..., sy, sx], self.optimizable.objectMomentum[..., sy, sx])
+                # self.optimizable.probe, self.optimizable.probeBuffer, self.optimizable.probeMomentum =\
+                #     self.momentumUpdate(self.optimizable.probe, self.optimizable.probeBuffer, self.optimizable.probeMomentum)
                 
             # get error metric
             self.getErrorMetrics()
@@ -106,18 +107,18 @@ class mPIE(BaseReconstructor):
             self.showReconstruction(loop)
 
 
-    # def momentumUpdate(self, optimizable, buffer, momentum):
-    #     """
-    #     Todo add docstring
-    #     :param objectPatch:
-    #     :param DELTA:
-    #     :return:
-    #     """
-    #     gradient = buffer - optimizable
-    #     momentum = gradient + self.betaM * momentum
-    #     optimizable = optimizable - self.stepM * momentum
-    #     buffer = optimizable.copy()
-    #     return optimizable, buffer, momentum
+    def momentumUpdate(self, array, buffer, momentum):
+        """
+        Todo add docstring
+        :param objectPatch:
+        :param DELTA:
+        :return:
+        """
+        gradient = buffer - array
+        momentum = gradient + self.betaM * momentum
+        array = array - self.stepM * momentum
+        buffer = array.copy()
+        return array, buffer, momentum
         
 
     def objectMomentumUpdate(self):
@@ -158,7 +159,7 @@ class mPIE(BaseReconstructor):
  
         Pmax = xp.max(xp.sum(xp.abs(self.optimizable.probe)**2, axis = (0,1,2,3)))
         frac = self.optimizable.probe.conj() / (self.alphaObject * Pmax + (1-self.alphaObject) * xp.abs(self.optimizable.probe)**2)
-        return objectPatch + self.betaObject * np.sum(frac * DELTA, axis=(0,2,3), keepdims=True)
+        return objectPatch + self.betaObject * xp.sum(frac * DELTA, axis=(0,2,3), keepdims=True)
 
        
     def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
@@ -170,8 +171,9 @@ class mPIE(BaseReconstructor):
         """
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
+
         
-        # Omax = xp.max(xp.sum(xp.abs(self.optimizable.object) ** 2, axis = (0,1,2,3))) # <- FPM
+        # Omax = xp.max(xp.sum(xp.abs(self.optimizable.object), axis = (0,1,2,3)))
         Omax = xp.max(xp.sum(xp.abs(objectPatch)**2, axis = (0,1,2,3)))
         frac = objectPatch.conj() / (self.alphaProbe  * Omax + (1-self.alphaProbe) * xp.abs(objectPatch)**2)
         r = self.optimizable.probe + self.betaProbe * xp.sum(frac * DELTA, axis = (0,1,3), keepdims=True)
@@ -209,7 +211,7 @@ class mPIE_GPU(mPIE):
         self.optimizable.objectBuffer = cp.array(self.optimizable.objectBuffer, cp.complex64)
         self.optimizable.probeMomentum = cp.array(self.optimizable.probeMomentum, cp.complex64)
         self.optimizable.objectMomentum = cp.array(self.optimizable.objectMomentum, cp.complex64)
-        
+
         # non-optimizable parameters
         self.experimentalData.ptychogram = cp.array(self.experimentalData.ptychogram, cp.float32)
         self.experimentalData.probe = cp.array(self.experimentalData.probe, cp.complex64)
