@@ -14,7 +14,8 @@ def fft2c(array):
     :param array:
     :return:
     """
-    return np.fft.fftshift(np.fft.fft2(np.fft.ifftshift(array), norm='ortho'))
+    xp = getArrayModule(array)
+    return xp.fft.fftshift(xp.fft.fft2(xp.fft.ifftshift(array), norm='ortho'))
 
 
 
@@ -26,7 +27,8 @@ def ifft2c(array):
     :param array:
     :return:
     """
-    return np.fft.fftshift(np.fft.ifft2(np.fft.ifftshift(array), norm='ortho'))
+    xp = getArrayModule(array)
+    return xp.fft.fftshift(xp.fft.ifft2(xp.fft.ifftshift(array), norm='ortho'))
 
 
 def circ(x,y,D):
@@ -47,11 +49,19 @@ def orthogonalizeModes(p):
     """
     # orthogonolize modes only for npsm and nosm which are lcoated and indices 1, 2
     xp = getArrayModule(p)
-    # TODO: check, most likely this is faster to perform on the CPU rather than GPU
-    if hasattr(p, 'device'):
-        p = p.get()
-    U, s, V = np.linalg.svd(p.reshape(p.shape[0], p.shape[1]*p.shape[2]), full_matrices=False )
-    p = np.dot(np.diag(s), V).reshape(p.shape[0], p.shape[1], p.shape[2])
-    normalizedEigenvalues = s**2/xp.sum(s**2)
-    return xp.array(p), normalizedEigenvalues, U
+    try:
+        U, s, V = xp.linalg.svd(p.reshape(p.shape[0], p.shape[1]*p.shape[2]), full_matrices=False )
+        p = xp.dot(xp.diag(s), V).reshape(p.shape[0], p.shape[1], p.shape[2])
+        normalizedEigenvalues = s**2/xp.sum(s**2)
+    except Exception as e:
+        print('Warning: performing SVD on CPU rather than GPU due to error', e)
+        #print('Exception: ', e)
+        # TODO: check, most likely this is faster to perform on the CPU rather than GPU
+        if hasattr(p, 'device'):
+            p = p.get()
+        U, s, V = np.linalg.svd(p.reshape(p.shape[0], p.shape[1]*p.shape[2]), full_matrices=False )
+        p = np.dot(np.diag(s), V).reshape(p.shape[0], p.shape[1], p.shape[2])
+        normalizedEigenvalues = s**2/xp.sum(s**2)
+
+    return xp.asarray(p), normalizedEigenvalues, U
 

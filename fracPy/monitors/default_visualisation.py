@@ -58,10 +58,11 @@ class DefaultMonitor(object):
             if objectPlot == 'complex':
                 self.im_object = complex_plot(OE, ax=self.ax_object, pixelSize=pixelSize)
             else:
-                self.im_object = self.ax_object.imshow(OE, cmap='gray')
+                self.im_object = self.ax_object.imshow(OE, cmap='gray', interpolation=None)
 
         else:
             self.im_object.set_data(OE)
+        self.im_object.autoscale()
 
     def updateProbe(self, probe_estimate, optimizable, pixelSize= 1,probeROI = None):
 
@@ -73,7 +74,8 @@ class DefaultMonitor(object):
             self.im_probe.set_data(PE)
             if optimizable.npsm > 1:
                 self.txt_purity.set_text('Probe estimate\nPurity: %i' %(100*optimizable.purity)+'%')
-
+        # self.im_probe.autoscale()
+        
     def updateError(self, error_estimate: np.ndarray) -> None:
         """
         Update the error estimate plot.
@@ -144,14 +146,14 @@ class DiffractionDataMonitor(object):
             Iestimate = Iestimate.get()
 
         if self.firstrun:
-            self.im_Iestimated = self.ax_Iestimated.imshow(np.log10(np.squeeze(Iestimate+1)), cmap=cmap)
+            self.im_Iestimated = self.ax_Iestimated.imshow(np.log10(np.squeeze(Iestimate+1)), cmap=cmap, interpolation=None)
         else:
             self.im_Iestimated.set_data(np.log10(np.squeeze(Iestimate+1)))
 
     def updateImeasured(self, Imeasured, cmap='gray', **kwargs):
         Imeasured = gpuUtils.asNumpyArray(Imeasured)
         if self.firstrun:
-            self.im_Imeasured = self.ax_Imeasured.imshow(np.log10(np.squeeze(Imeasured + 1)), cmap=cmap)
+            self.im_Imeasured = self.ax_Imeasured.imshow(np.log10(np.squeeze(Imeasured + 1)), cmap=cmap, interpolation=None)
         else:
             self.im_Imeasured.set_data(np.log10(np.squeeze(Imeasured + 1)))
 
