@@ -36,7 +36,7 @@ class BaseReconstructor(object):
         self.CPSCswitch = False
         self.fontSize = 17
         self.intensityConstraint = 'standard'  # standard or sigmoid
-        self.propagator = 'Fresnel' # 'Fresnel' 'ASP'
+        self.propagator = 'Fraunhofer'  # 'Fresnel' 'ASP'
 
 
         # Specific reconstruction settings that are the same for all engines
@@ -72,14 +72,6 @@ class BaseReconstructor(object):
         self.objectContrastSwitch = False # pushes object to zero outside ROI
 
 
-
-        # initialize detector error matrices
-        if self.saveMemory:
-            self.detectorError = 0
-        else:
-            self.detectorError = np.zeros((self.experimentalData.numFrames,
-                                          self.experimentalData.Nd, self.experimentalData.Nd))
-
         # initialize energy at each scan position
         if not hasattr(self, 'errorAtPos'):
             self.errorAtPos = np.zeros((self.experimentalData.numFrames, 1), dtype=np.float32)
@@ -89,6 +81,18 @@ class BaseReconstructor(object):
         else:
             raise Exception('ptychogram is empty')
 
+
+    def _initializeParams(self):
+        """
+        Initialize everything that depends on user changeable attributes.
+        :return:
+        """
+        # initialize detector error matrices
+        if self.saveMemory:
+            self.detectorError = 0
+        else:
+            self.detectorError = np.zeros((self.experimentalData.numFrames,
+                                           self.experimentalData.Nd, self.experimentalData.Nd))
         # initialize quadraticPhase term
         # todo multiwavelength implementation
         # todo check why fraunhofer also need quadraticPhase term
@@ -177,10 +181,11 @@ class BaseReconstructor(object):
         elif self.propagator == 'Fresnel':
             self.ifft2s()
             self.optimizable.esw = self.optimizable.esw * self.optimizable.quadraticPhase.conj()
+            self.optimizable.eswUpdate = self.optimizable.eswUpdate * self.optimizable.quadraticPhase.conj()
         elif self.propagator == 'ASP':
-            self.optimizable.esw = ifft2c(fft2c(self.optimizable.esw) * self.optimizable.transferFunction.conj())
+            self.optimizable.eswUpdate = ifft2c(fft2c(self.optimizable.ESW) * self.optimizable.transferFunction.conj())
         elif self.propagator == 'scaledASP':
-            self.optimizable.esw = ifft2c(fft2c(self.optimizable.esw) * self.optimizable.Q2.conj()
+            self.optimizable.eswUpdate = ifft2c(fft2c(self.optimizable.ESW) * self.optimizable.Q2.conj()
                                            * self.propagator.Q1.conj())
         else:
             raise Exception('Propagator is not properly set, choose from Fraunhofer, Fresnel, ASP and scaledASP')
@@ -340,9 +345,9 @@ class BaseReconstructor(object):
             self.optimizable.esw = self.optimizable.esw * self.optimizable.quadraticPhase
             self.fft2s()
         elif self.propagator == 'ASP':
-            self.optimizable.esw = ifft2c( fft2c(self.optimizable.esw) * self.optimizable.transferFunction)
+            self.optimizable.ESW = ifft2c( fft2c(self.optimizable.esw) * self.optimizable.transferFunction)
         elif self.propagator == 'scaledASP':
-            self.optimizable.esw = ifft2c(fft2c(self.optimizable.esw * self.optimizable.Q1) * self.optimizable.Q2)
+            self.optimizable.ESW = ifft2c(fft2c(self.optimizable.esw * self.optimizable.Q1) * self.optimizable.Q2)
         else:
             raise Exception('Propagator is not properly set, choose from Fraunhofer, Fresnel, ASP and scaledASP')
 

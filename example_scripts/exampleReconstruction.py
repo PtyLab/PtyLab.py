@@ -16,8 +16,8 @@ FPM data reconstructor
 change data visualization and initialization options manually for now
 """
 
-FPM_simulation = True
-ptycho_simulation = False
+FPM_simulation = False
+ptycho_simulation = True
 
 
 if FPM_simulation:
@@ -78,12 +78,16 @@ if ptycho_simulation:
 
     # Run the reconstruction
     mPIE_engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
-    mPIE_engine.numIterations = 50
+    # mPIE_engine = mPIE.mPIE(optimizable, exampleData, monitor)
+    mPIE_engine.propagator = 'ASP'
+    mPIE_engine.numIterations = 100
     mPIE_engine.doReconstruction()
     
     # Compare mPIE to ePIE
     # ePIE_engine = ePIE.ePIE_GPU(optimizable, exampleData, monitor)
-    # ePIE_engine.numIterations = 20
+    # ePIE_engine = ePIE.ePIE(optimizable, exampleData, monitor)
+    # ePIE_engine.propagator = 'Fraunhofer'
+    # ePIE_engine.numIterations = 100
     # ePIE_engine.doReconstruction()
 
 

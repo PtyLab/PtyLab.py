@@ -50,6 +50,7 @@ class ePIE(BaseReconstructor):
         pass
 
     def doReconstruction(self):
+        self._initializeParams()
         self._prepare_doReconstruction()
         # actual reconstruction ePIE_engine
         import tqdm

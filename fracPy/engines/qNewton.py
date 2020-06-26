@@ -51,6 +51,7 @@ class qNewton(BaseReconstructor):
         pass
 
     def doReconstruction(self):
+        self._initializeParams()
         self._prepare_doReconstruction()
 
         import tqdm
