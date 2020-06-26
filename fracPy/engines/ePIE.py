@@ -148,10 +148,16 @@ class ePIE_GPU(ePIE):
         # non-optimizable parameters
         self.experimentalData.ptychogram = cp.array(self.experimentalData.ptychogram, cp.float32)
         self.experimentalData.probe = cp.array(self.experimentalData.probe, cp.complex64)
-        #self.optimizable.Imeasured = cp.array(self.optimizable.Imeasured)
 
         # ePIE parameters
         self.logger.info('Detector error shape: %s', self.detectorError.shape)
         self.detectorError = cp.array(self.detectorError)
 
-
+        # proapgators to GPU
+        if self.propagator == 'Fresnel':
+            self.optimizable.quadraticPhase = cp.array(self.optimizable.quadraticPhase)
+        elif self.propagator == 'ASP':
+            self.optimizable.transferFunction = cp.array(self.optimizable.transferFunction)
+        elif self.propagator =='scaledASP':
+            self.optimizable.Q1 = cp.array(self.optimizable.Q1)
+            self.optimizable.Q2 = cp.array(self.optimizable.Q2)
