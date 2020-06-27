@@ -82,16 +82,22 @@ class BaseReconstructor(object):
             self.detectorError = np.zeros((self.experimentalData.numFrames,
                                           self.experimentalData.Nd, self.experimentalData.Nd))
 
-
+        # todo check if it is necessary to do if, what is ptychogramDownsampled
         # initialize energy at each scan position
         if not hasattr(self, 'errorAtPos'):
             self.errorAtPos = np.zeros((self.experimentalData.numFrames, 1), dtype=np.float32)
 
         if len(self.experimentalData.ptychogram) != 0:
-            self.energyAtPos = np.sum(np.sum(abs(self.experimentalData.ptychogram), axis=-1), axis=-1)
+            self.energyAtPos = np.sum(abs(self.experimentalData.ptychogram), (-1, -2))
         else:
-            raise Exception('ptychogram is empty')
+            self.energyAtPos = np.sum(abs(self.experimentalData.ptychogramDownsampled),(-1, -2))
 
+        # probe power correction
+        if len(self.experimentalData.ptychogram) != 0:
+            self.probePowerCorrection = np.sqrt(np.max(np.sum(self.experimentalData.ptychogram, (-1, -2))))
+        else:
+            self.probePowerCorrection = np.sqrt(np.max(np.sum(self.experimentalData.ptychogramDownsampled, (-1, -2))))
+        # todo power correction for initial probe guess
 
     def _initializeParams(self):
         """
@@ -122,6 +128,7 @@ class BaseReconstructor(object):
             _,self.optimizable.Q1,self.optimizable.Q2 = scaledASP(np.squeeze(self.optimizable.probe[0, 0, 0, 0, :, :]),
                                                                 self.experimentalData.zo, self.experimentalData.wavelength,
                                                                 self.experimentalData.dxo,self.experimentalData.dxd)
+
 
 
 
@@ -420,18 +427,17 @@ class BaseReconstructor(object):
         :param loop: the iteration number
         :return:
         """
-        if self.experimentalData.operationMode == 'FPM':
-            object_estimate = np.squeeze(fft2c(self.optimizable.object))
-            probe_estimate = np.squeeze(self.optimizable.probe)
-        else:
-            # object_estimate = self.optimizable.object
-            object_estimate = np.squeeze(self.optimizable.object)
-            probe_estimate = np.squeeze(self.optimizable.probe)
-
         if loop == 0:
             self.monitor.initializeVisualisation()
         elif np.mod(loop, self.monitor.figureUpdateFrequency) == 0:
-            # self.monitor.updatePlot(object_estimate[0,0,:,0,:,:])
+
+            if self.experimentalData.operationMode == 'FPM':
+                object_estimate = np.squeeze(fft2c(self.optimizable.object))
+                probe_estimate = np.squeeze(self.optimizable.probe)
+            else:
+                object_estimate = np.squeeze(self.optimizable.object)
+                probe_estimate = np.squeeze(self.optimizable.probe)
+
             self.monitor.updatePlot(object_estimate=object_estimate,probe_estimate=probe_estimate)
             # print('iteration:%i' %len(self.optimizable.error))
             # print('runtime:')
@@ -450,13 +456,13 @@ class BaseReconstructor(object):
             self.orthogonalization()
 
 
-        # Todo: probePowerCorrectionSwitch, objectSmoothenessSwitch,
+        # Todo: objectSmoothenessSwitch,
         #  probeSmoothenessSwitch, absObjectSwitch, comStabilizationSwitch, objectContrastSwitch
 
-        # modulus enforced probe
+        # modulus enforced probe todo: check for multiwave and multi object states
         if self.probePowerCorrectionSwitch:
-
-            raise NotImplementedError()
+            self.optimizable.probe = self.optimizable.probe / np.sqrt(np.sum(self.optimizable.probe
+                                                                             * self.optimizable.probe.conj())) * self.probePowerCorrection
 
         if self.objectSmoothenessSwitch:
             raise NotImplementedError()

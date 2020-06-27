@@ -76,16 +76,16 @@ if ptycho_simulation:
     monitor.verboseLevel = 'high' # high: plot two figures, low: plot only one figure
 
     # Run the reconstruction
-    mPIE_engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
+    # mPIE_engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
     # mPIE_engine = mPIE.mPIE(optimizable, exampleData, monitor)
-    mPIE_engine.propagator = 'ASP'
-    mPIE_engine.numIterations = 100
-    mPIE_engine.doReconstruction()
+    # mPIE_engine.propagator = 'Fresnel'
+    # mPIE_engine.numIterations = 100
+    # mPIE_engine.doReconstruction()
     
     # Compare mPIE to ePIE
     # ePIE_engine = ePIE.ePIE_GPU(optimizable, exampleData, monitor)
     # ePIE_engine = ePIE.ePIE(optimizable, exampleData, monitor)
-    # ePIE_engine.propagator = 'Fraunhofer'
+    # ePIE_engine.propagator = 'Fresnel'
     # ePIE_engine.numIterations = 100
     # ePIE_engine.doReconstruction()
 
@@ -97,4 +97,3 @@ if ptycho_simulation:
 
     # now save the data
     # optimizable.saveResults('reconstruction.hdf5')
-# 

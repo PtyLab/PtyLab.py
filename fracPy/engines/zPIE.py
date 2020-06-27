@@ -65,7 +65,7 @@ class zPIE(BaseReconstructor):
         else:
             n = 2*self.experimentalData.Np
 
-        X,Y = np.meshgrid(np.arange(-n//2,n//2),np.arange(-n//2,n//2))
+        X,Y = np.meshgrid(np.arange(-n//2, n//2), np.arange(-n//2, n//2))
         w = np.exp(-(np.sqrt(X**2+Y**2)/self.experimentalData.Np)**4)
 
         for loop in tqdm.tqdm(range(self.numIterations)):
@@ -85,10 +85,10 @@ class zPIE(BaseReconstructor):
                     (self.experimentalData.No//2+n//2),(self.experimentalData.No//2-n//2):(self.experimentalData.No//2+n//2)]),
                                   dz[k],self.experimentalData.wavelength,n*self.experimentalData.dxo)
 
-                    # TV approach
+                    # TV approach todo, check if np.roll and circshift are the same
                     aleph = 1e-2
-                    gradx = imProp-circshift(imProp,[0 1])
-                    grady = imProp-circshift(imProp,[1 0])
+                    gradx = imProp-np.roll(imProp, (0, 1))
+                    grady = imProp-np.roll(imProp, (1, 0))
                     merit.append(np.sum(np.sqrt(abs(gradx)**2+abs(grady)**2+aleph)))
 
                 dz = np.sum(dz*merit)/np.sum(merit)
@@ -160,6 +160,15 @@ class zPIE(BaseReconstructor):
             self.applyConstraints(loop)
 
             # show reconstruction
+            if np.mod(loop, self.monitor.figureUpdateFrequency) == 0:
+                idx = np.linspace(0, np.log10(len(self.zHistory)), np.min(len(self.zHistory), 100))
+                idx = round(10**idx)
+
+                plt.figure(666)
+                plt.semilogx(idx, self.zHistory[idx]*1e3, 'o-')
+                plt.xlabel('iteration')
+                plt.ylabel('estimated z (mm)')
+
             self.showReconstruction(loop)
 
     def objectPatchUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
@@ -192,7 +201,7 @@ class zPIE(BaseReconstructor):
         return r
 
 
-class ePIE_GPU(ePIE):
+class zPIE_GPU(zPIE):
     """
     GPU-based implementation of ePIE
     """
@@ -222,7 +231,7 @@ class ePIE_GPU(ePIE):
         self.experimentalData.probe = cp.array(self.experimentalData.probe, cp.complex64)
         # self.optimizable.Imeasured = cp.array(self.optimizable.Imeasured)
 
-        # ePIE parameters
+        # zPIE parameters
         self.logger.info('Detector error shape: %s', self.detectorError.shape)
         self.detectorError = cp.array(self.detectorError)
 
