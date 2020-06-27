@@ -3,7 +3,7 @@ matplotlib.use('tkagg')
 #matplotlib.use('qt5agg')
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Optimizable.Optimizable import Optimizable
-from fracPy.engines import ePIE, mPIE, qNewton
+from fracPy.engines import ePIE, mPIE, qNewton, zPIE
 from fracPy.monitors.Monitor import Monitor as Monitor
 import logging
 logging.basicConfig(level=logging.INFO)
@@ -75,15 +75,20 @@ if ptycho_simulation:
     monitor.verboseLevel = 'high' # high: plot two figures, low: plot only one figure
 
     # Run the reconstruction
-    mPIE_engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
-    mPIE_engine.numIterations = 50
-    mPIE_engine.doReconstruction()
+    # mPIE_engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
+    # mPIE_engine.numIterations = 50
+    # mPIE_engine.doReconstruction()
     
     # Compare mPIE to ePIE
     # ePIE_engine = ePIE.ePIE_GPU(optimizable, exampleData, monitor)
     # ePIE_engine.numIterations = 20
     # ePIE_engine.doReconstruction()
 
+    # zPIE
+    # zPIE_engine = zPIE.zPIE_GPU(optimizable, exampleData, monitor)
+    zPIE_engine = zPIE.zPIE(optimizable, exampleData, monitor)
+    zPIE_engine.numIterations = 20
+    zPIE_engine.doReconstruction()
 
     # now save the data
     # optimizable.saveResults('reconstruction.hdf5')

@@ -16,7 +16,7 @@ from fracPy.engines.BaseReconstructor import BaseReconstructor
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.utils.gpuUtils import getArrayModule
 from fracPy.monitors.Monitor import Monitor
-from fracPy.utils.utils import fft2c, ifft2c
+from fracPy.operators.operators import aspw
 import logging
 
 
@@ -27,7 +27,7 @@ class zPIE(BaseReconstructor):
         # but not necessarily to ePIE reconstruction
         super().__init__(optimizable, experimentalData, monitor)
         self.logger = logging.getLogger('ePIE')
-        self.logger.info('Sucesfully created ePIE ePIE_engine')
+        self.logger.info('Sucesfully created zPIE zPIE_engine')
 
         self.logger.info('Wavelength attribute: %s', self.optimizable.wavelength)
 
@@ -55,7 +55,18 @@ class zPIE(BaseReconstructor):
     def doReconstruction(self):
         self._prepare_doReconstruction()
         # actual reconstruction zPIE_engine
+        if not hasattr(self, 'zHisory'):
+            self.zHistory = []
+        zMomentun = 0
 
+        # preallocate grids
+        if self.propagator == 'ASP':
+            n = self.experimentalData.Np
+        else:
+            n = 2*self.experimentalData.Np
+
+        X,Y = np.meshgrid(np.arange(-n//2,n//2),np.arange(-n//2,n//2))
+        w = np.exp(-(np.sqrt(X**2+Y**2)/self.experimentalData.Np)**4)
 
         for loop in tqdm.tqdm(range(self.numIterations)):
             # set position order
@@ -66,10 +77,60 @@ class zPIE(BaseReconstructor):
                 zNew = self.experimentalData.zo
             else:
                 d = 10;
-                dz = np.linspace(-d*self.e
+                dz = np.linspace(-d,d,11)/10*self.optimizable.DoF
+                merit = []
+                # todo, mixed states implementation
+                for k in np.arange(len(dz)):
+                    imProp = aspw(np.squeeze(w*self.optimizable.object[...,(self.experimentalData.No//2-n//2):
+                    (self.experimentalData.No//2+n//2),(self.experimentalData.No//2-n//2):(self.experimentalData.No//2+n//2)]),
+                                  dz[k],self.experimentalData.wavelength,n*self.experimentalData.dxo)
 
+                    # TV approach
+                    aleph = 1e-2
+                    gradx = imProp-circshift(imProp,[0 1])
+                    grady = imProp-circshift(imProp,[1 0])
+                    merit.append(np.sum(np.sqrt(abs(gradx)**2+abs(grady)**2+aleph)))
+
+                dz = np.sum(dz*merit)/np.sum(merit)
+                c = 10000
+                eta = 0.7
+                zMomentun = eta*zMomentun+c*dz
+                zNew = self.experimentalData.zo+zMomentun
+
+            self.zHistory.append(self.experimentalData.zo) # todo check if it is on GPU, matlab uses gather
+            print('position updated: z ='+ str(self.experimentalData.zo*1e3)+'mm (dz = '+
+                  str(round(zMomentun*1e7)/10)+'um)')
+
+            # reset coordinates
+            self.experimentalData.zo = zNew
+
+            # resample
+            if self.propagator!='aspw':
+                self.experimentalData.dxo = self.experimentalData.wavelength*self.experimentalData.zo/self.experimentalData.Ld
+                self.experimentalData.positions = round(self.experimentalData.encoder/self.experimentalData.dxo)
+                self.experimentalData.positions = self.experimentalData.positions+self.experimentalData.No//2\
+                                                  -round(self.experimentalData.Np//2)
+
+                # object coordinates
+                self.experimentalData.Lo = self.experimentalData.No*self.experimentalData.dxo
+                self.experimentalData.xo = np.arange(-self.experimentalData.No//2,self.experimentalData.No//2)\
+                                           *self.experimentalData.dxo
+                self.experimentalData.Xo, self.experimentalData.Yo = np.meshgrid(self.experimentalData.xo,self.experimentalData.xo)
+
+                # probe coordinates
+                self.experimentalData.dxp = self.experimentalData.dxo
+                self.experimentalData.Np = self.experimentalData.Nd
+                self.experimentalData.Lp = self.experimentalData.Np*self.experimentalData.dxp
+                self.experimentalData.xp = np.arange(-self.experimentalData.Np // 2, self.experimentalData.Np // 2) \
+                                           * self.experimentalData.dxp
+                self.experimentalData.Xp, self.experimentalData.Yp = np.meshgrid(self.experimentalData.xp,self.experimentalData.xp)
+
+                # reset propagator
+                self.optimizable.quadraticPhase = np.exp(1.j * np.pi/(self.experimentalData.wavelength * self.experimentalData.zo)
+                                                         * (self.experimentalData.Xp**2 + self.experimentalData.Yp**2))
 
             for positionLoop, positionIndex in enumerate(self.positionIndices):
+                ### patch1 ###
                 # get object patch
                 row, col = self.optimizable.positions[positionIndex]
                 sy = slice(row, row + self.experimentalData.Np)

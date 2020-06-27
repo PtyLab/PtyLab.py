@@ -71,7 +71,9 @@ class BaseReconstructor(object):
         self.PSDestimationSwitch = False
         self.objectContrastSwitch = False # pushes object to zero outside ROI
 
-
+        # calculate detector NA and expected depth of field
+        self.optimizable.NAd = self.experimentalData.Ld/(2*self.experimentalData.zo)
+        self.optimizable.DoF = self.experimentalData.wavelength/self.optimizable.NAd**2 #todo multiwave
 
         # initialize detector error matrices
         if self.saveMemory:
@@ -439,6 +441,7 @@ class BaseReconstructor(object):
 
         # modulus enforced probe
         if self.probePowerCorrectionSwitch:
+
             raise NotImplementedError()
 
         if self.objectSmoothenessSwitch:

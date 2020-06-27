@@ -185,10 +185,11 @@ class ExperimentalData:
             # they are set automatically with the functions defined by the
             # @property operators
                     
-            # Positions and Np should be integers otherwise we won't be able to slice. Define here?
+            # Positions and Np, No should be integers otherwise we won't be able to slice. Define here?
             self.positions = self.positions.astype(int) 
             self.Np = self.Np.astype(int)
             self.Nd = self.Nd.astype(int)
+            self.No = self.No.astype(int)
         self._checkData()
 
 
