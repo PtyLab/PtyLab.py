@@ -60,6 +60,7 @@ class mPIE(BaseReconstructor):
         pass
 
     def doReconstruction(self):
+        self._initializeParams()
         self._prepare_doReconstruction()
         # actual reconstruction ePIE_engine
         import tqdm
@@ -220,6 +221,14 @@ class mPIE_GPU(mPIE):
         self.logger.info('Detector error shape: %s', self.detectorError.shape)
         self.detectorError = cp.array(self.detectorError)
 
+        # proapgators to GPU
+        if self.propagator == 'Fresnel':
+            self.optimizable.quadraticPhase = cp.array(self.optimizable.quadraticPhase)
+        elif self.propagator == 'ASP':
+            self.optimizable.transferFunction = cp.array(self.optimizable.transferFunction)
+        elif self.propagator =='scaledASP':
+            self.optimizable.Q1 = cp.array(self.optimizable.Q1)
+            self.optimizable.Q2 = cp.array(self.optimizable.Q2)
 
 
 

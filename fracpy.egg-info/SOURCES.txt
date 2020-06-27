@@ -8,6 +8,9 @@ fracPy/io/readExample.py
 fracPy/io/readHdf5.py
 fracPy/operators/__init__.py
 fracPy/operators/operators.py
+fracPy/physics/__init__.py
+fracPy/physics/propagatorsMultimode.py
+fracPy/physics/propagatorsSinglemode.py
 fracPy/utils/__init__.py
 fracPy/utils/gpuUtils.py
 fracPy/utils/initializationFunctions.py

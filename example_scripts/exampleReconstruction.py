@@ -43,7 +43,8 @@ if FPM_simulation:
     monitor.verboseLevel = 'high'
 
     # now we want to run an optimizer. First create it.
-    qNewton_engine = qNewton.qNewton(optimizable, exampleData, monitor)
+    # qNewton_engine = qNewton.qNewton(optimizable, exampleData, monitor)
+    qNewton_engine = qNewton.qNewton_GPU(optimizable, exampleData, monitor)
     # set any settings involving ePIE in this object.
     qNewton_engine.numIterations = 50
     # now, run the reconstruction
@@ -75,13 +76,17 @@ if ptycho_simulation:
     monitor.verboseLevel = 'high' # high: plot two figures, low: plot only one figure
 
     # Run the reconstruction
-    # mPIE_engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
-    # mPIE_engine.numIterations = 50
-    # mPIE_engine.doReconstruction()
+    mPIE_engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
+    # mPIE_engine = mPIE.mPIE(optimizable, exampleData, monitor)
+    mPIE_engine.propagator = 'ASP'
+    mPIE_engine.numIterations = 100
+    mPIE_engine.doReconstruction()
     
     # Compare mPIE to ePIE
     # ePIE_engine = ePIE.ePIE_GPU(optimizable, exampleData, monitor)
-    # ePIE_engine.numIterations = 20
+    # ePIE_engine = ePIE.ePIE(optimizable, exampleData, monitor)
+    # ePIE_engine.propagator = 'Fraunhofer'
+    # ePIE_engine.numIterations = 100
     # ePIE_engine.doReconstruction()
 
     # zPIE

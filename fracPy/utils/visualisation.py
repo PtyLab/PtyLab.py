@@ -79,7 +79,7 @@ def complex_plot(rgb, ax=None, pixelSize=1, axisUnit = 'mm'):
     pixelSize = pixelSize*unitRatio[axisUnit]
     extent = [0, pixelSize * rgb.shape[0], 0, pixelSize * rgb.shape[1]]
 
-    im = ax.imshow(rgb, extent=extent)
+    im = ax.imshow(rgb, extent=extent, interpolation=None)
     ax.set_ylabel(axisUnit)
     ax.set_xlabel(axisUnit)
 
