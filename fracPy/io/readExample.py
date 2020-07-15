@@ -3,8 +3,8 @@ from fracPy.io import getExampleDataFolder
 from pathlib import Path
 import logging
 import sys
-logger = logging.getLogger(__file__)
-logger.setLevel(logging.INFO)
+# logger = logging.getLogger(__file__)
+# logger.setLevel(logging.INFO)
 #logger.addHandler(logging.StreamHandler(sys.stderr))
 
 exampleFiles = {
@@ -22,6 +22,10 @@ def listExamples():
         logger.info('\t %s', key)
     logger.info('To load a specific dataset please run `loadExample(<name>)`.')
 
+def replaceValue(filename, name, value):
+    with tables.open_file(str(filename), mode='r+') as hdf5_file:
+        hdf5_file.remove_node(hdf5_file.root, name)                  
+        hdf5_file.create_array(hdf5_file.root, name, value)                  
 
 def examplePath(key:str):
     """
@@ -56,5 +60,6 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     listExamples()
     # loadExample('simulationTiny')
-    data = loadExample('fpm_dataset')
-    a = examplePath('fpm_dataset')
+    data = loadExample('simulation_fpm')
+    a = examplePath('simulation_fpm')
+    # replaceValue(a, "entrancePupilDiameter", 0.0048943125)

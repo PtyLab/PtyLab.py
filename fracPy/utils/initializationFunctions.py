@@ -33,10 +33,10 @@ def initialProbeOrObject(shape, type_of_init, data):
     
     if type_of_init == 'circ':
         try:
-            if 'aperture' in dir(data):
-                pupil = data.aperture.copy()
-            else:
-                pupil = circ(data.Xp, data.Yp, data.entrancePupilDiameter)
+            # if 'aperture' in dir(data):
+            #     pupil = data.aperture.copy()
+            # else:
+            pupil = circ(data.Xp, data.Yp, data.entrancePupilDiameter)
             return np.ones(shape) * pupil + 0.001 * np.random.rand(*shape)
         
         except AttributeError as e:

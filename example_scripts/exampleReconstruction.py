@@ -10,6 +10,7 @@ logging.basicConfig(level=logging.INFO)
 from fracPy.utils.utils import ifft2c
 from matplotlib import pyplot as plt
 import numpy as np
+from fracPy.Optimizable.Calibration import IlluminationCalibration
 
 """ 
 FPM data reconstructor 
@@ -24,18 +25,19 @@ if FPM_simulation:
     # create an experimentalData object and load a measurement
     exampleData = ExperimentalData()
     exampleData.loadData('example:simulation_fpm')
-    # exampleData.loadData('example:simulation_ptycho')
     exampleData.operationMode = 'FPM'
-    # # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
-    # # now create an object to hold everything we're eventually interested in
-    optimizable = Optimizable(exampleData)
 
-    optimizable.npsm = 9  # Number of probe modes to reconstruct
+    # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
+    # now create an object to hold everything we're eventually interested in
+    optimizable = Optimizable(exampleData)
+    optimizable.npsm = 1 # Number of probe modes to reconstruct
     optimizable.nosm = 1  # Number of object modes to reconstruct
     optimizable.nlambda = 1  # Number of wavelength
-
     optimizable.prepare_reconstruction()
-    # # this will copy any attributes from experimental data that we might care to optimize
+
+    # calibrate FPM positions
+    # calibration = IlluminationCalibration(optimizable, exampleData)
+    
 
     # Set monitor properties
     monitor = Monitor()
