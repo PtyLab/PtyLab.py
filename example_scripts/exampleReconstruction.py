@@ -35,10 +35,6 @@ if FPM_simulation:
     optimizable.nlambda = 1  # Number of wavelength
     optimizable.prepare_reconstruction()
 
-    # calibrate FPM positions
-    # calibration = IlluminationCalibration(optimizable, exampleData)
-    
-
     # Set monitor properties
     monitor = Monitor()
     monitor.figureUpdateFrequency = 1
