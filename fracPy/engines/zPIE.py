@@ -84,10 +84,10 @@ class zPIE(BaseReconstructor):
                 zNew = self.experimentalData.zo
             else:
                 d = 10
-                dz = xp.linspace(-d, d, 11)/10*self.experimentalData.DoF
+                dz = np.linspace(-d, d, 11)/10*self.experimentalData.DoF
                 merit = []
-                # todo, mixed states implementation
-                for k in xp.arange(len(dz)):
+                # todo, mixed states implementation, check if more need to be put on GPU to speed up
+                for k in np.arange(len(dz)):
                     imProp = aspw(xp.squeeze(w*self.optimizable.object[...,(self.experimentalData.No//2-n//2):
                     (self.experimentalData.No//2+n//2),(self.experimentalData.No//2-n//2):(self.experimentalData.No//2+n//2)]),
                                   dz[k],self.experimentalData.wavelength,n*self.experimentalData.dxo)[0]
@@ -98,14 +98,14 @@ class zPIE(BaseReconstructor):
                     grady = imProp-xp.roll(imProp, (1, 0))
                     merit.append(asNumpyArray(xp.sum(xp.sqrt(abs(gradx)**2+abs(grady)**2+aleph))))
 
-                dzNew = np.sum(asNumpyArray(dz)*merit)/np.sum(merit)
+                dzNew = np.sum(dz*merit)/np.sum(merit)
                 eta = 0.7
                 zMomentun = eta*zMomentun+self.zPIEgradientStepSize*dzNew
                 zNew = self.experimentalData.zo+zMomentun
 
-            self.zHistory.append(self.experimentalData.zo) # todo check if it is on GPU, matlab uses gather
-            # print('position updated: z =' + str(self.experimentalData.zo*1e3)+'mm (dz = ' +
-            #       str(round(zMomentun*1e7)/10)+'um)')
+            self.zHistory.append(self.experimentalData.zo)
+
+            # print updated z
             pbar.set_description('update z = %.3f mm (dz = %.2f)' % (self.experimentalData.zo*1e3, zMomentun*1e6))
 
             # reset coordinates

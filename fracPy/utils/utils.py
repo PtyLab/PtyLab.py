@@ -39,11 +39,8 @@ def circ(x,y,D):
     :param D: diameter 
     :return: a 2D array
     """
-    #TODO: check if this is efficient
 
     circle = (x**2+y**2)<(D/2)**2
-    xp = getArrayModule(circle)
-    circle = xp.array(circle)
     return circle
 
 def orthogonalizeModes(p):
