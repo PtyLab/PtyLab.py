@@ -5,7 +5,6 @@ import scipy.stats as st
 
 from fracPy.utils.gpuUtils import getArrayModule
 
-
 def fft2c(array):
     """
     performs 2 - dimensional unitary Fourier transformation, where energy is reserved abs(g)**2==abs(fft2c(g))**2
@@ -16,8 +15,6 @@ def fft2c(array):
     """
     xp = getArrayModule(array)
     return xp.fft.fftshift(xp.fft.fft2(xp.fft.ifftshift(array), norm='ortho'))
-
-
 
 def ifft2c(array):
     """
