@@ -14,7 +14,7 @@ except ImportError:
 from fracPy.Optimizable.Optimizable import Optimizable
 from fracPy.engines.BaseReconstructor import BaseReconstructor
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
-from fracPy.utils.gpuUtils import getArrayModule
+from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray
 from fracPy.monitors.Monitor import Monitor
 from fracPy.operators.operators import aspw
 import logging
@@ -32,6 +32,7 @@ class zPIE(BaseReconstructor):
         self.logger.info('Wavelength attribute: %s', self.optimizable.wavelength)
 
         self.initializeReconstructionParams()
+
 
     def initializeReconstructionParams(self):
         """
@@ -54,7 +55,11 @@ class zPIE(BaseReconstructor):
         pass
 
     def doReconstruction(self):
+
         self._prepare_doReconstruction()
+
+        xp = getArrayModule(self.optimizable.object)
+
         # actual reconstruction zPIE_engine
         if not hasattr(self, 'zHisory'):
             self.zHistory = []
@@ -66,10 +71,11 @@ class zPIE(BaseReconstructor):
         else:
             n = 2*self.experimentalData.Np
 
-        X,Y = np.meshgrid(np.arange(-n//2, n//2), np.arange(-n//2, n//2))
-        w = np.exp(-(np.sqrt(X**2+Y**2)/self.experimentalData.Np)**4)
+        X,Y = xp.meshgrid(xp.arange(-n//2, n//2), xp.arange(-n//2, n//2))
+        w = xp.exp(-(xp.sqrt(X**2+Y**2)/self.experimentalData.Np)**4)
 
-        for loop in tqdm.tqdm(range(self.numIterations)):
+        pbar = tqdm.trange(self.numIterations, desc='update z = ', leave=True)  # in order to change description to the tqdm progress bar
+        for loop in pbar:
             # set position order
             self.setPositionOrder()
 
@@ -78,37 +84,38 @@ class zPIE(BaseReconstructor):
                 zNew = self.experimentalData.zo
             else:
                 d = 10
-                dz = np.linspace(-d, d, 11)/10*self.experimentalData.DoF
+                dz = xp.linspace(-d, d, 11)/10*self.experimentalData.DoF
                 merit = []
                 # todo, mixed states implementation
-                for k in np.arange(len(dz)):
-                    imProp = aspw(np.squeeze(w*self.optimizable.object[...,(self.experimentalData.No//2-n//2):
+                for k in xp.arange(len(dz)):
+                    imProp = aspw(xp.squeeze(w*self.optimizable.object[...,(self.experimentalData.No//2-n//2):
                     (self.experimentalData.No//2+n//2),(self.experimentalData.No//2-n//2):(self.experimentalData.No//2+n//2)]),
-                                  dz[k],self.experimentalData.wavelength,n*self.experimentalData.dxo)
+                                  dz[k],self.experimentalData.wavelength,n*self.experimentalData.dxo)[0]
 
-                    # TV approach todo, check if np.roll and circshift are the same
+                    # TV approach todo, check if xp.roll and circshift are the same
                     aleph = 1e-2
-                    gradx = imProp-np.roll(imProp, (0, 1))
-                    grady = imProp-np.roll(imProp, (1, 0))
-                    merit.append(np.sum(np.sqrt(abs(gradx)**2+abs(grady)**2+aleph)))
+                    gradx = imProp-xp.roll(imProp, (0, 1))
+                    grady = imProp-xp.roll(imProp, (1, 0))
+                    merit.append(asNumpyArray(xp.sum(xp.sqrt(abs(gradx)**2+abs(grady)**2+aleph))))
 
-                dz = np.sum(dz*merit)/np.sum(merit)
+                dzNew = np.sum(asNumpyArray(dz)*merit)/np.sum(merit)
                 eta = 0.7
-                zMomentun = eta*zMomentun+self.zPIEgradientStepSize*dz
+                zMomentun = eta*zMomentun+self.zPIEgradientStepSize*dzNew
                 zNew = self.experimentalData.zo+zMomentun
 
             self.zHistory.append(self.experimentalData.zo) # todo check if it is on GPU, matlab uses gather
-            tqdm.write('position updated: z =' + str(self.experimentalData.zo*1e3)+'mm (dz = ' +
-                  str(round(zMomentun*1e7)/10)+'um)')
+            # print('position updated: z =' + str(self.experimentalData.zo*1e3)+'mm (dz = ' +
+            #       str(round(zMomentun*1e7)/10)+'um)')
+            pbar.set_description('update z = %.3f mm (dz = %.2f)' % (self.experimentalData.zo*1e3, zMomentun*1e6))
 
             # reset coordinates
             self.experimentalData.zo = zNew
 
             # resample is automatically done by using @property
-            if self.propagator!='aspw':
+            if self.propagator!='ASP':
                 # reset propagator
-                self.optimizable.quadraticPhase = np.exp(1.j * np.pi/(self.experimentalData.wavelength * self.experimentalData.zo)
-                                                         * (self.experimentalData.Xp**2 + self.experimentalData.Yp**2))
+                self.optimizable.quadraticPhase = cp.array(np.exp(1.j * np.pi/(self.experimentalData.wavelength * self.experimentalData.zo)
+                                                         * (self.experimentalData.Xp**2 + self.experimentalData.Yp**2)))
 
             for positionLoop, positionIndex in enumerate(self.positionIndices):
                 ### patch1 ###
@@ -155,10 +162,10 @@ class zPIE(BaseReconstructor):
                 idx = np.linspace(0, np.log10(len(self.zHistory)-1), np.minimum(len(self.zHistory), 100))
                 idx = np.rint(10**idx).astype('int')
 
-                line.set_xdata(idx*1e3)
-                line.set_ydata(np.array(self.zHistory)[idx])
+                line.set_xdata(idx)
+                line.set_ydata(np.array(self.zHistory)[idx]*1e3)
                 ax.set_xlim(0, np.max(idx))
-                ax.set_ylim(np.min(self.zHistory), np.max(self.zHistory))
+                ax.set_ylim(np.min(self.zHistory)*1e3, np.max(self.zHistory)*1e3)
 
                 figure.canvas.draw()
                 figure.canvas.flush_events()
@@ -209,7 +216,7 @@ class zPIE_GPU(zPIE):
         self.logger.info('Hello from zPIE_GPU')
 
     def _prepare_doReconstruction(self):
-        self.logger.info('Ready to start transfering stuff to the GPU')
+        self.logger.info('Ready to start transferring stuff to the GPU')
         self._move_data_to_gpu()
 
     def _move_data_to_gpu(self):
@@ -229,3 +236,12 @@ class zPIE_GPU(zPIE):
         # zPIE parameters
         self.logger.info('Detector error shape: %s', self.detectorError.shape)
         self.detectorError = cp.array(self.detectorError)
+
+        # proapgators to GPU
+        if self.propagator == 'Fresnel':
+            self.optimizable.quadraticPhase = cp.array(self.optimizable.quadraticPhase)
+        elif self.propagator == 'ASP':
+            self.optimizable.transferFunction = cp.array(self.optimizable.transferFunction)
+        elif self.propagator == 'scaledASP':
+            self.optimizable.Q1 = cp.array(self.optimizable.Q1)
+            self.optimizable.Q2 = cp.array(self.optimizable.Q2)

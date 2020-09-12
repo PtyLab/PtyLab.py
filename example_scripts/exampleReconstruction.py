@@ -90,8 +90,8 @@ if ptycho_simulation:
     # ePIE_engine.doReconstruction()
 
     # zPIE
-    # zPIE_engine = zPIE.zPIE_GPU(optimizable, exampleData, monitor)
-    zPIE_engine = zPIE.zPIE(optimizable, exampleData, monitor)
+    zPIE_engine = zPIE.zPIE_GPU(optimizable, exampleData, monitor)
+    # zPIE_engine = zPIE.zPIE(optimizable, exampleData, monitor)
     zPIE_engine.zPIEgradientStepSize = 200
     zPIE_engine.numIterations = 2000
     zPIE_engine.doReconstruction()

@@ -1,5 +1,6 @@
 import numpy as np
 from fracPy.utils.utils import circ, fft2c, ifft2c
+from fracPy.utils.gpuUtils import getArrayModule
 
 
 def aspw(u, z, wavelength, L):
@@ -13,16 +14,17 @@ def aspw(u, z, wavelength, L):
     :param L: total size of the field in meter
     :return: field distribution after propagation and the transfer function
     """
+    xp = getArrayModule(u)
     k = 2*np.pi/wavelength
     N = u.shape[0]
-    X = np.arange(-N/2, N/2)/L
+    X = xp.arange(-N/2, N/2)/L
     Fx, Fy = np.meshgrid(X, X)
     f_max = L/(wavelength*np.sqrt(L**2+4*z**2))
     # note: see the paper above if you are not sure what this bandlimit has to do here
     # W = rect(Fx/(2*f_max)) .* rect(Fy/(2*f_max));
     W = circ(Fx, Fy, 2*f_max)
     # note: accounts for circular symmetry of transfer function and imposes bandlimit to avoid sampling issues
-    H = np.exp(1.j * k * z * np.sqrt(1 - (Fx*wavelength)**2 - (Fy*wavelength)**2))
+    H = xp.exp(1.j * k * z * xp.sqrt(1 - (Fx*wavelength)**2 - (Fy*wavelength)**2))
     U = fft2c(u)
     u = ifft2c(U * H * W)
     return u, H
