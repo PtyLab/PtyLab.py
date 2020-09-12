@@ -51,7 +51,7 @@ class ExperimentalData:
         self.binningFactor = None  # binning factor that was applied to raw data
 
         # measured positions
-        self.positions0 = None  # initial positions in pixel units (real space for CPM, Fourier space for FPM)
+        # self.positions0 = None  # initial positions in pixel units (real space for CPM, Fourier space for FPM)
         self.positions = None  # estimated positions in pixel units (real space for CPM, Fourier space for FPM)
         # note: Positions are given in row-column order and refer to the
         # pixel in the upper left corner of the respective data matrix;
@@ -166,6 +166,8 @@ class ExperimentalData:
             self.filename = examplePath(filename)#readExample(filename, python_order=True)
 
 
+
+
         if self.filename is not None:
             # 1. check if the dataset contains what we need before loading
             readHdf5.checkDataFields(self.filename)
@@ -186,10 +188,12 @@ class ExperimentalData:
             # @property operators
                     
             # Positions and Np, No should be integers otherwise we won't be able to slice. Define here?
-            self.positions = self.positions.astype(int) 
+            self.positions = self.positions.astype(int)
             self.Np = self.Np.astype(int)
             self.Nd = self.Nd.astype(int)
             self.No = self.No.astype(int)
+
+            self.encoder = (self.positions + self.No/2 - self.Np/2) * self.dxo
         self._checkData()
 
 
@@ -312,8 +316,28 @@ class ExperimentalData:
         Xo, Yo = np.meshgrid(self.xo, self.xo)
         return Yo
 
+    @property
+    def positions0(self):
+        """raw data positions"""
+        positions0 = round(self.encoder/self.dxo) # encoder is in mm, positions0 and positions are in pixels
+        positions0 = positions0 + self.No/2 - self.Np/2
+        return positions0
 
-                        
+    # system property list
+    @property
+    def NAd(self):
+        """ Detection NA"""
+        NAd = self.Ld/(2*self.zo)
+        return NAd
+
+    @property
+    def DoF(self):
+        """expected Depth of field"""
+        # DoF = self.wavelength[0]/self.NAd**2
+        DoF = self.wavelength / self.NAd ** 2 #TODO: implement for multiwave
+        return DoF
+
+
     def _checkData(self):
         """
         Check that at least all the data we need has been initialized.

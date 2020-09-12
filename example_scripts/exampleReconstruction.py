@@ -71,16 +71,16 @@ if ptycho_simulation:
     # this will copy any attributes from experimental data that we might care to optimize
     # # Set monitor properties
     monitor = Monitor()
-    monitor.figureUpdateFrequency = 2
+    monitor.figureUpdateFrequency = 10
     monitor.objectPlot = 'complex'
     monitor.verboseLevel = 'high' # high: plot two figures, low: plot only one figure
 
     # Run the reconstruction
     # mPIE_engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
-    # mPIE_engine = mPIE.mPIE(optimizable, exampleData, monitor)
-    # mPIE_engine.propagator = 'Fresnel'
-    # mPIE_engine.numIterations = 100
-    # mPIE_engine.doReconstruction()
+    mPIE_engine = mPIE.mPIE(optimizable, exampleData, monitor)
+    mPIE_engine.propagator = 'Fresnel'
+    mPIE_engine.numIterations = 5
+    mPIE_engine.doReconstruction()
     
     # Compare mPIE to ePIE
     # ePIE_engine = ePIE.ePIE_GPU(optimizable, exampleData, monitor)
@@ -92,7 +92,8 @@ if ptycho_simulation:
     # zPIE
     # zPIE_engine = zPIE.zPIE_GPU(optimizable, exampleData, monitor)
     zPIE_engine = zPIE.zPIE(optimizable, exampleData, monitor)
-    zPIE_engine.numIterations = 20
+    zPIE_engine.zPIEgradientStepSize = 200
+    zPIE_engine.numIterations = 2000
     zPIE_engine.doReconstruction()
 
     # now save the data

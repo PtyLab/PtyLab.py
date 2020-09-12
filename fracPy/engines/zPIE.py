@@ -26,7 +26,7 @@ class zPIE(BaseReconstructor):
         # This contains reconstruction parameters that are specific to the reconstruction
         # but not necessarily to ePIE reconstruction
         super().__init__(optimizable, experimentalData, monitor)
-        self.logger = logging.getLogger('ePIE')
+        self.logger = logging.getLogger('zPIE')
         self.logger.info('Sucesfully created zPIE zPIE_engine')
 
         self.logger.info('Wavelength attribute: %s', self.optimizable.wavelength)
@@ -41,6 +41,7 @@ class zPIE(BaseReconstructor):
         # self.eswUpdate = self.optimizable.esw.copy()
         self.betaProbe = 0.25
         self.betaObject = 0.25
+        self.zPIEgradientStepSize = 100  #gradient step size for axial position correction (typical range [1, 100])
 
 
     def _prepare_doReconstruction(self):
@@ -76,8 +77,8 @@ class zPIE(BaseReconstructor):
             if loop==1:
                 zNew = self.experimentalData.zo
             else:
-                d = 10;
-                dz = np.linspace(-d,d,11)/10*self.optimizable.DoF
+                d = 10
+                dz = np.linspace(-d, d, 11)/10*self.experimentalData.DoF
                 merit = []
                 # todo, mixed states implementation
                 for k in np.arange(len(dz)):
@@ -92,39 +93,19 @@ class zPIE(BaseReconstructor):
                     merit.append(np.sum(np.sqrt(abs(gradx)**2+abs(grady)**2+aleph)))
 
                 dz = np.sum(dz*merit)/np.sum(merit)
-                c = 10000
                 eta = 0.7
-                zMomentun = eta*zMomentun+c*dz
+                zMomentun = eta*zMomentun+self.zPIEgradientStepSize*dz
                 zNew = self.experimentalData.zo+zMomentun
 
             self.zHistory.append(self.experimentalData.zo) # todo check if it is on GPU, matlab uses gather
-            print('position updated: z ='+ str(self.experimentalData.zo*1e3)+'mm (dz = '+
+            tqdm.write('position updated: z =' + str(self.experimentalData.zo*1e3)+'mm (dz = ' +
                   str(round(zMomentun*1e7)/10)+'um)')
 
             # reset coordinates
             self.experimentalData.zo = zNew
 
-            # resample
+            # resample is automatically done by using @property
             if self.propagator!='aspw':
-                self.experimentalData.dxo = self.experimentalData.wavelength*self.experimentalData.zo/self.experimentalData.Ld
-                self.experimentalData.positions = round(self.experimentalData.encoder/self.experimentalData.dxo)
-                self.experimentalData.positions = self.experimentalData.positions+self.experimentalData.No//2\
-                                                  -round(self.experimentalData.Np//2)
-
-                # object coordinates
-                self.experimentalData.Lo = self.experimentalData.No*self.experimentalData.dxo
-                self.experimentalData.xo = np.arange(-self.experimentalData.No//2,self.experimentalData.No//2)\
-                                           *self.experimentalData.dxo
-                self.experimentalData.Xo, self.experimentalData.Yo = np.meshgrid(self.experimentalData.xo,self.experimentalData.xo)
-
-                # probe coordinates
-                self.experimentalData.dxp = self.experimentalData.dxo
-                self.experimentalData.Np = self.experimentalData.Nd
-                self.experimentalData.Lp = self.experimentalData.Np*self.experimentalData.dxp
-                self.experimentalData.xp = np.arange(-self.experimentalData.Np // 2, self.experimentalData.Np // 2) \
-                                           * self.experimentalData.dxp
-                self.experimentalData.Xp, self.experimentalData.Yp = np.meshgrid(self.experimentalData.xp,self.experimentalData.xp)
-
                 # reset propagator
                 self.optimizable.quadraticPhase = np.exp(1.j * np.pi/(self.experimentalData.wavelength * self.experimentalData.zo)
                                                          * (self.experimentalData.Xp**2 + self.experimentalData.Yp**2))
@@ -160,14 +141,27 @@ class zPIE(BaseReconstructor):
             self.applyConstraints(loop)
 
             # show reconstruction
-            if np.mod(loop, self.monitor.figureUpdateFrequency) == 0:
-                idx = np.linspace(0, np.log10(len(self.zHistory)), np.min(len(self.zHistory), 100))
-                idx = round(10**idx)
+            if loop == 0:
+                figure, ax = plt.subplots(1, 1, num=666, squeeze=True, clear=True, figsize=(5, 5))
+                ax.set_title('Estimated distance (object-camera)')
+                ax.set_xlabel('iteration')
+                ax.set_ylabel('estimated z (mm)')
+                ax.set_xscale('symlog')
+                line = plt.plot(0, zNew, 'o-')[0]
+                plt.tight_layout()
+                plt.show(block = False)
 
-                plt.figure(666)
-                plt.semilogx(idx, self.zHistory[idx]*1e3, 'o-')
-                plt.xlabel('iteration')
-                plt.ylabel('estimated z (mm)')
+            elif np.mod(loop, self.monitor.figureUpdateFrequency) == 0:
+                idx = np.linspace(0, np.log10(len(self.zHistory)-1), np.minimum(len(self.zHistory), 100))
+                idx = np.rint(10**idx).astype('int')
+
+                line.set_xdata(idx*1e3)
+                line.set_ydata(np.array(self.zHistory)[idx])
+                ax.set_xlim(0, np.max(idx))
+                ax.set_ylim(np.min(self.zHistory), np.max(self.zHistory))
+
+                figure.canvas.draw()
+                figure.canvas.flush_events()
 
             self.showReconstruction(loop)
 
@@ -201,17 +195,18 @@ class zPIE(BaseReconstructor):
         return r
 
 
+
 class zPIE_GPU(zPIE):
     """
-    GPU-based implementation of ePIE
+    GPU-based implementation of zPIE
     """
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if cp is None:
             raise ImportError('Could not import cupy')
-        self.logger = logging.getLogger('ePIE_GPU')
-        self.logger.info('Hello from ePIE_GPU')
+        self.logger = logging.getLogger('zPIE_GPU')
+        self.logger.info('Hello from zPIE_GPU')
 
     def _prepare_doReconstruction(self):
         self.logger.info('Ready to start transfering stuff to the GPU')
@@ -234,5 +229,3 @@ class zPIE_GPU(zPIE):
         # zPIE parameters
         self.logger.info('Detector error shape: %s', self.detectorError.shape)
         self.detectorError = cp.array(self.detectorError)
-
-
