@@ -66,12 +66,13 @@ if ptycho_simulation:
     optimizable.npsm = 1 # Number of probe modes to reconstruct
     optimizable.nosm = 1 # Number of object modes to reconstruct
     optimizable.nlambda = 1 # Number of wavelength
+    optimizable.nslice = 3 # Number of object slice
     optimizable.prepare_reconstruction()
     
     # this will copy any attributes from experimental data that we might care to optimize
     # # Set monitor properties
     monitor = Monitor()
-    monitor.figureUpdateFrequency = 10
+    monitor.figureUpdateFrequency = 1
     monitor.objectPlot = 'complex'
     monitor.verboseLevel = 'high' # high: plot two figures, low: plot only one figure
 
@@ -79,7 +80,7 @@ if ptycho_simulation:
     # mPIE_engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
     mPIE_engine = mPIE.mPIE(optimizable, exampleData, monitor)
     mPIE_engine.propagator = 'Fresnel'
-    mPIE_engine.numIterations = 5
+    mPIE_engine.numIterations = 50
     mPIE_engine.doReconstruction()
     
     # Compare mPIE to ePIE
@@ -90,11 +91,11 @@ if ptycho_simulation:
     # ePIE_engine.doReconstruction()
 
     # zPIE
-    zPIE_engine = zPIE.zPIE_GPU(optimizable, exampleData, monitor)
+    # zPIE_engine = zPIE.zPIE_GPU(optimizable, exampleData, monitor)
     # zPIE_engine = zPIE.zPIE(optimizable, exampleData, monitor)
-    zPIE_engine.zPIEgradientStepSize = 200
-    zPIE_engine.numIterations = 2000
-    zPIE_engine.doReconstruction()
+    # zPIE_engine.zPIEgradientStepSize = 200
+    # zPIE_engine.numIterations = 2000
+    # zPIE_engine.doReconstruction()
 
     # now save the data
     # optimizable.saveResults('reconstruction.hdf5')
