@@ -68,6 +68,7 @@ class mPIE(BaseReconstructor):
             # set position order
             self.setPositionOrder()
             for positionLoop, positionIndex in enumerate(self.positionIndices):
+                print(positionLoop)
                 # get object patch
                 row, col = self.optimizable.positions[positionIndex]
                 sy = slice(row, row + self.experimentalData.Np)

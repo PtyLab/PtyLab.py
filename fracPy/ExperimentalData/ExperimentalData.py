@@ -52,7 +52,7 @@ class ExperimentalData:
 
         # measured positions
         # self.positions0 = None  # initial positions in pixel units (real space for CPM, Fourier space for FPM)
-        self.positions = None  # estimated positions in pixel units (real space for CPM, Fourier space for FPM)
+        # self.positions = None  # estimated positions in pixel units (real space for CPM, Fourier space for FPM)
         # note: Positions are given in row-column order and refer to the
         # pixel in the upper left corner of the respective data matrix;
         # -1st example: suppose the 2nd row of positions0 is [3, 4] and the
@@ -167,7 +167,6 @@ class ExperimentalData:
 
 
 
-
         if self.filename is not None:
             # 1. check if the dataset contains what we need before loading
             readHdf5.checkDataFields(self.filename)
@@ -186,14 +185,16 @@ class ExperimentalData:
             # 5. Set other attributes based on this
             # they are set automatically with the functions defined by the
             # @property operators
-                    
-            # Positions and Np, No should be integers otherwise we won't be able to slice. Define here?
-            self.positions = self.positions.astype(int)
-            self.Np = self.Np.astype(int)
-            self.Nd = self.Nd.astype(int)
-            self.No = self.No.astype(int)
+            if str(filename).startswith('simulation'):
+                # Positions and Np, No should be integers otherwise we won't be able to slice. Define here?
+                self.positions = self.positions.astype(int)
+                self.Np = self.Np.astype(int)
+                self.Nd = self.Nd.astype(int)
+                self.No = self.No.astype(int)
+                self.encoder = (self.positions + self.No / 2 - self.Np / 2) * self.dxo
 
-            self.encoder = (self.positions + self.No/2 - self.Np/2) * self.dxo
+
+
         self._checkData()
 
 
@@ -317,11 +318,11 @@ class ExperimentalData:
         return Yo
 
     @property
-    def positions0(self):
-        """raw data positions"""
-        positions0 = round(self.encoder/self.dxo) # encoder is in mm, positions0 and positions are in pixels
-        positions0 = positions0 + self.No/2 - self.Np/2
-        return positions0
+    def positions(self):
+        """scan positions in pixel"""
+        positions = np.round(self.encoder/self.dxo) # encoder is in mm, positions0 and positions are in pixels
+        positions = positions + self.No//2 - self.Np//2
+        return positions.astype(int)
 
     # system property list
     @property

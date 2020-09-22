@@ -57,7 +57,13 @@ change data visualization and initialization options manually for now
 """
 if ptycho_simulation:
     exampleData = ExperimentalData()
-    exampleData.loadData('example:simulation_ptycho')
+
+    import os
+    filePath = r"D:/fracmat/ptyLab/lenspaper4"
+    os.chdir(filePath)
+    exampleData.loadData('recent.hdf5')
+
+    # exampleData.loadData('example:simulation_ptycho')
     exampleData.operationMode = 'CPM'
 
     # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
@@ -66,7 +72,7 @@ if ptycho_simulation:
     optimizable.npsm = 1 # Number of probe modes to reconstruct
     optimizable.nosm = 1 # Number of object modes to reconstruct
     optimizable.nlambda = 1 # Number of wavelength
-    optimizable.nslice = 3 # Number of object slice
+    optimizable.nslice = 1 # Number of object slice
     optimizable.prepare_reconstruction()
     
     # this will copy any attributes from experimental data that we might care to optimize
