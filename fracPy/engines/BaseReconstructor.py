@@ -371,41 +371,59 @@ class BaseReconstructor(object):
         Perform orthogonalization
         :return:
         """
-        if self.optimizable.npsm > 1:
-            # orthogonalize the probe
-            for id_l in range(self.optimizable.nlambda):
+        if self.optimizable.nlambda > 1:
+            if self.optimizable.npsm > 1 or self.optimizable.nosm > 1:
+                raise Exception('when nlambda>1, npsm and nosm must equal 1')
+            else:
                 for id_s in range(self.optimizable.nslice):
-                    self.optimizable.probe[id_l,0,:,id_s,:,:], self.normalizedEigenvaluesProbe, self.MSPVprobe =\
-                        orthogonalizeModes(self.optimizable.probe[id_l,0,:,id_s,:,:])
+                    self.optimizable.probe[:,0,0,id_s,:,:], self.normalizedEigenvaluesProbe, self.MSPVprobe =\
+                        orthogonalizeModes(self.optimizable.probe[:,0,0,id_s,:,:])
                     self.optimizable.purity = np.sqrt(np.sum(self.normalizedEigenvaluesProbe**2))
-            
-            # orthogonolize momentum operator
-            try:
-                self.optimizable.probeMomentum[id_l,0,:,id_s,:,:], none, none =\
-                    orthogonalizeModes(self.optimizable.probeMomentum[id_l,0,:,id_s,:,:])
-                # replace the orthogonolized buffer
-                self.optimizable.probeBuffer = self.optimizable.probe.copy()
-            except:
-                pass
-            
-        elif self.optimizable.nosm > 1:
-            # orthogonalize the object
-            for id_l in range(self.optimizable.nlambda):
-                for id_s in range(self.optimizable.nslice):
-                    self.optimizable.object[id_l,:,0,id_s,:,:], self.normalizedEigenvaluesObject, self.MSPVobject =\
-                        orthogonalizeModes(self.optimizable.object[id_l,:,0,id_s,:,:])
-            
-            # orthogonolize momentum operator
-            try:
-                self.optimizable.objectMomentum[id_l,:,0,id_s,:,:], none, none =\
-                    orthogonalizeModes(self.optimizable.objectMomentum[id_l,:,0,id_s,:,:])
-                # replace the orthogonolized buffer as well
-                self.optimizable.objectBuffer = self.optimizable.object.copy()
-            except:
-                pass
-            
+
+                # orthogonolize momentum operator
+                # try:
+                #     self.optimizable.probeMomentum[0,0,:,id_s,:,:], none, none =\
+                #         orthogonalizeModes(self.optimizable.probeMomentum[0,0,:,id_s,:,:])
+                #     # replace the orthogonolized buffer
+                #     self.optimizable.probeBuffer = self.optimizable.probe.copy()
+                # except:
+                #     pass
+
+
         else:
-            pass
+            if self.optimizable.npsm > 1:
+                # orthogonalize the probe
+                for id_s in range(self.optimizable.nslice):
+                    self.optimizable.probe[0,0,:,id_s,:,:], self.normalizedEigenvaluesProbe, self.MSPVprobe =\
+                        orthogonalizeModes(self.optimizable.probe[0,0,:,id_s,:,:])
+                    self.optimizable.purity = np.sqrt(np.sum(self.normalizedEigenvaluesProbe**2))
+
+                # orthogonolize momentum operator
+                try:
+                    self.optimizable.probeMomentum[0,0,:,id_s,:,:], none, none =\
+                        orthogonalizeModes(self.optimizable.probeMomentum[0,0,:,id_s,:,:])
+                    # replace the orthogonolized buffer
+                    self.optimizable.probeBuffer = self.optimizable.probe.copy()
+                except:
+                    pass
+
+            if self.optimizable.nosm > 1:
+                # orthogonalize the object
+                for id_s in range(self.optimizable.nslice):
+                    self.optimizable.object[0,:,0,id_s,:,:], self.normalizedEigenvaluesObject, self.MSPVobject =\
+                        orthogonalizeModes(self.optimizable.object[0,:,0,id_s,:,:])
+
+                # orthogonolize momentum operator
+                try:
+                    self.optimizable.objectMomentum[0,:,0,id_s,:,:], none, none =\
+                        orthogonalizeModes(self.optimizable.objectMomentum[0,:,0,id_s,:,:])
+                    # replace the orthogonolized buffer as well
+                    self.optimizable.objectBuffer = self.optimizable.object.copy()
+                except:
+                    pass
+
+            else:
+                pass
         
         
 
