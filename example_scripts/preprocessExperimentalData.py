@@ -128,7 +128,7 @@ plt.ylabel('pixel')
 plt.show()
 
 # set propagator
-propagatorType = 'Fraunhofer'
+# propagatorType = 'Fraunhofer'
 
 # export data
 exportBool = True
