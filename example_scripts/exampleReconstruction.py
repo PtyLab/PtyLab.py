@@ -99,7 +99,7 @@ if ptycho_simulation:
     # zPIE
     # zPIE_engine = zPIE.zPIE_GPU(optimizable, exampleData, monitor)
     # zPIE_engine = zPIE.zPIE(optimizable, exampleData, monitor)
-    # zPIE_engine.zPIEgradientStepSize = 200
+    # zPIE_engine.zPIEgradientStepSize = 50   # gradient step size for axial position correction (typical range [1, 100])
     # zPIE_engine.numIterations = 2000
     # zPIE_engine.doReconstruction()
 
