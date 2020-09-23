@@ -100,7 +100,7 @@ class e3PIE(BaseReconstructor):
                     objectUpdate = self.objectPatchUpdate(self.optimizable.object[..., sliceLoop, sy, sx], DELTA,
                                                     self.optimizable.probe[:,:,:,sliceLoop,...])
                     # eswTemp update (here probe incident on last slice)
-                    beth = 1
+                    beth = 1 # todo, why need beth, not betaProbe, changable?
                     self.optimizable.probe[:,:,:,sliceLoop,...] = self.probeUpdate(
                         self.optimizable.object[..., sliceLoop, sy, sx], DELTA,
                         self.optimizable.probe[:,:,:,sliceLoop,...], beth)
@@ -134,7 +134,7 @@ class e3PIE(BaseReconstructor):
             # show reconstruction
             self.showReconstruction(loop)
 
-    def objectPatchUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
+    def objectPatchUpdate(self, objectPatch:np.ndarray, DELTA:np.ndarray, localProbe:np.ndarray):
         """
         Todo add docstring
         :param objectPatch:
@@ -144,11 +144,11 @@ class e3PIE(BaseReconstructor):
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
 
-        frac = self.optimizable.probe.conj() / xp.max(
-            xp.sum(xp.abs(self.optimizable.probe) ** 2, axis=(0, 1, 2, 3)))
+        frac = localProbe.conj() / xp.max(
+            xp.sum(xp.abs(localProbe) ** 2, axis=(0, 1, 2, 3)))
         return objectPatch + self.betaObject * xp.sum(frac * DELTA, axis=(0, 2, 3), keepdims=True)
 
-    def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
+    def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray, localProbe: np.ndarray, beth):
         """
         Todo add docstring
         :param objectPatch:
@@ -158,10 +158,10 @@ class e3PIE(BaseReconstructor):
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
         frac = objectPatch.conj() / xp.max(xp.sum(xp.abs(objectPatch) ** 2, axis=(0, 1, 2, 3)))
-        r = self.optimizable.probe + self.betaObject * xp.sum(frac * DELTA, axis=(0, 1, 3), keepdims=True)
-        if self.absorbingProbeBoundary:
-            aleph = 1e-3
-            r = (1 - aleph) * r + aleph * r * self.probeWindow
+        r = localProbe + beth * xp.sum(frac * DELTA, axis=(0, 1, 3), keepdims=True)
+        # if self.absorbingProbeBoundary:
+        #     aleph = 1e-3
+        #     r = (1 - aleph) * r + aleph * r * self.probeWindow
         return r
 
 class ePIE_GPU(e3PIE):
