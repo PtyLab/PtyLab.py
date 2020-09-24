@@ -84,8 +84,8 @@ class Optimizable(object):
 
         
         # set object and probe objects
-        self.object = self.initialObject.copy()
-        self.probe = self.initialProbe.copy()
+        self.object = self.initialGuessObject.copy()
+        self.probe = self.initialGuessProbe.copy()
 
         # initialize error
         self.error = np.zeros(0, dtype=np.float32)
@@ -96,21 +96,21 @@ class Optimizable(object):
     def initializeObject(self):
         self.logger.info('Initial object set to %s', self.initialObject)
         self.shape_O = (self.nlambda, self.nosm, 1, self.nslice, np.int(self.data.No), np.int(self.data.No))
-        self.initialObject = initialProbeOrObject(self.shape_O, self.initialObject, self.data).astype(np.complex64)
+        self.initialGuessObject = initialProbeOrObject(self.shape_O, self.initialObject, self.data).astype(np.complex64)
 
     def initializeProbe(self):
         self.logger.info('Initial probe set to %s', self.initialProbe)
         self.shape_P = (self.nlambda, 1, self.npsm, self.nslice, np.int(self.data.Np), np.int(self.data.Np))
-        self.initialProbe = initialProbeOrObject(self.shape_P, self.initialProbe, self.data).astype(np.complex64)
+        self.initialGuessProbe = initialProbeOrObject(self.shape_P, self.initialProbe, self.data).astype(np.complex64)
 
     def initializeObjectMomentum(self):
-        self.objectMomentum = np.zeros_like(self.initialObject)
+        self.objectMomentum = np.zeros_like(self.initialGuessObject)
         
     def initializeProbeMomentum(self):
-        self.probeMomentum = np.zeros_like(self.initialProbe)
+        self.probeMomentum = np.zeros_like(self.initialGuessProbe)
         
     def initializeObjectBuffer(self):
-        self.objectBuffer = self.initialObject.copy()
+        self.objectBuffer = self.initialGuessObject.copy()
         
     def initializeProbeBuffer(self):
-        self.probeBuffer = self.initialProbe.copy()
+        self.probeBuffer = self.initialGuessProbe.copy()

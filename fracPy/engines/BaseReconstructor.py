@@ -127,8 +127,6 @@ class BaseReconstructor(object):
                                                                 self.experimentalData.dxo,self.experimentalData.dxd)
 
 
-
-
     def setPositionOrder(self):
         if self.positionOrder == 'sequential':
             self.positionIndices = np.arange(self.experimentalData.numFrames)

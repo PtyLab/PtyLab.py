@@ -4,6 +4,7 @@ matplotlib.use('tkagg')
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Optimizable.Optimizable import Optimizable
 from fracPy.engines import ePIE, mPIE, qNewton, zPIE
+from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray
 from fracPy.monitors.Monitor import Monitor as Monitor
 import logging
 logging.basicConfig(level=logging.INFO)
@@ -59,11 +60,13 @@ if ptycho_simulation:
     exampleData = ExperimentalData()
 
     import os
-    filePath = r"D:/fracmat/ptyLab/lenspaper4"
+    # filePath = r"D:/fracmat/ptyLab/lenspaper4"
+    filePath = r"D:\Du\Workshop\fracmat\lenspaper4"
     os.chdir(filePath)
     exampleData.loadData('recent.hdf5')
 
     # exampleData.loadData('example:simulation_ptycho')
+
     exampleData.operationMode = 'CPM'
 
     # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
@@ -73,6 +76,11 @@ if ptycho_simulation:
     optimizable.nosm = 1 # Number of object modes to reconstruct
     optimizable.nlambda = 1 # Number of wavelength
     optimizable.nslice = 1 # Number of object slice
+
+    optimizable.initialProbe = 'circ'
+    exampleData.entrancePupilDiameter = exampleData.Np / 4 * exampleData.dxp # initial estimate of beam
+    optimizable.initialObject = 'ones'
+
     optimizable.prepare_reconstruction()
     
     # this will copy any attributes from experimental data that we might care to optimize
@@ -83,9 +91,9 @@ if ptycho_simulation:
     monitor.verboseLevel = 'high' # high: plot two figures, low: plot only one figure
 
     # Run the reconstruction
-    # mPIE_engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
-    mPIE_engine = mPIE.mPIE(optimizable, exampleData, monitor)
-    mPIE_engine.propagator = 'Fresnel'
+    mPIE_engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
+    # mPIE_engine = mPIE.mPIE(optimizable, exampleData, monitor)
+    mPIE_engine.propagator = 'Fraunhofer' #Fresnel
     mPIE_engine.numIterations = 50
     mPIE_engine.doReconstruction()
     

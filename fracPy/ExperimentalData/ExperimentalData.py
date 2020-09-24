@@ -179,6 +179,7 @@ class ExperimentalData:
             # 4. set object attributes as the essential data fields
             # self.logger.setLevel(logging.DEBUG)
             for a in attributes_to_set:
+                print(a)
                 setattr(self, str(a), measurement_dict[a])
                 self.logger.debug('Setting %s', a)
 
@@ -317,12 +318,12 @@ class ExperimentalData:
         Xo, Yo = np.meshgrid(self.xo, self.xo)
         return Yo
 
-    @property
-    def positions(self):
-        """scan positions in pixel"""
-        positions = np.round(self.encoder/self.dxo) # encoder is in mm, positions0 and positions are in pixels
-        positions = positions + self.No//2 - self.Np//2
-        return positions.astype(int)
+    # @property
+    # def positions(self):
+    #     """scan positions in pixel"""
+    #     positions = np.round(self.encoder/self.dxo) # encoder is in mm, positions0 and positions are in pixels
+    #     positions = positions + self.No//2 - self.Np//2
+    #     return positions.astype(int)
 
     # system property list
     @property
