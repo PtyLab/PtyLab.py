@@ -3,7 +3,7 @@ matplotlib.use('tkagg')
 #matplotlib.use('qt5agg')
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Optimizable.Optimizable import Optimizable
-from fracPy.engines import ePIE, mPIE, qNewton, zPIE
+from fracPy.engines import ePIE, mPIE, qNewton, zPIE, e3PIE
 from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray
 from fracPy.monitors.Monitor import Monitor as Monitor
 import logging
@@ -60,10 +60,10 @@ if ptycho_simulation:
     exampleData = ExperimentalData()
 
     import os
-    # filePath = r"D:/fracmat/ptyLab/lenspaper4"
-    filePath = r"D:\Du\Workshop\fracmat\lenspaper4"
+    filePath = r"D:\Du\Workshop\fracpy\example_data"
+    # filePath = r"D:\Du\Workshop\fracmat\lenspaper4"
     os.chdir(filePath)
-    exampleData.loadData('recent.hdf5')
+    exampleData.loadData('simuRecent.hdf5')  #simuRecent_zPIE
 
     # exampleData.loadData('example:simulation_ptycho')
 
@@ -75,7 +75,8 @@ if ptycho_simulation:
     optimizable.npsm = 1 # Number of probe modes to reconstruct
     optimizable.nosm = 1 # Number of object modes to reconstruct
     optimizable.nlambda = 1 # Number of wavelength
-    optimizable.nslice = 1 # Number of object slice
+    optimizable.nslice = 2 # Number of object slice
+    exampleData.dz = 1e-4  # slice
 
     optimizable.initialProbe = 'circ'
     exampleData.entrancePupilDiameter = exampleData.Np / 4 * exampleData.dxp # initial estimate of beam
@@ -88,14 +89,14 @@ if ptycho_simulation:
     monitor = Monitor()
     monitor.figureUpdateFrequency = 1
     monitor.objectPlot = 'complex'
-    monitor.verboseLevel = 'high' # high: plot two figures, low: plot only one figure
+    monitor.verboseLevel = 'high'  # high: plot two figures, low: plot only one figure
 
     # Run the reconstruction
-    mPIE_engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
-    # mPIE_engine = mPIE.mPIE(optimizable, exampleData, monitor)
-    mPIE_engine.propagator = 'Fraunhofer' #Fresnel
-    mPIE_engine.numIterations = 50
-    mPIE_engine.doReconstruction()
+    # mPIE_engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
+    # # mPIE_engine = mPIE.mPIE(optimizable, exampleData, monitor)
+    # mPIE_engine.propagator = 'Fraunhofer' #Fresnel
+    # mPIE_engine.numIterations = 50
+    # mPIE_engine.doReconstruction()
     
     # Compare mPIE to ePIE
     # ePIE_engine = ePIE.ePIE_GPU(optimizable, exampleData, monitor)
@@ -107,9 +108,17 @@ if ptycho_simulation:
     # zPIE
     # zPIE_engine = zPIE.zPIE_GPU(optimizable, exampleData, monitor)
     # zPIE_engine = zPIE.zPIE(optimizable, exampleData, monitor)
-    # zPIE_engine.zPIEgradientStepSize = 50   # gradient step size for axial position correction (typical range [1, 100])
-    # zPIE_engine.numIterations = 2000
+    # zPIE_engine.zPIEgradientStepSize = 1000  # gradient step size for axial position correction (typical range [1, 100])
+    # zPIE_engine.numIterations = 100
     # zPIE_engine.doReconstruction()
+
+    # e3PIE
+    e3PIE_engine = e3PIE.e3PIE_GPU(optimizable, exampleData, monitor)
+    # e3PIE_engine = e3PIE.e3PIE(optimizable, exampleData, monitor)
+    e3PIE_engine.propagator = 'Fresnel'
+    e3PIE_engine.numIterations = 100
+    e3PIE_engine.doReconstruction()
+
 
     # now save the data
     # optimizable.saveResults('reconstruction.hdf5')

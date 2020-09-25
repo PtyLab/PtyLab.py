@@ -84,7 +84,7 @@ class zPIE(BaseReconstructor):
                 zNew = self.experimentalData.zo
             else:
                 d = 10
-                dz = np.linspace(-d, d, 11)/10 * self.experimentalData.DoF #todo, check: only 0.1*DoF stepsize?
+                dz = np.linspace(-d * self.experimentalData.DoF, d * self.experimentalData.DoF, 11)
                 merit = []
                 # todo, mixed states implementation, check if more need to be put on GPU to speed up
                 for k in np.arange(len(dz)):
@@ -94,8 +94,8 @@ class zPIE(BaseReconstructor):
 
                     # TV approach todo, check if xp.roll and circshift are the same
                     aleph = 1e-2
-                    gradx = imProp-xp.roll(imProp, (0, 1))
-                    grady = imProp-xp.roll(imProp, (1, 0))
+                    gradx = imProp-xp.roll(imProp, 1, axis=1)
+                    grady = imProp-xp.roll(imProp, 1, axis=0)
                     merit.append(asNumpyArray(xp.sum(xp.sqrt(abs(gradx)**2+abs(grady)**2+aleph))))
 
                 feedback = np.sum(dz*merit)/np.sum(merit)    # at optimal z, feedback term becomes 0
@@ -106,7 +106,7 @@ class zPIE(BaseReconstructor):
             self.zHistory.append(self.experimentalData.zo)
 
             # print updated z
-            pbar.set_description('update z = %.3f mm (dz = %.2f)' % (self.experimentalData.zo*1e3, zMomentun*1e6))
+            pbar.set_description('update z = %.3f mm (dz = %.0f um)' % (self.experimentalData.zo*1e3, zMomentun*1e6))
 
             # reset coordinates
             self.experimentalData.zo = zNew
@@ -115,7 +115,7 @@ class zPIE(BaseReconstructor):
             if self.propagator != 'ASP':
                 # reset propagator
                 self.optimizable.quadraticPhase = cp.array(np.exp(1.j * np.pi/(self.experimentalData.wavelength * self.experimentalData.zo)
-                                                         * (self.experimentalData.Xp**2 + self.experimentalData.Yp**2)))
+                                                                  * (self.experimentalData.Xp**2 + self.experimentalData.Yp**2)))
 
             for positionLoop, positionIndex in enumerate(self.positionIndices):
                 ### patch1 ###
@@ -156,7 +156,7 @@ class zPIE(BaseReconstructor):
                 ax.set_xscale('symlog')
                 line = plt.plot(0, zNew, 'o-')[0]
                 plt.tight_layout()
-                plt.show(block = False)
+                plt.show(block=False)
 
             elif np.mod(loop, self.monitor.figureUpdateFrequency) == 0:
                 idx = np.linspace(0, np.log10(len(self.zHistory)-1), np.minimum(len(self.zHistory), 100))

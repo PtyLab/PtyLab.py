@@ -145,8 +145,8 @@ class BaseReconstructor(object):
         # (i.e. start with brightfield data first, then add the low SNR
         # darkfield)
         elif self.positionOrder == 'NA':
-            rows = self.experimentalData.positions[:,0] - np.mean( self.experimentalData.positions[:,0])
-            cols = self.experimentalData.positions[:,1] - np.mean( self.experimentalData.positions[:,1])
+            rows = self.experimentalData.positions[:, 0] - np.mean(self.experimentalData.positions[:, 0])
+            cols = self.experimentalData.positions[:, 1] - np.mean(self.experimentalData.positions[:, 1])
             dist = np.sqrt(rows**2 + cols**2)
             self.positionIndices = np.argsort(dist)
         else:
@@ -287,10 +287,7 @@ class BaseReconstructor(object):
         """
         # find out wether or not to use the GPU
         xp = getArrayModule(self.optimizable.Iestimated)
-
-        # TODO: change error for the 6D array
-        # self.currentDetectorError = abs(self.optimizable.Imeasured-self.optimizable.Iestimated)
-        self.currentDetectorError = xp.sum(abs(self.optimizable.Imeasured-self.optimizable.Iestimated),axis=(0,1,2,3))
+        self.currentDetectorError = xp.sum(abs(self.optimizable.Imeasured-self.optimizable.Iestimated), axis=(-1, -2))
 
         # if it's on the GPU, transfer it back
         # if hasattr(self.currentDetectorError, 'device'):
@@ -333,7 +330,7 @@ class BaseReconstructor(object):
 
         # these are amplitudes rather than intensities
         # self.optimizable.Iestimated = np.sum(np.abs(self.optimizable.ESW)**2, axis = 0)
-        self.optimizable.Iestimated = xp.sum(xp.abs(self.optimizable.ESW) ** 2, axis= (0,1,2,3), keepdims=True)
+        self.optimizable.Iestimated = xp.sum(xp.abs(self.optimizable.ESW) ** 2, axis=(0, 1, 2), keepdims=True)[0, 0, 0, -1, ...]
         # This should not be in optimizable
         self.optimizable.Imeasured = xp.array(self.experimentalData.ptychogram[positionIndex])
 
@@ -358,7 +355,7 @@ class BaseReconstructor(object):
             self.optimizable.esw = self.optimizable.esw * self.optimizable.quadraticPhase
             self.fft2s()
         elif self.propagator == 'ASP':
-            self.optimizable.ESW = ifft2c( fft2c(self.optimizable.esw) * self.optimizable.transferFunction)
+            self.optimizable.ESW = ifft2c(fft2c(self.optimizable.esw) * self.optimizable.transferFunction)
         elif self.propagator == 'scaledASP':
             self.optimizable.ESW = ifft2c(fft2c(self.optimizable.esw * self.optimizable.Q1) * self.optimizable.Q2)
         else:

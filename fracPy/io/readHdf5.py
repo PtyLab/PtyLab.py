@@ -13,8 +13,8 @@ logger = logging.getLogger('readHdf5')
 required_fields = [
     'ptychogram',       # 3D image stack 
     'wavelength',       # illumination lambda
-    'positions',          # diffracted field positions
-    # 'encoder',  # diffracted field positions
+    # 'positions',          # diffracted field positions
+    'encoder',          # diffracted field positions
     'Nd',               # detector pixel number
     'dxd',              # pixel size
     'zo',               # sample to detector distance
