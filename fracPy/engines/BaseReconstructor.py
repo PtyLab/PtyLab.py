@@ -36,7 +36,7 @@ class BaseReconstructor(object):
         self.CPSCswitch = False
         self.fontSize = 17
         self.intensityConstraint = 'standard'  # standard or sigmoid
-        self.propagator = 'Fraunhofer'  # 'Fraunhofer' 'Fresnel' 'ASP'
+        self.propagator = 'Fraunhofer'  # 'Fresnel' 'ASP'
 
 
         ## Specific reconstruction settings that are the same for all engines
