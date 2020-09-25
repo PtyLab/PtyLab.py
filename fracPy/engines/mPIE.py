@@ -12,7 +12,7 @@ except ImportError:
 from fracPy.Optimizable.Optimizable import Optimizable
 from fracPy.engines.BaseReconstructor import BaseReconstructor
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
-from fracPy.utils.gpuUtils import getArrayModule
+from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray
 from fracPy.monitors.Monitor import Monitor
 from fracPy.utils.utils import fft2c, ifft2c
 import logging
@@ -68,7 +68,6 @@ class mPIE(BaseReconstructor):
             # set position order
             self.setPositionOrder()
             for positionLoop, positionIndex in enumerate(self.positionIndices):
-                print(positionLoop)
                 # get object patch
                 row, col = self.optimizable.positions[positionIndex]
                 sy = slice(row, row + self.experimentalData.Np)

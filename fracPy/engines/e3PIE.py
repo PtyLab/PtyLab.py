@@ -36,11 +36,16 @@ class e3PIE(BaseReconstructor):
 
     def initializeReconstructionParams(self):
         """
-        Set parameters that are specific to the ePIE settings.
+        Set parameters that are specific to the e3PIE settings.
         :return:
         """
         self.betaProbe = 0.25
         self.betaObject = 0.25
+        # preallocate transfer function
+        self.H = aspw(np.squeeze(self.optimizable.probe[0, 0, 0, 0, ...]), self.experimentalData.dz, self.experimentalData.wavelength,
+                      self.experimentalData.Lp)[1]
+        # shift transfer function to avoid fftshifts for FFTS
+        self.H = np.fft.ifftshift(self.H)
 
     def _prepare_doReconstruction(self):
         """
@@ -54,16 +59,10 @@ class e3PIE(BaseReconstructor):
     def doReconstruction(self):
         self._initializeParams()
         self._prepare_doReconstruction()
-
-        # preallocate transfer function
-        self.H = aspw(self.optimizable.probe[..., :, :], self.experimentalData.zo, self.experimentalData.wavelength,
-                      self.experimentalData.Lp)[1]
-        # shift transfer function to avoid fftshifts for FFTS
-        self.H = np.fft2.ifftshift(H)
-
-        # initial temporal slices TODO: did not use probeTemp, check if it is okay
-        eswTemp = np.ones(self.nlambda, self.nosm, self.npsm, self.nslice, np.int(self.data.Np), np.int(self.data.Np)) #todo check Np, check why eswTemp is not only 1 slice
-
+        # initialize esw
+        self.optimizable.esw = self.optimizable.probe.copy()
+        # get module
+        xp = getArrayModule(self.optimizable.object)
         # actual reconstruction e3PIE_engine
         for loop in tqdm.tqdm(range(self.numIterations)):
             # set position order
@@ -77,53 +76,47 @@ class e3PIE(BaseReconstructor):
                 objectPatch = self.optimizable.object[..., sy, sx].copy()
 
                 # form first slice esw (exit surface wave)
-                eswTemp[:,:,:,0,...] = objectPatch[:,:,:,0,...] * self.optimizable.probe[:,:,:,0,...]
+                self.optimizable.esw[:,:,:,0,...] = objectPatch[:,:,:,0,...] * self.optimizable.probe[:,:,:,0,...]
+
                 # propagate through object
                 for sliceLoop in range(1,self.optimizable.nslice):
-                    self.optimizable.probe[:,:,:,sliceLoop,...] = np.fft2.ifft(eswTemp[:,:,:,sliceLoop-1,...]* self.H)
-                    eswTemp[:,:,:,sliceLoop,...] = self.optimizable.probe[:,:,:,sliceLoop,...] \
+                    self.optimizable.probe[:,:,:,sliceLoop,...] = xp.fft.ifft2(xp.fft.fft2(self.optimizable.esw[:,:,:,sliceLoop-1,...])* self.H)
+                    self.optimizable.esw[:,:,:,sliceLoop,...] = self.optimizable.probe[:,:,:,sliceLoop,...] \
                                                    * objectPatch[:,:,:,sliceLoop,...]
-
-                # set esw behind the last slice for FFT
-                self.optimizable.esw = eswTemp[:,:,:,self.optimizable.nslice-1,...]
 
                 # propagate to camera, intensityProjection, propagate back to object
                 self.intensityProjection(positionIndex)
 
                 # difference term
-                DELTA = self.optimizable.eswUpdate - self.optimizable.esw
+                DELTA = (self.optimizable.eswUpdate - self.optimizable.esw)[:, :, :, -1, ...]
 
                 # update object slice
                 for loopTemp in range(self.optimizable.nslice-1):
-                    sliceLoop = self.optimizable.nslice-loopTemp+1
-                    # compute current ojbect slice todo: check if objectUpdate is necessary
-                    objectUpdate = self.objectPatchUpdate(self.optimizable.object[..., sliceLoop, sy, sx], DELTA,
-                                                    self.optimizable.probe[:,:,:,sliceLoop,...])
+                    sliceLoop = self.optimizable.nslice-1-loopTemp
+                    # compute and update current object slice
+                    self.optimizable.object[..., sliceLoop, sy, sx] = \
+                        self.objectPatchUpdate(objectPatch[:,:,:,sliceLoop,...], DELTA,
+                                               self.optimizable.probe[:,:,:,sliceLoop,...])
                     # eswTemp update (here probe incident on last slice)
                     beth = 1 # todo, why need beth, not betaProbe, changable?
-                    self.optimizable.probe[:,:,:,sliceLoop,...] = self.probeUpdate(
-                        self.optimizable.object[..., sliceLoop, sy, sx], DELTA,
-                        self.optimizable.probe[:,:,:,sliceLoop,...], beth)
-
-                    # update object
-                    self.optimizable.object[..., sliceLoop, sy, sx] = objectUpdate
+                    self.optimizable.probe[:,:,:,sliceLoop,...] = \
+                        self.probeUpdate(objectPatch[:,:,:, sliceLoop,...], DELTA,
+                                         self.optimizable.probe[:,:,:,sliceLoop,...], beth)
 
                     # back-propagate and calculate gradient term
-                    DELTA = np.fft2.ifft(np.fft2.fft(self.optimizable.probe[:,:,:,sliceLoop,...]) * H.conj()) \
-                            - eswTemp[:,:,:,sliceLoop-1,...]
+                    DELTA = xp.fft.ifft2(xp.fft.fft2(self.optimizable.probe[:,:,:,sliceLoop,...]) * self.H.conj()) \
+                            - self.optimizable.esw[:,:,:,sliceLoop-1,...]
 
                 # update last object slice
-                objectUpdate = self.objectPatchUpdate(self.optimizable.object[..., 0, sy, sx], DELTA,
+                self.optimizable.object[...,0, sy, sx] = self.objectPatchUpdate(objectPatch[:, :, :, 0, ...], DELTA,
                                                       self.optimizable.probe[:, :, :, 0, ...])
                 # update probe
-                self.optimizable.probe[:,:,:,0,...] = self.probeUpdate(self.optimizable.object[..., 0, sy, sx], DELTA,
+                self.optimizable.probe[:,:,:,0,...] = self.probeUpdate(objectPatch[:, :, :, 0, ...], DELTA,
                                                       self.optimizable.probe[:, :, :, 0, ...], self.betaProbe)
-                # update last object
-                self.optimizable.object[...,0, sy, sx] = objectUpdate
 
 
             # set porduct of all object slices
-            self.optimizable.objectProd = np.prod(self.optimizable.object,4)
+            self.optimizable.objectProd = np.prod(self.optimizable.object, 3)
 
             # get error metric
             self.getErrorMetrics()
@@ -143,10 +136,9 @@ class e3PIE(BaseReconstructor):
         """
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
+        frac = localProbe.conj() / xp.max(xp.sum(xp.abs(localProbe) ** 2, axis=(0, 1, 2)))
 
-        frac = localProbe.conj() / xp.max(
-            xp.sum(xp.abs(localProbe) ** 2, axis=(0, 1, 2, 3)))
-        return objectPatch + self.betaObject * xp.sum(frac * DELTA, axis=(0, 2, 3), keepdims=True)
+        return objectPatch + self.betaObject * xp.sum(frac * DELTA, axis=(0, 2), keepdims=True)
 
     def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray, localProbe: np.ndarray, beth):
         """
@@ -157,14 +149,14 @@ class e3PIE(BaseReconstructor):
         """
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
-        frac = objectPatch.conj() / xp.max(xp.sum(xp.abs(objectPatch) ** 2, axis=(0, 1, 2, 3)))
-        r = localProbe + beth * xp.sum(frac * DELTA, axis=(0, 1, 3), keepdims=True)
+        frac = objectPatch.conj() / xp.max(xp.sum(xp.abs(objectPatch) ** 2, axis=(0, 1, 2)))
+        r = localProbe + beth * xp.sum(frac * DELTA, axis=(0, 1), keepdims=True)
         # if self.absorbingProbeBoundary:
         #     aleph = 1e-3
         #     r = (1 - aleph) * r + aleph * r * self.probeWindow
         return r
 
-class ePIE_GPU(e3PIE):
+class e3PIE_GPU(e3PIE):
     """
     GPU-based implementation of e3PIE
     """
@@ -188,12 +180,14 @@ class ePIE_GPU(e3PIE):
         # optimizable parameters
         self.optimizable.probe = cp.array(self.optimizable.probe, cp.complex64)
         self.optimizable.object = cp.array(self.optimizable.object, cp.complex64)
+        self.H = cp.array(self.H, cp.complex64)
 
         # non-optimizable parameters
         self.experimentalData.ptychogram = cp.array(self.experimentalData.ptychogram, cp.float32)
         self.experimentalData.probe = cp.array(self.experimentalData.probe, cp.complex64)
 
-        # ePIE parameters
+
+        # e3PIE parameters
         self.logger.info('Detector error shape: %s', self.detectorError.shape)
         self.detectorError = cp.array(self.detectorError)
 

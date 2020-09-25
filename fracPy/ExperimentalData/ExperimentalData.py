@@ -320,7 +320,7 @@ class ExperimentalData:
     @property
     def positions(self):
         """scan positions in pixel"""
-        positions = np.round(self.encoder/self.dxo) # encoder is in mm, positions0 and positions are in pixels
+        positions = np.round(self.encoder/self.dxo)  # encoder is in m, positions0 and positions are in pixels
         positions = positions + self.No//2 - self.Np//2
         return positions.astype(int)
 

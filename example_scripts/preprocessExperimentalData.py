@@ -10,7 +10,9 @@ import os
 import h5py
 
 
-filePath = r"D:/fracmat/ptyLab/lenspaper4/AVT camera (GX1920)"
+filePath = r"D:\Du\Workshop\fracmat\lenspaper4\AVT camera (GX1920)"
+# D:\Du\Workshop\fracmat\lenspaper4\AVT camera (GX1920)
+# D:/fracmat/ptyLab/lenspaper4/AVT camera (GX1920)
 os.chdir(filePath)
 
 fileName = 'recent'
@@ -102,7 +104,7 @@ dxp = dxo
 Np = Nd
 Lp = Np * dxp
 xp = np.arange(-Np//2, Np//2) * dxp
-Xp, YP = np.meshgrid(xp, xp)
+Xp, Yp = np.meshgrid(xp, xp)
 
 # get positions
 # get file name (this assumes there is only one text file in the raw data folder)
@@ -121,8 +123,8 @@ position0 = position0 + No // 2 - Np // 2
 position0 = position0[0:numFrames]
 
 # show positions
-plt.figure(figsize=(10, 10))
-plt.plot(position0[:, 0], position0[:, 1], 'o-')
+plt.figure(figsize=(5, 5))
+plt.plot(position0[:, 1], position0[:, 0], 'o-')
 plt.xlabel('pixel')
 plt.ylabel('pixel')
 plt.show()
@@ -131,17 +133,19 @@ plt.show()
 # propagatorType = 'Fraunhofer'
 
 # export data
-exportBool = True
+exportBool = False
 if exportBool:
     hf = h5py.File(fileName+'.hdf5', 'w')
-    hf.create_dataset('ptychogram', data=ptychogram, dtype='i')
-    hf.create_dataset('encoder', data=encoder, dtype = 'f')
-    # hf.create_dataset('position0', data=position0)
-    hf.create_dataset('dxd', data=(dxd,), dtype = 'f')
+    hf.create_dataset('ptychogram', data=ptychogram, dtype='f')
+    # hf.create_dataset('encoder', data=encoder, dtype='f')
+    hf.create_dataset('positions', data=position0, dtype = 'f')
+    hf.create_dataset('dxd', data=(dxd,), dtype='f')
     hf.create_dataset('Nd', data=(Nd,), dtype='i')
     hf.create_dataset('No', data=(No,), dtype='i')
     hf.create_dataset('Np', data=(Np,), dtype='i')
     hf.create_dataset('zo', data=(zo,), dtype='f')
     hf.create_dataset('wavelength', data=(wavelength,), dtype='f')
     hf.create_dataset('entrancePupilDiameter', data=(entrancePupilDiameter,), dtype='f')
+    hf.create_dataset('probe', data=probe, dtype='f')
     hf.close()
+    print('An hd5f file has been saved')

@@ -93,7 +93,9 @@ def complex_plot(rgb, ax=None, pixelSize=1, axisUnit = 'mm'):
     cbar.ax.set_yticklabels(['$-\pi$', '0', '$\pi$'])
     return im
 
-
+def hsvplot(u, ax = None, pixelSize = 1, axisUnit='mm'):
+    rgb = complex_to_rgb(u)
+    complex_plot(rgb, ax, pixelSize, axisUnit)
 
 # def hsvmodeplot(P,ax=None ,normalize = True, pixelSize =1):
 #     """

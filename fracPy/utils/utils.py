@@ -1,4 +1,3 @@
-import pickle
 import numpy as np
 from scipy import linalg
 import scipy.stats as st
@@ -40,6 +39,33 @@ def circ(x,y,D):
     circle = (x**2+y**2)<(D/2)**2
     return circle
 
+def cart2pol(x,y):
+    """
+    Transform Cartesian to polar coordinates
+    :param x:
+    :param y:
+    :return:
+    """
+    th = np.arctan2(y,x)
+    r = np.hypot(x,y)
+    return th, r
+
+def gaussian2D(n,std):
+    # create the grid of (x,y) values
+    n = (n-1)//2
+    x, y = np.meshgrid(np.arange(-n, n+1), np.arange(-n, n+1))
+    # analytic function
+    h = np.exp(- (x**2 + y**2)/(2 * std**2))
+    # truncate very small values to zero
+    mask = h < np.finfo(float).eps*np.max(h)
+    h *= (1-mask)
+    # normalize filter to unit L1 energy
+    sumh = np.sum(h)
+    if sumh != 0:
+        h = h/sumh
+    return h
+
+
 def orthogonalizeModes(p):
     """
     Imposes orthogonality through singular value decomposition
@@ -62,4 +88,5 @@ def orthogonalizeModes(p):
         normalizedEigenvalues = s**2/xp.sum(s**2)
 
     return xp.asarray(p), normalizedEigenvalues, U
+
 
