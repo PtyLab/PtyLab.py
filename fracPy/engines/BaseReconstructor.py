@@ -13,7 +13,7 @@ from fracPy.monitors.Monitor import Monitor
 
 class BaseReconstructor(object):
     """
-    Common properties for any reconstruction ePIE_engine are defined here.
+    Common properties that are common for all reconstruction engines are defined here.
 
     Unless you are testing the code, there's hardly any need to create this object. For your own implementation,
     inherit from this object
@@ -36,10 +36,10 @@ class BaseReconstructor(object):
         self.CPSCswitch = False
         self.fontSize = 17
         self.intensityConstraint = 'standard'  # standard or sigmoid
-        self.propagator = 'Fraunhofer'  # 'Fresnel' 'ASP'
+        self.propagator = 'Fraunhofer'  # 'Fraunhofer' 'Fresnel' 'ASP'
 
 
-        # Specific reconstruction settings that are the same for all engines
+        ## Specific reconstruction settings that are the same for all engines
         self.absorbingProbeBoundary = False
 
         # This only makes sense on a GPU, not there yet
@@ -49,6 +49,7 @@ class BaseReconstructor(object):
         self.positionOrder = 'random'  # 'random' or 'sequential'
 
         ## Swtiches used in applyConstraints method:
+        self.orthogonalizationSwitch = True
         self.orthogonalizationFrequency = 10  # probe orthogonalization frequency
         # object regularization
         self.objectSmoothenessSwitch = False
@@ -67,7 +68,7 @@ class BaseReconstructor(object):
         self.comStabilizationSwitch = False  # center of mass stabilization for probe
         # other
         self.backgroundModeSwitch = False  # background estimate
-        self.comStabilizationSwitch = False # center of mass stabilization for probe
+        self.comStabilizationSwitch = True # center of mass stabilization for probe
         self.PSDestimationSwitch = False
         self.objectContrastSwitch = False # pushes object to zero outside ROI
 
@@ -361,49 +362,6 @@ class BaseReconstructor(object):
         else:
             raise Exception('Propagator is not properly set, choose from Fraunhofer, Fresnel, ASP and scaledASP')
 
-    def orthogonalization(self):
-        """
-        Perform orthogonalization
-        :return:
-        """
-        if self.optimizable.npsm > 1:
-            # orthogonalize the probe
-            for id_l in range(self.optimizable.nlambda):
-                for id_s in range(self.optimizable.nslice):
-                    self.optimizable.probe[id_l,0,:,id_s,:,:], self.normalizedEigenvaluesProbe, self.MSPVprobe =\
-                        orthogonalizeModes(self.optimizable.probe[id_l,0,:,id_s,:,:])
-                    self.optimizable.purity = np.sqrt(np.sum(self.normalizedEigenvaluesProbe**2))
-            
-            # orthogonolize momentum operator
-            try:
-                self.optimizable.probeMomentum[id_l,0,:,id_s,:,:], none, none =\
-                    orthogonalizeModes(self.optimizable.probeMomentum[id_l,0,:,id_s,:,:])
-                # replace the orthogonolized buffer
-                self.optimizable.probeBuffer = self.optimizable.probe.copy()
-            except:
-                pass
-            
-        elif self.optimizable.nosm > 1:
-            # orthogonalize the object
-            for id_l in range(self.optimizable.nlambda):
-                for id_s in range(self.optimizable.nslice):
-                    self.optimizable.object[id_l,:,0,id_s,:,:], self.normalizedEigenvaluesObject, self.MSPVobject =\
-                        orthogonalizeModes(self.optimizable.object[id_l,:,0,id_s,:,:])
-            
-            # orthogonolize momentum operator
-            try:
-                self.optimizable.objectMomentum[id_l,:,0,id_s,:,:], none, none =\
-                    orthogonalizeModes(self.optimizable.objectMomentum[id_l,:,0,id_s,:,:])
-                # replace the orthogonolized buffer as well
-                self.optimizable.objectBuffer = self.optimizable.object.copy()
-            except:
-                pass
-            
-        else:
-            pass
-        
-        
-
 
     def initializeObject(self):
         """
@@ -443,9 +401,9 @@ class BaseReconstructor(object):
         :return:
         """
 
-
-        if np.mod(loop, self.orthogonalizationFrequency) == 0:
-            self.orthogonalization()
+        if self.orthogonalizationSwitch:
+            if np.mod(loop, self.orthogonalizationFrequency) == 0:
+                self.orthogonalization()
 
 
         # Todo: objectSmoothenessSwitch,
@@ -468,12 +426,80 @@ class BaseReconstructor(object):
             raise NotImplementedError()
 
         if self.comStabilizationSwitch:
-            raise NotImplementedError()
+            self.comStabilization()
 
         if self.PSDestimationSwitch:
             raise NotImplementedError()
 
         if self.objectContrastSwitch:
             raise NotImplementedError()
+
+
+    def orthogonalization(self):
+        """
+        Perform orthogonalization
+        :return:
+        """
+        if self.optimizable.npsm > 1:
+            # orthogonalize the probe
+            for id_l in range(self.optimizable.nlambda):
+                for id_s in range(self.optimizable.nslice):
+                    self.optimizable.probe[id_l, 0, :, id_s, :, :], self.normalizedEigenvaluesProbe, self.MSPVprobe = \
+                        orthogonalizeModes(self.optimizable.probe[id_l, 0, :, id_s, :, :])
+                    self.optimizable.purity = np.sqrt(np.sum(self.normalizedEigenvaluesProbe ** 2))
+
+            # orthogonolize momentum operator
+            try:
+                self.optimizable.probeMomentum[id_l, 0, :, id_s, :, :], none, none = \
+                    orthogonalizeModes(self.optimizable.probeMomentum[id_l, 0, :, id_s, :, :])
+                # replace the orthogonolized buffer
+                self.optimizable.probeBuffer = self.optimizable.probe.copy()
+            except:
+                pass
+
+        elif self.optimizable.nosm > 1:
+            # orthogonalize the object
+            for id_l in range(self.optimizable.nlambda):
+                for id_s in range(self.optimizable.nslice):
+                    self.optimizable.object[id_l, :, 0, id_s, :, :], self.normalizedEigenvaluesObject, self.MSPVobject = \
+                        orthogonalizeModes(self.optimizable.object[id_l, :, 0, id_s, :, :])
+
+            # orthogonolize momentum operator
+            try:
+                self.optimizable.objectMomentum[id_l, :, 0, id_s, :, :], none, none = \
+                    orthogonalizeModes(self.optimizable.objectMomentum[id_l, :, 0, id_s, :, :])
+                # replace the orthogonolized buffer as well
+                self.optimizable.objectBuffer = self.optimizable.object.copy()
+            except:
+                pass
+
+        else:
+            pass
+
+    def comStabilization(self):
+        """
+        Perform center of mass stabilization (center the probe)
+        :return:
+        """
+        xp = getArrayModule(self.optimizable.probe)
+        # calculate center of mass of the probe
+        P2 = xp.sum(abs(self.optimizable.probe[:,:,:,-1,...])**2, axis=(0,1,2))
+        demon = xp.sum(P2)*self.experimentalData.dxp
+        xc = xp.int(xp.around(xp.sum(xp.array(self.experimentalData.Xp, xp.float32) * P2) / demon))
+        yc = xp.int(xp.around(xp.sum(xp.array(self.experimentalData.Yp, xp.float32) * P2) / demon))
+        # shift only if necessary
+        if xc**2+yc**2>1:
+            # shift probe
+            for k in xp.arange(self.optimizable.npsm): # todo check for multislice
+                self.optimizable.probe[:,:,k,-1,...] = \
+                    xp.roll(self.optimizable.probe[:,:,k,-1,...], (-yc, -xc), axis=(-2, -1))
+
+                #todo implement for mPIE
+
+            # shift object
+            for k in xp.arange(self.optimizable.nosm): # todo check for multislice
+                self.optimizable.object[:,:,k,-1,...] = \
+                    xp.roll(self.optimizable.object[:,:,k,-1,...], (-yc, -xc), axis=(-2, -1))
+                # todo implement for mPIE
 
 

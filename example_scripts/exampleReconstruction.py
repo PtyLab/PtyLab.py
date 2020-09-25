@@ -75,7 +75,7 @@ if ptycho_simulation:
     optimizable.npsm = 1 # Number of probe modes to reconstruct
     optimizable.nosm = 1 # Number of object modes to reconstruct
     optimizable.nlambda = 1 # Number of wavelength
-    optimizable.nslice = 2 # Number of object slice
+    optimizable.nslice = 1 # Number of object slice
     exampleData.dz = 1e-4  # slice
 
     optimizable.initialProbe = 'circ'
@@ -99,11 +99,11 @@ if ptycho_simulation:
     # mPIE_engine.doReconstruction()
     
     # Compare mPIE to ePIE
-    # ePIE_engine = ePIE.ePIE_GPU(optimizable, exampleData, monitor)
+    ePIE_engine = ePIE.ePIE_GPU(optimizable, exampleData, monitor)
     # ePIE_engine = ePIE.ePIE(optimizable, exampleData, monitor)
-    # ePIE_engine.propagator = 'Fresnel'
-    # ePIE_engine.numIterations = 100
-    # ePIE_engine.doReconstruction()
+    ePIE_engine.propagator = 'Fresnel'
+    ePIE_engine.numIterations = 100
+    ePIE_engine.doReconstruction()
 
     # zPIE
     # zPIE_engine = zPIE.zPIE_GPU(optimizable, exampleData, monitor)
@@ -113,11 +113,11 @@ if ptycho_simulation:
     # zPIE_engine.doReconstruction()
 
     # e3PIE
-    e3PIE_engine = e3PIE.e3PIE_GPU(optimizable, exampleData, monitor)
-    # e3PIE_engine = e3PIE.e3PIE(optimizable, exampleData, monitor)
-    e3PIE_engine.propagator = 'Fresnel'
-    e3PIE_engine.numIterations = 100
-    e3PIE_engine.doReconstruction()
+    # e3PIE_engine = e3PIE.e3PIE_GPU(optimizable, exampleData, monitor)
+    # # e3PIE_engine = e3PIE.e3PIE(optimizable, exampleData, monitor)
+    # e3PIE_engine.propagator = 'Fresnel'
+    # e3PIE_engine.numIterations = 10
+    # e3PIE_engine.doReconstruction()
 
 
     # now save the data
