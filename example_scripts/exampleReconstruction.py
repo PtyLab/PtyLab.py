@@ -9,6 +9,7 @@ from fracPy.monitors.Monitor import Monitor as Monitor
 import logging
 logging.basicConfig(level=logging.INFO)
 from fracPy.utils.utils import ifft2c
+from fracPy.utils.visualisation import hsvplot
 from matplotlib import pyplot as plt
 import numpy as np
 
@@ -61,63 +62,72 @@ if ptycho_simulation:
 
     import os
     filePath = r"D:\Du\Workshop\fracpy\example_data"
-    # filePath = r"D:\Du\Workshop\fracmat\lenspaper4"
     os.chdir(filePath)
-    exampleData.loadData('simuRecent.hdf5')  #simuRecent_zPIE
 
-    # exampleData.loadData('example:simulation_ptycho')
+    exampleData.loadData('simuRecent.hdf5')  # simuRecent simuRecent_zPIE Lenspaper
 
     exampleData.operationMode = 'CPM'
 
     # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
     # now create an object to hold everything we're eventually interested in
     optimizable = Optimizable(exampleData)
-    optimizable.npsm = 1 # Number of probe modes to reconstruct
+    optimizable.npsm = 4 # Number of probe modes to reconstruct
     optimizable.nosm = 1 # Number of object modes to reconstruct
     optimizable.nlambda = 1 # Number of wavelength
     optimizable.nslice = 1 # Number of object slice
     exampleData.dz = 1e-4  # slice
 
     optimizable.initialProbe = 'circ'
-    exampleData.entrancePupilDiameter = exampleData.Np / 4 * exampleData.dxp # initial estimate of beam
+    exampleData.entrancePupilDiameter = exampleData.Np / 3 * exampleData.dxp # initial estimate of beam
     optimizable.initialObject = 'ones'
-
+    # initialize probe and object and related params
     optimizable.prepare_reconstruction()
-    
+    # customize initial probe quadratic phase
+    optimizable.probe = optimizable.probe*np.exp(1.j*2*np.pi/exampleData.wavelength *
+                                                 (exampleData.Xp**2+exampleData.Yp**2)/(2*6e-3))
+    # hsvplot(np.squeeze(optimizable.probe))
+
     # this will copy any attributes from experimental data that we might care to optimize
     # # Set monitor properties
     monitor = Monitor()
     monitor.figureUpdateFrequency = 1
     monitor.objectPlot = 'complex'
     monitor.verboseLevel = 'high'  # high: plot two figures, low: plot only one figure
-
-    # Run the reconstruction
-    # mPIE_engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
-    # # mPIE_engine = mPIE.mPIE(optimizable, exampleData, monitor)
-    # mPIE_engine.propagator = 'Fraunhofer' #Fresnel
-    # mPIE_engine.numIterations = 50
-    # mPIE_engine.doReconstruction()
     
-    # Compare mPIE to ePIE
-    ePIE_engine = ePIE.ePIE_GPU(optimizable, exampleData, monitor)
-    # ePIE_engine = ePIE.ePIE(optimizable, exampleData, monitor)
-    ePIE_engine.propagator = 'Fresnel'
-    ePIE_engine.numIterations = 100
-    ePIE_engine.doReconstruction()
-
+    # Run the reconstruction
+    ## choose engine
+    # ePIE
+    # engine = ePIE.ePIE_GPU(optimizable, exampleData, monitor)
+    # engine = ePIE.ePIE(optimizable, exampleData, monitor)
+    # mPIE
+    engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
+    # engine = mPIE.mPIE(optimizable, exampleData, monitor)
     # zPIE
-    # zPIE_engine = zPIE.zPIE_GPU(optimizable, exampleData, monitor)
-    # zPIE_engine = zPIE.zPIE(optimizable, exampleData, monitor)
-    # zPIE_engine.zPIEgradientStepSize = 1000  # gradient step size for axial position correction (typical range [1, 100])
-    # zPIE_engine.numIterations = 100
-    # zPIE_engine.doReconstruction()
-
+    # engine = zPIE.zPIE_GPU(optimizable, exampleData, monitor)
+    # engine = zPIE.zPIE(optimizable, exampleData, monitor)
     # e3PIE
-    # e3PIE_engine = e3PIE.e3PIE_GPU(optimizable, exampleData, monitor)
-    # # e3PIE_engine = e3PIE.e3PIE(optimizable, exampleData, monitor)
-    # e3PIE_engine.propagator = 'Fresnel'
-    # e3PIE_engine.numIterations = 10
-    # e3PIE_engine.doReconstruction()
+    # engine = e3PIE.e3PIE_GPU(optimizable, exampleData, monitor)
+    # engine = e3PIE.e3PIE(optimizable, exampleData, monitor)
+
+    ## main parameters
+    engine.numIterations = 200
+    engine.positionOrder = 'random'  # 'sequential' or 'random'
+    engine.propagator = 'Fraunhofer'  # Fresnel ASP scaledASP
+    engine.betaProbe = 0.25
+    engine.betaObject = 0.25
+
+    ## engine specific parameters:
+    engine.zPIEgradientStepSize = 1  # gradient step size for axial position correction (typical range [1, 100])
+
+    ## switches
+    engine.probePowerCorrectionSwitch = True
+    engine.comStabilizationSwitch = True
+    engine.orthogonalizationSwitch = True
+    engine.orthogonalizationFrequency = 10
+    engine.fftshiftSwitch = False
+
+    engine.doReconstruction()
+
 
 
     # now save the data

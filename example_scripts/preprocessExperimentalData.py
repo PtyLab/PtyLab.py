@@ -10,10 +10,11 @@ import os
 import h5py
 
 
-filePath = r"D:\Du\Workshop\fracmat\lenspaper4\AVT camera (GX1920)"
+filePathForRead = r"D:\Du\Workshop\fracmat\lenspaper4\AVT camera (GX1920)"
+filePathForSave = r"D:\Du\Workshop\fracpy\example_data"
 # D:\Du\Workshop\fracmat\lenspaper4\AVT camera (GX1920)
 # D:/fracmat/ptyLab/lenspaper4/AVT camera (GX1920)
-os.chdir(filePath)
+os.chdir(filePathForRead)
 
 fileName = 'recent'
 # wavelength
@@ -56,15 +57,14 @@ dark = imageio.imread('background.tif')
 # read empty beam (if available)
 
 # binning
-ptychogram = np.zeros((numFrames, N//binningFactor*padFactor, N//binningFactor*padFactor),
-                      dtype='float32')
+ptychogram = np.zeros((numFrames, N//binningFactor*padFactor, N//binningFactor*padFactor))
 
 # read frames
 pbar = tqdm.trange(numFrames, leave=True)
 for k in pbar:
     # get file name
     pbar.set_description('reading frame' + framesList[k])
-    temp = imageio.imread(framesList[k])-dark-backgroundOffset
+    temp = imageio.imread(framesList[k]).astype('int16')-dark-backgroundOffset
     temp[temp < 0] = 0  #todo check if data type is single
     # crop
     temp = temp[M//2-N//2:M//2+N//2-1, M//2-N//2:M//2+N//2-1]
@@ -114,6 +114,7 @@ positionFileName = glob.glob('*'+'.txt')[0]
 T = np.genfromtxt(positionFileName, delimiter=' ', skip_header=2)
 # convert to micrometer
 encoder = (T-T[0]) * 1e-6
+# encoder2 = np.vstack((encoder[:,1], encoder[:,0])).T
 # encoder = (T-T[0]) * 1e-6 / magfinication
 # convert into pixels
 position0 = np.round(encoder / dxo)
@@ -133,12 +134,13 @@ plt.show()
 # propagatorType = 'Fraunhofer'
 
 # export data
-exportBool = False
+exportBool = True
+
 if exportBool:
+    os.chdir(filePathForSave)
     hf = h5py.File(fileName+'.hdf5', 'w')
     hf.create_dataset('ptychogram', data=ptychogram, dtype='f')
-    # hf.create_dataset('encoder', data=encoder, dtype='f')
-    hf.create_dataset('positions', data=position0, dtype = 'f')
+    hf.create_dataset('encoder', data=encoder, dtype='f')
     hf.create_dataset('dxd', data=(dxd,), dtype='f')
     hf.create_dataset('Nd', data=(Nd,), dtype='i')
     hf.create_dataset('No', data=(No,), dtype='i')
@@ -146,6 +148,5 @@ if exportBool:
     hf.create_dataset('zo', data=(zo,), dtype='f')
     hf.create_dataset('wavelength', data=(wavelength,), dtype='f')
     hf.create_dataset('entrancePupilDiameter', data=(entrancePupilDiameter,), dtype='f')
-    hf.create_dataset('probe', data=probe, dtype='f')
     hf.close()
     print('An hd5f file has been saved')

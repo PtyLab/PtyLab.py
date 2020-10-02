@@ -193,8 +193,6 @@ class ExperimentalData:
                 self.No = self.No.astype(int)
                 self.encoder = (self.positions + self.No / 2 - self.Np / 2) * self.dxo
 
-
-
         self._checkData()
 
 

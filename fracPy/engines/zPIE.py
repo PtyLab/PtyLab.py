@@ -55,7 +55,7 @@ class zPIE(BaseReconstructor):
         pass
 
     def doReconstruction(self):
-
+        self._initializeParams()
         self._prepare_doReconstruction()
 
         xp = getArrayModule(self.optimizable.object)

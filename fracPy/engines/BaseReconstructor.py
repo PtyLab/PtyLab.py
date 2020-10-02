@@ -32,6 +32,7 @@ class BaseReconstructor(object):
         # Default settings
         # settings that involve how things are computed
         self.fftshiftSwitch = False
+        self.fftshiftFlag = False
         self.FourierMaskSwitch = False
         self.CPSCswitch = False
         self.fontSize = 17
@@ -63,7 +64,7 @@ class BaseReconstructor(object):
         self.probeSmoothnessAleph = 5e-2  # relaxation parameter for probe smootheness
         self.probeSmoothenessWidth = 3  # loose object support diameter
         self.absorbingProbeBoundary = False  # controls if probe has period boundary conditions (zero)
-        self.probePowerCorrectionSwitch = False  # probe normalization to measured PSD
+        self.probePowerCorrectionSwitch = True  # probe normalization to measured PSD
         self.modulusEnforcedProbeSwitch = False  # enforce empty beam
         self.comStabilizationSwitch = False  # center of mass stabilization for probe
         # other
@@ -72,15 +73,20 @@ class BaseReconstructor(object):
         self.PSDestimationSwitch = False
         self.objectContrastSwitch = False # pushes object to zero outside ROI
 
+    def _initializeParams(self):
+        """
+        Initialize everything that depends on user changeable attributes.
+        :return:
+        """
 
         # initialize detector error matrices
         if self.saveMemory:
             self.detectorError = 0
         else:
             self.detectorError = np.zeros((self.experimentalData.numFrames,
-                                          self.experimentalData.Nd, self.experimentalData.Nd))
+                                           self.experimentalData.Nd, self.experimentalData.Nd))
 
-        # todo check if it is necessary to do if, what is ptychogramDownsampled
+        # todo what is ptychogramDownsampled
         # initialize energy at each scan position
         if not hasattr(self, 'errorAtPos'):
             self.errorAtPos = np.zeros((self.experimentalData.numFrames, 1), dtype=np.float32)
@@ -88,33 +94,30 @@ class BaseReconstructor(object):
         if len(self.experimentalData.ptychogram) != 0:
             self.energyAtPos = np.sum(abs(self.experimentalData.ptychogram), (-1, -2))
         else:
-            self.energyAtPos = np.sum(abs(self.experimentalData.ptychogramDownsampled),(-1, -2))
+            self.energyAtPos = np.sum(abs(self.experimentalData.ptychogramDownsampled), (-1, -2))
 
         # probe power correction
         if len(self.experimentalData.ptychogram) != 0:
             self.probePowerCorrection = np.sqrt(np.max(np.sum(self.experimentalData.ptychogram, (-1, -2))))
         else:
-            self.probePowerCorrection = np.sqrt(np.max(np.sum(self.experimentalData.ptychogramDownsampled, (-1, -2))))
-        # todo power correction for initial probe guess
+            self.probePowerCorrection = np.sqrt(
+                np.max(np.sum(self.experimentalData.ptychogramDownsampled, (-1, -2))))
+        self.optimizable.probe = self.optimizable.probe/np.sqrt(
+            np.sum(self.optimizable.probe*self.optimizable.probe.conj()))*self.probePowerCorrection
 
-    def _initializeParams(self):
-        """
-        Initialize everything that depends on user changeable attributes.
-        :return:
-        """
-        # initialize detector error matrices
-        if self.saveMemory:
-            self.detectorError = 0
-        else:
-            self.detectorError = np.zeros((self.experimentalData.numFrames,
-                                           self.experimentalData.Nd, self.experimentalData.Nd))
+        # initialize error
+        if not hasattr(self.optimizable, 'error'):
+            self.optimizable.error = []
+
+        # TODO ojbectROI, probeROI
+
         # initialize quadraticPhase term
         # todo multiwavelength implementation
         # todo check why fraunhofer also need quadraticPhase term
 
         if self.propagator == 'Fresnel':
-            self.optimizable.quadraticPhase = np.exp(1.j * np.pi/(self.experimentalData.wavelength * self.experimentalData.zo)
-                                         * (self.experimentalData.Xp**2 + self.experimentalData.Yp**2))
+            self.optimizable.quadraticPhase = np.exp(1.j*np.pi/(self.experimentalData.wavelength*self.experimentalData.zo)
+                                                     *(self.experimentalData.Xp**2+self.experimentalData.Yp**2))
         elif self.propagator == 'ASP':
             _, self.optimizable.transferFunction = aspw(np.squeeze(self.optimizable.probe[0, 0, 0, 0, :, :]),
                                                        self.experimentalData.zo, self.experimentalData.wavelength,
@@ -133,7 +136,7 @@ class BaseReconstructor(object):
             self.positionIndices = np.arange(self.experimentalData.numFrames)
 
         elif self.positionOrder == 'random':
-            if self.optimizable.error.size == 0:
+            if len(self.optimizable.error) == 0:
                 self.positionIndices = np.arange(self.experimentalData.numFrames)
             else:
                 if len(self.optimizable.error) < 2:
@@ -227,9 +230,9 @@ class BaseReconstructor(object):
         xp = getArrayModule(self.optimizable.esw)
 
         if self.fftshiftSwitch:
-            self.optimizable.ESW = xp.fft.fft2(self.optimizable.esw, norm='ortho') #/ self.experimentalData.Np
+            self.optimizable.ESW = xp.fft.fft2(self.optimizable.esw, norm='ortho')
         else:
-            self.optimizable.ESW = xp.fft.fftshift(xp.fft.fft2(xp.fft.ifftshift(self.optimizable.esw),norm='ortho')) #/ self.experimentalData.Np
+            self.optimizable.ESW = xp.fft.fftshift(xp.fft.fft2(xp.fft.ifftshift(self.optimizable.esw),norm='ortho'))
 
     def getBeamWidth(self):
         """
@@ -288,7 +291,10 @@ class BaseReconstructor(object):
         """
         # find out wether or not to use the GPU
         xp = getArrayModule(self.optimizable.Iestimated)
-        self.currentDetectorError = xp.sum(abs(self.optimizable.Imeasured-self.optimizable.Iestimated), axis=(-1, -2))
+        # TODO CHECK THIS
+        # self.currentDetectorError = xp.sum(abs(self.optimizable.Imeasured-self.optimizable.Iestimated), axis=(-1, -2))
+        self.currentDetectorError = xp.squeeze(abs(self.optimizable.Imeasured - self.optimizable.Iestimated))
+
 
         # if it's on the GPU, transfer it back
         # if hasattr(self.currentDetectorError, 'device'):
@@ -330,8 +336,8 @@ class BaseReconstructor(object):
         # Todo: Background mode, CPSCswitch, Fourier mask
 
         # these are amplitudes rather than intensities
-        # self.optimizable.Iestimated = np.sum(np.abs(self.optimizable.ESW)**2, axis = 0)
-        self.optimizable.Iestimated = xp.sum(xp.abs(self.optimizable.ESW) ** 2, axis=(0, 1, 2), keepdims=True)[0, 0, 0, -1, ...]
+        # self.optimizable.Iestimated = xp.sum(xp.abs(self.optimizable.ESW) ** 2, axis=(0, 1, 2), keepdims=True)[:, :, :, -1, ...]
+        self.optimizable.Iestimated = xp.sum(xp.abs(self.optimizable.ESW) ** 2, axis=(0, 1, 2))[-1]
         # This should not be in optimizable
         self.optimizable.Imeasured = xp.array(self.experimentalData.ptychogram[positionIndex])
 
@@ -379,6 +385,15 @@ class BaseReconstructor(object):
         """
         if loop == 0:
             self.monitor.initializeVisualisation()
+            if self.experimentalData.operationMode == 'FPM':
+                object_estimate = np.squeeze(fft2c(self.optimizable.object))
+                probe_estimate = np.squeeze(self.optimizable.probe)
+            else:
+                object_estimate = np.squeeze(self.optimizable.object)
+                probe_estimate = np.squeeze(self.optimizable.probe)
+
+            self.monitor.updatePlot(object_estimate=object_estimate, probe_estimate=probe_estimate)
+
         elif np.mod(loop, self.monitor.figureUpdateFrequency) == 0:
 
             if self.experimentalData.operationMode == 'FPM':

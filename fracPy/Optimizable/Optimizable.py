@@ -87,8 +87,6 @@ class Optimizable(object):
         self.object = self.initialGuessObject.copy()
         self.probe = self.initialGuessProbe.copy()
 
-        # initialize error
-        self.error = np.zeros(0, dtype=np.float32)
 
     def saveResults(self):
         raise NotImplementedError
