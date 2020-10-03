@@ -109,7 +109,19 @@ class BaseReconstructor(object):
         if not hasattr(self.optimizable, 'error'):
             self.optimizable.error = []
 
-        # TODO ojbectROI, probeROI
+        # set object/probe ROI for monitoring
+        if not hasattr(self.optimizable, 'objectROI'):
+            self.optimizable.objectROI = [slice(min(self.experimentalData.positions[:, 1]),
+                                                max(self.experimentalData.positions[:, 1]+self.experimentalData.Np)),
+                                          slice(min(self.experimentalData.positions[:, 0]),
+                                                max(self.experimentalData.positions[:, 0]+self.experimentalData.Np))]
+        if not hasattr(self.optimizable, 'probeROI'):
+            n = 1
+            r = np.int(self.experimentalData.entrancePupilDiameter/self.experimentalData.dxp)
+            self.optimizable.probeROI = [slice(max(0, self.experimentalData.Np//2-n*r),
+                                               min(self.experimentalData.Np, self.experimentalData.Np//2+n*r)),
+                                         slice(max(0, self.experimentalData.Np // 2 - n * r),
+                                               min(self.experimentalData.Np, self.experimentalData.Np//2+n*r))]
 
         # initialize quadraticPhase term
         # todo multiwavelength implementation
@@ -165,9 +177,6 @@ class BaseReconstructor(object):
 
         self.optimizable = optimizable
 
-
-    def startReconstruction(self):
-        raise NotImplementedError()
 
 
     def convert2single(self):
@@ -291,9 +300,7 @@ class BaseReconstructor(object):
         """
         # find out wether or not to use the GPU
         xp = getArrayModule(self.optimizable.Iestimated)
-        # TODO CHECK THIS
-        # self.currentDetectorError = xp.sum(abs(self.optimizable.Imeasured-self.optimizable.Iestimated), axis=(-1, -2))
-        self.currentDetectorError = xp.squeeze(abs(self.optimizable.Imeasured - self.optimizable.Iestimated))
+        self.currentDetectorError = abs(self.optimizable.Imeasured - self.optimizable.Iestimated)
 
 
         # if it's on the GPU, transfer it back
@@ -317,9 +324,9 @@ class BaseReconstructor(object):
         xp = getArrayModule(self.optimizable.esw)
 
         if self.fftshiftSwitch:
-            self.optimizable.eswUpdate = xp.fft.ifft2(self.optimizable.ESW, norm='ortho')# * self.experimentalData.Np
+            self.optimizable.eswUpdate = xp.fft.ifft2(self.optimizable.ESW, norm='ortho')
         else:
-            self.optimizable.eswUpdate = xp.fft.fftshift(xp.fft.ifft2(xp.fft.ifftshift(self.optimizable.ESW),norm='ortho')) #* self.experimentalData.Np
+            self.optimizable.eswUpdate = xp.fft.fftshift(xp.fft.ifft2(xp.fft.ifftshift(self.optimizable.ESW),norm='ortho'))
 
 
     def intensityProjection(self, positionIndex):
@@ -335,8 +342,7 @@ class BaseReconstructor(object):
 
         # Todo: Background mode, CPSCswitch, Fourier mask
 
-        # these are amplitudes rather than intensities
-        # self.optimizable.Iestimated = xp.sum(xp.abs(self.optimizable.ESW) ** 2, axis=(0, 1, 2), keepdims=True)[:, :, :, -1, ...]
+        # estimated intensity is a 2D array (in the case of multislice, only take the last slice)
         self.optimizable.Iestimated = xp.sum(xp.abs(self.optimizable.ESW) ** 2, axis=(0, 1, 2))[-1]
         # This should not be in optimizable
         self.optimizable.Imeasured = xp.array(self.experimentalData.ptychogram[positionIndex])
@@ -385,25 +391,21 @@ class BaseReconstructor(object):
         """
         if loop == 0:
             self.monitor.initializeVisualisation()
-            if self.experimentalData.operationMode == 'FPM':
-                object_estimate = np.squeeze(fft2c(self.optimizable.object))
-                probe_estimate = np.squeeze(self.optimizable.probe)
-            else:
-                object_estimate = np.squeeze(self.optimizable.object)
-                probe_estimate = np.squeeze(self.optimizable.probe)
-
-            self.monitor.updatePlot(object_estimate=object_estimate, probe_estimate=probe_estimate)
 
         elif np.mod(loop, self.monitor.figureUpdateFrequency) == 0:
 
             if self.experimentalData.operationMode == 'FPM':
-                object_estimate = np.squeeze(fft2c(self.optimizable.object))
-                probe_estimate = np.squeeze(self.optimizable.probe)
+                object_estimate = np.squeeze(fft2c(self.optimizable.object)
+                                             [..., self.optimizable.objectROI[0], self.optimizable.objectROI[1]])
+                probe_estimate = np.squeeze(self.optimizable.probe
+                                            [..., self.optimizable.probeROI[0], self.optimizable.probeROI[1]])
             else:
-                object_estimate = np.squeeze(self.optimizable.object)
-                probe_estimate = np.squeeze(self.optimizable.probe)
+                object_estimate = np.squeeze(self.optimizable.object
+                                             [..., self.optimizable.objectROI[0], self.optimizable.objectROI[1]])
+                probe_estimate = np.squeeze(self.optimizable.probe
+                                            [..., self.optimizable.probeROI[0], self.optimizable.probeROI[1]])
 
-            self.monitor.updatePlot(object_estimate=object_estimate,probe_estimate=probe_estimate)
+            self.monitor.updatePlot(object_estimate=object_estimate, probe_estimate=probe_estimate)
             # print('iteration:%i' %len(self.optimizable.error))
             # print('runtime:')
             # print('error:')
@@ -422,7 +424,7 @@ class BaseReconstructor(object):
 
 
         # Todo: objectSmoothenessSwitch,
-        #  probeSmoothenessSwitch, absObjectSwitch, comStabilizationSwitch, objectContrastSwitch
+        #  probeSmoothenessSwitch, absObjectSwitch, objectContrastSwitch
 
         # modulus enforced probe todo: check for multiwave and multi object states
         if self.probePowerCorrectionSwitch:
