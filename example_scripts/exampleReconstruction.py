@@ -124,7 +124,8 @@ if ptycho_simulation:
     engine.comStabilizationSwitch = True
     engine.orthogonalizationSwitch = True
     engine.orthogonalizationFrequency = 10
-    engine.fftshiftSwitch = False
+    engine.fftshiftSwitch = True
+    engine.intensityConstraint = 'standard'  # standard fluctuation exponential poission
 
     engine.doReconstruction()
 

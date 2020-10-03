@@ -1,7 +1,7 @@
 from fracPy.monitors.default_visualisation import DefaultMonitor,DiffractionDataMonitor
 import numpy as np
 import logging
-
+import warnings
 # fracPy imports
 from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray
 from fracPy.utils.initializationFunctions import initialProbeOrObject
@@ -10,6 +10,7 @@ from fracPy.Optimizable.Optimizable import Optimizable
 from fracPy.utils.utils import ifft2c, fft2c, orthogonalizeModes
 from fracPy.operators.operators import aspw, scaledASP
 from fracPy.monitors.Monitor import Monitor
+
 
 class BaseReconstructor(object):
     """
@@ -78,6 +79,9 @@ class BaseReconstructor(object):
         Initialize everything that depends on user changeable attributes.
         :return:
         """
+        # check miscellaneous quantities specific for certain engines
+        self._checkMISC()
+        self._checkFFT()
 
         # initialize detector error matrices
         if self.saveMemory:
@@ -104,6 +108,11 @@ class BaseReconstructor(object):
                 np.max(np.sum(self.experimentalData.ptychogramDownsampled, (-1, -2))))
         self.optimizable.probe = self.optimizable.probe/np.sqrt(
             np.sum(self.optimizable.probe*self.optimizable.probe.conj()))*self.probePowerCorrection
+
+        # initial positions set (this is done different from matlab, experimentalData.positions are set as properties,
+        # can be automatically updated with changing distance zo, and experimentalData.positions0 just saves the initial positions)
+        if not hasattr(self.experimentalData, 'positions0'):
+            self.experimentalData.positions0 = self.experimentalData.positions.copy()
 
         # initialize error
         if not hasattr(self.optimizable, 'error'):
@@ -176,6 +185,72 @@ class BaseReconstructor(object):
     def changeOptimizable(self, optimizable: Optimizable):
 
         self.optimizable = optimizable
+
+    def _checkMISC(self):
+        """
+        checks miscellaneous quantities specific certain engines
+        """
+        # todo check what does rgn('shuffle') do in matlab
+        if self.backgroundModeSwitch:
+            self.background = np.ones((self.experimentalData.Np, self.experimentalData.Np), dtype='complex64')
+
+        # preallocate intensity scaling vector
+        if self.intensityConstraint == 'fluctuation':
+            self.intensityScaling = np.ones(self.experimentalData.numFrames)
+
+        # todo check if there is data on gpu that shouldnt be there
+
+        # check if both probePoprobePowerCorrectionSwitch and modulusEnforcedProbeSwitch are on.
+        # Since this can cause a contradiction, it raises an error
+        if self.probePowerCorrectionSwitch and self.modulusEnforcedProbeSwitch:
+            raise ValueError('probePowerCorrectionSwitch and modulusEnforcedProbeSwitch '
+                             'can not simultaneously be switched on!')
+
+        if not self.fftshiftSwitch:
+            warnings.warn('fftshiftSwitch set to false, this may lead to reduced performance')
+
+        if self.propagator == 'ASP' and self.fftshiftSwitch:
+                raise ValueError('ASP propagator works only with fftshiftSwitch = False')
+        if self.propagator == 'scaledASP' and self.fftshiftSwitch:
+                raise ValueError('scaledASP propagator works only with fftshiftSwitch = False')
+
+    def _checkFFT(self):
+        """
+
+        """
+
+        if self.fftshiftSwitch:
+            if self.fftshiftFlag == 0:
+                print('check fftshift...')
+                print('fftshift data for fast far-field update')
+                # shift detector quantities
+                self.experimentalData.ptychogram = np.fft.ifftshift(self.experimentalData.ptychogram, axes=(-1, -2))
+                if hasattr(self.experimentalData, 'ptychogramDownsampled'):
+                    self.experimentalData.ptychogramDownsampled = np.fft.ifftshift(
+                        self.experimentalData.ptychogramDownsampled, axes=(-1, -2))
+                if hasattr(self, 'W'):
+                    self.W = np.fft.ifftshift(self.W, axes=(-1, -2))
+                if hasattr(self.experimentalData, 'empyBeam'):
+                    self.experimentalData.empyBeam = np.fft.ifftshift(
+                        self.experimentalData.empyBeam, axes=(-1, -2))
+                if hasattr(self.experimentalData, 'PSD'):
+                    self.experimentalData.PSD = np.fft.ifftshift(
+                        self.experimentalData.PSD, axes=(-1, -2))
+                self.fftshiftFlag = 1
+        else:
+            if self.fftshiftFlag == 1:
+                print('check fftshift...')
+                print('ifftshift data')
+                self.experimentalData.ptychogram = np.fft.fftshift(self.experimentalData.ptychogram, axes=(-1, -2))
+                if hasattr(self.experimentalData, 'ptychogramDownsampled'):
+                    self.experimentalData.ptychogramDownsampled = np.fft.fftshift(
+                        self.experimentalData.ptychogramDownsampled, axes=(-1, -2))
+                if hasattr(self, 'W'):
+                    self.W = np.fft.fftshift(self.W, axes=(-1, -2))
+                if hasattr(self.experimentalData, 'empyBeam'):
+                    self.experimentalData.empyBeam = np.fft.fftshift(
+                        self.experimentalData.empyBeam, axes=(-1, -2))
+                self.fftshiftFlag = 0
 
 
 
@@ -349,11 +424,48 @@ class BaseReconstructor(object):
 
         self.getRMSD(positionIndex)
 
-        # TODO: implement other update methods
-        frac = xp.sqrt(self.optimizable.Imeasured / (self.optimizable.Iestimated + gimmel))
+        # intensity projection constraints
+        if self.intensityConstraint == 'fluctuation':
+            # scaling
+            if self.FourierMaskSwitch:
+                aleph = xp.sum(self.optimizable.Imeasured*self.optimizable.Iestimated*self.W) / \
+                        xp.sum(self.optimizable.Imeasured*self.optimizable.Imeasured*self.W)
+            else:
+                aleph = xp.sum(self.optimizable.Imeasured * self.optimizable.Iestimated) / \
+                        xp.sum(self.optimizable.Imeasured * self.optimizable.Imeasured)
+            self.intensityScaling[positionIndex] = aleph
+            # scaled projection
+            frac = (1+aleph)/2*self.optimizable.Imeasured/(self.optimizable.Iestimated+gimmel)
+
+        elif self.intensityConstraint == 'exponential':
+            x = self.currentDetectorError/(self.optimizable.Iestimated+gimmel)
+            W = xp.exp(-0.05 * x)
+            frac = xp.sqrt( self.optimizable.Imeasured / (self.optimizable.Iestimated + gimmel) )
+            frac = W * frac + (1-W)
+
+        elif self.intensityConstraint == 'poission':
+            frac = self.optimizable.Imeasured / (self.optimizable.Iestimated + gimmel)
+
+        elif self.intensityConstraint == 'standard':
+            frac = xp.sqrt(self.optimizable.Imeasured / (self.optimizable.Iestimated + gimmel))
+        else:
+            raise ValueError('intensity constraint not properly specified!')
+
+        # apply mask
+        if self.FourierMaskSwitch and self.CPSCswitch and len(self.optimizable.error) > 5:
+            frac = self.W * frac + (1-self.W)
 
         # update ESW
         self.optimizable.ESW = self.optimizable.ESW * frac
+
+        # update background (see PhD thsis by Peng Li)
+        if self.backgroundModeSwitch:
+            if self.FourierMaskSwitch:
+                self.background = self.background*(1+1/self.experimentalData.numFrames*(xp.sqrt(frac)-1))**2*self.W
+            else:
+                self.background = self.background*(1+1/self.experimentalData.numFrames*(xp.sqrt(frac)-1))**2
+
+        # back propagate to object plane
         self.detector2object()
 
 
