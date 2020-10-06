@@ -26,15 +26,15 @@ class mPIE(BaseReconstructor):
         super().__init__(optimizable, experimentalData,monitor)
         self.logger = logging.getLogger('mPIE')
         self.logger.info('Sucesfully created mPIE mPIE_engine')
-
         self.logger.info('Wavelength attribute: %s', self.optimizable.wavelength)
-
+        # initialize mPIE params
         self.initializeReconstructionParams()
+        # initialize momentum
         self.optimizable.initializeObjectMomentum()
-        self.optimizable.initializeObjectBuffer()
         self.optimizable.initializeProbeMomentum()
+        # set object and probe buffers
+        self.optimizable.initializeObjectBuffer()
         self.optimizable.initializeProbeBuffer()
-        
         
     def initializeReconstructionParams(self):
         """
@@ -44,10 +44,10 @@ class mPIE(BaseReconstructor):
         # self.eswUpdate = self.optimizable.esw.copy()
         self.betaProbe = 0.25
         self.betaObject = 0.25
-        self.alphaProbe = 0.1
-        self.alphaObject = 0.1
-        self.betaM = 0.3
-        self.stepM = 0.7
+        self.alphaProbe = 0.1     # probe regularization
+        self.alphaObject = 0.1    # object regularization
+        self.betaM = 0.3          # feedback
+        self.stepM = 0.7          # friction
         self.probeWindow = np.abs(self.optimizable.probe)
         
     def _prepare_doReconstruction(self):
@@ -67,6 +67,9 @@ class mPIE(BaseReconstructor):
         for loop in tqdm.tqdm(range(self.numIterations)):
             # set position order
             self.setPositionOrder()
+            # # probe power correction todo check if this is by default done in _initializeParams
+            # if self.probePowerCorrectionSwitch:
+            #     self.probePowerCorrection()
             for positionLoop, positionIndex in enumerate(self.positionIndices):
                 # get object patch
                 row, col = self.optimizable.positions[positionIndex]
@@ -90,14 +93,11 @@ class mPIE(BaseReconstructor):
                 # probe update
                 self.optimizable.probe = self.probeUpdate(objectPatch, DELTA)
 
-                # momentum updates
-                self.objectMomentumUpdate()
-                self.probeMomentumUpdate()
-                # self.optimizable.object[..., sy, sx], self.optimizable.objectBuffer[..., sy, sx], self.optimizable.objectMomentum[..., sy, sx] =\
-                #     self.momentumUpdate(self.optimizable.object[..., sy, sx], self.optimizable.objectBuffer[..., sy, sx], self.optimizable.objectMomentum[..., sy, sx])
-                # self.optimizable.probe, self.optimizable.probeBuffer, self.optimizable.probeMomentum =\
-                #     self.momentumUpdate(self.optimizable.probe, self.optimizable.probeBuffer, self.optimizable.probeMomentum)
-                
+                # momentum updates todo: make this every T iteration?
+                if np.random.rand(1) > 0.95:
+                    self.objectMomentumUpdate()
+                    self.probeMomentumUpdate()
+
             # get error metric
             self.getErrorMetrics()
 
@@ -107,44 +107,27 @@ class mPIE(BaseReconstructor):
             # show reconstruction
             self.showReconstruction(loop)
 
-
-    def momentumUpdate(self, array, buffer, momentum):
-        """
-        Todo add docstring
-        :param objectPatch:
-        :param DELTA:
-        :return:
-        """
-        gradient = buffer - array
-        momentum = gradient + self.betaM * momentum
-        array = array - self.stepM * momentum
-        buffer = array.copy()
-        return array, buffer, momentum
-        
+            #todo clearMemory implementation
 
     def objectMomentumUpdate(self):
         """
-        Todo add docstring
-        :param objectPatch:
-        :param DELTA:
+        momentum update object, save updated objectMomentum and objectBuffer.
         :return:
         """
         gradient = self.optimizable.objectBuffer - self.optimizable.object
-        self.optimizable.objectMomentum = gradient + self.betaM * self.optimizable.objectMomentum
-        self.optimizable.object = self.optimizable.object - self.stepM * self.optimizable.objectMomentum  
-        self.optimizable.objectBuffer =  self.optimizable.object.copy()
+        self.optimizable.objectMomentum = gradient + self.stepM * self.optimizable.objectMomentum
+        self.optimizable.object = self.optimizable.object - self.betaM * self.optimizable.objectMomentum
+        self.optimizable.objectBuffer = self.optimizable.object.copy()
 
 
     def probeMomentumUpdate(self):
         """
-        Todo add docstring
-        :param objectPatch:
-        :param DELTA:
+        momentum update probe, save updated probeMomentum and probeBuffer.
         :return:
         """
         gradient = self.optimizable.probeBuffer - self.optimizable.probe
-        self.optimizable.probeMomentum = gradient + self.betaM * self.optimizable.probeMomentum
-        self.optimizable.probe = self.optimizable.probe - self.stepM * self.optimizable.probeMomentum    
+        self.optimizable.probeMomentum = gradient + self.stepM * self.optimizable.probeMomentum
+        self.optimizable.probe = self.optimizable.probe - self.betaM * self.optimizable.probeMomentum
         self.optimizable.probeBuffer = self.optimizable.probe.copy()
 
 
@@ -157,10 +140,14 @@ class mPIE(BaseReconstructor):
         """
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
- 
-        Pmax = xp.max(xp.sum(xp.abs(self.optimizable.probe)**2, axis = (0,1,2,3)))
-        frac = self.optimizable.probe.conj() / (self.alphaObject * Pmax + (1-self.alphaObject) * xp.abs(self.optimizable.probe)**2)
-        return objectPatch + self.betaObject * xp.sum(frac * DELTA, axis=(0,2,3), keepdims=True)
+        absP2 = xp.abs(self.optimizable.probe)**2
+        Pmax = xp.max(xp.sum(absP2, axis=(1, 2, 3)), axis=(-1, -2))
+        if self.experimentalData.operationMode =='FPM':
+            frac = abs(self.optimizable.probe)/Pmax*\
+                   self.optimizable.probe.conj()/(self.alphaObject*Pmax+(1-self.alphaObject)*absP2)
+        else:
+            frac = self.optimizable.probe.conj()/(self.alphaObject*Pmax+(1-self.alphaObject)*absP2)
+        return objectPatch + self.betaObject * xp.sum(frac * DELTA, axis=2, keepdims=True)
 
        
     def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
@@ -172,14 +159,10 @@ class mPIE(BaseReconstructor):
         """
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
-        
-        # Omax = xp.max(xp.sum(xp.abs(self.optimizable.object)**2, axis = (0,1,2,3)))
-        Omax = xp.max(xp.sum(xp.abs(objectPatch)**2, axis = (0,1,2,3)))
-        frac = objectPatch.conj() / (self.alphaProbe  * Omax + (1-self.alphaProbe) * xp.abs(objectPatch)**2)
-        r = self.optimizable.probe + self.betaProbe * xp.sum(frac * DELTA, axis = (0,1,3), keepdims=True)
-        if self.absorbingProbeBoundary:
-            aleph = 1e-3
-            r = (1 - aleph) * r + aleph * r * self.probeWindow
+        absO2 = xp.abs(objectPatch) ** 2
+        Omax = xp.max(xp.sum(absO2, axis=(1, 2, 3)))
+        frac = objectPatch.conj() / (self.alphaProbe * Omax + (1-self.alphaProbe) * absO2)
+        r = self.optimizable.probe + self.betaProbe * xp.sum(frac * DELTA, axis=1, keepdims=True)
         return r
 
 

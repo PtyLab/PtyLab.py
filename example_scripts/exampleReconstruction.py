@@ -78,7 +78,7 @@ if ptycho_simulation:
     # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
     # now create an object to hold everything we're eventually interested in
     optimizable = Optimizable(exampleData)
-    optimizable.npsm = 4 # Number of probe modes to reconstruct
+    optimizable.npsm = 1 # Number of probe modes to reconstruct
     optimizable.nosm = 1 # Number of object modes to reconstruct
     optimizable.nlambda = 1 # Number of wavelength
     optimizable.nslice = 1 # Number of object slice
@@ -98,7 +98,7 @@ if ptycho_simulation:
     # # Set monitor properties
     monitor = Monitor()
     monitor.figureUpdateFrequency = 1
-    monitor.objectPlot = 'angle'  # complex abs angle
+    monitor.objectPlot = 'complex'  # complex abs angle
     monitor.verboseLevel = 'high'  # high: plot two figures, low: plot only one figure
     
     # Run the reconstruction
@@ -117,7 +117,7 @@ if ptycho_simulation:
     # engine = e3PIE.e3PIE(optimizable, exampleData, monitor)
 
     ## main parameters
-    engine.numIterations = 20
+    engine.numIterations = 30
     engine.positionOrder = 'random'  # 'sequential' or 'random'
     engine.propagator = 'Fraunhofer'  # Fresnel ASP scaledASP
     engine.betaProbe = 0.25
@@ -131,11 +131,13 @@ if ptycho_simulation:
     engine.comStabilizationSwitch = True
     engine.orthogonalizationSwitch = True
     engine.orthogonalizationFrequency = 10
-    engine.fftshiftSwitch = False
+    engine.fftshiftSwitch = True
     engine.intensityConstraint = 'standard'  # standard fluctuation exponential poission
+    engine.absorbingProbeBoundary = True
+    engine.objectContrastSwitch = True
+    engine.absObjectSwitch = True
 
     engine.doReconstruction()
-
 
 
     # now save the data

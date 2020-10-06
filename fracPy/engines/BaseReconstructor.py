@@ -42,8 +42,6 @@ class BaseReconstructor(object):
 
 
         ## Specific reconstruction settings that are the same for all engines
-        self.absorbingProbeBoundary = False
-
         # This only makes sense on a GPU, not there yet
         self.saveMemory = False
 
@@ -89,6 +87,9 @@ class BaseReconstructor(object):
         else:
             self.detectorError = np.zeros((self.experimentalData.numFrames,
                                            self.experimentalData.Nd, self.experimentalData.Nd))
+        # initialize error
+        if not hasattr(self.optimizable, 'error'):
+            self.optimizable.error = []
 
         # todo what is ptychogramDownsampled
         # initialize energy at each scan position
@@ -109,14 +110,15 @@ class BaseReconstructor(object):
         self.optimizable.probe = self.optimizable.probe/np.sqrt(
             np.sum(self.optimizable.probe*self.optimizable.probe.conj()))*self.probePowerCorrection
 
+        # absorbing probe boundary: filter probe with super-gaussian window function
+        if not self.saveMemory or self.absorbingProbeBoundary:
+            self.probeWindow = np.exp(-((self.experimentalData.Xp**2+self.experimentalData.Yp**2)/
+                                        (2*(3/4*self.experimentalData.Np*self.experimentalData.dxp/2.355)**2))**10)
+
         # initial positions set (this is done different from matlab, experimentalData.positions are set as properties,
         # can be automatically updated with changing distance zo, and experimentalData.positions0 just saves the initial positions)
         if not hasattr(self.experimentalData, 'positions0'):
             self.experimentalData.positions0 = self.experimentalData.positions.copy()
-
-        # initialize error
-        if not hasattr(self.optimizable, 'error'):
-            self.optimizable.error = []
 
         # set object/probe ROI for monitoring
         if not hasattr(self.optimizable, 'objectROI'):
@@ -150,7 +152,6 @@ class BaseReconstructor(object):
             _,self.optimizable.Q1,self.optimizable.Q2 = scaledASP(np.squeeze(self.optimizable.probe[0, 0, 0, 0, :, :]),
                                                                 self.experimentalData.zo, self.experimentalData.wavelength,
                                                                 self.experimentalData.dxo,self.experimentalData.dxd)
-
 
     def setPositionOrder(self):
         if self.positionOrder == 'sequential':
@@ -216,9 +217,8 @@ class BaseReconstructor(object):
 
     def _checkFFT(self):
         """
-
+        shift arrays to accelerate fft
         """
-
         if self.fftshiftSwitch:
             if self.fftshiftFlag == 0:
                 print('check fftshift...')
@@ -544,25 +544,9 @@ class BaseReconstructor(object):
             if np.mod(loop, self.orthogonalizationFrequency) == 0:
                 self.orthogonalization()
 
-
-        # Todo: objectSmoothenessSwitch,
-        #  probeSmoothenessSwitch, absObjectSwitch, objectContrastSwitch
-
-        # modulus enforced probe todo: check for multiwave and multi object states
-        if self.probePowerCorrectionSwitch:
-            self.optimizable.probe = self.optimizable.probe / np.sqrt(np.sum(self.optimizable.probe
-                                                                             * self.optimizable.probe.conj())) * self.probePowerCorrection
-
-        if self.objectSmoothenessSwitch:
-            raise NotImplementedError()
-
-        # not specific to ePIE, -> baseReconstructor
-        if self.probeSmoothenessSwitch:
-            raise NotImplementedError()
-
-        # not specific to ePIE
-        if self.absObjectSwitch:
-            raise NotImplementedError()
+        # enforce empty beam constraint
+        if self.modulusEnforcedProbeSwitch:
+            self.modulusEnforcedProbe()
 
         if self.comStabilizationSwitch:
             self.comStabilization()
@@ -570,9 +554,37 @@ class BaseReconstructor(object):
         if self.PSDestimationSwitch:
             raise NotImplementedError()
 
-        if self.objectContrastSwitch:
+        # Todo: objectSmoothenessSwitch,probeSmoothenessSwitch,
+
+        # modulus enforced probe,probe normalization to measured PSD todo: check for multiwave and multi object states
+        if self.probePowerCorrectionSwitch:
+            self.optimizable.probe = self.optimizable.probe / np.sqrt(
+                np.sum(self.optimizable.probe * self.optimizable.probe.conj())) * self.probePowerCorrection
+
+        # todo more convinient to create a absorbingProbeBoundaryAleph to control?
+        if self.absorbingProbeBoundary:
+            if self.experimentalData.operationMode =='CPM':
+                aleph = 5e-2
+            else:
+                aleph = 100e-2
+            self.optimizable.probe = (1 - aleph) * self.optimizable.probe + aleph * self.optimizable.probe * self.probeWindow
+
+        if self.probeSmoothenessSwitch:
             raise NotImplementedError()
 
+        if self.objectSmoothenessSwitch:
+            raise NotImplementedError()
+
+        if self.absObjectSwitch:
+            self.optimizable.object = (1-self.absObjectBeta)*self.optimizable.object+\
+                                      self.absObjectBeta*abs(self.optimizable.object)
+
+        # this is intended to slowly push non-measured object region to abs value lower than
+        # the max abs inside object ROI allowing for good contrast when monitoring object
+        if self.objectContrastSwitch:
+            self.optimizable.object = 0.995*self.optimizable.object+0.005*\
+                                      np.mean(abs(self.optimizable.object[..., self.optimizable.objectROI[0],
+                                                                          self.optimizable.objectROI[1]]))
 
     def orthogonalization(self):
         """
@@ -642,3 +654,18 @@ class BaseReconstructor(object):
                 # todo implement for mPIE
 
 
+    def modulusEnforcedProbe(self):
+        # propagate probe to detector
+        self.optimizable.esw = self.optimizable.probe
+        self.object2detector()
+
+        if self.FourierMaskSwitch:
+            self.optimizable.ESW = self.optimizable.ESW*xp.sqrt(
+                self.emptyBeam/1e-10+xp.sum(xp.abs(self.optimizable.ESW)**2, axis=(0, 1, 2, 3)))*self.W\
+                                   +self.optimizable.ESW*(1-self.W)
+        else:
+            self.optimizable.ESW = self.optimizable.ESW * np.sqrt(
+                self.emptyBeam / (1e-10 + xp.sum(abs(self.optimizable.ESW) ** 2, axis=(0, 1, 2, 3))))
+
+        self.detector2object()
+        self.optimizable.probe = self.optimizable.esw

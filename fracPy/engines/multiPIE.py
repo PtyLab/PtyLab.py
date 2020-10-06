@@ -33,6 +33,8 @@ class multiPIE(BaseReconstructor):
         self.logger.info('Wavelength attribute: %s', self.optimizable.wavelength)
 
         self.initializeReconstructionParams()
+
+        # todo check if this is the same as mPIEoperation
         self.optimizable.initializeObjectMomentum()
         self.optimizable.initializeObjectBuffer()
         self.optimizable.initializeProbeMomentum()
@@ -50,8 +52,7 @@ class multiPIE(BaseReconstructor):
         self.t = 0
 
 
-
-        # modulus enforced probe todo check if the switch is necessary
+        # modulus enforced probe
         if self.modulusEnforcedProbeSwitch:
             self.modulusEnforcedProbe()
 
@@ -124,19 +125,6 @@ class multiPIE(BaseReconstructor):
             self.showReconstruction(loop)
 
 
-    def modulusEnforcedProbe(self):
-        # propagate probe to detector
-        self.optimizable.esw = self.optimizable.probe
-        self.object2detector()
-
-        if self.FourierMaskSwitch:
-            raise NotImplementedError
-        else:
-            self.optimizable.ESW = self.optimizable.ESW * np.sqrt(
-                self.emptyBeam / (1e-10 + xp.sum(abs(self.optimizable.ESW) ** 2, axis=0, keepdims=True)))
-        self.detector2object()
-        self.optimizable.probe = self.optimizable.esw
-
 
     def momentumUpdate(self, array, buffer, momentum):
         """
@@ -204,9 +192,6 @@ class multiPIE(BaseReconstructor):
         Omax = xp.max(xp.sum(xp.abs(objectPatch) ** 2, axis=(0, 1, 2, 3)))
         frac = objectPatch.conj() / (self.alphaProbe * Omax + (1 - self.alphaProbe) * xp.abs(objectPatch) ** 2)
         r = self.optimizable.probe + self.betaProbe * xp.sum(frac * DELTA, axis=(0, 1, 3), keepdims=True)
-        if self.absorbingProbeBoundary:
-            aleph = 1e-3
-            r = (1 - aleph) * r + aleph * r * self.probeWindow
         return r
 
 

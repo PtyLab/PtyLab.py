@@ -196,9 +196,6 @@ class zPIE(BaseReconstructor):
         xp = getArrayModule(objectPatch)
         frac = objectPatch.conj() / xp.max(xp.sum(xp.abs(objectPatch) ** 2, axis=(0, 1, 2, 3)))
         r = self.optimizable.probe + self.betaObject * xp.sum(frac * DELTA, axis=(0, 1, 3), keepdims=True)
-        if self.absorbingProbeBoundary:
-            aleph = 1e-3
-            r = (1 - aleph) * r + aleph * r * self.probeWindow
         return r
 
 

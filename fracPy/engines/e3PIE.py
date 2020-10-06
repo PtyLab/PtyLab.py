@@ -137,7 +137,6 @@ class e3PIE(BaseReconstructor):
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
         frac = localProbe.conj() / xp.max(xp.sum(xp.abs(localProbe) ** 2, axis=(0, 1, 2)))
-
         return objectPatch + self.betaObject * xp.sum(frac * DELTA, axis=(0, 2), keepdims=True)
 
     def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray, localProbe: np.ndarray, beth):
@@ -151,9 +150,6 @@ class e3PIE(BaseReconstructor):
         xp = getArrayModule(objectPatch)
         frac = objectPatch.conj() / xp.max(xp.sum(xp.abs(objectPatch) ** 2, axis=(0, 1, 2)))
         r = localProbe + beth * xp.sum(frac * DELTA, axis=(0, 1), keepdims=True)
-        # if self.absorbingProbeBoundary:
-        #     aleph = 1e-3
-        #     r = (1 - aleph) * r + aleph * r * self.probeWindow
         return r
 
 class e3PIE_GPU(e3PIE):
