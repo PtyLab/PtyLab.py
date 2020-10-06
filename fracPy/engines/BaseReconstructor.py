@@ -516,8 +516,18 @@ class BaseReconstructor(object):
                                              [..., self.optimizable.objectROI[0], self.optimizable.objectROI[1]])
                 probe_estimate = np.squeeze(self.optimizable.probe
                                             [..., self.optimizable.probeROI[0], self.optimizable.probeROI[1]])
+                if self.monitor.verboseLevel=='high':
+                    if self.fftshiftSwitch:
+                        Iestimated = np.fft.fftshift(self.optimizable.Iestimated)
+                        Imeasured = np.fft.fftshift(self.optimizable.Imeasured)
+                    else:
+                        Iestimated = self.optimizable.Iestimated
+                        Imeasured = self.optimizable.Imeasured
+                    self.monitor.updatePlot(object_estimate=object_estimate, probe_estimate=probe_estimate,
+                                    Iestimated=Iestimated, Imeasured=Imeasured)
+                else:
+                    self.monitor.updatePlot(object_estimate=object_estimate, probe_estimate=probe_estimate)
 
-            self.monitor.updatePlot(object_estimate=object_estimate, probe_estimate=probe_estimate)
             # print('iteration:%i' %len(self.optimizable.error))
             # print('runtime:')
             # print('error:')

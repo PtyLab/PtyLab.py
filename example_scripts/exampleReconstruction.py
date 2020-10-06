@@ -61,12 +61,19 @@ if ptycho_simulation:
     exampleData = ExperimentalData()
 
     import os
-    filePath = r"D:\Du\Workshop\fracpy\example_data"
+    filePath = r"D:\ptyLab\example_data" # D:\ptyLab\example_data D:\Du\Workshop\fracpy\example_data
     os.chdir(filePath)
 
     exampleData.loadData('simuRecent.hdf5')  # simuRecent simuRecent_zPIE Lenspaper
 
     exampleData.operationMode = 'CPM'
+    M = (1+np.sqrt(1-4*exampleData.dxo/exampleData.dxd)/2*exampleData.dxo/exampleData.dxd)
+    exampleData.zo = exampleData.zo/M
+    exampleData.dxd = exampleData.dxd/M
+    # absorbedPhase = np.exp(1.j*np.pi/exampleData.wavelength *
+    #                                              (exampleData.Xp**2+exampleData.Yp**2)/(exampleData.zo))
+    absorbedPhase2 = np.exp(1.j*np.pi/exampleData.wavelength *
+                                                 (exampleData.Xp**2+exampleData.Yp**2)/(exampleData.zo))
 
     # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
     # now create an object to hold everything we're eventually interested in
@@ -91,14 +98,14 @@ if ptycho_simulation:
     # # Set monitor properties
     monitor = Monitor()
     monitor.figureUpdateFrequency = 1
-    monitor.objectPlot = 'complex'
+    monitor.objectPlot = 'angle'  # complex abs angle
     monitor.verboseLevel = 'high'  # high: plot two figures, low: plot only one figure
     
     # Run the reconstruction
     ## choose engine
     # ePIE
-    engine = ePIE.ePIE_GPU(optimizable, exampleData, monitor)
-    # engine = ePIE.ePIE(optimizable, exampleData, monitor)
+    # engine = ePIE.ePIE_GPU(optimizable, exampleData, monitor)
+    engine = ePIE.ePIE(optimizable, exampleData, monitor)
     # mPIE
     # engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
     # engine = mPIE.mPIE(optimizable, exampleData, monitor)
@@ -110,7 +117,7 @@ if ptycho_simulation:
     # engine = e3PIE.e3PIE(optimizable, exampleData, monitor)
 
     ## main parameters
-    engine.numIterations = 100
+    engine.numIterations = 20
     engine.positionOrder = 'random'  # 'sequential' or 'random'
     engine.propagator = 'Fraunhofer'  # Fresnel ASP scaledASP
     engine.betaProbe = 0.25
@@ -124,7 +131,7 @@ if ptycho_simulation:
     engine.comStabilizationSwitch = True
     engine.orthogonalizationSwitch = True
     engine.orthogonalizationFrequency = 10
-    engine.fftshiftSwitch = True
+    engine.fftshiftSwitch = False
     engine.intensityConstraint = 'standard'  # standard fluctuation exponential poission
 
     engine.doReconstruction()
