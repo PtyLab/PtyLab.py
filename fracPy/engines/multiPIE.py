@@ -36,9 +36,9 @@ class multiPIE(BaseReconstructor):
 
         # todo check if this is the same as mPIEoperation
         self.optimizable.initializeObjectMomentum()
-        self.optimizable.initializeObjectBuffer()
         self.optimizable.initializeProbeMomentum()
-        self.optimizable.initializeProbeBuffer()
+        self.optimizable.objectBuffer = self.optimizable.object.copy()
+        self.optimizable.probeBuffer = self.optimizable.probe.copy()
 
     def initializeReconstructionParams(self):
         """
@@ -107,9 +107,13 @@ class multiPIE(BaseReconstructor):
                 self.spectralDensity = xp.sum(abs(self.optimizable.probe)**2, axis=(-1, -2))
 
                 # momentum updates
-                # todo check condition: if len(self.optimizable.error)>2 &
-                self.objectMomentumUpdate()
-                self.probeMomentumUpdate()
+                if len(self.optimizable.error) > 2*max(self.objectUpdateStart, self.probeUpdateStart) \
+                        and np.random.rand(1) > 0.99:
+                    self.objectMomentumUpdate()
+                    self.probeMomentumUpdate()
+                elif len(self.optimizable.error) < 2*max(self.objectUpdateStart, self.probeUpdateStart):
+                    self.optimizable.objectBuffer = self.optimizable.object.copy()
+                    self.optimizable.probeButter = self.optimizable.probe.copy()
 
             # get error metric
             self.getErrorMetrics()
@@ -165,7 +169,7 @@ class multiPIE(BaseReconstructor):
 
     def objectPatchUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
         """
-        Todo add docstring
+        ePIE-type updat
         :param objectPatch:
         :param DELTA:
         :return:
@@ -173,14 +177,13 @@ class multiPIE(BaseReconstructor):
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
 
-        Pmax = xp.max(xp.sum(xp.abs(self.optimizable.probe) ** 2, axis=(0, 1, 2, 3)))
-        frac = self.optimizable.probe.conj() / (
-                    self.alphaObject * Pmax + (1 - self.alphaObject) * xp.abs(self.optimizable.probe) ** 2)
-        return objectPatch + self.betaObject * xp.sum(frac * DELTA, axis=(0, 2, 3), keepdims=True)
+        frac = self.optimizable.probe.conj() / xp.max(xp.sum(xp.abs(self.optimizable.probe) ** 2, axis=(1, 2, 3)), axis=(-1,-2))
+        return objectPatch + self.betaObject * frac * DELTA
 
-    def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
+
+def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
         """
-        Todo add docstring
+        ePIE-type update
         :param objectPatch:
         :param DELTA:
         :return:
@@ -188,24 +191,22 @@ class multiPIE(BaseReconstructor):
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
 
-        # Omax = xp.max(xp.sum(xp.abs(self.optimizable.object)**2, axis = (0,1,2,3)))
-        Omax = xp.max(xp.sum(xp.abs(objectPatch) ** 2, axis=(0, 1, 2, 3)))
-        frac = objectPatch.conj() / (self.alphaProbe * Omax + (1 - self.alphaProbe) * xp.abs(objectPatch) ** 2)
-        r = self.optimizable.probe + self.betaProbe * xp.sum(frac * DELTA, axis=(0, 1, 3), keepdims=True)
+        frac = objectPatch.conj() / xp.max(xp.sum(xp.abs(objectPatch) ** 2, axis=(1, 2, 3)), axis=(-1,-2))
+        r = self.optimizable.probe + self.betaProbe * frac * DELTA
         return r
 
 
-class mPIE_GPU(mPIE):
+class multiPIE_GPU(multiPIE):
     """
-    GPU-based implementation of mPIE
+    GPU-based implementation of multiPIE
     """
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if cp is None:
             raise ImportError('Could not import cupy')
-        self.logger = logging.getLogger('mPIE_GPU')
-        self.logger.info('Hello from mPIE_GPU')
+        self.logger = logging.getLogger('multiPIE_GPU')
+        self.logger.info('Hello from multiPIE_GPU')
 
     def _prepare_doReconstruction(self):
         self.logger.info('Ready to start transfering stuff to the GPU')

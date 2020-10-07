@@ -105,10 +105,10 @@ if ptycho_simulation:
     ## choose engine
     # ePIE
     # engine = ePIE.ePIE_GPU(optimizable, exampleData, monitor)
-    engine = ePIE.ePIE(optimizable, exampleData, monitor)
+    # engine = ePIE.ePIE(optimizable, exampleData, monitor)
     # mPIE
     # engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
-    # engine = mPIE.mPIE(optimizable, exampleData, monitor)
+    engine = mPIE.mPIE(optimizable, exampleData, monitor)
     # zPIE
     # engine = zPIE.zPIE_GPU(optimizable, exampleData, monitor)
     # engine = zPIE.zPIE(optimizable, exampleData, monitor)
@@ -128,6 +128,7 @@ if ptycho_simulation:
 
     ## switches
     engine.probePowerCorrectionSwitch = True
+    engine.modulusEnforcedProbeSwitch = True
     engine.comStabilizationSwitch = True
     engine.orthogonalizationSwitch = True
     engine.orthogonalizationFrequency = 10
@@ -136,6 +137,7 @@ if ptycho_simulation:
     engine.absorbingProbeBoundary = True
     engine.objectContrastSwitch = True
     engine.absObjectSwitch = True
+    engine.backgroundModeSwitch = True
 
     engine.doReconstruction()
 

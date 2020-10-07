@@ -44,7 +44,7 @@ class BaseReconstructor(object):
         ## Specific reconstruction settings that are the same for all engines
         # This only makes sense on a GPU, not there yet
         self.saveMemory = False
-
+        self.probeUpdateStart = 1
         self.objectUpdateStart = 1
         self.positionOrder = 'random'  # 'random' or 'sequential'
 
@@ -193,7 +193,7 @@ class BaseReconstructor(object):
         """
         # todo check what does rgn('shuffle') do in matlab
         if self.backgroundModeSwitch:
-            self.background = np.ones((self.experimentalData.Np, self.experimentalData.Np), dtype='complex64')
+            self.background = 1e-1*np.ones((self.experimentalData.Np, self.experimentalData.Np))
 
         # preallocate intensity scaling vector
         if self.intensityConstraint == 'fluctuation':
@@ -377,7 +377,6 @@ class BaseReconstructor(object):
         xp = getArrayModule(self.optimizable.Iestimated)
         self.currentDetectorError = abs(self.optimizable.Imeasured - self.optimizable.Iestimated)
 
-
         # if it's on the GPU, transfer it back
         # if hasattr(self.currentDetectorError, 'device'):
         #     self.currentDetectorError = self.currentDetectorError.get()
@@ -410,17 +409,23 @@ class BaseReconstructor(object):
         """
         # figure out wether or not to use the GPU
         xp = getArrayModule(self.optimizable.esw)
-        self.object2detector()
 
         # zero division mitigator
         gimmel = 1e-10
 
-        # Todo: Background mode, CPSCswitch, Fourier mask
+        # propafate to detector
+        self.object2detector()
 
-        # estimated intensity is a 2D array (in the case of multislice, only take the last slice)
-        self.optimizable.Iestimated = xp.sum(xp.abs(self.optimizable.ESW) ** 2, axis=(0, 1, 2))[-1]
-        # This should not be in optimizable
-        self.optimizable.Imeasured = xp.array(self.experimentalData.ptychogram[positionIndex])
+        # get estimated intensity (2D array, in the case of multislice, only take the last slice)
+        if self.backgroundModeSwitch:
+            self.optimizable.Iestimated = xp.sum(xp.abs(self.optimizable.ESW) ** 2, axis=(0, 1, 2))[-1]+self.background
+        else:
+            self.optimizable.Iestimated = xp.sum(xp.abs(self.optimizable.ESW) ** 2, axis=(0, 1, 2))[-1]
+        # get measured intensity todo implement CPSC, kPIE
+        if self.CPSCswitch:
+            raise NotImplementedError
+        else:
+            self.optimizable.Imeasured = xp.array(self.experimentalData.ptychogram[positionIndex])
 
         self.getRMSD(positionIndex)
 
@@ -539,14 +544,18 @@ class BaseReconstructor(object):
         :param loop: loop number
         :return:
         """
+        # enforce empty beam constraint
+        if self.modulusEnforcedProbeSwitch:
+            self.modulusEnforcedProbe()
 
         if self.orthogonalizationSwitch:
             if np.mod(loop, self.orthogonalizationFrequency) == 0:
                 self.orthogonalization()
 
-        # enforce empty beam constraint
-        if self.modulusEnforcedProbeSwitch:
-            self.modulusEnforcedProbe()
+        # probe normalization to measured PSD todo: check for multiwave and multi object states
+        if self.probePowerCorrectionSwitch:
+            self.optimizable.probe = self.optimizable.probe / np.sqrt(
+                np.sum(self.optimizable.probe * self.optimizable.probe.conj())) * self.probePowerCorrection
 
         if self.comStabilizationSwitch:
             self.comStabilization()
@@ -555,11 +564,6 @@ class BaseReconstructor(object):
             raise NotImplementedError()
 
         # Todo: objectSmoothenessSwitch,probeSmoothenessSwitch,
-
-        # modulus enforced probe,probe normalization to measured PSD todo: check for multiwave and multi object states
-        if self.probePowerCorrectionSwitch:
-            self.optimizable.probe = self.optimizable.probe / np.sqrt(
-                np.sum(self.optimizable.probe * self.optimizable.probe.conj())) * self.probePowerCorrection
 
         # todo more convinient to create a absorbingProbeBoundaryAleph to control?
         if self.absorbingProbeBoundary:

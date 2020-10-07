@@ -106,9 +106,3 @@ class Optimizable(object):
         
     def initializeProbeMomentum(self):
         self.probeMomentum = np.zeros_like(self.initialGuessProbe)
-        
-    def initializeObjectBuffer(self):
-        self.objectBuffer = self.initialGuessObject.copy()
-        
-    def initializeProbeBuffer(self):
-        self.probeBuffer = self.initialGuessProbe.copy()

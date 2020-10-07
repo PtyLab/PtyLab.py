@@ -33,8 +33,8 @@ class mPIE(BaseReconstructor):
         self.optimizable.initializeObjectMomentum()
         self.optimizable.initializeProbeMomentum()
         # set object and probe buffers
-        self.optimizable.initializeObjectBuffer()
-        self.optimizable.initializeProbeBuffer()
+        self.optimizable.objectBuffer = self.optimizable.object.copy()
+        self.optimizable.probeBuffer = self.optimizable.probe.copy()
         
     def initializeReconstructionParams(self):
         """
