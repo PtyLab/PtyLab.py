@@ -34,24 +34,13 @@ simuData.nslice = 1
 # detector coordinates
 simuData.Nd = 2**7
 simuData.dxd = 2**11/simuData.Nd*4.5e-6
-# simuData.Ld = simuData.Nd*simuData.dxd
-# simuData.xd = np.arange(-simuData.Nd//2, simuData.Nd//2) * simuData.dxd
-# simuData.Xd, simuData.Yd = np.meshgrid(simuData.xd, simuData.xd)          # 2D coordinates in detector plane
 
 # probe coordinates
-# simuData.dxp = simuData.wavelength * simuData.zo / simuData.Ld
-simuData.Np = simuData.Nd
-# simuData.Lp = simuData.Np * simuData.dxp
-# simuData.xp = np.arange(-simuData.Np//2, simuData.Np//2) * simuData.dxp
-# simuData.Xp, simuData.Yp = np.meshgrid(simuData.xp, simuData.xp)
+simuData.dxp = simuData.wavelength * simuData.zo / simuData.Ld
 simuData.zp = 1e-2  # pinhole-object distance
 
 # object coordinates
-# simuData.dxo = simuData.dxp
 simuData.No = 2**10
-# simuData.Lo = simuData.No * simuData.dxo
-# simuData.xo = np.arange(-simuData.No//2, simuData.No//2) * simuData.dxo
-# simuData.Xo, simuData.Yo = np.meshgrid(simuData.xo, simuData.xo)
 
 # generate illumination
 # note: simulate focused beam
@@ -69,7 +58,7 @@ aperture = convolve2d(aperture, gaussian2D(5, 3), mode='same')
 probe = probe * np.exp(-1.j*2*np.pi/simuData.wavelength*(simuData.Xp**2+simuData.Yp**2)/(2*f)) * aperture
 probe = aspw(probe, 2*f, simuData.wavelength, simuData.Lp)[0]
 
-simuData.probe = np.zeros((simuData.nlambda, 1, simuData.npsm, simuData.nslice, simuData.Np, simuData.Np), dtype='complex64')
+simuData.probe = np.zeros((simuData.nlambda, 1, simuData.npsm, simuData.nslice, simuData.Np, simuData.Np), dtype='complex128')
 simuData.probe[...,:,:] = probe
 
 plt.figure(figsize=(5,5), num=1)
@@ -92,11 +81,13 @@ phaseFun = 1
 t = t*circ(simuData.Xo, simuData.Yo, simuData.Lo)*(1-circ(simuData.Xo, simuData.Yo, 200*simuData.dxo))*phaseFun\
     +circ(simuData.Xo, simuData.Yo, 130*simuData.dxo)
 obj = convolve2d(t, gaussian2D(5, 3), mode='same')  # smooth edges
-simuData.object = np.zeros((simuData.nlambda, simuData.nosm, 1, simuData.nslice, simuData.No, simuData.No), dtype='complex64')
+obj_phase = np.exp(1.j*2*np.pi/simuData.wavelength*(simuData.Xo**2+simuData.Yo**2))
+obj = obj*obj_phase
+simuData.object = np.zeros((simuData.nlambda, simuData.nosm, 1, simuData.nslice, simuData.No, simuData.No), dtype='complex128')
 simuData.object[...,:,:] = obj
 plt.figure(figsize=(5,5), num=2)
 ax = plt.axes()
-hsvplot(obj, ax=ax, pixelSize=simuData.dxo)
+hsvplot(np.squeeze(simuData.object), ax=ax, pixelSize=simuData.dxo)
 ax.set_title('complex probe')
 plt.show(block=False)
 
@@ -136,10 +127,15 @@ averageDistance = np.mean(distances)
 print('average step size:%.1f (um)' % averageDistance)
 print('number of scan points: %d' % numFrames)
 
+# set data
+simuData.entrancePupilDiameter = beamSize
+
 # generate ptychogram
 simuData.ptychogram = np.zeros((numFrames, simuData.Nd, simuData.Nd))
 
 optimizable = Optimizable(simuData)
+optimizable.probe = simuData.probe
+optimizable.object = simuData.object
 monitor = Monitor()
 reconstructor = BaseReconstructor(optimizable, simuData, monitor)
 
@@ -154,7 +150,7 @@ for loop in np.arange(simuData.numFrames):
     # note that object patch has size of probe array
     objectPatch = simuData.object[..., sy, sx].copy()
     # multiply each probe mode with object patch
-    optimizable.esw = objectPatch*optimizable.probe
+    optimizable.esw = objectPatch*simuData.probe
     # generate diffraction data
     reconstructor.object2detector()
     # save data in ptychogram
@@ -180,8 +176,6 @@ simuData.ptychogram = simuData.ptychogram/np.max(simuData.ptychogram) * maxNumCo
 # axis image off; colormap(cmap)
 # title(['left: noiseless, right: noisy (',num2str(bitDepth),' bit)'])
 
-# set data
-simuData.entrancePupilDiameter = beamSize
 
 # todo data inspection, check sampling requirements
 
@@ -197,7 +191,6 @@ if exportBool:
     hf.create_dataset('dxd', data=(simuData.dxd,), dtype='f')
     hf.create_dataset('Nd', data=(simuData.Nd,), dtype='i')
     hf.create_dataset('No', data=(simuData.No,), dtype='i')
-    hf.create_dataset('Np', data=(simuData.Np,), dtype='i')
     hf.create_dataset('zo', data=(simuData.zo,), dtype='f')
     hf.create_dataset('wavelength', data=(simuData.wavelength,), dtype='f')
     hf.create_dataset('entrancePupilDiameter', data=(simuData.entrancePupilDiameter,), dtype='f')

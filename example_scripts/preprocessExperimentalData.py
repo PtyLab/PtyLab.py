@@ -16,7 +16,7 @@ filePathForSave = r"D:\Du\Workshop\fracpy\example_data"
 # D:/fracmat/ptyLab/lenspaper4/AVT camera (GX1920)
 os.chdir(filePathForRead)
 
-fileName = 'recent'
+fileName = 'Lenspaper'
 # wavelength
 wavelength = 450e-9
 # binning
@@ -39,7 +39,7 @@ if camera == 'GX':
     N = 1456
     M = 1456
     dxd = 4.54e-6 * binningFactor / magfinication # effective detector pixel size is magnified by binning
-    backgroundOffset = 30 # globally subtracted from raw data (diffraction intensities), play with this value
+    backgroundOffset = 100 # globally subtracted from raw data (diffraction intensities), play with this value
 elif camera == 'Hamamatsu':
     N = 2**11
     M = 2**11
@@ -100,11 +100,11 @@ xo = np.arange(-No//2, No//2) * dxo
 Xo, Yo = np.meshgrid(xo, xo)
 
 # probe coordinates
-dxp = dxo
-Np = Nd
-Lp = Np * dxp
-xp = np.arange(-Np//2, Np//2) * dxp
-Xp, Yp = np.meshgrid(xp, xp)
+# dxp = dxo
+# Np = Nd
+# Lp = Np * dxp
+# xp = np.arange(-Np//2, Np//2) * dxp
+# Xp, Yp = np.meshgrid(xp, xp)
 
 # get positions
 # get file name (this assumes there is only one text file in the raw data folder)
@@ -114,20 +114,19 @@ positionFileName = glob.glob('*'+'.txt')[0]
 T = np.genfromtxt(positionFileName, delimiter=' ', skip_header=2)
 # convert to micrometer
 encoder = (T-T[0]) * 1e-6
-# encoder2 = np.vstack((encoder[:,1], encoder[:,0])).T
 # encoder = (T-T[0]) * 1e-6 / magfinication
 # convert into pixels
-position0 = np.round(encoder / dxo)
-# center within object grid
-position0 = position0 + No // 2 - Np // 2
-# take only the frames needed (if numFrames smaller than the number of positions in the file)
-position0 = position0[0:numFrames]
+# position0 = np.round(encoder / dxo)
+# # center within object grid
+# position0 = position0 + No // 2 - Np // 2
+# # take only the frames needed (if numFrames smaller than the number of positions in the file)
+# position0 = position0[0:numFrames]
 
 # show positions
 plt.figure(figsize=(5, 5))
-plt.plot(position0[:, 1], position0[:, 0], 'o-')
-plt.xlabel('pixel')
-plt.ylabel('pixel')
+plt.plot(encoder[:, 1]* 1e6, encoder[:, 0]* 1e6, 'o-')
+plt.xlabel('(um))')
+plt.ylabel('(um))')
 plt.show()
 
 # set propagator
@@ -143,8 +142,6 @@ if exportBool:
     hf.create_dataset('encoder', data=encoder, dtype='f')
     hf.create_dataset('dxd', data=(dxd,), dtype='f')
     hf.create_dataset('Nd', data=(Nd,), dtype='i')
-    hf.create_dataset('No', data=(No,), dtype='i')
-    hf.create_dataset('Np', data=(Np,), dtype='i')
     hf.create_dataset('zo', data=(zo,), dtype='f')
     hf.create_dataset('wavelength', data=(wavelength,), dtype='f')
     hf.create_dataset('entrancePupilDiameter', data=(entrancePupilDiameter,), dtype='f')

@@ -145,7 +145,7 @@ class ePIE_GPU(ePIE):
 
         # non-optimizable parameters
         self.experimentalData.ptychogram = cp.array(self.experimentalData.ptychogram, cp.float32)
-        self.experimentalData.probe = cp.array(self.experimentalData.probe, cp.complex64)
+        # self.experimentalData.probe = cp.array(self.experimentalData.probe, cp.complex64)
 
         # ePIE parameters
         self.logger.info('Detector error shape: %s', self.detectorError.shape)
@@ -159,3 +159,9 @@ class ePIE_GPU(ePIE):
         elif self.propagator =='scaledASP':
             self.optimizable.Q1 = cp.array(self.optimizable.Q1)
             self.optimizable.Q2 = cp.array(self.optimizable.Q2)
+
+        # other parameters
+        if self.backgroundModeSwitch:
+            self.background = cp.array(self.background)
+        if self.absorbingProbeBoundary:
+            self.probeWindow = cp.array(self.probeWindow)

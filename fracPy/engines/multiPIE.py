@@ -57,7 +57,7 @@ class multiPIE(BaseReconstructor):
             self.modulusEnforcedProbe()
 
         # initialize spectral weights
-        self.spectralDensity = np.sum(abs(self.optimizable.probe)**2, axis=(-1, -2))
+        self.spectralDensityWeights = np.sum(abs(self.optimizable.probe)**2, axis=(-1, -2))
 
     def _prepare_doReconstruction(self):
         """
@@ -104,7 +104,7 @@ class multiPIE(BaseReconstructor):
                 self.optimizable.probe = self.probeUpdate(objectPatch, DELTA)
 
                 # update spectral density
-                self.spectralDensity = xp.sum(abs(self.optimizable.probe)**2, axis=(-1, -2))
+                self.spectralDensityWeights= xp.sum(abs(self.optimizable.probe)**2, axis=(-1, -2))
 
                 # momentum updates
                 if len(self.optimizable.error) > 2*max(self.objectUpdateStart, self.probeUpdateStart) \

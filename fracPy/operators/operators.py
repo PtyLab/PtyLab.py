@@ -12,7 +12,7 @@ def aspw(u, z, wavelength, L):
     :param z: propagation distance
     :param wavelength: propagation wavelength in meter
     :param L: total size of the field in meter
-    :return: field distribution after propagation and the transfer function
+    :return: field distribution after propagation and the bandlimited transfer function
     """
     xp = getArrayModule(u)
     k = 2*np.pi/wavelength
@@ -27,7 +27,7 @@ def aspw(u, z, wavelength, L):
     H = xp.array(np.exp(1.j * k * z * np.sqrt(1 - (Fx*wavelength)**2 - (Fy*wavelength)**2)))
     U = fft2c(u)
     u = ifft2c(U * H * W)
-    return u, H
+    return u, H*W
 
 def scaledASP(u, z, wavelength, dx, dq):
     """

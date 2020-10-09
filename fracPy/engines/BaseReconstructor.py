@@ -80,6 +80,12 @@ class BaseReconstructor(object):
         # check miscellaneous quantities specific for certain engines
         self._checkMISC()
         self._checkFFT()
+        self._initializeQuadraticPhase()
+
+        # initial positions set (this is done different from matlab, experimentalData.positions are set as properties,
+        # can be automatically updated with changing distance zo, and experimentalData.positions0 just saves the initial positions)
+        if not hasattr(self.experimentalData, 'positions0'):
+            self.experimentalData.positions0 = self.experimentalData.positions.copy()
 
         # initialize detector error matrices
         if self.saveMemory:
@@ -115,10 +121,6 @@ class BaseReconstructor(object):
             self.probeWindow = np.exp(-((self.experimentalData.Xp**2+self.experimentalData.Yp**2)/
                                         (2*(3/4*self.experimentalData.Np*self.experimentalData.dxp/2.355)**2))**10)
 
-        # initial positions set (this is done different from matlab, experimentalData.positions are set as properties,
-        # can be automatically updated with changing distance zo, and experimentalData.positions0 just saves the initial positions)
-        if not hasattr(self.experimentalData, 'positions0'):
-            self.experimentalData.positions0 = self.experimentalData.positions.copy()
 
         # set object/probe ROI for monitoring
         if not hasattr(self.optimizable, 'objectROI'):
@@ -134,24 +136,54 @@ class BaseReconstructor(object):
                                          slice(max(0, self.experimentalData.Np // 2 - n * r),
                                                min(self.experimentalData.Np, self.experimentalData.Np//2+n*r))]
 
-        # initialize quadraticPhase term
+
         # todo multiwavelength implementation
         # todo check why fraunhofer also need quadraticPhase term
 
+    def _initializeQuadraticPhase(self):
+        """
+        # initialize quadraticPhase term or transferFunctions used in propagators
+        """
         if self.propagator == 'Fresnel':
             self.optimizable.quadraticPhase = np.exp(1.j*np.pi/(self.experimentalData.wavelength*self.experimentalData.zo)
                                                      *(self.experimentalData.Xp**2+self.experimentalData.Yp**2))
         elif self.propagator == 'ASP':
-            _, self.optimizable.transferFunction = aspw(np.squeeze(self.optimizable.probe[0, 0, 0, 0, :, :]),
-                                                       self.experimentalData.zo, self.experimentalData.wavelength,
-                                                       self.experimentalData.Lp)
+            if self.fftshiftSwitch:
+                raise ValueError('ASP propagator works only with fftshiftSwitch = False!')
+            if self.optimizable.nlambda>1:
+                raise ValueError('For multi-wavelength, polychromeASP needs to be used instead of ASP')
+
+            dummy = np.ones((1, self.optimizable.nosm, self.optimizable.npsm,
+                             1, self.experimentalData.Np, self.experimentalData.Np))
+            self.optimizable.transferFunction = np.array(
+                [[[[aspw(dummy[nlambda, nosm, npsm, nslice, :, :],
+                        self.experimentalData.zo, self.experimentalData.wavelength,
+                        self.experimentalData.Lp)[1]
+                    for nslice in range(1)]
+                   for npsm in range(self.optimizable.npsm)]
+                  for nosm in range(self.optimizable.nosm)]
+                 for nlambda in range(self.optimizable.nlambda)])
+
+
+        # elif self.propagator =='scaledASP':
+        #     _, self.optimizable.Q1, self.optimizable.Q2 = np.array([scaledASP(np.squeeze(self.optimizable.probe[i, 0, 0, 0, :, :]),
+        #                                                         self.experimentalData.zo, self.experimentalData.wavelength,
+        #                                                         self.experimentalData.dxo, self.experimentalData.dxd)
+
+        elif self.propagator == 'polychromeASP':
+            dummy = np.ones((self.optimizable.nlambda, self.optimizable.nosm, self.optimizable.npsm,
+                             1, self.experimentalData.Np, self.experimentalData.Np))
+            self.optimizable.transferFunction = np.array(
+                [[[[aspw(dummy[nlambda, nosm, npsm, nslice, :, :],
+                         self.experimentalData.zo, self.experimentalData.spectralDensity[nlambda],
+                         self.experimentalData.Lp)[1]
+                    for nslice in range(1)]
+                   for npsm in range(self.optimizable.npsm)]
+                  for nosm in range(self.optimizable.nosm)]
+                 for nlambda in range(self.optimizable.nlambda)])
             if self.fftshiftSwitch:
                 raise ValueError('ASP propagator works only with fftshiftSwitch = False!')
 
-        elif self.propagator =='scaledASP':
-            _,self.optimizable.Q1,self.optimizable.Q2 = scaledASP(np.squeeze(self.optimizable.probe[0, 0, 0, 0, :, :]),
-                                                                self.experimentalData.zo, self.experimentalData.wavelength,
-                                                                self.experimentalData.dxo,self.experimentalData.dxd)
 
     def setPositionOrder(self):
         if self.positionOrder == 'sequential':
@@ -177,7 +209,6 @@ class BaseReconstructor(object):
             self.positionIndices = np.argsort(dist)
         else:
             raise ValueError('position order not properly set')
-
 
 
     def changeExperimentalData(self, experimentalData:ExperimentalData):

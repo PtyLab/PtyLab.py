@@ -42,6 +42,7 @@ class zPIE(BaseReconstructor):
         # self.eswUpdate = self.optimizable.esw.copy()
         self.betaProbe = 0.25
         self.betaObject = 0.25
+        self.DoF = self.experimentalData.DoF.copy()
         self.zPIEgradientStepSize = 100  #gradient step size for axial position correction (typical range [1, 100])
 
 
@@ -63,6 +64,7 @@ class zPIE(BaseReconstructor):
         # actual reconstruction zPIE_engine
         if not hasattr(self, 'zHisory'):
             self.zHistory = []
+
         zMomentun = 0
 
         # preallocate grids
@@ -84,7 +86,7 @@ class zPIE(BaseReconstructor):
                 zNew = self.experimentalData.zo
             else:
                 d = 10
-                dz = np.linspace(-d * self.experimentalData.DoF, d * self.experimentalData.DoF, 11)
+                dz = np.linspace(-d * self.DoF, d * self.DoF, 11)/10
                 merit = []
                 # todo, mixed states implementation, check if more need to be put on GPU to speed up
                 for k in np.arange(len(dz)):
@@ -92,7 +94,7 @@ class zPIE(BaseReconstructor):
                     (self.experimentalData.No//2+n//2), (self.experimentalData.No//2-n//2):(self.experimentalData.No//2+n//2)]),
                                   dz[k], self.experimentalData.wavelength, n*self.experimentalData.dxo)[0]
 
-                    # TV approach todo, check if xp.roll and circshift are the same
+                    # TV approach
                     aleph = 1e-2
                     gradx = imProp-xp.roll(imProp, 1, axis=1)
                     grady = imProp-xp.roll(imProp, 1, axis=0)
@@ -106,7 +108,7 @@ class zPIE(BaseReconstructor):
             self.zHistory.append(self.experimentalData.zo)
 
             # print updated z
-            pbar.set_description('update z = %.3f mm (dz = %.0f um)' % (self.experimentalData.zo*1e3, zMomentun*1e6))
+            pbar.set_description('update z = %.3f mm (dz = %.1f um)' % (self.experimentalData.zo*1e3, zMomentun*1e6))
 
             # reset coordinates
             self.experimentalData.zo = zNew
@@ -242,3 +244,9 @@ class zPIE_GPU(zPIE):
         elif self.propagator == 'scaledASP':
             self.optimizable.Q1 = cp.array(self.optimizable.Q1)
             self.optimizable.Q2 = cp.array(self.optimizable.Q2)
+
+        # other parameters
+        if self.backgroundModeSwitch:
+            self.background = cp.array(self.background)
+        if self.absorbingProbeBoundary:
+            self.probeWindow = cp.array(self.probeWindow)

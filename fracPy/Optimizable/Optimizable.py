@@ -20,7 +20,7 @@ class Optimizable(object):
     listOfOptimizableProperties = [
         'wavelength',
         'positions',
-        'probe'
+        'zo',
     ]
     def __init__(self, data:ExperimentalData):
         self.logger = logging.getLogger('Optimizable')

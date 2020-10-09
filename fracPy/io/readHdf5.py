@@ -17,8 +17,6 @@ required_fields = [
     'Nd',               # detector pixel number
     'dxd',              # pixel size
     'zo',               # sample to detector distance
-    'Np',
-    'No'
 ]
 
 # These extensions can be loaded
@@ -37,7 +35,7 @@ def loadInputData(filename:Path):
     Load all values from an hdf5 file into a dictionary, but only with the required fields
     :param filename: the .hdf5 file that has to be loaded. If it's a .mat file it will attempt to load it
     :param python_order:
-            Wether to read in the files in a way that is common in python, aka for a list of images the first index
+            Weather to read in the files in a way that is common in python, aka for a list of images the first index
              is the image and not the pixel.
     :return:
     """
