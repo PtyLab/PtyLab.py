@@ -64,7 +64,7 @@ if ptycho_simulation:
     filePath = r"D:\Du\Workshop\fracpy\example_data" # D:\ptyLab\example_data D:\Du\Workshop\fracpy\example_data
     os.chdir(filePath)
 
-    exampleData.loadData('Lenspaper.hdf5')  # simuRecent  Lenspaper
+    exampleData.loadData('simuRecent.hdf5')  # simuRecent  Lenspaper
 
     exampleData.operationMode = 'CPM'
     # M = (1+np.sqrt(1-4*exampleData.dxo/exampleData.dxd)/2*exampleData.dxo/exampleData.dxd)
@@ -102,24 +102,24 @@ if ptycho_simulation:
     monitor.objectPlot = 'complex'  # complex abs angle
     monitor.verboseLevel = 'high'  # high: plot two figures, low: plot only one figure
 
-    exampleData.zo = 2*exampleData.zo
+    exampleData.zo = exampleData.zo
     # Run the reconstruction
     ## choose engine
     # ePIE
-    engine = ePIE.ePIE_GPU(optimizable, exampleData, monitor)
+    # engine = ePIE.ePIE_GPU(optimizable, exampleData, monitor)
     # engine = ePIE.ePIE(optimizable, exampleData, monitor)
     # mPIE
     # engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
     # engine = mPIE.mPIE(optimizable, exampleData, monitor)
     # zPIE
-    # engine = zPIE.zPIE_GPU(optimizable, exampleData, monitor)
+    engine = zPIE.zPIE_GPU(optimizable, exampleData, monitor)
     # engine = zPIE.zPIE(optimizable, exampleData, monitor)
     # e3PIE
     # engine = e3PIE.e3PIE_GPU(optimizable, exampleData, monitor)
     # engine = e3PIE.e3PIE(optimizable, exampleData, monitor)
 
     ## main parameters
-    engine.numIterations = 100
+    engine.numIterations = 500
     engine.positionOrder = 'random'  # 'sequential' or 'random'
     engine.propagator = 'Fresnel'  # Fraunhofer Fresnel ASP scaledASP
     engine.betaProbe = 0.25

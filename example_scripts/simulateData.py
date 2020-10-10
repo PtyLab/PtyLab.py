@@ -10,10 +10,6 @@ from fracPy.engines.BaseReconstructor import BaseReconstructor
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Optimizable.Optimizable import Optimizable
 from fracPy.monitors.Monitor import Monitor
-import imageio
-import tqdm
-from skimage.transform import rescale
-import glob
 import os
 import h5py
 
@@ -40,21 +36,21 @@ simuData.dxp = simuData.wavelength * simuData.zo / simuData.Ld
 simuData.zp = 1e-2  # pinhole-object distance
 
 # object coordinates
-simuData.No = 2**10
+simuData.No = 2**9
 
 # generate illumination
 # note: simulate focused beam
 # goal: 1:1 image iris through (low-NA) lens with focal length f onto an object
 f = 5e-3 # focal length of lens, creating a focused probe
 pinhole = circ(simuData.Xp, simuData.Yp, simuData.Lp/2)
-pinhole = convolve2d(pinhole, gaussian2D(5, 1), mode='same')
+pinhole = convolve2d(pinhole, gaussian2D(5, 1).astype(np.float32), mode='same')
 
 # propagate to lens
 probe = aspw(pinhole, 2*f, simuData.wavelength, simuData.Lp)[0]
 
 # multiply with quadratic phase and aperture
 aperture = circ(simuData.Xp, simuData.Yp, 3*simuData.Lp/4)
-aperture = convolve2d(aperture, gaussian2D(5, 3), mode='same')
+aperture = convolve2d(aperture, gaussian2D(5, 3).astype(np.float32), mode='same')
 probe = probe * np.exp(-1.j*2*np.pi/simuData.wavelength*(simuData.Xp**2+simuData.Yp**2)/(2*f)) * aperture
 probe = aspw(probe, 2*f, simuData.wavelength, simuData.Lp)[0]
 
@@ -72,17 +68,17 @@ plt.show(block=False)
 
 # generate object
 d = 1e-3   # the smaller this parameter the larger the spatial frequencies in the simulated object
-b = 33     # topological charge (feel free to play with this number)
+b = 23     # topological charge (feel free to play with this number)
 theta, rho = cart2pol(simuData.Xo, simuData.Yo)
 t = (1 + np.sign(np.sin(b * theta + 2*np.pi * (rho/d)**2)))/2
-# phaseFun = np.exp(1.j * np.atan2(Yo, Xo))
-phaseFun = 1
-# phaseFun = np.exp(1.j*( 1 * theta + 2*np.pi * (rho/d)**2))
-t = t*circ(simuData.Xo, simuData.Yo, simuData.Lo)*(1-circ(simuData.Xo, simuData.Yo, 200*simuData.dxo))*phaseFun\
-    +circ(simuData.Xo, simuData.Yo, 130*simuData.dxo)
+# phaseFun = np.exp(1.j * np.atan2(simuData.Yo, simuData.Xo))
+# phaseFun = 1
+phaseFun = np.exp(1.j*( 2* theta + 2*np.pi * (rho/d)**2))
+t = t*circ(simuData.Xo, simuData.Yo, simuData.Lo)*(1-circ(simuData.Xo, simuData.Yo, 20*simuData.dxo))*phaseFun\
+    +circ(simuData.Xo, simuData.Yo, 10*simuData.dxo)
 obj = convolve2d(t, gaussian2D(5, 3), mode='same')  # smooth edges
-obj_phase = np.exp(1.j*2*np.pi/simuData.wavelength*(simuData.Xo**2+simuData.Yo**2))
-obj = obj*obj_phase
+# obj_phase = np.exp(1.j*2*np.pi/simuData.wavelength*(simuData.Xo**2+simuData.Yo**2)*20)
+obj = obj*phaseFun
 simuData.object = np.zeros((simuData.nlambda, simuData.nosm, 1, simuData.nslice, simuData.No, simuData.No), dtype='complex128')
 simuData.object[...,:,:] = obj
 plt.figure(figsize=(5,5), num=2)
@@ -112,7 +108,7 @@ simuData.encoder = np.vstack((R, C)).T
 
 # prevent negative indices by centering spiral coordinates on object
 positions = np.round(simuData.encoder/simuData.dxo)
-offset = 100
+offset = 0
 positions = (positions+simuData.No//2-simuData.Np//2+offset).astype(int)
 
 # get number of positions
@@ -126,6 +122,14 @@ distances = np.sqrt(np.diff(R)**2+np.diff(C)**2)
 averageDistance = np.mean(distances)
 print('average step size:%.1f (um)' % averageDistance)
 print('number of scan points: %d' % numFrames)
+
+# show scan grid on object
+plt.figure(figsize=(5,5), num=33)
+ax1 = plt.axes()
+hsvplot(np.squeeze(simuData.object), ax=ax1,pixelSize=1,axisUnit = 'm' )
+ax1.plot(positions[:,1]+simuData.Np/2,positions[:,0]+simuData.Np/2,'.')
+ax1.set_title('complex probe')
+plt.show(block=False)
 
 # set data
 simuData.entrancePupilDiameter = beamSize
@@ -175,7 +179,6 @@ simuData.ptychogram = simuData.ptychogram/np.max(simuData.ptychogram) * maxNumCo
 # imagesc(sqrt([I, obj.ptychogram(:,:,loop)]))
 # axis image off; colormap(cmap)
 # title(['left: noiseless, right: noisy (',num2str(bitDepth),' bit)'])
-
 
 # todo data inspection, check sampling requirements
 

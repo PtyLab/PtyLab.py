@@ -57,14 +57,14 @@ dark = imageio.imread('background.tif')
 # read empty beam (if available)
 
 # binning
-ptychogram = np.zeros((numFrames, N//binningFactor*padFactor, N//binningFactor*padFactor))
+ptychogram = np.zeros((numFrames, N//binningFactor*padFactor, N//binningFactor*padFactor), dtype=np.float32)
 
 # read frames
 pbar = tqdm.trange(numFrames, leave=True)
 for k in pbar:
     # get file name
     pbar.set_description('reading frame' + framesList[k])
-    temp = imageio.imread(framesList[k]).astype('int16')-dark-backgroundOffset
+    temp = imageio.imread(framesList[k]).astype('float32')-dark-backgroundOffset
     temp[temp < 0] = 0  #todo check if data type is single
     # crop
     temp = temp[M//2-N//2:M//2+N//2-1, M//2-N//2:M//2+N//2-1]

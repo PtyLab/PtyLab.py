@@ -229,7 +229,7 @@ class zPIE_GPU(zPIE):
 
         # non-optimizable parameters
         self.experimentalData.ptychogram = cp.array(self.experimentalData.ptychogram, cp.float32)
-        self.experimentalData.probe = cp.array(self.experimentalData.probe, cp.complex64)
+        # self.experimentalData.probe = cp.array(self.experimentalData.probe, cp.complex64)
         # self.optimizable.Imeasured = cp.array(self.optimizable.Imeasured)
 
         # zPIE parameters
