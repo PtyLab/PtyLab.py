@@ -51,7 +51,6 @@ class multiPIE(BaseReconstructor):
         self.eta = 0.9  # friction
         self.t = 0
 
-
         # modulus enforced probe
         if self.modulusEnforcedProbeSwitch:
             self.modulusEnforcedProbe()

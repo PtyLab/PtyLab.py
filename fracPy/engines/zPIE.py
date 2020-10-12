@@ -43,8 +43,18 @@ class zPIE(BaseReconstructor):
         self.zPIEgradientStepSize = 100  #gradient step size for axial position correction (typical range [1, 100])
         self.zPIEfriction = 0.7
 
+    def _prepare_doReconstruction(self):
+        """
+        This function is called just before the reconstructions start.
+
+        Can be used to (for instance) transfer data to the GPU at the last moment.
+        :return:
+        """
+        pass
+
     def doReconstruction(self):
         self._initializeParams()
+        self._prepare_doReconstruction()
         xp = getArrayModule(self.optimizable.object)
 
         # actual reconstruction zPIE_engine

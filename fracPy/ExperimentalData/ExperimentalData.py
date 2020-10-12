@@ -8,16 +8,11 @@ from fracPy.io import readHdf5
 from matplotlib.widgets import Slider
 
 
-
-
 class ExperimentalData:
     """
     This is a container class for all the data associated with the ptychography reconstruction.
-
     It only holds attributes that are the same for every type of reconstruction.
-
     Things that belong to a particular type of reconstructor are stored in the .params class of that particular reconstruction.
-
     """
 
     def __init__(self, filename=None):
@@ -45,6 +40,8 @@ class ExperimentalData:
         self.dxp = None
         self.No = None
         self.positions0 = None
+        # positions0 and positions are pixel number, encoder is in meter,
+        # positions0 stores the original scan grid, positions is defined as property, automatically updated with dxo
 
         # python-only
         self._on_gpu = False # Sets wether things are on the GPU or not
@@ -74,7 +71,6 @@ class ExperimentalData:
             measurement_dict = readHdf5.loadInputData(self.filename)
             # 3. 'required_fields' will be the attributes that must be set
             attributes_to_set = measurement_dict.keys()
-            # print('Attributes_to_set:', list(attributes_to_set))
             # 4. set object attributes as the essential data fields
             # self.logger.setLevel(logging.DEBUG)
             for a in attributes_to_set:
@@ -94,16 +90,16 @@ class ExperimentalData:
         if self.No is None:
             self.No = 2**10
         if self.positions0 is None:
-            self.positions0=self.positions.copy()
+            self.positions0 = self.positions.copy()
 
-    def _checkData(self):
-        """
-        Check that at least all the data we need has been initialized.
-        :return: None
-        :raise: ValueError when one of the required fields are missing.
-        """
-        if self.ptychogram is None:
-            raise ValueError('ptychogram is not loaded correctly.')
+    # def _checkData(self):
+    #     """
+    #     Check that at least all the data we need has been initialized.
+    #     :return: None
+    #     :raise: ValueError when one of the required fields are missing.
+    #     """
+    #     if self.ptychogram is None:
+    #         raise ValueError('ptychogram is not loaded correctly.')
 
 
     def showPtychogram(self):

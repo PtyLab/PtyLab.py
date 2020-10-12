@@ -47,7 +47,6 @@ def loadInputData(filename:Path):
         raise NotImplementedError('%s is not a valid extension. Currently, only these extensions are allowed: %s.' %\
                                   (filename.suffix, ['   '.join(allowed_extensions)][0]))
 
-
     # start h5 loading, but check data fields first (defined above)
     dataset = dict()
     try:

@@ -157,8 +157,7 @@ class BaseReconstructor(object):
                                     [..., self.optimizable.probeROI[0], self.optimizable.probeROI[1]])
         self.monitor.updateDefaultMonitor(object_estimate=object_estimate, probe_estimate=probe_estimate)
 
-    # todo multiwavelength implementation
-    # todo check why fraunhofer also need quadraticPhase term
+
     def _initializeQuadraticPhase(self):
         """
         # initialize quadraticPhase term or transferFunctions used in propagators
@@ -183,12 +182,6 @@ class BaseReconstructor(object):
                   for nosm in range(self.optimizable.nosm)]
                  for nlambda in range(self.optimizable.nlambda)])
 
-
-        # elif self.propagator =='scaledASP':
-        #     _, self.optimizable.Q1, self.optimizable.Q2 = np.array([scaledASP(np.squeeze(self.optimizable.probe[i, 0, 0, 0, :, :]),
-        #                                                         self.experimentalData.zo, self.experimentalData.wavelength,
-        #                                                         self.experimentalData.dxo, self.experimentalData.dxd)
-
         elif self.propagator == 'polychromeASP':
             dummy = np.ones((self.optimizable.nlambda, self.optimizable.nosm, self.optimizable.npsm,
                              1, self.experimentalData.Np, self.experimentalData.Np))
@@ -202,6 +195,26 @@ class BaseReconstructor(object):
                  for nlambda in range(self.optimizable.nlambda)])
             if self.fftshiftSwitch:
                 raise ValueError('ASP propagator works only with fftshiftSwitch = False!')
+
+        elif self.propagator =='scaledASP':
+            if self.fftshiftSwitch:
+                raise ValueError('scaledASP propagator works only with fftshiftSwitch = False!')
+            if self.optimizable.nlambda>1:
+                raise ValueError('For multi-wavelength, polychromeScaledASP needs to be used instead of scaledASP')
+            dummy = np.ones((1, self.optimizable.nosm, self.optimizable.npsm,
+                             1, self.experimentalData.Np, self.experimentalData.Np))
+            self.optimizable.Q1 = np.ones_like(dummy)
+            self.optimizable.Q2 = np.ones_like(dummy)
+            for nosm in range(self.optimizable.nosm):
+                for npsm in range(self.optimizable.npsm):
+                    _, self.optimizable.Q1[0,nosm,npsm,0,...], self.optimizable.Q2[0,nosm,npsm,0,...] = scaledASP(
+                        dummy[0, nosm, npsm, 0, :, :], self.experimentalData.zo, self.experimentalData.wavelength,
+                        self.experimentalData.dxo, self.experimentalData.dxd)
+
+        elif self.propagator=='scaledPolychromeASP':
+            # todo scaledPolychromeASP
+            raise NotImplementedError
+
 
     def _checkMISC(self):
         """
@@ -293,12 +306,10 @@ class BaseReconstructor(object):
         else:
             raise ValueError('position order not properly set')
 
-
     def changeExperimentalData(self, experimentalData:ExperimentalData):
         self.experimentalData = experimentalData
 
     def changeOptimizable(self, optimizable: Optimizable):
-
         self.optimizable = optimizable
 
     def convert2single(self):
@@ -334,7 +345,7 @@ class BaseReconstructor(object):
             self.optimizable.eswUpdate = ifft2c(fft2c(self.optimizable.ESW) * self.optimizable.transferFunction.conj())
         elif self.propagator == 'scaledASP':
             self.optimizable.eswUpdate = ifft2c(fft2c(self.optimizable.ESW) * self.optimizable.Q2.conj()
-                                           * self.propagator.Q1.conj())
+                                           * self.optimizable.Q1.conj())
         else:
             raise Exception('Propagator is not properly set, choose from Fraunhofer, Fresnel, ASP and scaledASP')
 
@@ -539,14 +550,6 @@ class BaseReconstructor(object):
             raise Exception('Propagator is not properly set, choose from Fraunhofer, Fresnel, ASP and scaledASP')
 
 
-    # def initializeObject(self):
-    #     """
-    #     Initialize the object.
-    #     :return:
-    #     """
-    #     self.optimizable.initialize_object()
-
-
     def showReconstruction(self, loop):
         """
         Show the reconstruction process.
@@ -556,25 +559,25 @@ class BaseReconstructor(object):
         if np.mod(loop, self.monitor.figureUpdateFrequency) == 0:
 
             if self.experimentalData.operationMode == 'FPM':
-                object_estimate = np.squeeze(fft2c(self.optimizable.object)
-                                             [..., self.optimizable.objectROI[0], self.optimizable.objectROI[1]])
-                probe_estimate = np.squeeze(self.optimizable.probe
-                                            [..., self.optimizable.probeROI[0], self.optimizable.probeROI[1]])
+                object_estimate = np.squeeze(asNumpyArray(
+                    fft2c(self.optimizable.object)[..., self.optimizable.objectROI[0], self.optimizable.objectROI[1]]))
+                probe_estimate = np.squeeze(asNumpyArray(
+                    self.optimizable.probe[..., self.optimizable.probeROI[0], self.optimizable.probeROI[1]]))
             else:
-                object_estimate = np.squeeze(self.optimizable.object
-                                             [..., self.optimizable.objectROI[0], self.optimizable.objectROI[1]])
-                probe_estimate = np.squeeze(self.optimizable.probe
-                                            [..., self.optimizable.probeROI[0], self.optimizable.probeROI[1]])
+                object_estimate = np.squeeze(asNumpyArray(
+                    self.optimizable.object[..., self.optimizable.objectROI[0], self.optimizable.objectROI[1]]))
+                probe_estimate = np.squeeze(asNumpyArray(
+                    self.optimizable.probe[..., self.optimizable.probeROI[0], self.optimizable.probeROI[1]]))
 
             self.monitor.updateDefaultMonitor(object_estimate=object_estimate, probe_estimate=probe_estimate)
 
             if self.monitor.verboseLevel =='high':
                 if self.fftshiftSwitch:
-                    Iestimated = np.fft.fftshift(self.optimizable.Iestimated)
-                    Imeasured = np.fft.fftshift(self.optimizable.Imeasured)
+                    Iestimated = np.fft.fftshift(asNumpyArray(self.optimizable.Iestimated))
+                    Imeasured = np.fft.fftshift(asNumpyArray(self.optimizable.Imeasured))
                 else:
-                    Iestimated = self.optimizable.Iestimated
-                    Imeasured = self.optimizable.Imeasured
+                    Iestimated = asNumpyArray(self.optimizable.Iestimated)
+                    Imeasured = asNumpyArray(self.optimizable.Imeasured)
 
                 self.monitor.updateDiffractionDataMonitor(Iestimated=Iestimated, Imeasured=Imeasured)
 
@@ -616,7 +619,7 @@ class BaseReconstructor(object):
                 aleph = 5e-2
             else:
                 aleph = 100e-2
-            self.optimizable.probe = (1 - aleph) * self.optimizable.probe + aleph * self.optimizable.probe * self.probeWindow
+            self.optimizable.probe = (1 - aleph)*self.optimizable.probe+aleph*self.optimizable.probe*self.probeWindow
 
         if self.probeSmoothenessSwitch:
             raise NotImplementedError()
@@ -672,7 +675,6 @@ class BaseReconstructor(object):
                 self.optimizable.objectBuffer = self.optimizable.object.copy()
             except:
                 pass
-
         else:
             pass
 

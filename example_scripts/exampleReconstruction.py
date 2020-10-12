@@ -106,10 +106,10 @@ if ptycho_simulation:
     # Run the reconstruction
     ## choose engine
     # ePIE
-    engine = ePIE.ePIE_GPU(optimizable, exampleData, monitor)
+    # engine = ePIE.ePIE_GPU(optimizable, exampleData, monitor)
     # engine = ePIE.ePIE(optimizable, exampleData, monitor)
     # mPIE
-    # engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
+    engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
     # engine = mPIE.mPIE(optimizable, exampleData, monitor)
     # zPIE
     # engine = zPIE.zPIE_GPU(optimizable, exampleData, monitor)
@@ -120,9 +120,9 @@ if ptycho_simulation:
     # engine = e3PIE.e3PIE(optimizable, exampleData, monitor)
 
     ## main parameters
-    engine.numIterations = 1000
+    engine.numIterations = 100
     engine.positionOrder = 'random'  # 'sequential' or 'random'
-    engine.propagator = 'Fraunhofer'  # Fraunhofer Fresnel ASP scaledASP
+    engine.propagator = 'Fresnel'  # Fraunhofer Fresnel ASP scaledASP
     engine.betaProbe = 0.25
     engine.betaObject = 0.25
 
@@ -144,9 +144,6 @@ if ptycho_simulation:
 
     engine.doReconstruction()
 
-    # engine = zPIE.zPIE(optimizable, exampleData, monitor)
-    # engine.numIterations = 200
-    # engine.zPIEgradientStepSize = 10000
-    # engine.doReconstruction()
+
     # now save the data
     # optimizable.saveResults('reconstruction.hdf5')

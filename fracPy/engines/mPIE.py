@@ -67,9 +67,7 @@ class mPIE(BaseReconstructor):
         for loop in tqdm.tqdm(range(self.numIterations)):
             # set position order
             self.setPositionOrder()
-            # # probe power correction todo check if this is by default done in _initializeParams
-            # if self.probePowerCorrectionSwitch:
-            #     self.probePowerCorrection()
+
             for positionLoop, positionIndex in enumerate(self.positionIndices):
                 # get object patch
                 row, col = self.optimizable.positions[positionIndex]
@@ -179,7 +177,7 @@ class mPIE_GPU(mPIE):
         self.logger.info('Hello from mPIE_GPU')
 
     def _prepare_doReconstruction(self):
-        self.logger.info('Ready to start transfering stuff to the GPU')
+        self.logger.info('Ready to start transferring stuff to the GPU')
         self._move_data_to_gpu()
 
     def _move_data_to_gpu(self):

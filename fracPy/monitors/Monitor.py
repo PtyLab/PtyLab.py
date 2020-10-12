@@ -1,6 +1,4 @@
 from .default_visualisation import DefaultMonitor, DiffractionDataMonitor
-import numpy as np
-
 
 
 class Monitor(object):
@@ -47,6 +45,7 @@ class Monitor(object):
 
     def getOverlap(self, ind1,ind2,probePixelsize):
         """
+        todo
         Get area overlap between position ind1 and ind2
         ( note: the area overlap is only calculated for main mode of probe)
         :return:

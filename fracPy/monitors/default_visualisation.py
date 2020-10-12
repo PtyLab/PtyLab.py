@@ -2,10 +2,9 @@ import matplotlib as mpl
 # mpl.use('TkAgg')
 from matplotlib import pyplot as plt
 import numpy as np
-
 from fracPy.utils import gpuUtils
 from fracPy.utils.visualisation import modeTile, complex_plot, complex_to_rgb
-
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 class DefaultMonitor(object):
 
@@ -22,6 +21,7 @@ class DefaultMonitor(object):
         self.figNum = figNum
         self._createFigure()
 
+
     def _createFigure(self) -> None:
         """
         Create the figure.
@@ -29,7 +29,7 @@ class DefaultMonitor(object):
         """
 
         # add an axis for the object
-        self.figure, axes= plt.subplots(1, 3, num=self.figNum, squeeze=False, clear=True, figsize=(9,3))
+        self.figure, axes = plt.subplots(1, 3, num=self.figNum, squeeze=False, clear=True, figsize=(10, 3))
         self.ax_object = axes[0][0]
         self.ax_probe = axes[0][1]
         self.ax_error_metric = axes[0][2]
@@ -59,14 +59,16 @@ class DefaultMonitor(object):
                 self.im_object = complex_plot(OE, ax=self.ax_object, **kwargs)
             else:
                 self.im_object = self.ax_object.imshow(OE, cmap='gray', interpolation=None)
-
+                divider = make_axes_locatable(self.ax_object)
+                cax = divider.append_axes("right", size="5%", pad=0.1)
+                self.objectCbar = plt.colorbar(self.im_object, ax=self.ax_object, cax=cax)
         else:
             self.im_object.set_data(OE)
         self.im_object.autoscale()
 
     def updateProbe(self, probe_estimate, optimizable, **kwargs):
 
-        PE = complex_to_rgb(modeTile(probe_estimate,normalize=True))
+        PE = complex_to_rgb(modeTile(probe_estimate, normalize=True))
 
         if self.firstrun:
             self.im_probe = complex_plot(PE, ax=self.ax_probe, **kwargs)
@@ -87,7 +89,7 @@ class DefaultMonitor(object):
                                                                mfc='none')[0]
         else:
             self.error_metric_plot.set_data(range(len(error_estimate)), error_estimate)
-            self.ax_error_metric.set_ylim(0, np.max(error_estimate))
+            self.ax_error_metric.set_ylim(np.min(error_estimate), np.max(error_estimate))
             self.ax_error_metric.set_xlim(0, len(error_estimate))
         self.ax_error_metric.set_aspect(1/self.ax_error_metric.get_data_ratio())
 
@@ -131,7 +133,7 @@ class DiffractionDataMonitor(object):
         """
 
         # add an axis for the object
-        self.figure, axes= plt.subplots(1, 2, num=self.figNum, squeeze=False, clear=True, figsize=(9,3))
+        self.figure, axes= plt.subplots(1, 2, num=self.figNum, squeeze=False, clear=True, figsize=(8, 3))
         self.ax_Iestimated = axes[0][0]
         self.ax_Imeasured = axes[0][1]
         self.ax_Iestimated.set_title('Estimated intensity')
@@ -146,16 +148,27 @@ class DiffractionDataMonitor(object):
             Iestimate = Iestimate.get()
 
         if self.firstrun:
-            self.im_Iestimated = self.ax_Iestimated.imshow(np.log10(np.squeeze(Iestimate+1)), cmap=cmap, interpolation=None)
+            self.im_Iestimated = self.ax_Iestimated.imshow(np.log10(np.squeeze(Iestimate+1)),
+                                                           cmap=cmap, interpolation=None)
+            divider = make_axes_locatable(self.ax_Iestimated)
+            cax = divider.append_axes("right", size="5%", pad=0.1)
+            self.IestimatedCbar = plt.colorbar(self.im_Iestimated, ax=self.ax_Iestimated, cax=cax)
+
         else:
             self.im_Iestimated.set_data(np.log10(np.squeeze(Iestimate+1)))
+        self.im_Iestimated.autoscale()
 
     def updateImeasured(self, Imeasured, cmap='gray', **kwargs):
         Imeasured = gpuUtils.asNumpyArray(Imeasured)
         if self.firstrun:
-            self.im_Imeasured = self.ax_Imeasured.imshow(np.log10(np.squeeze(Imeasured + 1)), cmap=cmap, interpolation=None)
+            self.im_Imeasured = self.ax_Imeasured.imshow(np.log10(np.squeeze(Imeasured + 1)),
+                                                         cmap=cmap, interpolation=None)
+            divider = make_axes_locatable(self.ax_Imeasured)
+            cax = divider.append_axes("right", size="5%", pad=0.1)
+            self.ImeasuredCbar = plt.colorbar(self.im_Imeasured, ax=self.ax_Imeasured, cax=cax)
         else:
             self.im_Imeasured.set_data(np.log10(np.squeeze(Imeasured + 1)))
+        self.im_Imeasured.autoscale()
 
     def drawNow(self):
         """
