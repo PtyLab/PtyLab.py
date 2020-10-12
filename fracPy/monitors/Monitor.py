@@ -24,20 +24,26 @@ class Monitor(object):
             self.diffractionDataMonitor = DiffractionDataMonitor()
 
 
-    def updatePlot(self, object_estimate, probe_estimate, Iestimated = None, Imeasured = None):
+    def updateDefaultMonitor(self, object_estimate, probe_estimate):
         """
-        update initialized plots
+        update the probe object plots
         :param object_estimate:
         :return:
         """
         self.defaultMonitor.updateError(self.optimizable.error)
-        self.defaultMonitor.updateObject(object_estimate, objectPlot=self.objectPlot, pixelSize=self.optimizable.data.dxo)
-        self.defaultMonitor.updateProbe(probe_estimate, self.optimizable, pixelSize=self.optimizable.data.dxp)
+        self.defaultMonitor.updateObject(object_estimate, objectPlot=self.objectPlot,
+                                         pixelSize=self.optimizable.data.dxo, axisUnit='mm')
+        self.defaultMonitor.updateProbe(probe_estimate, self.optimizable,
+                                        pixelSize=self.optimizable.data.dxp, axisUnit='um')
         self.defaultMonitor.drawNow()
-        if self.verboseLevel == 'high':
-            self.diffractionDataMonitor.updateIestimated(Iestimated)
-            self.diffractionDataMonitor.updateImeasured(Imeasured)
-            self.diffractionDataMonitor.drawNow()
+
+    def updateDiffractionDataMonitor(self, Iestimated, Imeasured):
+        """
+        update the diffraction plots
+        """
+        self.diffractionDataMonitor.updateIestimated(Iestimated)
+        self.diffractionDataMonitor.updateImeasured(Imeasured)
+        self.diffractionDataMonitor.drawNow()
 
     def getOverlap(self, ind1,ind2,probePixelsize):
         """

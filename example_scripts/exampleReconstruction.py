@@ -86,35 +86,35 @@ if ptycho_simulation:
 
 
     optimizable.initialProbe = 'circ'
-    exampleData.entrancePupilDiameter = exampleData.Np / 3 * exampleData.dxp # initial estimate of beam
+    exampleData.entrancePupilDiameter = exampleData.Np / 3 * exampleData.dxp  # initial estimate of beam
     optimizable.initialObject = 'ones'
     # initialize probe and object and related params
     optimizable.prepare_reconstruction()
     # customize initial probe quadratic phase
-    optimizable.probe = optimizable.probe*np.exp(1.j*2*np.pi/exampleData.wavelength *
-                                                 (exampleData.Xp**2+exampleData.Yp**2)/(2*6e-3))
+    # optimizable.probe = optimizable.probe*np.exp(1.j*2*np.pi/exampleData.wavelength *
+    #                                              (exampleData.Xp**2+exampleData.Yp**2)/(2*6e-3))
     # hsvplot(np.squeeze(optimizable.probe))
 
     # this will copy any attributes from experimental data that we might care to optimize
     # # Set monitor properties
     monitor = Monitor()
-    monitor.figureUpdateFrequency = 1
+    monitor.figureUpdateFrequency = 10
     monitor.objectPlot = 'complex'  # complex abs angle
     monitor.verboseLevel = 'high'  # high: plot two figures, low: plot only one figure
 
-    exampleData.zo = 0.8*exampleData.zo
+    exampleData.zo = exampleData.zo
     # Run the reconstruction
     ## choose engine
     # ePIE
-    # engine = ePIE.ePIE_GPU(optimizable, exampleData, monitor)
+    engine = ePIE.ePIE_GPU(optimizable, exampleData, monitor)
     # engine = ePIE.ePIE(optimizable, exampleData, monitor)
     # mPIE
     # engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
     # engine = mPIE.mPIE(optimizable, exampleData, monitor)
     # zPIE
-    engine = zPIE.zPIE_GPU(optimizable, exampleData, monitor)
+    # engine = zPIE.zPIE_GPU(optimizable, exampleData, monitor)
     # engine = zPIE.zPIE(optimizable, exampleData, monitor)
-    engine.zPIEgradientStepSize = 200
+    # engine.zPIEgradientStepSize = 200
     # e3PIE
     # engine = e3PIE.e3PIE_GPU(optimizable, exampleData, monitor)
     # engine = e3PIE.e3PIE(optimizable, exampleData, monitor)
@@ -130,10 +130,10 @@ if ptycho_simulation:
     engine.zPIEgradientStepSize = 100  # gradient step size for axial position correction (typical range [1, 100])
 
     ## switches
-    engine.probePowerCorrectionSwitch = False
+    engine.probePowerCorrectionSwitch = True
     engine.modulusEnforcedProbeSwitch = False
-    engine.comStabilizationSwitch = False
-    engine.orthogonalizationSwitch = False
+    engine.comStabilizationSwitch = True
+    engine.orthogonalizationSwitch = True
     engine.orthogonalizationFrequency = 10
     engine.fftshiftSwitch = False
     engine.intensityConstraint = 'standard'  # standard fluctuation exponential poission

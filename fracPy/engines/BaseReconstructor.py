@@ -81,32 +81,42 @@ class BaseReconstructor(object):
         self._checkMISC()
         self._checkFFT()
         self._initializeQuadraticPhase()
+        self._initializeProbeEnergy()
+        self._initializeProbePower()
+        self._probeWindow()
+        self._initializeErrors()
+        self._setObjectProbeROI()
+        self._showInitialGuesses()
 
-        # initial positions set (this is done different from matlab, experimentalData.positions are set as properties,
-        # can be automatically updated with changing distance zo, and experimentalData.positions0 just saves the initial positions)
-        if not hasattr(self.experimentalData, 'positions0'):
-            self.experimentalData.positions0 = self.experimentalData.positions.copy()
-
+    def _initializeErrors(self):
+        """
+        initialize all kinds of errors:
+        detectorError is a matrix calculated at each iteration (numFrames,Nd,Nd);
+        errorAtPos sums over detectorError at each iteration, (numFrames,1);
+        optimizable.error sums over errorAtPos, one number at each iteration;
+        """
         # initialize detector error matrices
         if self.saveMemory:
             self.detectorError = 0
         else:
             self.detectorError = np.zeros((self.experimentalData.numFrames,
                                            self.experimentalData.Nd, self.experimentalData.Nd))
-        # initialize error
+        # initialize energy at each scan position
+        if not hasattr(self, 'errorAtPos'):
+            self.errorAtPos = np.zeros((self.experimentalData.numFrames, 1), dtype=np.float32)
+        # initialize final error
         if not hasattr(self.optimizable, 'error'):
             self.optimizable.error = []
 
         # todo what is ptychogramDownsampled
-        # initialize energy at each scan position
-        if not hasattr(self, 'errorAtPos'):
-            self.errorAtPos = np.zeros((self.experimentalData.numFrames, 1), dtype=np.float32)
 
+    def _initializeProbeEnergy(self):
         if len(self.experimentalData.ptychogram) != 0:
             self.energyAtPos = np.sum(abs(self.experimentalData.ptychogram), (-1, -2))
         else:
             self.energyAtPos = np.sum(abs(self.experimentalData.ptychogramDownsampled), (-1, -2))
 
+    def _initializeProbePower(self):
         # probe power correction
         if len(self.experimentalData.ptychogram) != 0:
             self.probePowerCorrection = np.sqrt(np.max(np.sum(self.experimentalData.ptychogram, (-1, -2))))
@@ -116,13 +126,16 @@ class BaseReconstructor(object):
         self.optimizable.probe = self.optimizable.probe/np.sqrt(
             np.sum(self.optimizable.probe*self.optimizable.probe.conj()))*self.probePowerCorrection
 
+    def _probeWindow(self):
         # absorbing probe boundary: filter probe with super-gaussian window function
         if not self.saveMemory or self.absorbingProbeBoundary:
             self.probeWindow = np.exp(-((self.experimentalData.Xp**2+self.experimentalData.Yp**2)/
                                         (2*(3/4*self.experimentalData.Np*self.experimentalData.dxp/2.355)**2))**10)
 
-
-        # set object/probe ROI for monitoring
+    def _setObjectProbeROI(self):
+        """
+        Set object/probe ROI for monitoring
+        """
         if not hasattr(self.optimizable, 'objectROI'):
             self.optimizable.objectROI = [slice(min(self.experimentalData.positions[:, 1]),
                                                 max(self.experimentalData.positions[:, 1]+self.experimentalData.Np)),
@@ -136,10 +149,16 @@ class BaseReconstructor(object):
                                          slice(max(0, self.experimentalData.Np // 2 - n * r),
                                                min(self.experimentalData.Np, self.experimentalData.Np//2+n*r))]
 
+    def _showInitialGuesses(self):
+        self.monitor.initializeVisualisation()
+        object_estimate = np.squeeze(self.optimizable.object
+                                     [..., self.optimizable.objectROI[0], self.optimizable.objectROI[1]])
+        probe_estimate = np.squeeze(self.optimizable.probe
+                                    [..., self.optimizable.probeROI[0], self.optimizable.probeROI[1]])
+        self.monitor.updateDefaultMonitor(object_estimate=object_estimate, probe_estimate=probe_estimate)
 
-        # todo multiwavelength implementation
-        # todo check why fraunhofer also need quadraticPhase term
-
+    # todo multiwavelength implementation
+    # todo check why fraunhofer also need quadraticPhase term
     def _initializeQuadraticPhase(self):
         """
         # initialize quadraticPhase term or transferFunctions used in propagators
@@ -183,40 +202,6 @@ class BaseReconstructor(object):
                  for nlambda in range(self.optimizable.nlambda)])
             if self.fftshiftSwitch:
                 raise ValueError('ASP propagator works only with fftshiftSwitch = False!')
-
-
-    def setPositionOrder(self):
-        if self.positionOrder == 'sequential':
-            self.positionIndices = np.arange(self.experimentalData.numFrames)
-
-        elif self.positionOrder == 'random':
-            if len(self.optimizable.error) == 0:
-                self.positionIndices = np.arange(self.experimentalData.numFrames)
-            else:
-                if len(self.optimizable.error) < 2:
-                    self.positionIndices = np.arange(self.experimentalData.numFrames)
-                else:
-                    self.positionIndices = np.arange(self.experimentalData.numFrames)
-                    np.random.shuffle(self.positionIndices)
-        
-        # order by illumiantion angles. Use smallest angles first
-        # (i.e. start with brightfield data first, then add the low SNR
-        # darkfield)
-        elif self.positionOrder == 'NA':
-            rows = self.experimentalData.positions[:, 0] - np.mean(self.experimentalData.positions[:, 0])
-            cols = self.experimentalData.positions[:, 1] - np.mean(self.experimentalData.positions[:, 1])
-            dist = np.sqrt(rows**2 + cols**2)
-            self.positionIndices = np.argsort(dist)
-        else:
-            raise ValueError('position order not properly set')
-
-
-    def changeExperimentalData(self, experimentalData:ExperimentalData):
-        self.experimentalData = experimentalData
-
-    def changeOptimizable(self, optimizable: Optimizable):
-
-        self.optimizable = optimizable
 
     def _checkMISC(self):
         """
@@ -283,7 +268,38 @@ class BaseReconstructor(object):
                         self.experimentalData.empyBeam, axes=(-1, -2))
                 self.fftshiftFlag = 0
 
+    def setPositionOrder(self):
+        if self.positionOrder == 'sequential':
+            self.positionIndices = np.arange(self.experimentalData.numFrames)
 
+        elif self.positionOrder == 'random':
+            if len(self.optimizable.error) == 0:
+                self.positionIndices = np.arange(self.experimentalData.numFrames)
+            else:
+                if len(self.optimizable.error) < 2:
+                    self.positionIndices = np.arange(self.experimentalData.numFrames)
+                else:
+                    self.positionIndices = np.arange(self.experimentalData.numFrames)
+                    np.random.shuffle(self.positionIndices)
+        
+        # order by illumiantion angles. Use smallest angles first
+        # (i.e. start with brightfield data first, then add the low SNR
+        # darkfield)
+        elif self.positionOrder == 'NA':
+            rows = self.experimentalData.positions[:, 0] - np.mean(self.experimentalData.positions[:, 0])
+            cols = self.experimentalData.positions[:, 1] - np.mean(self.experimentalData.positions[:, 1])
+            dist = np.sqrt(rows**2 + cols**2)
+            self.positionIndices = np.argsort(dist)
+        else:
+            raise ValueError('position order not properly set')
+
+
+    def changeExperimentalData(self, experimentalData:ExperimentalData):
+        self.experimentalData = experimentalData
+
+    def changeOptimizable(self, optimizable: Optimizable):
+
+        self.optimizable = optimizable
 
     def convert2single(self):
         """
@@ -523,12 +539,12 @@ class BaseReconstructor(object):
             raise Exception('Propagator is not properly set, choose from Fraunhofer, Fresnel, ASP and scaledASP')
 
 
-    def initializeObject(self):
-        """
-        Initialize the object.
-        :return:
-        """
-        self.optimizable.initialize_object()
+    # def initializeObject(self):
+    #     """
+    #     Initialize the object.
+    #     :return:
+    #     """
+    #     self.optimizable.initialize_object()
 
 
     def showReconstruction(self, loop):
@@ -537,10 +553,7 @@ class BaseReconstructor(object):
         :param loop: the iteration number
         :return:
         """
-        if loop == 0:
-            self.monitor.initializeVisualisation()
-
-        elif np.mod(loop, self.monitor.figureUpdateFrequency) == 0:
+        if np.mod(loop, self.monitor.figureUpdateFrequency) == 0:
 
             if self.experimentalData.operationMode == 'FPM':
                 object_estimate = np.squeeze(fft2c(self.optimizable.object)
@@ -552,17 +565,18 @@ class BaseReconstructor(object):
                                              [..., self.optimizable.objectROI[0], self.optimizable.objectROI[1]])
                 probe_estimate = np.squeeze(self.optimizable.probe
                                             [..., self.optimizable.probeROI[0], self.optimizable.probeROI[1]])
-                if self.monitor.verboseLevel=='high':
-                    if self.fftshiftSwitch:
-                        Iestimated = np.fft.fftshift(self.optimizable.Iestimated)
-                        Imeasured = np.fft.fftshift(self.optimizable.Imeasured)
-                    else:
-                        Iestimated = self.optimizable.Iestimated
-                        Imeasured = self.optimizable.Imeasured
-                    self.monitor.updatePlot(object_estimate=object_estimate, probe_estimate=probe_estimate,
-                                    Iestimated=Iestimated, Imeasured=Imeasured)
+
+            self.monitor.updateDefaultMonitor(object_estimate=object_estimate, probe_estimate=probe_estimate)
+
+            if self.monitor.verboseLevel =='high':
+                if self.fftshiftSwitch:
+                    Iestimated = np.fft.fftshift(self.optimizable.Iestimated)
+                    Imeasured = np.fft.fftshift(self.optimizable.Imeasured)
                 else:
-                    self.monitor.updatePlot(object_estimate=object_estimate, probe_estimate=probe_estimate)
+                    Iestimated = self.optimizable.Iestimated
+                    Imeasured = self.optimizable.Imeasured
+
+                self.monitor.updateDiffractionDataMonitor(Iestimated=Iestimated, Imeasured=Imeasured)
 
             # print('iteration:%i' %len(self.optimizable.error))
             # print('runtime:')

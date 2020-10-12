@@ -45,7 +45,7 @@ class DefaultMonitor(object):
         self.firstrun = True
 
 
-    def updateObject(self, object_estimate, objectPlot, pixelSize= 1, **kwargs):
+    def updateObject(self, object_estimate, objectPlot, **kwargs):
         OE = modeTile(object_estimate, normalize=True)
         if objectPlot == 'complex':
             OE = complex_to_rgb(OE)
@@ -56,7 +56,7 @@ class DefaultMonitor(object):
 
         if self.firstrun:
             if objectPlot == 'complex':
-                self.im_object = complex_plot(OE, ax=self.ax_object, pixelSize=pixelSize)
+                self.im_object = complex_plot(OE, ax=self.ax_object, **kwargs)
             else:
                 self.im_object = self.ax_object.imshow(OE, cmap='gray', interpolation=None)
 
@@ -64,12 +64,12 @@ class DefaultMonitor(object):
             self.im_object.set_data(OE)
         self.im_object.autoscale()
 
-    def updateProbe(self, probe_estimate, optimizable, pixelSize= 1,probeROI = None):
+    def updateProbe(self, probe_estimate, optimizable, **kwargs):
 
         PE = complex_to_rgb(modeTile(probe_estimate,normalize=True))
 
         if self.firstrun:
-            self.im_probe = complex_plot(PE, ax=self.ax_probe, pixelSize= pixelSize)
+            self.im_probe = complex_plot(PE, ax=self.ax_probe, **kwargs)
         else:
             self.im_probe.set_data(PE)
             if optimizable.npsm > 1:

@@ -44,6 +44,7 @@ class ExperimentalData:
         self.magnificaiton = None
         self.dxp = None
         self.No = None
+        self.positions0 = None
 
         # python-only
         self._on_gpu = False # Sets wether things are on the GPU or not
@@ -92,6 +93,8 @@ class ExperimentalData:
             self.dxp = self.wavelength * self.zo / self.Ld
         if self.No is None:
             self.No = 2**10
+        if self.positions0 is None:
+            self.positions0=self.positions.copy()
 
     def _checkData(self):
         """
