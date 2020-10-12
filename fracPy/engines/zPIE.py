@@ -1,6 +1,7 @@
 import numpy as np
 from matplotlib import pyplot as plt
 import tqdm
+from fracPy.utils.visualisation import hsvplot
 
 try:
     import cupy as cp
@@ -28,37 +29,21 @@ class zPIE(BaseReconstructor):
         super().__init__(optimizable, experimentalData, monitor)
         self.logger = logging.getLogger('zPIE')
         self.logger.info('Sucesfully created zPIE zPIE_engine')
-
         self.logger.info('Wavelength attribute: %s', self.optimizable.wavelength)
-
         self.initializeReconstructionParams()
-
 
     def initializeReconstructionParams(self):
         """
         Set parameters that are specific to the ePIE settings.
         :return:
         """
-        # self.eswUpdate = self.optimizable.esw.copy()
         self.betaProbe = 0.25
         self.betaObject = 0.25
         self.DoF = self.experimentalData.DoF.copy()
-        self.zPIEgradientStepSize = 100  #gradient step size for axial position correction (typical range [1, 100])
-
-
-    def _prepare_doReconstruction(self):
-        """
-        This function is called just before the reconstructions start.
-
-        Can be used to (for instance) transfer data to the GPU at the last moment.
-        :return:
-        """
-        pass
+        self.zPIEgradientStepSize = 10000  #gradient step size for axial position correction (typical range [1, 100])
 
     def doReconstruction(self):
         self._initializeParams()
-        self._prepare_doReconstruction()
-
         xp = getArrayModule(self.optimizable.object)
 
         # actual reconstruction zPIE_engine
@@ -66,10 +51,9 @@ class zPIE(BaseReconstructor):
             self.zHistory = []
 
         zMomentun = 0
-
         # preallocate grids
         if self.propagator == 'ASP':
-            n = self.experimentalData.Np
+            n = self.experimentalData.Np.copy()
         else:
             n = 2*self.experimentalData.Np
 
@@ -83,16 +67,19 @@ class zPIE(BaseReconstructor):
 
             # get positions
             if loop == 1:
-                zNew = self.experimentalData.zo
+                zNew = self.experimentalData.zo.copy()
             else:
                 d = 10
                 dz = np.linspace(-d * self.DoF, d * self.DoF, 11)/10
                 merit = []
                 # todo, mixed states implementation, check if more need to be put on GPU to speed up
                 for k in np.arange(len(dz)):
-                    imProp = aspw(xp.squeeze(w*self.optimizable.object[..., (self.experimentalData.No//2-n//2):
-                    (self.experimentalData.No//2+n//2), (self.experimentalData.No//2-n//2):(self.experimentalData.No//2+n//2)]),
-                                  dz[k], self.experimentalData.wavelength, n*self.experimentalData.dxo)[0]
+                    imProp, _ = aspw(
+                        w * xp.squeeze(self.optimizable.object[..., (self.experimentalData.No // 2 - n // 2):
+                                                                    (self.experimentalData.No // 2 + n // 2),
+                                       (self.experimentalData.No // 2 - n // 2):(
+                                                   self.experimentalData.No // 2 + n // 2)]),
+                        dz[k], self.experimentalData.wavelength, n * self.experimentalData.dxo)
 
                     # TV approach
                     aleph = 1e-2
@@ -113,16 +100,18 @@ class zPIE(BaseReconstructor):
             # reset coordinates
             self.experimentalData.zo = zNew
 
-            # resample is automatically done by using @property
+            # re-sample is automatically done by using @property
             if self.propagator != 'ASP':
+                self.experimentalData.dxp = self.experimentalData.wavelength*self.experimentalData.zo\
+                                            /self.experimentalData.Ld
                 # reset propagator
-                self.optimizable.quadraticPhase = cp.array(np.exp(1.j * np.pi/(self.experimentalData.wavelength * self.experimentalData.zo)
+                self.optimizable.quadraticPhase = xp.array(xp.exp(1.j * xp.pi/(self.experimentalData.wavelength * self.experimentalData.zo)
                                                                   * (self.experimentalData.Xp**2 + self.experimentalData.Yp**2)))
 
             for positionLoop, positionIndex in enumerate(self.positionIndices):
                 ### patch1 ###
                 # get object patch
-                row, col = self.optimizable.positions[positionIndex]
+                row, col = self.experimentalData.positions[positionIndex]
                 sy = slice(row, row + self.experimentalData.Np)
                 sx = slice(col, col + self.experimentalData.Np)
                 # note that object patch has size of probe array
@@ -171,7 +160,6 @@ class zPIE(BaseReconstructor):
 
                 figure.canvas.draw()
                 figure.canvas.flush_events()
-
             self.showReconstruction(loop)
 
     def objectPatchUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
@@ -199,8 +187,6 @@ class zPIE(BaseReconstructor):
         frac = objectPatch.conj() / xp.max(xp.sum(xp.abs(objectPatch) ** 2, axis=(0, 1, 2, 3)))
         r = self.optimizable.probe + self.betaObject * xp.sum(frac * DELTA, axis=(0, 1, 3), keepdims=True)
         return r
-
-
 
 class zPIE_GPU(zPIE):
     """

@@ -61,10 +61,10 @@ if ptycho_simulation:
     exampleData = ExperimentalData()
 
     import os
-    filePath = r"D:\Du\Workshop\fracpy\example_data" # D:\ptyLab\example_data D:\Du\Workshop\fracpy\example_data
+    filePath = r"D:\ptyLab\example_data" # D:\ptyLab\example_data D:\Du\Workshop\fracpy\example_data
     os.chdir(filePath)
 
-    exampleData.loadData('simuRecent.hdf5')  # simuRecent  Lenspaper
+    exampleData.loadData('Lenspaper.hdf5')  # simuRecent  Lenspaper
 
     exampleData.operationMode = 'CPM'
     # M = (1+np.sqrt(1-4*exampleData.dxo/exampleData.dxd)/2*exampleData.dxo/exampleData.dxd)
@@ -98,7 +98,7 @@ if ptycho_simulation:
     # this will copy any attributes from experimental data that we might care to optimize
     # # Set monitor properties
     monitor = Monitor()
-    monitor.figureUpdateFrequency = 10
+    monitor.figureUpdateFrequency = 1
     monitor.objectPlot = 'complex'  # complex abs angle
     monitor.verboseLevel = 'high'  # high: plot two figures, low: plot only one figure
 
@@ -112,16 +112,16 @@ if ptycho_simulation:
     # engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
     # engine = mPIE.mPIE(optimizable, exampleData, monitor)
     # zPIE
-    engine = zPIE.zPIE_GPU(optimizable, exampleData, monitor)
-    # engine = zPIE.zPIE(optimizable, exampleData, monitor)
+    # engine = zPIE.zPIE_GPU(optimizable, exampleData, monitor)
+    engine = zPIE.zPIE(optimizable, exampleData, monitor)
     # e3PIE
     # engine = e3PIE.e3PIE_GPU(optimizable, exampleData, monitor)
     # engine = e3PIE.e3PIE(optimizable, exampleData, monitor)
 
     ## main parameters
-    engine.numIterations = 500
+    engine.numIterations = 100
     engine.positionOrder = 'random'  # 'sequential' or 'random'
-    engine.propagator = 'Fresnel'  # Fraunhofer Fresnel ASP scaledASP
+    engine.propagator = 'Fraunhofer'  # Fraunhofer Fresnel ASP scaledASP
     engine.betaProbe = 0.25
     engine.betaObject = 0.25
 
@@ -129,10 +129,10 @@ if ptycho_simulation:
     engine.zPIEgradientStepSize = 100  # gradient step size for axial position correction (typical range [1, 100])
 
     ## switches
-    engine.probePowerCorrectionSwitch = True
+    engine.probePowerCorrectionSwitch = False
     engine.modulusEnforcedProbeSwitch = False
-    engine.comStabilizationSwitch = True
-    engine.orthogonalizationSwitch = True
+    engine.comStabilizationSwitch = False
+    engine.orthogonalizationSwitch = False
     engine.orthogonalizationFrequency = 10
     engine.fftshiftSwitch = False
     engine.intensityConstraint = 'standard'  # standard fluctuation exponential poission
@@ -143,6 +143,9 @@ if ptycho_simulation:
 
     engine.doReconstruction()
 
-
+    # engine = zPIE.zPIE(optimizable, exampleData, monitor)
+    # engine.numIterations = 200
+    # engine.zPIEgradientStepSize = 10000
+    # engine.doReconstruction()
     # now save the data
     # optimizable.saveResults('reconstruction.hdf5')
