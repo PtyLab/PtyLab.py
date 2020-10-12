@@ -13,7 +13,7 @@ from fracPy.monitors.Monitor import Monitor
 import os
 import h5py
 
-fileName = 'simuRecent'
+fileName = 'simuRecent_copy'
 # create ptyLab object
 simuData = ExperimentalData()
 
@@ -36,7 +36,7 @@ simuData.dxp = simuData.wavelength * simuData.zo / simuData.Ld
 simuData.zp = 1e-2  # pinhole-object distance
 
 # object coordinates
-simuData.No = 2**9
+simuData.No = 2**10+2**9
 
 # generate illumination
 # note: simulate focused beam
@@ -68,14 +68,14 @@ plt.show(block=False)
 
 # generate object
 d = 1e-3   # the smaller this parameter the larger the spatial frequencies in the simulated object
-b = 23     # topological charge (feel free to play with this number)
+b = 33     # topological charge (feel free to play with this number)
 theta, rho = cart2pol(simuData.Xo, simuData.Yo)
 t = (1 + np.sign(np.sin(b * theta + 2*np.pi * (rho/d)**2)))/2
 # phaseFun = np.exp(1.j * np.atan2(simuData.Yo, simuData.Xo))
-# phaseFun = 1
-phaseFun = np.exp(1.j*( 2* theta + 2*np.pi * (rho/d)**2))
-t = t*circ(simuData.Xo, simuData.Yo, simuData.Lo)*(1-circ(simuData.Xo, simuData.Yo, 20*simuData.dxo))*phaseFun\
-    +circ(simuData.Xo, simuData.Yo, 10*simuData.dxo)
+phaseFun = 1
+# phaseFun = np.exp(1.j*( 2* theta + 2*np.pi * (rho/d)**2))
+t = t*circ(simuData.Xo, simuData.Yo, simuData.Lo)*(1-circ(simuData.Xo, simuData.Yo, 200*simuData.dxo))*phaseFun\
+    +circ(simuData.Xo, simuData.Yo, 130*simuData.dxo)
 obj = convolve2d(t, gaussian2D(5, 3), mode='same')  # smooth edges
 # obj_phase = np.exp(1.j*2*np.pi/simuData.wavelength*(simuData.Xo**2+simuData.Yo**2)*20)
 obj = obj*phaseFun
@@ -83,7 +83,7 @@ simuData.object = np.zeros((simuData.nlambda, simuData.nosm, 1, simuData.nslice,
 simuData.object[...,:,:] = obj
 plt.figure(figsize=(5,5), num=2)
 ax = plt.axes()
-hsvplot(np.squeeze(simuData.object), ax=ax, pixelSize=simuData.dxo)
+hsvplot(np.squeeze(simuData.object), ax=ax)
 ax.set_title('complex probe')
 plt.show(block=False)
 
@@ -91,12 +91,12 @@ plt.show(block=False)
 # generate non-uniform Fermat grid
 # parameters
 numPoints = 100   # number of points
-radius = 1e-4    # radius of final scan grid (in meters)
+radius = 100    # radius of final scan grid (in pixels)
 p = 1    # p = 1 is standard Fermat;  p > 1 yields more points towards the center of grid
 R, C = GenerateNonUniformFermat(numPoints, radius=radius, power=p)
 # show scan grid
 plt.figure(figsize=(5, 5), num=99)
-plt.plot(1e6*R, 1e6*C, 'o')
+plt.plot(R, C, 'o')
 plt.xlabel('um')
 plt.title('scan grid')
 plt.show(block=False)
@@ -104,11 +104,11 @@ plt.show(block=False)
 # optimize scan grid
 # numIterations = 5e4   # number of iterations in optimization
 # print('optimize scan grid')
-simuData.encoder = np.vstack((R, C)).T
+simuData.encoder = np.vstack((R*simuData.dxo, C*simuData.dxo)).T
 
 # prevent negative indices by centering spiral coordinates on object
 positions = np.round(simuData.encoder/simuData.dxo)
-offset = 0
+offset = 50
 positions = (positions+simuData.No//2-simuData.Np//2+offset).astype(int)
 
 # get number of positions
@@ -118,7 +118,7 @@ print('generate positions('+str(numFrames)+')')
 # calculate estimated overlap
 # expected beam size, required to calculate overlap (expect Gaussian-like beam, derive from second moment)
 beamSize = np.sqrt(np.sum((simuData.Xp**2+simuData.Yp**2)*np.abs(simuData.probe)**2)/np.sum(abs(simuData.probe)**2))*2.355
-distances = np.sqrt(np.diff(R)**2+np.diff(C)**2)
+distances = np.sqrt(np.diff(R)**2+np.diff(C)**2)*simuData.dxo
 averageDistance = np.mean(distances)
 print('average step size:%.1f (um)' % averageDistance)
 print('number of scan points: %d' % numFrames)
@@ -126,8 +126,8 @@ print('number of scan points: %d' % numFrames)
 # show scan grid on object
 plt.figure(figsize=(5,5), num=33)
 ax1 = plt.axes()
-hsvplot(np.squeeze(simuData.object), ax=ax1,pixelSize=1,axisUnit = 'm' )
-ax1.plot(positions[:,1]+simuData.Np/2,positions[:,0]+simuData.Np/2,'.')
+hsvplot(np.squeeze(simuData.object), ax=ax1)
+ax1.plot(positions[0,1]+simuData.Np//2,positions[0,0]+simuData.Np//2,'.')
 ax1.set_title('complex probe')
 plt.show(block=False)
 

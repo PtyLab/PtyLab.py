@@ -40,7 +40,8 @@ class zPIE(BaseReconstructor):
         self.betaProbe = 0.25
         self.betaObject = 0.25
         self.DoF = self.experimentalData.DoF.copy()
-        self.zPIEgradientStepSize = 10000  #gradient step size for axial position correction (typical range [1, 100])
+        self.zPIEgradientStepSize = 100  #gradient step size for axial position correction (typical range [1, 100])
+        self.zPIEfriction = 0.7
 
     def doReconstruction(self):
         self._initializeParams()
@@ -88,8 +89,7 @@ class zPIE(BaseReconstructor):
                     merit.append(asNumpyArray(xp.sum(xp.sqrt(abs(gradx)**2+abs(grady)**2+aleph))))
 
                 feedback = np.sum(dz*merit)/np.sum(merit)    # at optimal z, feedback term becomes 0
-                eta = 0.7
-                zMomentun = eta*zMomentun+self.zPIEgradientStepSize*feedback
+                zMomentun = self.zPIEfriction*zMomentun+self.zPIEgradientStepSize*feedback
                 zNew = self.experimentalData.zo+zMomentun
 
             self.zHistory.append(self.experimentalData.zo)
@@ -105,7 +105,7 @@ class zPIE(BaseReconstructor):
                 self.experimentalData.dxp = self.experimentalData.wavelength*self.experimentalData.zo\
                                             /self.experimentalData.Ld
                 # reset propagator
-                self.optimizable.quadraticPhase = xp.array(xp.exp(1.j * xp.pi/(self.experimentalData.wavelength * self.experimentalData.zo)
+                self.optimizable.quadraticPhase = xp.array(np.exp(1.j * np.pi/(self.experimentalData.wavelength * self.experimentalData.zo)
                                                                   * (self.experimentalData.Xp**2 + self.experimentalData.Yp**2)))
 
             for positionLoop, positionIndex in enumerate(self.positionIndices):

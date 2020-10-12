@@ -62,22 +62,22 @@ def complex_to_rgb(u):
 
 
 
-def complex_plot(rgb, ax=None, pixelSize=1, axisUnit = 'mm'):
+def complex_plot(rgb, ax=None, pixelSize=1, axisUnit = 'pixel'):
     """
     Plot a 2D complex plot (hue for phase, brightness for amplitude). Input array need to be prepared by using
     the complex_to_rgb function.
     :param rgb: a rgb array that is converted from a 2D complex np.ndarray by using complex_to_rgb
     :param ax: Optional axis to plot in
     :param pixelSize: pixelSize in x and y, to display the physical dimension of the plot
-    :param str axisUnit: Options: 'm', 'cm', 'mm', 'um'
+    :param str axisUnit: Options: default 'pixel', 'm', 'cm', 'mm', 'um'
     :return: An hsv plot
     """
 
     if not ax:
         fig, ax = plt.subplots()
-    unitRatio = {'m': 1, 'cm':1e2, 'mm': 1e3, 'um': 1e6}
+    unitRatio = {'pixel': 1, 'm': 1, 'cm': 1e2, 'mm': 1e3, 'um': 1e6}
     pixelSize = pixelSize*unitRatio[axisUnit]
-    extent = [0, pixelSize * rgb.shape[0], 0, pixelSize * rgb.shape[1]]
+    extent = [0, pixelSize * rgb.shape[1], pixelSize * rgb.shape[0], 0]
 
     im = ax.imshow(rgb, extent=extent, interpolation=None)
     ax.set_ylabel(axisUnit)
@@ -87,13 +87,13 @@ def complex_plot(rgb, ax=None, pixelSize=1, axisUnit = 'mm'):
     cax = divider.append_axes("right", size="5%", pad=0.1)
 
     norm = mpl.colors.Normalize(vmin=-np.pi, vmax=np.pi)
-    scalar_mappable  = mpl.cm.ScalarMappable(norm=norm, cmap=mpl.cm.hsv)
+    scalar_mappable = mpl.cm.ScalarMappable(norm=norm, cmap=mpl.cm.hsv)
     scalar_mappable.set_array([])
     cbar = plt.colorbar(scalar_mappable, ax=ax, cax=cax, ticks=[-np.pi, 0, np.pi])
     cbar.ax.set_yticklabels(['$-\pi$', '0', '$\pi$'])
     return im
 
-def hsvplot(u, ax = None, pixelSize = 1, axisUnit='mm'):
+def hsvplot(u, ax = None, pixelSize = 1, axisUnit='pixel'):
     rgb = complex_to_rgb(u)
     complex_plot(rgb, ax, pixelSize, axisUnit)
 
