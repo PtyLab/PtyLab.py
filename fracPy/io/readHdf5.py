@@ -50,7 +50,6 @@ def loadInputData(filename:Path):
     # start h5 loading, but check data fields first (defined above)
     dataset = dict()
     try:
-
         with tables.open_file(str(filename), mode='r') as hdf5_file:
             # PyTables hierarchy : Table -> Group -> Node
             # Go through all nodes hanging from the default

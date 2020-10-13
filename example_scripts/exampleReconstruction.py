@@ -64,7 +64,7 @@ if ptycho_simulation:
     filePath = r"D:\Du\Workshop\fracpy\example_data" # D:\ptyLab\example_data D:\Du\Workshop\fracpy\example_data
     os.chdir(filePath)
 
-    exampleData.loadData('simuRecent_copy.hdf5')  # simuRecent  Lenspaper
+    exampleData.loadData('simu.hdf5')  # simuRecent  Lenspaper
 
     exampleData.operationMode = 'CPM'
     # M = (1+np.sqrt(1-4*exampleData.dxo/exampleData.dxd)/2*exampleData.dxo/exampleData.dxd)

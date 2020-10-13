@@ -64,6 +64,8 @@ class ExperimentalData:
 
         if filename is not None:
             self.filename = filename
+            from fracPy.io.readExample import examplePath
+            self.filename = examplePath(filename)  # readExample(filename, python_order=True)
             # 1. check if the dataset contains what we need before loading
             readHdf5.checkDataFields(self.filename)
             # 2. load dictionary. Only the values specified by 'required_fields' 
@@ -78,7 +80,7 @@ class ExperimentalData:
                 self.logger.debug('Setting %s', a)
 
         self._setGrid()
-        self._checkData()
+        # self._checkData()
 
     def _setGrid(self):
         """
