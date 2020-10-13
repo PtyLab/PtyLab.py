@@ -1,4 +1,5 @@
 # This script contains a minimum working example of how to generate data
+# todo: mention that it generates simu.hdf5
 import numpy as np
 from fracPy.utils.utils import circ, gaussian2D, cart2pol
 from fracPy.utils.scanGrids import GenerateNonUniformFermat
@@ -101,6 +102,8 @@ plt.xlabel('um')
 plt.title('scan grid')
 plt.show(block=False)
 
+# Todo: Add comments here or in a help file
+
 # optimize scan grid
 # numIterations = 5e4   # number of iterations in optimization
 # print('optimize scan grid')
@@ -171,6 +174,9 @@ maxNumCountsPerDiff = 2**bitDepth
 simuData.ptychogram = simuData.ptychogram/np.max(simuData.ptychogram) * maxNumCountsPerDiff
 
 # simulate Poisson noise
+# Todo @Maisie, @Dirk
+# there's a function in skimage to add different types of noise and also in Rainer toolbox (DIPimage it's called nip NanoImagingPack)
+
 # % obj.ptychogram = poisson_noise(obj.ptychogram); % beware: slow, but requires no toolbox license
 # obj.ptychogram = poisson_noise(obj.ptychogram(:)); % beware: slow, but requires no toolbox license
 
@@ -183,10 +189,11 @@ simuData.ptychogram = simuData.ptychogram/np.max(simuData.ptychogram) * maxNumCo
 # todo data inspection, check sampling requirements
 
 # export data
-exportBool = True
-saveFilePath = r"D:\Du\Workshop\fracpy\example_data"
+export_data = True # exportBool in MATLAB
+from fracPy.io import getExampleDataFolder
+saveFilePath = getExampleDataFolder()
 os.chdir(saveFilePath)
-if exportBool:
+if export_data:
     hf = h5py.File(fileName+'.hdf5', 'w')
     hf.create_dataset('ptychogram', data=simuData.ptychogram, dtype='f')
     hf.create_dataset('encoder', data=simuData.encoder, dtype='f')

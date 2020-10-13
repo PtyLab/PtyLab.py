@@ -10,7 +10,8 @@ logger.setLevel(logging.INFO)
 exampleFiles = {
     'simulation_ptycho': 'ptycho_simulation.hdf5',
     'simulation_fpm': 'fourier_simulation.hdf5',
-    'simulationTiny': 'simulationTiny.hdf5'
+    'simulationTiny': 'simulationTiny.hdf5',
+    # todo@maisie add simu.hdf5
 }
 
 # This is a convenience class to aid in loading a particular example

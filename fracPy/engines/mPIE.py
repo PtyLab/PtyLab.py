@@ -92,6 +92,7 @@ class mPIE(BaseReconstructor):
                 self.optimizable.probe = self.probeUpdate(objectPatch, DELTA)
 
                 # momentum updates todo: make this every T iteration?
+                # Todo @lars explain this
                 if np.random.rand(1) > 0.95:
                     self.objectMomentumUpdate()
                     self.probeMomentumUpdate()

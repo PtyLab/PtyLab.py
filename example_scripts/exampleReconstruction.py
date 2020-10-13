@@ -1,4 +1,7 @@
 import matplotlib
+
+from fracPy.io import getExampleDataFolder
+
 matplotlib.use('tkagg')
 #matplotlib.use('qt5agg')
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
@@ -61,10 +64,12 @@ if ptycho_simulation:
     exampleData = ExperimentalData()
 
     import os
-    filePath = r"D:\Du\Workshop\fracpy\example_data" # D:\ptyLab\example_data D:\Du\Workshop\fracpy\example_data
-    os.chdir(filePath)
+    filePath = 'simuRecent_copy.hdf5'#r"D:\Du\Workshop\fracpy\example_data" # D:\ptyLab\example_data D:\Du\Workshop\fracpy\example_data
+    filePath = getExampleDataFolder() / filePath
 
-    exampleData.loadData('simu.hdf5')  # simuRecent  Lenspaper
+    #os.chdir(filePath)
+
+    exampleData.loadData(filePath)  # simuRecent  Lenspaper
 
     exampleData.operationMode = 'CPM'
     # M = (1+np.sqrt(1-4*exampleData.dxo/exampleData.dxd)/2*exampleData.dxo/exampleData.dxd)
@@ -109,10 +114,10 @@ if ptycho_simulation:
     # engine = ePIE.ePIE_GPU(optimizable, exampleData, monitor)
     # engine = ePIE.ePIE(optimizable, exampleData, monitor)
     # mPIE
-    engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
+    # engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
     # engine = mPIE.mPIE(optimizable, exampleData, monitor)
     # zPIE
-    # engine = zPIE.zPIE_GPU(optimizable, exampleData, monitor)
+    engine = zPIE.zPIE_GPU(optimizable, exampleData, monitor)
     # engine = zPIE.zPIE(optimizable, exampleData, monitor)
     # engine.zPIEgradientStepSize = 200
     # e3PIE
