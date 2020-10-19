@@ -206,9 +206,9 @@ class mPIE_GPU(mPIE):
         # proapgators to GPU
         if self.propagator == 'Fresnel':
             self.optimizable.quadraticPhase = cp.array(self.optimizable.quadraticPhase)
-        elif self.propagator == 'ASP':
+        elif self.propagator == 'ASP' or self.propagator == 'polychromeASP':
             self.optimizable.transferFunction = cp.array(self.optimizable.transferFunction)
-        elif self.propagator =='scaledASP':
+        elif self.propagator =='scaledASP' or self.propagator == 'scaledPolychromeASP':
             self.optimizable.Q1 = cp.array(self.optimizable.Q1)
             self.optimizable.Q2 = cp.array(self.optimizable.Q2)
 

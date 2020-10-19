@@ -1,8 +1,8 @@
 import matplotlib
-
+matplotlib.use('tkagg')
 from fracPy.io import getExampleDataFolder
 
-matplotlib.use('tkagg')
+
 #matplotlib.use('qt5agg')
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Optimizable.Optimizable import Optimizable
@@ -64,7 +64,7 @@ if ptycho_simulation:
     exampleData = ExperimentalData()
 
     import os
-    filePath = 'simuRecent_copy.hdf5'#r"D:\Du\Workshop\fracpy\example_data" # D:\ptyLab\example_data D:\Du\Workshop\fracpy\example_data
+    filePath = 'simu.hdf5'#r"D:\Du\Workshop\fracpy\example_data" # D:\ptyLab\example_data D:\Du\Workshop\fracpy\example_data
     filePath = getExampleDataFolder() / filePath
 
     #os.chdir(filePath)
@@ -108,6 +108,7 @@ if ptycho_simulation:
     monitor.verboseLevel = 'high'  # high: plot two figures, low: plot only one figure
 
     exampleData.zo = exampleData.zo
+    exampleData.spectralDensity=[exampleData.wavelength]
     # exampleData.dxp = exampleData.dxp/1
     # Run the reconstruction
     ## choose engine
@@ -115,10 +116,10 @@ if ptycho_simulation:
     # engine = ePIE.ePIE_GPU(optimizable, exampleData, monitor)
     # engine = ePIE.ePIE(optimizable, exampleData, monitor)
     # mPIE
-    # engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
+    engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
     # engine = mPIE.mPIE(optimizable, exampleData, monitor)
     # zPIE
-    engine = zPIE.zPIE_GPU(optimizable, exampleData, monitor)
+    # engine = zPIE.zPIE_GPU(optimizable, exampleData, monitor)
     # engine = zPIE.zPIE(optimizable, exampleData, monitor)
     # engine.zPIEgradientStepSize = 200
     # e3PIE
@@ -128,7 +129,7 @@ if ptycho_simulation:
     ## main parameters
     engine.numIterations = 100
     engine.positionOrder = 'random'  # 'sequential' or 'random'
-    engine.propagator = 'scaledASP'  # Fraunhofer Fresnel ASP scaledASP
+    engine.propagator = 'scaledPolychromeASP'  # Fraunhofer Fresnel ASP scaledASP
     engine.betaProbe = 0.25
     engine.betaObject = 0.25
 

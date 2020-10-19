@@ -57,7 +57,7 @@ def scaledASP(u, z, wavelength, dx, dq):
     # scaling parameter
     m = dq / dx
 
-    # quadratic phase factors
+    # quadratic phase factors todo: bandlimit implementation?
     Q1 = np.exp(1.j * k / 2 * (1 - m) / z * r1sq)
     Q2 = np.exp(-1.j * np.pi**2 * 2 * z / m / k * fsq)
     Uout = ifft2c(Q2 * fft2c(Q1 * u))

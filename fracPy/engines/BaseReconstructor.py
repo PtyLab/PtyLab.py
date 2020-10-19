@@ -201,7 +201,7 @@ class BaseReconstructor(object):
             if self.fftshiftSwitch:
                 raise ValueError('scaledASP propagator works only with fftshiftSwitch = False!')
             if self.optimizable.nlambda > 1:
-                raise ValueError('For multi-wavelength, polychromeScaledASP needs to be used instead of scaledASP')
+                raise ValueError('For multi-wavelength, scaledPolychromeASP needs to be used instead of scaledASP')
             dummy = (1.+1.j)*np.ones((1, self.optimizable.nosm, self.optimizable.npsm,
                                       1, self.experimentalData.Np, self.experimentalData.Np))
             self.optimizable.Q1 = np.ones_like(dummy)
@@ -211,11 +211,24 @@ class BaseReconstructor(object):
                     _, self.optimizable.Q1[0,nosm,npsm,0,...], self.optimizable.Q2[0,nosm,npsm,0,...] = scaledASP(
                         dummy[0, nosm, npsm, 0, :, :], self.experimentalData.zo, self.experimentalData.wavelength,
                         self.experimentalData.dxo, self.experimentalData.dxd)
-            print('initialize Q1,Q2')
 
-        elif self.propagator=='scaledPolychromeASP':
-            # todo scaledPolychromeASP
-            raise NotImplementedError
+        # todo check if Q1 Q2 are bandlimited
+
+        elif self.propagator == 'scaledPolychromeASP':
+            if self.fftshiftSwitch:
+                raise ValueError('scaledPolychromeASP propagator works only with fftshiftSwitch = False!')
+            dummy = (1. + 1.j) * np.ones((self.optimizable.nlambda, self.optimizable.nosm, self.optimizable.npsm,
+                                          1, self.experimentalData.Np, self.experimentalData.Np))
+            self.optimizable.Q1 = np.ones_like(dummy)
+            self.optimizable.Q2 = np.ones_like(dummy)
+            for nlmabda in range(self.optimizable.nlambda):
+                for nosm in range(self.optimizable.nosm):
+                    for npsm in range(self.optimizable.npsm):
+                        _, self.optimizable.Q1[nlmabda, nosm, npsm, 0, ...], self.optimizable.Q2[
+                            nlmabda, nosm, npsm, 0, ...] = scaledASP(
+                            dummy[nlmabda, nosm, npsm, 0, :, :], self.experimentalData.zo,
+                            self.experimentalData.spectralDensity[nlmabda], self.experimentalData.dxo,
+                            self.experimentalData.dxd)
 
 
     def _checkMISC(self):
@@ -330,6 +343,24 @@ class BaseReconstructor(object):
     def _match_dtypes_real(self):
         raise NotImplementedError()
 
+    def object2detector(self):
+        """
+        Implements object2detector.m
+        :return:
+        """
+        if self.propagator == 'Fraunhofer':
+            self.fft2s()
+        elif self.propagator == 'Fresnel':
+            self.optimizable.esw = self.optimizable.esw * self.optimizable.quadraticPhase
+            self.fft2s()
+        elif self.propagator == 'ASP' or self.propagator == 'polychromeASP':
+            self.optimizable.ESW = ifft2c(fft2c(self.optimizable.esw) * self.optimizable.transferFunction)
+        elif self.propagator == 'scaledASP' or self.propagator == 'scaledPolychromeASP':
+            self.optimizable.ESW = ifft2c(fft2c(self.optimizable.esw * self.optimizable.Q1) * self.optimizable.Q2)
+        else:
+            raise Exception('Propagator is not properly set, choose from Fraunhofer, Fresnel, ASP and scaledASP')
+
+
     def detector2object(self):
         """
         Propagate the ESW to the object plane (in-place).
@@ -343,13 +374,14 @@ class BaseReconstructor(object):
             self.ifft2s()
             self.optimizable.esw = self.optimizable.esw * self.optimizable.quadraticPhase.conj()
             self.optimizable.eswUpdate = self.optimizable.eswUpdate * self.optimizable.quadraticPhase.conj()
-        elif self.propagator == 'ASP':
+        elif self.propagator == 'ASP' or self.propagator == 'polychromeASP':
             self.optimizable.eswUpdate = ifft2c(fft2c(self.optimizable.ESW) * self.optimizable.transferFunction.conj())
-        elif self.propagator == 'scaledASP':
+        elif self.propagator == 'scaledASP' or self.propagator == 'scaledPolychromeASP':
             self.optimizable.eswUpdate = ifft2c(fft2c(self.optimizable.ESW) * self.optimizable.Q2.conj()) \
                                          * self.optimizable.Q1.conj()
         else:
             raise Exception('Propagator is not properly set, choose from Fraunhofer, Fresnel, ASP and scaledASP')
+
 
 
     def exportOjb(self, extension='.mat'):
@@ -533,23 +565,6 @@ class BaseReconstructor(object):
         # back propagate to object plane
         self.detector2object()
 
-
-    def object2detector(self):
-        """
-        Implements object2detector.m
-        :return:
-        """
-        if self.propagator == 'Fraunhofer':
-            self.fft2s()
-        elif self.propagator == 'Fresnel':
-            self.optimizable.esw = self.optimizable.esw * self.optimizable.quadraticPhase
-            self.fft2s()
-        elif self.propagator == 'ASP':
-            self.optimizable.ESW = ifft2c(fft2c(self.optimizable.esw) * self.optimizable.transferFunction)
-        elif self.propagator == 'scaledASP':
-            self.optimizable.ESW = ifft2c(fft2c(self.optimizable.esw * self.optimizable.Q1) * self.optimizable.Q2)
-        else:
-            raise Exception('Propagator is not properly set, choose from Fraunhofer, Fresnel, ASP and scaledASP')
 
 
     def showReconstruction(self, loop):
