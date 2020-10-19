@@ -129,7 +129,7 @@ if ptycho_simulation:
     ## main parameters
     engine.numIterations = 100
     engine.positionOrder = 'random'  # 'sequential' or 'random'
-    engine.propagator = 'scaledPolychromeASP'  # Fraunhofer Fresnel ASP scaledASP
+    engine.propagator = 'scaledPolychromeASP'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
     engine.betaProbe = 0.25
     engine.betaObject = 0.25
 
