@@ -103,6 +103,7 @@ if ptycho_simulation:
     monitor.verboseLevel = 'high'  # high: plot two figures, low: plot only one figure
 
     exampleData.zo = exampleData.zo
+    # exampleData.dxp = exampleData.dxp/1
     # Run the reconstruction
     ## choose engine
     # ePIE
@@ -122,7 +123,7 @@ if ptycho_simulation:
     ## main parameters
     engine.numIterations = 100
     engine.positionOrder = 'random'  # 'sequential' or 'random'
-    engine.propagator = 'Fresnel'  # Fraunhofer Fresnel ASP scaledASP
+    engine.propagator = 'scaledASP'  # Fraunhofer Fresnel ASP scaledASP
     engine.betaProbe = 0.25
     engine.betaObject = 0.25
 

@@ -32,13 +32,20 @@ simuData.dxd = 10e-6*simuData.binningFactor/M
 simuData.Nd = 2**9/simuData.binningFactor
 simuData.dxp = simuData.dxd
 
-## difine probe
-probe = np.zeros((nlambda, simuData.Np, simuData.Np),dtype='np.float16')
+## define probe
+probe = np.zeros((nlambda, simuData.Np, simuData.Np), dtype='np.float16')
 w0 = 6e-6
 wzMean = 0
 for k in np.arange(nlambda):
     z0 = np.pi*w0**2/simuData.spectralDensity(k)   # Rayleigh range
     wz = w0*np.sqrt(1+(z1/simuData.zo)**2)   # beam width
-    H = circ(simuData.Xp, simuData.Yp, 2.5*wz)
-    jmax = nlambda+6
+    # H = circ(simuData.Xp, simuData.Yp, 2.5*wz)
+    H = 1 # phase term todo: find zernike functions
+    wzMean = wzMean+wz
+    probe[k] = np.exp(-(simuData.Xp**2+simuData.Yp**2)/wz**2)*H
+    ax1 = plt.figure(1)
+    hsvplot(probe[k], ax=ax1, pixelSize=simuData.dxp, axisUnit='mm')
+    plt.title('wavelength %f')
+
+
 

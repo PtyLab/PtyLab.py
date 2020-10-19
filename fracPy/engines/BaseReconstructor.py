@@ -10,6 +10,7 @@ from fracPy.Optimizable.Optimizable import Optimizable
 from fracPy.utils.utils import ifft2c, fft2c, orthogonalizeModes
 from fracPy.operators.operators import aspw, scaledASP
 from fracPy.monitors.Monitor import Monitor
+from fracPy.utils.visualisation import hsvplot
 
 
 class BaseReconstructor(object):
@@ -171,8 +172,8 @@ class BaseReconstructor(object):
             if self.optimizable.nlambda>1:
                 raise ValueError('For multi-wavelength, polychromeASP needs to be used instead of ASP')
 
-            dummy = np.ones((1, self.optimizable.nosm, self.optimizable.npsm,
-                             1, self.experimentalData.Np, self.experimentalData.Np))
+            dummy = (1.+1.j)*np.ones((1, self.optimizable.nosm, self.optimizable.npsm,
+                                      1, self.experimentalData.Np, self.experimentalData.Np))
             self.optimizable.transferFunction = np.array(
                 [[[[aspw(dummy[nlambda, nosm, npsm, nslice, :, :],
                         self.experimentalData.zo, self.experimentalData.wavelength,
@@ -183,8 +184,8 @@ class BaseReconstructor(object):
                  for nlambda in range(self.optimizable.nlambda)])
 
         elif self.propagator == 'polychromeASP':
-            dummy = np.ones((self.optimizable.nlambda, self.optimizable.nosm, self.optimizable.npsm,
-                             1, self.experimentalData.Np, self.experimentalData.Np))
+            dummy = (1.+1.j)*np.ones((self.optimizable.nlambda, self.optimizable.nosm, self.optimizable.npsm,
+                                      1, self.experimentalData.Np, self.experimentalData.Np))
             self.optimizable.transferFunction = np.array(
                 [[[[aspw(dummy[nlambda, nosm, npsm, nslice, :, :],
                          self.experimentalData.zo, self.experimentalData.spectralDensity[nlambda],
@@ -199,10 +200,10 @@ class BaseReconstructor(object):
         elif self.propagator =='scaledASP':
             if self.fftshiftSwitch:
                 raise ValueError('scaledASP propagator works only with fftshiftSwitch = False!')
-            if self.optimizable.nlambda>1:
+            if self.optimizable.nlambda > 1:
                 raise ValueError('For multi-wavelength, polychromeScaledASP needs to be used instead of scaledASP')
-            dummy = np.ones((1, self.optimizable.nosm, self.optimizable.npsm,
-                             1, self.experimentalData.Np, self.experimentalData.Np))
+            dummy = (1.+1.j)*np.ones((1, self.optimizable.nosm, self.optimizable.npsm,
+                                      1, self.experimentalData.Np, self.experimentalData.Np))
             self.optimizable.Q1 = np.ones_like(dummy)
             self.optimizable.Q2 = np.ones_like(dummy)
             for nosm in range(self.optimizable.nosm):
@@ -210,6 +211,7 @@ class BaseReconstructor(object):
                     _, self.optimizable.Q1[0,nosm,npsm,0,...], self.optimizable.Q2[0,nosm,npsm,0,...] = scaledASP(
                         dummy[0, nosm, npsm, 0, :, :], self.experimentalData.zo, self.experimentalData.wavelength,
                         self.experimentalData.dxo, self.experimentalData.dxd)
+            print('initialize Q1,Q2')
 
         elif self.propagator=='scaledPolychromeASP':
             # todo scaledPolychromeASP
@@ -344,8 +346,8 @@ class BaseReconstructor(object):
         elif self.propagator == 'ASP':
             self.optimizable.eswUpdate = ifft2c(fft2c(self.optimizable.ESW) * self.optimizable.transferFunction.conj())
         elif self.propagator == 'scaledASP':
-            self.optimizable.eswUpdate = ifft2c(fft2c(self.optimizable.ESW) * self.optimizable.Q2.conj()
-                                           * self.optimizable.Q1.conj())
+            self.optimizable.eswUpdate = ifft2c(fft2c(self.optimizable.ESW) * self.optimizable.Q2.conj()) \
+                                         * self.optimizable.Q1.conj()
         else:
             raise Exception('Propagator is not properly set, choose from Fraunhofer, Fresnel, ASP and scaledASP')
 
