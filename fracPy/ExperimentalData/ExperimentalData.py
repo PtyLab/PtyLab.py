@@ -61,11 +61,13 @@ class ExperimentalData:
                  Only in very special cases should this be false.
         :return:
         """
-
-        if filename is not None:
+        if not filename.exists() and str(filename).startswith('example:'):
+            # Todo @dbs660 Fix this so it works again
             self.filename = filename
             from fracPy.io.readExample import examplePath
             self.filename = examplePath(filename)  # readExample(filename, python_order=True)
+        else:
+            self.filename = filename
             # 1. check if the dataset contains what we need before loading
             readHdf5.checkDataFields(self.filename)
             # 2. load dictionary. Only the values specified by 'required_fields' 
