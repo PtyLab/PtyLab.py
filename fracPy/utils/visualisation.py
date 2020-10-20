@@ -93,35 +93,6 @@ def complex_plot(rgb, ax=None, pixelSize=1, axisUnit = 'pixel'):
     cbar.ax.set_yticklabels(['$-\pi$', '0', '$\pi$'])
     return im
 
-def hsvplot(u, ax = None, pixelSize = 1, axisUnit='pixel'):
-    rgb = complex_to_rgb(u)
-    complex_plot(rgb, ax, pixelSize, axisUnit)
-
-# def hsvmodeplot(P,ax=None ,normalize = True, pixelSize =1):
-#     """
-#     Place multi complex images in a squre grid and use hsvplot to display
-#     :param P: A complex np.ndarray
-#     :param normalize: normalize each mode individually
-#     :param pixelSize: pixelSize in x and y, to display the physical dimension of the plot
-#     :return: A big array with flattened modes
-#     """
-#     if P.ndim>2 and P.shape[0]>1:
-#         S = P.shape[0]
-#         s = math.floor(np.sqrt(S))
-#         if normalize:
-#             maxs = np.max(P, axis=(1, 2))
-#             P = (P.T/maxs).T
-#
-#         P = P.reshape((s, s) + P.shape[1:]).transpose(
-#             (1, 2, 0, 3) + tuple(range(4, P.ndim + 1)))
-#         P = P.reshape(
-#             (s * P.shape[1], s * P.shape[3]) + P.shape[4:])
-#     else:
-#         P = np.squeeze(P)
-#     im = hsvplot(P, ax = ax, pixelSize = pixelSize)
-#
-#     return im
-
 def modeTile(P,normalize = True):
     """
     Tile 3D data into a single 2D array
@@ -131,12 +102,14 @@ def modeTile(P,normalize = True):
     :return: A big array with flattened modes
     """
     if P.ndim>2 and P.shape[0]>1:
-        S = P.shape[0]
-        s = math.floor(np.sqrt(S))
         if normalize:
             maxs = np.max(P, axis=(1, 2))
             P = (P.T/maxs).T
-        P = P[:s**2,:,:]
+        S = P.shape[0]
+        s = math.ceil(np.sqrt(S))
+        if s>np.sqrt(S):
+            P = np.pad(P, ((0, s**2-S), (0, 0), (0, 0)), 'constant')
+        P = P[:s**2, ...]
         P = P.reshape((s, s) + P.shape[1:]).transpose(
             (1, 2, 0, 3) + tuple(range(4, P.ndim + 1)))
         P = P.reshape(
@@ -145,3 +118,21 @@ def modeTile(P,normalize = True):
         P = np.squeeze(P)
     return P
 
+def hsvplot(u, ax = None, pixelSize = 1, axisUnit='pixel'):
+    rgb = complex_to_rgb(u)
+    complex_plot(rgb, ax, pixelSize, axisUnit)
+
+def hsvmodeplot(P,ax=None ,normalize = True, pixelSize =1, axisUnit ='pixel'):
+    """
+    Place multi complex images in a squre grid and use hsvplot to display
+    :param P: A complex np.ndarray
+    :param normalize: normalize each mode individually
+    :param pixelSize: pixelSize in x and y, to display the physical dimension of the plot
+    :return:
+    """
+    Q = modeTile(P, normalize=normalize)
+    hsvplot(Q, ax=ax, pixelSize=pixelSize, axisUnit=axisUnit)
+
+# def inshowmodeplot(P,ax=None ,normalize = True, pixelSize =1, axisUnit ='pixel'):
+#     Q = modeTile(P, normalize=normalize)
+#     intensityplot(Q, ax=ax, pixelSize=pixelSize, axisUnit=axisUnit)

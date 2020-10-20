@@ -39,6 +39,39 @@ def circ(x,y,D):
     circle = (x**2+y**2)<(D/2)**2
     return circle
 
+def rect(x):
+    """
+    """
+    x = abs(x)
+    y = (x<1/2)
+    return y
+
+def posit(x):
+    """
+    returns 0 when x negative
+    """
+    r = (x+abs(x))/2
+    return r
+
+def fraccircshift(A, shiftsize):
+    """
+    fraccircshift expands numpy.roll to fractional shifts values, using linear interpolation.
+    :param A: ndarray
+    :param shiftsize: shift size in each dimension of A, len(shiftsize)==A.ndim.
+    """
+    integer = np.floor(shiftsize).astype(int)  # integer portions of shiftsize
+    fraction = shiftsize-integer
+    dim = len(shiftsize)
+    # the dimensions are treated one after another
+    for n in np.arange(dim):
+        intn = integer[n]
+        fran = fraction[n]
+        shift1 = intn
+        shift2 = intn+1
+        # linear interpolation
+        B = (1-fran)*np.roll(A, shift1, axis=n)+fran*np.roll(A, shift2, axis=n)
+    return B
+
 def cart2pol(x,y):
     """
     Transform Cartesian to polar coordinates
