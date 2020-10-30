@@ -22,6 +22,9 @@ import logging
 
 
 class multiPIE(BaseReconstructor):
+    """
+    momentum-based multi PIE
+    """
 
     def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData, monitor: Monitor):
         # This contains reconstruction parameters that are specific to the reconstruction
@@ -52,8 +55,8 @@ class multiPIE(BaseReconstructor):
         self.t = 0
 
         # modulus enforced probe
-        if self.modulusEnforcedProbeSwitch:
-            self.modulusEnforcedProbe()
+        # if self.modulusEnforcedProbeSwitch:
+        #     self.modulusEnforcedProbe()
 
         # initialize spectral weights
         self.spectralDensityWeights = np.sum(abs(self.optimizable.probe)**2, axis=(-1, -2))
@@ -87,8 +90,8 @@ class multiPIE(BaseReconstructor):
                 # make exit surface wave
                 self.optimizable.esw = objectPatch * self.optimizable.probe
                 # normalize exit wave
-                self.optimizable.esw = self.optimizable.esw * xp.sqrt(self.spectralDensity) \
-                                       / xp.sqrt(sum(self.spectralDensity, axis=0))
+                # self.optimizable.esw = self.optimizable.esw * xp.sqrt(self.spectralDensity) \
+                #                        / xp.sqrt(sum(self.spectralDensity, axis=0))
 
                 # propagate to camera, intensityProjection, propagate back to object
                 self.intensityProjection(positionIndex)
@@ -103,7 +106,7 @@ class multiPIE(BaseReconstructor):
                 self.optimizable.probe = self.probeUpdate(objectPatch, DELTA)
 
                 # update spectral density
-                self.spectralDensityWeights= xp.sum(abs(self.optimizable.probe)**2, axis=(-1, -2))
+                # self.spectralDensityWeights= xp.sum(abs(self.optimizable.probe)**2, axis=(-1, -2))
 
                 # momentum updates
                 if len(self.optimizable.error) > 2*max(self.objectUpdateStart, self.probeUpdateStart) \
@@ -118,36 +121,18 @@ class multiPIE(BaseReconstructor):
             self.getErrorMetrics()
 
             # apply Constraints
+            self.absorbingProbeBoundaryAleph = 1e-2
             self.applyConstraints(loop)
-
-            # modulus enforced probe todo check if the switch is necessary
-            if self.modulusEnforcedProbeSwitch:
-                self.modulusEnforcedProbe()
 
             # show reconstruction
             self.showReconstruction(loop)
 
+            # todo check mPIEoperations('mode', 'clearMemory') in matlab
 
-
-    def momentumUpdate(self, array, buffer, momentum):
-        """
-        Todo add docstring
-        :param objectPatch:
-        :param DELTA:
-        :return:
-        """
-        gradient = buffer - array
-        momentum = gradient + self.betaM * momentum
-        array = array - self.stepM * momentum
-        buffer = array.copy()
-        return array, buffer, momentum
 
     def objectMomentumUpdate(self):
         """
-        Todo add docstring
-        :param objectPatch:
-        :param DELTA:
-        :return:
+        Update the object with momentum acceleration and update the objectBuffer
         """
         gradient = self.optimizable.objectBuffer - self.optimizable.object
         self.optimizable.objectMomentum = gradient + self.eta * self.optimizable.objectMomentum
@@ -156,10 +141,7 @@ class multiPIE(BaseReconstructor):
 
     def probeMomentumUpdate(self):
         """
-        Todo add docstring
-        :param objectPatch:
-        :param DELTA:
-        :return:
+        Update the probe with momentum acceleration and update the probeBuffer
         """
         gradient = self.optimizable.probeBuffer - self.optimizable.probe
         self.optimizable.probeMomentum = gradient + self.eta * self.optimizable.probeMomentum
@@ -168,7 +150,7 @@ class multiPIE(BaseReconstructor):
 
     def objectPatchUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
         """
-        ePIE-type updat
+        ePIE-type update
         :param objectPatch:
         :param DELTA:
         :return:
@@ -180,7 +162,7 @@ class multiPIE(BaseReconstructor):
         return objectPatch + self.betaObject * frac * DELTA
 
 
-def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
+    def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
         """
         ePIE-type update
         :param objectPatch:
@@ -192,6 +174,7 @@ def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
 
         frac = objectPatch.conj() / xp.max(xp.sum(xp.abs(objectPatch) ** 2, axis=(1, 2, 3)), axis=(-1,-2))
         r = self.optimizable.probe + self.betaProbe * frac * DELTA
+        # absorbingProbeBoundary has been moved into applyConstraints
         return r
 
 

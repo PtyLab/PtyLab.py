@@ -64,10 +64,15 @@ class BaseReconstructor(object):
         self.probeSmoothnessAleph = 5e-2  # relaxation parameter for probe smootheness
         self.probeSmoothenessWidth = 3  # loose object support diameter
         self.absorbingProbeBoundary = False  # controls if probe has period boundary conditions (zero)
+        self.absorbingProbeBoundaryAleph = 5e-2
         self.probePowerCorrectionSwitch = True  # probe normalization to measured PSD
         self.modulusEnforcedProbeSwitch = False  # enforce empty beam
         self.comStabilizationSwitch = False  # center of mass stabilization for probe
         # other
+        self.couplingSwitch = False  # couple adjacent wavelengths
+        self.couplingAleph = 50e-2  # couple adjacent wavelengths (relaxation parameter)
+        self.binaryWFSSwitch = False  # enforce WFS to be positive
+        self.binaryWFSAleph =  10e-2  # relaxation parameter for binary constraint
         self.backgroundModeSwitch = False  # background estimate
         self.comStabilizationSwitch = True # center of mass stabilization for probe
         self.PSDestimationSwitch = False
@@ -158,7 +163,6 @@ class BaseReconstructor(object):
                                     [..., self.optimizable.probeROI[0], self.optimizable.probeROI[1]])
         self.monitor.updateDefaultMonitor(object_estimate=object_estimate, probe_estimate=probe_estimate)
 
-
     def _initializeQuadraticPhase(self):
         """
         # initialize quadraticPhase term or transferFunctions used in propagators
@@ -229,7 +233,6 @@ class BaseReconstructor(object):
                             dummy[nlmabda, nosm, npsm, 0, :, :], self.experimentalData.zo,
                             self.experimentalData.spectralDensity[nlmabda], self.experimentalData.dxo,
                             self.experimentalData.dxd)
-
 
     def _checkMISC(self):
         """
@@ -382,8 +385,6 @@ class BaseReconstructor(object):
         else:
             raise Exception('Propagator is not properly set, choose from Fraunhofer, Fresnel, ASP and scaledASP')
 
-
-
     def exportOjb(self, extension='.mat'):
         """
         Export the object.
@@ -416,7 +417,6 @@ class BaseReconstructor(object):
         :return:
         """
         raise NotImplementedError()
-
 
     def getErrorMetrics(self):
         """
@@ -457,8 +457,6 @@ class BaseReconstructor(object):
         # append to error vector (for plotting error as function of iteration)
         self.optimizable.error = np.append(self.optimizable.error, eAverage)
 
-
-
     def getRMSD(self, positionIndex):
         """
         Root mean square deviation between ptychogram and intensity estimate
@@ -482,8 +480,6 @@ class BaseReconstructor(object):
         else:
             self.detectorError[positionIndex] = self.currentDetectorError
 
-
-
     def ifft2s(self):
         """ Inverse FFT"""
         # find out if this should be performed on the GPU
@@ -493,7 +489,6 @@ class BaseReconstructor(object):
             self.optimizable.eswUpdate = xp.fft.ifft2(self.optimizable.ESW, norm='ortho')
         else:
             self.optimizable.eswUpdate = xp.fft.fftshift(xp.fft.ifft2(xp.fft.ifftshift(self.optimizable.ESW),norm='ortho'))
-
 
     def intensityProjection(self, positionIndex):
         """ Compute the projected intensity.
@@ -565,8 +560,6 @@ class BaseReconstructor(object):
         # back propagate to object plane
         self.detector2object()
 
-
-
     def showReconstruction(self, loop):
         """
         Show the reconstruction process.
@@ -628,16 +621,14 @@ class BaseReconstructor(object):
         if self.PSDestimationSwitch:
             raise NotImplementedError()
 
-        # Todo: objectSmoothenessSwitch,probeSmoothenessSwitch,
-
-        # todo more convinient to create a absorbingProbeBoundaryAleph to control?
         if self.absorbingProbeBoundary:
-            if self.experimentalData.operationMode =='CPM':
-                aleph = 5e-2
-            else:
-                aleph = 100e-2
-            self.optimizable.probe = (1 - aleph)*self.optimizable.probe+aleph*self.optimizable.probe*self.probeWindow
+            if self.experimentalData.operationMode =='FPM':
+                self.absorbingProbeBoundaryAleph = 100e-2
 
+            self.optimizable.probe = (1 - self.absorbingProbeBoundaryAleph)*self.optimizable.probe+\
+                                     self.absorbingProbeBoundaryAleph*self.optimizable.probe*self.probeWindow
+
+        # Todo: objectSmoothenessSwitch,probeSmoothenessSwitch,
         if self.probeSmoothenessSwitch:
             raise NotImplementedError()
 
@@ -654,6 +645,22 @@ class BaseReconstructor(object):
             self.optimizable.object = 0.995*self.optimizable.object+0.005*\
                                       np.mean(abs(self.optimizable.object[..., self.optimizable.objectROI[0],
                                                                           self.optimizable.objectROI[1]]))
+        if self.couplingSwitch and self.optimizable.nlambda > 1:
+            self.optimizable.probe[0] = (1 - self.couplingAleph) * self.optimizable.probe[0] + \
+                                        self.couplingAleph * self.optimizable.probe[1]
+            for lambdaLoop in np.arange(1, self.optimizable.nlambda - 1):
+                self.optimizable.probe[lambdaLoop] = (1 - self.couplingAleph) * self.optimizable.probe[lambdaLoop] + \
+                                                     self.couplingAleph * (self.optimizable.probe[lambdaLoop + 1] +
+                                                                           self.optimizable.probe[
+                                                                               lambdaLoop - 1]) / 2
+
+            self.optimizable.probe[-1] = (1 - self.couplingAleph) * self.optimizable.probe[-1] + \
+                                         self.couplingAleph * self.optimizable.probe[-2]
+        if self.binaryWFSSwitch:
+            self.optimizable.probe = (1 - self.binaryWFSAleph) * self.optimizable.probe + \
+                                     self.binaryWFSAleph * abs(self.optimizable.probe)
+
+
 
     def orthogonalization(self):
         """

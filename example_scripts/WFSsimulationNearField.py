@@ -101,9 +101,9 @@ elif WFStype=='rand':
     WFS = np.abs(ifft2c(fft2c(WFS) * fft2c(subaperture)))
     WFS = WFS / np.max(WFS)
 
-# simuData.WFS = WFS(Np//2-simuData.Nd//2)
+simuData.WFS = WFS[Np//2-simuData.Nd//2:Np//2+simuData.Nd//2, Np//2-simuData.Nd//2:Np//2+simuData.Nd//2]
 
-hsvplot(WFS, pixelSize= dxp, axisUnit='mm')
+hsvplot(simuData.WFS, pixelSize=dxp, axisUnit='mm')
 
 ## generate WFS for FIB
 
