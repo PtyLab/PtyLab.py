@@ -51,6 +51,7 @@ def posit(x):
     returns 0 when x negative
     """
     r = (x+abs(x))/2
+    # r[r<0]=0 #todo check which way is faster
     return r
 
 def fraccircshift(A, shiftsize):
@@ -69,8 +70,8 @@ def fraccircshift(A, shiftsize):
         shift1 = intn
         shift2 = intn+1
         # linear interpolation
-        B = (1-fran)*np.roll(A, shift1, axis=n)+fran*np.roll(A, shift2, axis=n)
-    return B
+        A = (1-fran)*np.roll(A, shift1, axis=n)+fran*np.roll(A, shift2, axis=n)
+    return A
 
 def cart2pol(x,y):
     """

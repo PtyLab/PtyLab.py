@@ -8,10 +8,11 @@ from skimage.transform import rescale
 import glob
 import os
 import h5py
-from fracPy.utils.utils import fraccircshift
+from fracPy.utils.utils import fraccircshift, posit
 
 
 filePathForRead = r"D:\Du\Workshop\fracmat\lenspaper4\AVT camera (GX1920)"
+filePathForRead =r"\\sun\eikema-witte\project-folder\XUV_lensless_imaging\backups\two-pulses\ARCNL\2020_11_04_ptycho_donut_Concentric_28oct_500micronFOV_50micron_stepsize"
 filePathForSave = r"D:\Du\Workshop\fracpy\example_data"
 # D:\Du\Workshop\fracmat\lenspaper4\AVT camera (GX1920)
 # D:/fracmat/ptyLab/lenspaper4/AVT camera (GX1920)
@@ -20,6 +21,7 @@ os.chdir(filePathForRead)
 fileName = 'WFS_fundamental'
 # spectral density
 spectralDensity = 762.2e-9
+spectralDensity = 850e-9/np.arange(19, 35, 2)
 # wavelength
 wavelength = min(spectralDensity)
 # binning
@@ -39,7 +41,7 @@ N = 2**10  # NIR
 backgroundOffset = 60
 
 # object detector distance
-zo = 204.0e-3 # object-detector distance
+zo = 192.0e-3 # object-detector distance
 
 
 ## set experimental specifications
@@ -52,17 +54,19 @@ Nd = N                             # number of detector pixels
 positionFileName = glob.glob('*'+'.txt')[0]
 
 # take raw data positions
-T = np.genfromtxt(positionFileName, delimiter=' ', skip_header=2)
+T = np.genfromtxt(positionFileName, delimiter=' ', skip_header=1)  # HHG data, skip_header = 1, NIR data skip_hearder = 2
+# match the scan grid with the ptychogram
+T[:, 1] = -T[:, 1]
 # convert to micrometer
 encoder = (T-T[0]) * 1e-6
 # convert into pixels
-detectorShifts = encoder / dxd
+detectorShifts = T * 1e-6 / dxd
 # show positions
 plt.figure(figsize=(5, 5))
 plt.plot(encoder[:, 1] * 1e6, encoder[:, 0] * 1e6, 'o-')
 plt.xlabel('(um))')
 plt.ylabel('(um))')
-plt.show()
+plt.show(block=False)
 
 ## read data and correct for darks
 # number of frames is calculated automatically
@@ -81,20 +85,21 @@ pbar = tqdm.trange(numFrames, leave=True)
 for k in pbar:
     # get file name
     pbar.set_description('reading frame' + framesList[k])
-    I = imageio.imread(framesList[k]).astype('float32')-dark-backgroundOffset
-    I[I < 0] = 0  #todo check if data type is single
-    ptychogram[k] = fraccircshift(I, detectorShifts[k])
+    I = posit(imageio.imread(framesList[k]).astype('float32')-dark-backgroundOffset)
+    ptychogram[k] = fraccircshift(I, -detectorShifts[k])
 
 ## crop data if necessary
 if N < P:
     # center             
     x = np.arange(P)
-    [X,Y] = np.meshgrid(x,x)   
-    ptychogram_sum = np.sum(ptychogram,axis=0)
+    [X,Y] = np.meshgrid(x, x)
+    # ptychogram_forCenter = ptychogram
+    ptychogram_forCenter = posit(ptychogram-200)
+    ptychogram_sum = np.sum(ptychogram_forCenter, axis=0)
     ptychogram_sum = ptychogram_sum/np.sum(ptychogram_sum)
     rowCenter = int(np.round(np.sum(ptychogram_sum*Y)))
     colCenter = int(np.round(np.sum(ptychogram_sum*X)))
-    ptychogram = ptychogram[:,rowCenter-N//2+1:rowCenter+N//2, colCenter-N//2+1:colCenter+N//2]
+    ptychogram = ptychogram[:,rowCenter-N//2:rowCenter+N//2, colCenter-N//2:colCenter+N//2]
 
     
 # set experimental specifications:
