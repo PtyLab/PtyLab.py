@@ -46,7 +46,7 @@ def GenerateConcentricGrid(Nr, s, rend):
     C = positions[:, 1]
     return R, C
 
-def GenerateRasterGrid(n, ds, randomOffset = False, amplitude = 1 ):
+def GenerateRasterGrid(n, ds, randomOffset = False, amplitude = 1):
     """
     function to generate raster grid.
     :param n: number of points per dimension
@@ -70,7 +70,7 @@ def GenerateRasterGrid(n, ds, randomOffset = False, amplitude = 1 ):
         C = C + np.round(amplitude * (-1 + 2 * np.random.rand(C.shape)))
         R = R + np.round(amplitude * (-1 + 2 * np.random.rand(R.shape)))
 
-    R = (np.round(R - np.mean(R))).astype(int)
+    R = np.round(R - np.mean(R)).astype(int)
     C = np.round(C - np.mean(C)).astype(int)
 
     return R, C

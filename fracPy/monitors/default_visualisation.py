@@ -89,8 +89,9 @@ class DefaultMonitor(object):
                                                                mfc='none')[0]
         else:
             self.error_metric_plot.set_data(range(len(error_estimate)), error_estimate)
-            self.ax_error_metric.set_ylim(np.min(error_estimate), np.max(error_estimate))
             self.ax_error_metric.set_xlim(0, len(error_estimate))
+            if len(error_estimate) > 1:
+                self.ax_error_metric.set_ylim(np.min(error_estimate), np.max(error_estimate))
         self.ax_error_metric.set_aspect(1/self.ax_error_metric.get_data_ratio())
 
 

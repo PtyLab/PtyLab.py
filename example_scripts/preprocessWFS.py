@@ -29,7 +29,7 @@ binningFactor = 1
 # set magnification if any objective lens is used
 magfinication = 1
 # object detector distance  (initial guess)
-zo = 20.5e-3
+zo = 192.0e-3
 # HHG setup
 cameraPixelSize = 13.5e-6
 # number of pixels in raw data

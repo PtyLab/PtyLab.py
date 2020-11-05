@@ -81,12 +81,11 @@ class multiPIE(BaseReconstructor):
                 # time increment
                 self.t = self.t+1
                 # get object patch
-                row, col = self.optimizable.positions[positionIndex]
+                row, col = self.experimentalData.positions[positionIndex]
                 sy = slice(row, row + self.experimentalData.Np)
                 sx = slice(col, col + self.experimentalData.Np)
                 # note that object patch has size of probe array
                 objectPatch = self.optimizable.object[..., sy, sx].copy()
-
                 # make exit surface wave
                 self.optimizable.esw = objectPatch * self.optimizable.probe
                 # normalize exit wave

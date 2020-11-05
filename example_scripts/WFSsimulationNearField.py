@@ -13,6 +13,7 @@ from fracPy.monitors.Monitor import Monitor
 from skimage.transform import rescale
 import os
 import h5py
+from zernike import RZern
 
 fileName = 'WFSpoly'
 # create ptyLab object
@@ -25,13 +26,15 @@ simuData.binningFactor = 1
 
 ## sample detecotr distance
 simuData.zo = 198e-3
-z1 = 86e-2
-M = 1+simuData.zo/z1
+# jet-WFS distance
+z1 = 80e-2
+# M = 1+simuData.zo/z1
 
 ## coordinates
+# detector coordinates
 simuData.dxd = 13.5e-6*simuData.binningFactor
 simuData.Nd = int(2**8/simuData.binningFactor)
-
+# probe coordinates
 dxp = simuData.dxd
 Np = 2**11
 xp = np.arange(-Np//2, Np//2)*dxp
@@ -45,7 +48,21 @@ wzMean = 0
 for k in np.arange(nlambda):
     z0 = np.pi*w0**2/simuData.spectralDensity[k]   # Rayleigh range
     wz = w0*np.sqrt(1+(z1/simuData.zo)**2)   # beam width
-    # H = circ(Xp, Yp, 2.5*wz)
+    D = 2.5*wz
+    H = circ(Xp, Yp, 2.5*wz)
+
+    cart = RZern(4)
+
+    cart.make_cart_grid(Xp/D/2,Yp/D/2)
+    c = np.zeros(cart.nk)
+    c[k] = 1
+    Phi = cart.eval_grid(c, matrix=True)
+
+    plt.figure(44)
+    plt.imshow(Phi)
+    plt.show(block=False)
+
+
     H = 1 # phase term todo: find zernike functions
     wzMean = wzMean+wz
     probe[k] = np.exp(-(Xp**2+Yp**2)/wz**2)*H
