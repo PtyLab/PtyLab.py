@@ -29,22 +29,24 @@ def ifft2c(array):
 
 def circ(x,y,D):
     """
-    generate a circle on a 2D grid
+    generate a binary array containing a circle on a 2D grid
     :param x: 2D x coordinate, normally calculated from meshgrid: x,y = np.meshgird((,))
     :param y: 2D y coordinate, normally calculated from meshgrid: x,y = np.meshgird((,))
     :param D: diameter 
-    :return: a 2D array
+    :return: a binary 2D array
     """
-
     circle = (x**2+y**2)<(D/2)**2
     return circle
 
-def rect(x):
+def rect(arr, threshold = 0.5):
     """
+    generate a binary array containing a rectangle on a 2D grid
+    :param x: 2D x coordinate, normally calculated from meshgrid: x,y = np.meshgird((,))
+    :param threshold: threshold value to binarilize the input array, default value 0.5
+    :return: a binary array
     """
-    x = abs(x)
-    y = (x<1/2)
-    return y
+    arr = abs(arr)
+    return arr<threshold
 
 def posit(x):
     """

@@ -19,7 +19,7 @@ fileName = 'WFSpoly'
 # create ptyLab object
 simuData = ExperimentalData()
 
-simuData.spectralDensity = 800*1e-9/np.arange(15, 31, 2)  # 9 harmonics
+simuData.spectralDensity = 800*1e-9/np.arange(15, 17, 2)  # 9 harmonics
 nlambda = len(simuData.spectralDensity)
 simuData.wavelength = min(simuData.spectralDensity)
 simuData.binningFactor = 1
@@ -42,30 +42,32 @@ Lp = dxp*Np
 Xp, Yp = np.meshgrid(xp, xp)
 
 ## define probe
-probe = np.zeros((nlambda, Np, Np), dtype=np.float32)
-w0 = 8e-6
+probe = (1+1j)*np.zeros((nlambda, Np, Np), dtype=np.float32)
+w0 = 20e-6
 wzMean = 0
+
 for k in np.arange(nlambda):
     z0 = np.pi*w0**2/simuData.spectralDensity[k]   # Rayleigh range
-    wz = w0*np.sqrt(1+(z1/simuData.zo)**2)   # beam width
+    wz = w0*np.sqrt(1+(z1/z0)**2)   # beam width
     D = 2.5*wz
-    H = circ(Xp, Yp, 2.5*wz)
+    # H = circ(Xp, Yp, D)
 
-    cart = RZern(4)
-
-    cart.make_cart_grid(Xp/D/2,Yp/D/2)
-    c = np.zeros(cart.nk)
-    c[k] = 1
-    Phi = cart.eval_grid(c, matrix=True)
-
-    plt.figure(44)
-    plt.imshow(Phi)
-    plt.show(block=False)
+    # cart = RZern(4)
+    #
+    # cart.make_cart_grid(Xp/D/2,Yp/D/2)
+    # c = np.zeros(cart.nk)
+    # c[k] = 1
+    # Phi = cart.eval_grid(c, matrix=True)
+    #
+    # plt.figure(44)
+    # plt.imshow(Phi)
+    # plt.show(block=False)
 
 
     H = 1 # phase term todo: find zernike functions
     wzMean = wzMean+wz
-    probe[k] = np.exp(-(Xp**2+Yp**2)/wz**2)*H
+    # probe[k] = np.exp(-(Xp**2+Yp**2)/wz**2)*H
+    probe[k] = aspw(np.exp(-(Xp ** 2 + Yp ** 2) / w0 ** 2), z1, simuData.spectralDensity[k], Lp)[0]
     # plt.figure(figsize=(10,5), num=1)
     # ax1 = plt.subplot(121)
     # hsvplot(probe[k], ax=ax1, pixelSize=dxp, axisUnit='mm')
@@ -77,68 +79,74 @@ for k in np.arange(nlambda):
 
 wzMean = wzMean/nlambda
 print('mean spectral probe diameter (fwhm): %.2f mm.' %(2*wzMean*1e3))
-hsvmodeplot(probe)
+hsvmodeplot(probe, pixelSize=dxp, axisUnit='mm')
 
 ## define WFS
-pinholeDiameter = 700e-6
-aperture = circ(Xp, Yp, pinholeDiameter)
+pinholeDiameter = 730e-6
 f = z1 # create collimation
 WFStype = 'rand'
-if WFStype=='QC':
+if WFStype =='QC':
+    aperture = circ(Xp, Yp, pinholeDiameter)
     s = 9
     numCircs = 4
     n = (pinholeDiameter/2)/dxp-2
-    R,C = GenerateConcentricGrid(numCircs, s, n)
+    R, C = GenerateConcentricGrid(numCircs, s, n)
     R = R+Np//2+1
     C = C+Np//2+1
     temp = np.zeros((Np,Np), dtype=np.float32)
     for k in np.arange(len(R)):
-        temp[R[k],C[k]] = 1
+        temp[R[k], C[k]] = 1
     WFS = temp*aperture
     WFS = convolve2d(WFS, np.ones((5, 5), dtype=int), mode='same')
-elif WFStype=='rand':
+elif WFStype == 'rand':
+    aperture = rect(Xp, pinholeDiameter/2)*rect(Yp, pinholeDiameter/2)
     fullPeriod = 6*13.5e-6
     apertureSize = 4*13.5e-6
     WFS = 0*Xp
-    n = 9
-    R,C = GenerateRasterGrid(n, np.round(fullPeriod/dxp))
+    n = int(pinholeDiameter//fullPeriod)
+    R, C = GenerateRasterGrid(n, np.round(fullPeriod/dxp))
     print('WFS size: %d um' % (2 * max(max(np.abs(C)), max(np.abs(R))) * dxp * 1e6))
     print('WFS size: %d um' % ((max(max(R) - min(R), max(C) - min(C)) * dxp + apertureSize) * 1e6))
     R = R + Np // 2
     C = C + Np // 2
 
-    for k in np.arange(len(R)):
-        R[k] = R[k] + np.random.randint(1, 3) - 2
-        C[k] = C[k] + np.random.randint(1, 3) - 2
+    np.random.seed(1)
+    R_offset = np.random.randint(1, 3, len(R))
+    np.random.seed(2)
+    C_offset = np.random.randint(1, 3, len(C))
+    R = R+R_offset-2
+    C = C+C_offset-2
 
     for k in np.arange(len(R)):
         WFS[R[k], C[k]] = 1
 
     subaperture = rect(Xp / apertureSize) * rect(Yp / apertureSize)
-    WFS = np.abs(ifft2c(fft2c(WFS) * fft2c(subaperture)))
-    WFS = WFS / np.max(WFS)
+    WFS = np.abs(ifft2c(fft2c(WFS) * fft2c(subaperture)))  # convolution of the subaperture with the scan grid
+    WFS = WFS / np.max(WFS)*aperture
 
 simuData.WFS = WFS[Np//2-simuData.Nd//2:Np//2+simuData.Nd//2, Np//2-simuData.Nd//2:Np//2+simuData.Nd//2]
 
+nnzPixels = np.sum(WFS)
+fillFactor = nnzPixels / np.sum(aperture)
 hsvplot(simuData.WFS, pixelSize=dxp, axisUnit='mm')
 
 ## generate WFS for FIB
 
-## generate positions
+## generate scan positions
 Nr = 6
-s = 15
-rend = 100
+s = 10
+rend = 50
 R, C = GenerateConcentricGrid(Nr, s, rend)
 # get number of positions
 numFrames = len(R)
 print('generate positions (number of frames=%d)' % numFrames)
 # TODO why from the second to the single to the last?
 averageStep = np.mean(np.sqrt(np.diff(R[1:-1])**2+np.diff(C[1:-1])**2)) * dxp
-# meanOverlap = (1-averageStep/pinholeDiameter)*fillFactor
-# print('mean linear overlap: %d %%' % (meanOverlap*100))
+meanOverlap = (1-averageStep/pinholeDiameter)*fillFactor
+print('mean linear overlap: %d %%' % (meanOverlap*100))
 
 plt.figure(figsize=(5, 5), num=3)
-plt.plot(R, C, 'o-')
+plt.plot(R*dxp, C*dxp, 'o-')
 plt.show(block=False)
 
 ## generate ptychogram
@@ -159,7 +167,7 @@ for loop in np.arange(numFrames):
     I = np.sum(abs(ESW)**2, axis=0)
     # re-shift step
     temp = posit(fraccircshift(rescale(I, 1/simuData.binningFactor, order=0), [-R[loop], -C[loop]])) # order = 0 takes the nearest-neighbor))
-    simuData.ptychogram[k] =temp[Np//2-simuData.Nd//2:Np//2+simuData.Nd//2, Np//2-simuData.Nd//2:Np//2+simuData.Nd//2]
+    simuData.ptychogram[loop] =temp[Np//2-simuData.Nd//2:Np//2+simuData.Nd//2, Np//2-simuData.Nd//2:Np//2+simuData.Nd//2]
     if simuData.binningFactor>1:
         raise('binning not implemented yet')
 
@@ -180,7 +188,7 @@ simuData.entrancePupilDiameter = pinholeDiameter
 simuData.probe = []
 
 ## data inspection, check sampling requirements todo
-export_data = False # exportBool in MATLAB
+export_data = True # exportBool in MATLAB
 from fracPy.io import getExampleDataFolder
 saveFilePath = getExampleDataFolder()
 os.chdir(saveFilePath)

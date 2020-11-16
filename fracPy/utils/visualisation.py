@@ -53,8 +53,8 @@ def complex_to_rgb(u):
     # saturation  (ones)
     s = np.ones_like(h)
     # value (normalize brightness to 8-bit)
-    v = abs(u)
-    v = v / (np.max(v) + np.finfo(float).eps) * 2 ** 8
+    v = np.abs(u)
+    v = v / (np.max(v) + np.finfo(float).eps) * (2 ** 8-1)
 
     hsv = np.dstack([h, s, v])
     rgb = hsv_to_rgb(hsv)
@@ -119,6 +119,13 @@ def modeTile(P,normalize = True):
     return P
 
 def hsvplot(u, ax = None, pixelSize = 1, axisUnit='pixel'):
+    """
+    perform complex plot
+    :param ax
+    :param pixelSize, default 1
+    :param axisUnit, default 'pixel', options: 'm', 'cm', 'mm', 'um'
+    return: a complex plot
+    """
     rgb = complex_to_rgb(u)
     complex_plot(rgb, ax, pixelSize, axisUnit)
 
@@ -128,7 +135,7 @@ def hsvmodeplot(P,ax=None ,normalize = True, pixelSize =1, axisUnit ='pixel'):
     :param P: A complex np.ndarray
     :param normalize: normalize each mode individually
     :param pixelSize: pixelSize in x and y, to display the physical dimension of the plot
-    :return:
+    :return: a tiled complex plot
     """
     Q = modeTile(P, normalize=normalize)
     hsvplot(Q, ax=ax, pixelSize=pixelSize, axisUnit=axisUnit)

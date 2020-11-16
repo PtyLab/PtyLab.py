@@ -176,8 +176,8 @@ class BaseReconstructor(object):
             if self.optimizable.nlambda>1:
                 raise ValueError('For multi-wavelength, polychromeASP needs to be used instead of ASP')
 
-            dummy = (1.+1.j)*np.ones((1, self.optimizable.nosm, self.optimizable.npsm,
-                                      1, self.experimentalData.Np, self.experimentalData.Np))
+            dummy = np.ones((1, self.optimizable.nosm, self.optimizable.npsm,
+                                      1, self.experimentalData.Np, self.experimentalData.Np), dtype='complex64')
             self.optimizable.transferFunction = np.array(
                 [[[[aspw(dummy[nlambda, nosm, npsm, nslice, :, :],
                         self.experimentalData.zo, self.experimentalData.wavelength,
@@ -188,8 +188,8 @@ class BaseReconstructor(object):
                  for nlambda in range(self.optimizable.nlambda)])
 
         elif self.propagator == 'polychromeASP':
-            dummy = (1.+1.j)*np.ones((self.optimizable.nlambda, self.optimizable.nosm, self.optimizable.npsm,
-                                      1, self.experimentalData.Np, self.experimentalData.Np))
+            dummy = np.ones((self.optimizable.nlambda, self.optimizable.nosm, self.optimizable.npsm,
+                                      1, self.experimentalData.Np, self.experimentalData.Np), dtype='complex64')
             self.optimizable.transferFunction = np.array(
                 [[[[aspw(dummy[nlambda, nosm, npsm, nslice, :, :],
                          self.experimentalData.zo, self.experimentalData.spectralDensity[nlambda],
@@ -206,8 +206,8 @@ class BaseReconstructor(object):
                 raise ValueError('scaledASP propagator works only with fftshiftSwitch = False!')
             if self.optimizable.nlambda > 1:
                 raise ValueError('For multi-wavelength, scaledPolychromeASP needs to be used instead of scaledASP')
-            dummy = (1.+1.j)*np.ones((1, self.optimizable.nosm, self.optimizable.npsm,
-                                      1, self.experimentalData.Np, self.experimentalData.Np))
+            dummy = np.ones((1, self.optimizable.nosm, self.optimizable.npsm,
+                                      1, self.experimentalData.Np, self.experimentalData.Np), dtype='complex64')
             self.optimizable.Q1 = np.ones_like(dummy)
             self.optimizable.Q2 = np.ones_like(dummy)
             for nosm in range(self.optimizable.nosm):
@@ -221,8 +221,8 @@ class BaseReconstructor(object):
         elif self.propagator == 'scaledPolychromeASP':
             if self.fftshiftSwitch:
                 raise ValueError('scaledPolychromeASP propagator works only with fftshiftSwitch = False!')
-            dummy = (1. + 1.j) * np.ones((self.optimizable.nlambda, self.optimizable.nosm, self.optimizable.npsm,
-                                          1, self.experimentalData.Np, self.experimentalData.Np))
+            dummy = np.ones((self.optimizable.nlambda, self.optimizable.nosm, self.optimizable.npsm,
+                                          1, self.experimentalData.Np, self.experimentalData.Np), dtype='complex64')
             self.optimizable.Q1 = np.ones_like(dummy)
             self.optimizable.Q2 = np.ones_like(dummy)
             for nlmabda in range(self.optimizable.nlambda):

@@ -22,7 +22,7 @@ def GenerateConcentricGrid(Nr, s, rend):
     """
     generate concentric circles
     :param Nr: number of circles (or shells)
-    :param s: number of pixels between
+    :param s: number of pixels between points on each circle
     :param rend: end radius size (in pixel units)
     """
     dx = 1  # max Resolution (Schritt von einem zum anderen Pixel)
@@ -48,9 +48,12 @@ def GenerateConcentricGrid(Nr, s, rend):
 
 def GenerateRasterGrid(n, ds, randomOffset = False, amplitude = 1):
     """
-    function to generate raster grid.
+    generate a raster grid containing n*n points with a period of ds in pixelsize,
+    with the option of adding randomOffsets.
     :param n: number of points per dimension
-    :param ds:
+    :param ds: period (# of pixels) per dimension
+    :param randomOffset: optional to add random offsets, default: False
+    :param amplitude: amplitude for the random offsets, default: 1
     :return:
     R: row
     C: column
@@ -59,9 +62,12 @@ def GenerateRasterGrid(n, ds, randomOffset = False, amplitude = 1):
     C = I.reshape(n ** 2) * ds
     R = J.reshape(n ** 2) * ds
 
+    # center the scan grid at [0,0]
+    # for even numbers
     if np.mod(n, 2) == 0:
         C = C - n * ds / 2
         R = R - n * ds / 2
+    # for odd numbers
     else:
         C = C - (n - 1) * ds / 2
         R = R - (n - 1) * ds / 2
