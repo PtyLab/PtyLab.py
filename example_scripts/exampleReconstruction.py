@@ -89,7 +89,7 @@ if ptycho_simulation:
     optimizable.nlambda = 1 # Number of wavelength
     optimizable.nslice = 1 # Number of object slice
     exampleData.dz = 1e-4  # slice
-    exampleData.dxp = exampleData.dxd/2
+    exampleData.dxp = exampleData.dxd
 
 
     optimizable.initialProbe = 'circ'
@@ -135,9 +135,9 @@ if ptycho_simulation:
     # this will copy any attributes from experimental data that we might care to optimize
     # # Set monitor properties
     monitor = Monitor()
-    monitor.figureUpdateFrequency = 10
+    monitor.figureUpdateFrequency = 1
     monitor.objectPlot = 'complex'  # complex abs angle
-    monitor.verboseLevel = 'high'  # high: plot two figures, low: plot only one figure
+    monitor.verboseLevel = 'low'  # high: plot two figures, low: plot only one figure
 
     exampleData.zo = exampleData.zo
     exampleData.spectralDensity = [exampleData.wavelength]
@@ -161,7 +161,7 @@ if ptycho_simulation:
     ## main parameters
     engine.numIterations = 100
     engine.positionOrder = 'random'  # 'sequential' or 'random'
-    engine.propagator = 'scaledASP'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
+    engine.propagator = 'ASP'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
     engine.betaProbe = 0.0
     engine.betaObject = 0.25
 

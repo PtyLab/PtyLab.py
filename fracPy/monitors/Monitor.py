@@ -32,7 +32,7 @@ class Monitor(object):
         self.defaultMonitor.updateObject(object_estimate, objectPlot=self.objectPlot,
                                          pixelSize=self.optimizable.data.dxo, axisUnit='mm')
         self.defaultMonitor.updateProbe(probe_estimate, self.optimizable,
-                                        pixelSize=self.optimizable.data.dxp, axisUnit='um')
+                                        pixelSize=self.optimizable.data.dxp, axisUnit='mm')
         self.defaultMonitor.drawNow()
 
     def updateDiffractionDataMonitor(self, Iestimated, Imeasured):

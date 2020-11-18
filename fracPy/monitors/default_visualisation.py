@@ -41,6 +41,9 @@ class DefaultMonitor(object):
         self.ax_error_metric.grid(b=True, which='minor', color='#999999', linestyle='-', alpha=0.2)
         self.ax_error_metric.set_xlabel('iterations')
         self.ax_error_metric.set_ylabel('error')
+        self.ax_error_metric.set_xscale('log')
+        self.ax_error_metric.set_yscale('log')
+        self.ax_error_metric.axis('image')
         self.figure.tight_layout()
         self.firstrun = True
 
@@ -84,15 +87,17 @@ class DefaultMonitor(object):
         :param error_estimate:
         :return:
         """
+
         if self.firstrun:
             self.error_metric_plot = self.ax_error_metric.plot(error_estimate, 'o-',
                                                                mfc='none')[0]
         else:
-            self.error_metric_plot.set_data(range(len(error_estimate)), error_estimate)
-            self.ax_error_metric.set_xlim(0, len(error_estimate))
             if len(error_estimate) > 1:
+                self.error_metric_plot.set_data(np.arange(len(error_estimate)) + 1, error_estimate)
+                self.ax_error_metric.set_xlim(1, len(error_estimate))
                 self.ax_error_metric.set_ylim(np.min(error_estimate), np.max(error_estimate))
-        self.ax_error_metric.set_aspect(1/self.ax_error_metric.get_data_ratio())
+                data_aspect = (np.log(np.max(error_estimate)/np.min(error_estimate))/np.log(len(error_estimate)))
+                self.ax_error_metric.set_aspect(1/data_aspect)
 
 
     def drawNow(self):

@@ -93,7 +93,7 @@ if WFStype =='QC':
     R, C = GenerateConcentricGrid(numCircs, s, n)
     R = R+Np//2+1
     C = C+Np//2+1
-    temp = np.zeros((Np,Np), dtype=np.float32)
+    temp = np.zeros((Np, Np), dtype=np.float32)
     for k in np.arange(len(R)):
         temp[R[k], C[k]] = 1
     WFS = temp*aperture
@@ -179,7 +179,7 @@ simuData.showPtychogram()
 simuData.dxp = dxp
 simuData.No = 2**10+2**9
 
-simuData.encoder = np.vstack((R*simuData.dxo, C*simuData.dxo)).T
+simuData.encoder = np.vstack((R*dxp, C*dxp)).T
 
 ## simulate Poisson noise todo
 
