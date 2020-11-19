@@ -15,11 +15,11 @@ import os
 import h5py
 from zernike import RZern
 
-fileName = 'WFSpoly'
+fileName = 'WFS_9Wave'
 # create ptyLab object
 simuData = ExperimentalData()
 
-simuData.spectralDensity = 800*1e-9/np.arange(15, 17, 2)  # 9 harmonics
+simuData.spectralDensity = 800*1e-9/np.arange(15, 32, 2)  # 9 harmonics
 nlambda = len(simuData.spectralDensity)
 simuData.wavelength = min(simuData.spectralDensity)
 simuData.binningFactor = 1
@@ -80,6 +80,7 @@ for k in np.arange(nlambda):
 wzMean = wzMean/nlambda
 print('mean spectral probe diameter (fwhm): %.2f mm.' %(2*wzMean*1e3))
 hsvmodeplot(probe, pixelSize=dxp, axisUnit='mm')
+plt.show(block=False)
 
 ## define WFS
 pinholeDiameter = 730e-6
@@ -129,13 +130,15 @@ simuData.WFS = WFS[Np//2-simuData.Nd//2:Np//2+simuData.Nd//2, Np//2-simuData.Nd/
 nnzPixels = np.sum(WFS)
 fillFactor = nnzPixels / np.sum(aperture)
 hsvplot(simuData.WFS, pixelSize=dxp, axisUnit='mm')
+plt.show(block=False)
+
 
 ## generate WFS for FIB
 
 ## generate scan positions
 Nr = 6
-s = 10
-rend = 50
+s = 15
+rend = 100
 R, C = GenerateConcentricGrid(Nr, s, rend)
 # get number of positions
 numFrames = len(R)
@@ -168,7 +171,7 @@ for loop in np.arange(numFrames):
     # re-shift step
     temp = posit(fraccircshift(rescale(I, 1/simuData.binningFactor, order=0), [-R[loop], -C[loop]])) # order = 0 takes the nearest-neighbor))
     simuData.ptychogram[loop] =temp[Np//2-simuData.Nd//2:Np//2+simuData.Nd//2, Np//2-simuData.Nd//2:Np//2+simuData.Nd//2]
-    if simuData.binningFactor>1:
+    if simuData.binningFactor > 1:
         raise('binning not implemented yet')
 
     # inspect diffraction data
@@ -179,7 +182,7 @@ simuData.showPtychogram()
 simuData.dxp = dxp
 simuData.No = 2**10+2**9
 
-simuData.encoder = np.vstack((R*dxp, C*dxp)).T
+simuData.encoder = np.vstack((-R*dxp, -C*dxp)).T
 
 ## simulate Poisson noise todo
 

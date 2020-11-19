@@ -60,9 +60,10 @@ class Optimizable(object):
         # 2. mixed state object - nosm
         # 3. mixed state probe - npsm
         # 4. multislice object (thick) - nslice
-        self.npsm = 1
-        self.nosm = 1
+
         self.nlambda = 1
+        self.nosm = 1
+        self.npsm = 1
         self.nslice = 1
         
 

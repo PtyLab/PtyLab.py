@@ -70,7 +70,7 @@ class mPIE(BaseReconstructor):
 
             for positionLoop, positionIndex in enumerate(self.positionIndices):
                 # get object patch
-                row, col = self.optimizable.positions[positionIndex]
+                row, col = self.experimentalData.positions[positionIndex]
                 sy = slice(row, row + self.experimentalData.Np)
                 sx = slice(col, col + self.experimentalData.Np)
                 # note that object patch has size of probe array
@@ -140,7 +140,7 @@ class mPIE(BaseReconstructor):
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
         absP2 = xp.abs(self.optimizable.probe)**2
-        Pmax = xp.max(xp.sum(absP2, axis=(1, 2, 3)), axis=(-1, -2))
+        Pmax = xp.max(xp.sum(absP2, axis=(0, 1, 2, 3)), axis=(-1, -2))
         if self.experimentalData.operationMode =='FPM':
             frac = abs(self.optimizable.probe)/Pmax*\
                    self.optimizable.probe.conj()/(self.alphaObject*Pmax+(1-self.alphaObject)*absP2)
@@ -159,7 +159,7 @@ class mPIE(BaseReconstructor):
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
         absO2 = xp.abs(objectPatch) ** 2
-        Omax = xp.max(xp.sum(absO2, axis=(1, 2, 3)))
+        Omax = xp.max(xp.sum(absO2, axis=(0, 1, 2, 3)), axis=(-1, -2))
         frac = objectPatch.conj() / (self.alphaProbe * Omax + (1-self.alphaProbe) * absO2)
         r = self.optimizable.probe + self.betaProbe * xp.sum(frac * DELTA, axis=1, keepdims=True)
         return r

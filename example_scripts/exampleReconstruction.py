@@ -65,10 +65,8 @@ if ptycho_simulation:
     exampleData = ExperimentalData()
 
     import os
-    filePath = 'WFSpoly.hdf5'
-    filePath = getExampleDataFolder() / filePath
-
-    #os.chdir(filePath)
+    fileName = 'WFS_9Wave.hdf5'  # WFSpoly   WFS_SingleWave  WFS_9Wave
+    filePath = getExampleDataFolder() / fileName
 
     exampleData.loadData(filePath)  # simuRecent  Lenspaper
 
@@ -81,12 +79,14 @@ if ptycho_simulation:
     # absorbedPhase2 = np.exp(1.j*np.pi/exampleData.wavelength *
     #                                              (exampleData.Xp**2+exampleData.Yp**2)/(exampleData.zo))
 
+    # exampleData.spectralDensity = [exampleData.wavelength, exampleData.wavelength/2]
+    exampleData.encoder = -exampleData.encoder
     # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
     # now create an object to hold everything we're eventually interested in
     optimizable = Optimizable(exampleData)
     optimizable.npsm = 1 # Number of probe modes to reconstruct
     optimizable.nosm = 1 # Number of object modes to reconstruct
-    optimizable.nlambda = 1 # Number of wavelength
+    optimizable.nlambda = len(exampleData.spectralDensity) # Number of wavelength
     optimizable.nslice = 1 # Number of object slice
     exampleData.dz = 1e-4  # slice
     exampleData.dxp = exampleData.dxd
@@ -129,7 +129,7 @@ if ptycho_simulation:
     WFS = WFS / np.max(WFS)
 
     optimizable.probe[..., :, :] = WFS.astype('complex64')
-    hsvplot(np.squeeze(optimizable.probe), pixelSize=exampleData.dxp, axisUnit='mm')
+    hsvplot(np.squeeze(optimizable.probe[0, 0, 0, 0, :, :]), pixelSize=exampleData.dxp, axisUnit='mm')
     plt.show(block=False)
 
     # this will copy any attributes from experimental data that we might care to optimize
@@ -137,10 +137,9 @@ if ptycho_simulation:
     monitor = Monitor()
     monitor.figureUpdateFrequency = 1
     monitor.objectPlot = 'complex'  # complex abs angle
-    monitor.verboseLevel = 'low'  # high: plot two figures, low: plot only one figure
+    monitor.verboseLevel = 'high'  # high: plot two figures, low: plot only one figure
 
     exampleData.zo = exampleData.zo
-    exampleData.spectralDensity = [exampleData.wavelength]
     # exampleData.dxp = exampleData.dxp/1
     # Run the reconstruction
     ## choose engine
@@ -159,20 +158,20 @@ if ptycho_simulation:
     # engine = e3PIE.e3PIE(optimizable, exampleData, monitor)
 
     ## main parameters
-    engine.numIterations = 100
+    engine.numIterations = 50
     engine.positionOrder = 'random'  # 'sequential' or 'random'
-    engine.propagator = 'ASP'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
-    engine.betaProbe = 0.0
-    engine.betaObject = 0.25
+    engine.propagator = 'polychromeASP'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
+    engine.betaProbe = 0.25
+    engine.betaObject = 0.75
 
     ## engine specific parameters:
     engine.zPIEgradientStepSize = 100  # gradient step size for axial position correction (typical range [1, 100])
 
     ## switches
-    engine.probePowerCorrectionSwitch = True
+    engine.probePowerCorrectionSwitch = False
     engine.modulusEnforcedProbeSwitch = False
-    engine.comStabilizationSwitch = True
-    engine.orthogonalizationSwitch = True
+    engine.comStabilizationSwitch = False
+    engine.orthogonalizationSwitch = False
     engine.orthogonalizationFrequency = 10
     engine.fftshiftSwitch = False
     engine.intensityConstraint = 'standard'  # standard fluctuation exponential poission
