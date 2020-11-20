@@ -65,22 +65,13 @@ if ptycho_simulation:
     exampleData = ExperimentalData()
 
     import os
-    fileName = 'WFS_8.hdf5'  # WFSpoly   WFS_SingleWave  WFS_9Wave
+    fileName = 'simu.hdf5'  # WFSpoly   WFS_SingleWave  WFS_9Wave simuRecent  Lenspaper
     filePath = getExampleDataFolder() / fileName
 
-    exampleData.loadData(filePath)  # simuRecent  Lenspaper
+    exampleData.loadData(filePath)
 
     exampleData.operationMode = 'CPM'
-    # M = (1+np.sqrt(1-4*exampleData.dxo/exampleData.dxd)/2*exampleData.dxo/exampleData.dxd)
-    # exampleData.zo = exampleData.zo/M
-    # exampleData.dxd = exampleData.dxd/M
-    # absorbedPhase = np.exp(1.j*np.pi/exampleData.wavelength *
-    #                                              (exampleData.Xp**2+exampleData.Yp**2)/(exampleData.zo))
-    # absorbedPhase2 = np.exp(1.j*np.pi/exampleData.wavelength *
-    #                                              (exampleData.Xp**2+exampleData.Yp**2)/(exampleData.zo))
 
-    # exampleData.spectralDensity = [exampleData.wavelength, exampleData.wavelength/2]
-    # exampleData.encoder = -exampleData.encoder
     # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
     # now create an object to hold everything we're eventually interested in
     optimizable = Optimizable(exampleData)
@@ -89,7 +80,7 @@ if ptycho_simulation:
     optimizable.nlambda = len(exampleData.spectralDensity) # Number of wavelength
     optimizable.nslice = 1 # Number of object slice
     exampleData.dz = 1e-4  # slice
-    exampleData.dxp = exampleData.dxd
+    # exampleData.dxp = exampleData.dxd
 
 
     optimizable.initialProbe = 'circ'
@@ -101,36 +92,6 @@ if ptycho_simulation:
     # customize initial probe quadratic phase
     # optimizable.probe = optimizable.probe*np.exp(1.j*2*np.pi/exampleData.wavelength *
     #                                              (exampleData.Xp**2+exampleData.Yp**2)/(2*6e-3))
-    from fracPy.utils.utils import rect, fft2c, ifft2c
-    from fracPy.utils.scanGrids import GenerateRasterGrid
-    pinholeDiameter = 730e-6
-    fullPeriod = 6 * 13.5e-6
-    apertureSize = 4 * 13.5e-6
-    WFS = 0 * exampleData.Xp
-    n = int(pinholeDiameter // fullPeriod)
-    R, C = GenerateRasterGrid(n, np.round(fullPeriod / exampleData.dxp))
-    print('WFS size: %d um' % (2 * max(max(np.abs(C)), max(np.abs(R))) * exampleData.dxp * 1e6))
-    print('WFS size: %d um' % ((max(max(R) - min(R), max(C) - min(C)) * exampleData.dxp + apertureSize) * 1e6))
-    R = R + exampleData.Np // 2
-    C = C + exampleData.Np // 2
-
-    np.random.seed(1)
-    R_offset = np.random.randint(1, 3, len(R))
-    np.random.seed(2)
-    C_offset = np.random.randint(1, 3, len(C))
-    R = R + R_offset - 2
-    C = C + C_offset - 2
-
-    for k in np.arange(len(R)):
-        WFS[R[k], C[k]] = 1
-
-    subaperture = rect(exampleData.Xp / apertureSize) * rect(exampleData.Yp / apertureSize)
-    WFS = np.abs(ifft2c(fft2c(WFS) * fft2c(subaperture)))  # convolution of the subaperture with the scan grid
-    WFS = WFS / np.max(WFS)
-
-    optimizable.probe[..., :, :] = WFS.astype('complex64')
-    hsvplot(np.squeeze(optimizable.probe[0, 0, 0, 0, :, :]), pixelSize=exampleData.dxp, axisUnit='mm')
-    plt.show(block=False)
 
     # this will copy any attributes from experimental data that we might care to optimize
     # # Set monitor properties
@@ -158,11 +119,11 @@ if ptycho_simulation:
     # engine = e3PIE.e3PIE(optimizable, exampleData, monitor)
 
     ## main parameters
-    engine.numIterations = 50
+    engine.numIterations = 100
     engine.positionOrder = 'random'  # 'sequential' or 'random'
-    engine.propagator = 'polychromeASP'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
+    engine.propagator = 'Fresnel'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
     engine.betaProbe = 0.25
-    engine.betaObject = 0.75
+    engine.betaObject = 0.25
 
     ## engine specific parameters:
     engine.zPIEgradientStepSize = 100  # gradient step size for axial position correction (typical range [1, 100])

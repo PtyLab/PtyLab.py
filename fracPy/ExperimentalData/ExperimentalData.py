@@ -95,6 +95,8 @@ class ExperimentalData:
             self.No = 2**10
         if self.positions0 is None:
             self.positions0 = self.positions.copy()
+        if self.spectralDensity is None:
+            self.spectralDensity = [self.wavelength]
 
     # def _checkData(self):
     #     """
@@ -257,7 +259,6 @@ class ExperimentalData:
     @property
     def DoF(self):
         """expected Depth of field"""
-        # DoF = self.wavelength[0]/self.NAd**2
         DoF = self.wavelength / self.NAd ** 2
         return DoF
 
