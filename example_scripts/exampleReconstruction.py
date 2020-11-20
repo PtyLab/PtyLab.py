@@ -65,7 +65,7 @@ if ptycho_simulation:
     exampleData = ExperimentalData()
 
     import os
-    fileName = 'WFS_9Wave.hdf5'  # WFSpoly   WFS_SingleWave  WFS_9Wave
+    fileName = 'WFS_8.hdf5'  # WFSpoly   WFS_SingleWave  WFS_9Wave
     filePath = getExampleDataFolder() / fileName
 
     exampleData.loadData(filePath)  # simuRecent  Lenspaper
@@ -80,7 +80,7 @@ if ptycho_simulation:
     #                                              (exampleData.Xp**2+exampleData.Yp**2)/(exampleData.zo))
 
     # exampleData.spectralDensity = [exampleData.wavelength, exampleData.wavelength/2]
-    exampleData.encoder = -exampleData.encoder
+    # exampleData.encoder = -exampleData.encoder
     # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
     # now create an object to hold everything we're eventually interested in
     optimizable = Optimizable(exampleData)
@@ -139,7 +139,7 @@ if ptycho_simulation:
     monitor.objectPlot = 'complex'  # complex abs angle
     monitor.verboseLevel = 'high'  # high: plot two figures, low: plot only one figure
 
-    exampleData.zo = exampleData.zo
+    # exampleData.zo = exampleData.zo
     # exampleData.dxp = exampleData.dxp/1
     # Run the reconstruction
     ## choose engine
@@ -179,6 +179,8 @@ if ptycho_simulation:
     engine.objectContrastSwitch = False
     engine.absObjectSwitch = False
     engine.backgroundModeSwitch = False
+    engine.couplingSwitch = True
+    engine.couplingAleph = 1
 
     engine.doReconstruction()
 

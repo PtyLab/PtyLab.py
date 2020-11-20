@@ -11,7 +11,7 @@ import h5py
 from fracPy.utils.utils import fraccircshift, posit
 
 
-filePathForRead = r"D:\Du\Workshop\fracmat\lenspaper4\AVT camera (GX1920)"
+# filePathForRead = r"D:\Du\Workshop\fracmat\lenspaper4\AVT camera (GX1920)"
 filePathForRead =r"\\sun\eikema-witte\project-folder\XUV_lensless_imaging\backups\two-pulses\ARCNL\2020_11_04_ptycho_donut_Concentric_28oct_500micronFOV_50micron_stepsize"
 filePathForSave = r"D:\Du\Workshop\fracpy\example_data"
 # D:\Du\Workshop\fracmat\lenspaper4\AVT camera (GX1920)
@@ -21,7 +21,7 @@ os.chdir(filePathForRead)
 fileName = 'WFS_fundamental'
 # spectral density
 spectralDensity = 762.2e-9
-spectralDensity = 850e-9/np.arange(19, 35, 2)
+# spectralDensity = 850e-9/np.arange(19, 35, 2)
 # wavelength
 wavelength = min(spectralDensity)
 # binning
@@ -38,11 +38,7 @@ P = 2048
 N = 2**10  # NIR
 # N = 2**9 # EUV
 # dark/readout offset
-backgroundOffset = 60
-
-# object detector distance
-zo = 192.0e-3 # object-detector distance
-
+backgroundOffset = 460
 
 ## set experimental specifications
 # detector coordinates
@@ -103,7 +99,7 @@ if N < P:
 
     
 # set experimental specifications:
-entrancePupilDiameter = 1000e-6
+entrancePupilDiameter = 700e-6
 
 
 # set propagator

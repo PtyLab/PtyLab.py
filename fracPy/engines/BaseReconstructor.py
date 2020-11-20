@@ -1,5 +1,6 @@
 from fracPy.monitors.default_visualisation import DefaultMonitor,DiffractionDataMonitor
 import numpy as np
+from scipy.signal import get_window
 import logging
 import warnings
 # fracPy imports
@@ -634,6 +635,7 @@ class BaseReconstructor(object):
 
         if self.objectSmoothenessSwitch:
             raise NotImplementedError()
+
 
         if self.absObjectSwitch:
             self.optimizable.object = (1-self.absObjectBeta)*self.optimizable.object+\

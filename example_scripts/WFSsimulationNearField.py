@@ -15,11 +15,11 @@ import os
 import h5py
 from zernike import RZern
 
-fileName = 'WFS_9Wave'
+fileName = 'WFS_8'
 # create ptyLab object
 simuData = ExperimentalData()
 
-simuData.spectralDensity = 800*1e-9/np.arange(15, 32, 2)  # 9 harmonics
+simuData.spectralDensity = 800*1e-9/np.arange(15, 30, 2)  # 9 harmonics
 nlambda = len(simuData.spectralDensity)
 simuData.wavelength = min(simuData.spectralDensity)
 simuData.binningFactor = 1
@@ -182,7 +182,7 @@ simuData.showPtychogram()
 simuData.dxp = dxp
 simuData.No = 2**10+2**9
 
-simuData.encoder = np.vstack((-R*dxp, -C*dxp)).T
+simuData.encoder = np.vstack((R*dxp, C*dxp)).T
 
 ## simulate Poisson noise todo
 
