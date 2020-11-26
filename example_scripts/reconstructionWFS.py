@@ -94,8 +94,8 @@ monitor = Monitor()
 monitor.figureUpdateFrequency = 1
 monitor.objectPlot = 'complex'  # complex abs angle
 monitor.verboseLevel = 'high'  # high: plot two figures, low: plot only one figure
-monitor.probePlotZoom = 5  # control probe plot FoV
-monitor.objectPlotZoom = 3
+monitor.probePlotZoom = 0.5  # control probe plot FoV
+monitor.objectPlotZoom = 0.3  # control object plot FoV
 
 
 # exampleData.zo = exampleData.zo
