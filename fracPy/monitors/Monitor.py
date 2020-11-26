@@ -10,6 +10,8 @@ class Monitor(object):
         self.figureUpdateFrequency = 1
         self.objectPlot = 'complex'
         self.verboseLevel = 'high'
+        self.objectPlotZoom = 1
+        self.probePlotZoom = 1
         self.optimizable = None
 
     def initializeVisualisation(self):

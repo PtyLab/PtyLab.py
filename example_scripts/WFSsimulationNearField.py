@@ -43,7 +43,7 @@ Xp, Yp = np.meshgrid(xp, xp)
 
 ## define probe
 probe = (1+1j)*np.zeros((nlambda, Np, Np), dtype=np.float32)
-w0 = 20e-6
+w0 = 15e-6
 wzMean = 0
 
 for k in np.arange(nlambda):
@@ -79,8 +79,8 @@ for k in np.arange(nlambda):
 
 wzMean = wzMean/nlambda
 print('mean spectral probe diameter (fwhm): %.2f mm.' %(2*wzMean*1e3))
-hsvmodeplot(probe, pixelSize=dxp, axisUnit='mm')
-plt.show(block=False)
+# v
+# plt.show(block=False)
 
 ## define WFS
 pinholeDiameter = 730e-6
@@ -129,8 +129,8 @@ simuData.WFS = WFS[Np//2-simuData.Nd//2:Np//2+simuData.Nd//2, Np//2-simuData.Nd/
 
 nnzPixels = np.sum(WFS)
 fillFactor = nnzPixels / np.sum(aperture)
-hsvplot(simuData.WFS, pixelSize=dxp, axisUnit='mm')
-plt.show(block=False)
+# hsvplot(simuData.WFS, pixelSize=dxp, axisUnit='mm')
+# plt.show(block=False)
 
 
 ## generate WFS for FIB

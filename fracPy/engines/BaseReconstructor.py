@@ -144,17 +144,22 @@ class BaseReconstructor(object):
         Set object/probe ROI for monitoring
         """
         if not hasattr(self.optimizable, 'objectROI'):
-            self.optimizable.objectROI = [slice(min(self.experimentalData.positions[:, 1]),
-                                                max(self.experimentalData.positions[:, 1]+self.experimentalData.Np)),
-                                          slice(min(self.experimentalData.positions[:, 0]),
-                                                max(self.experimentalData.positions[:, 0]+self.experimentalData.Np))]
+            rx,ry = ((np.max(self.experimentalData.positions, axis=0)-np.min(self.experimentalData.positions, axis=0)\
+                    +self.experimentalData.Np)/self.monitor.objectPlotZoom).astype(int)
+            xc,yc = ((np.max(self.experimentalData.positions, axis=0)+np.min(self.experimentalData.positions, axis=0)\
+                    +self.experimentalData.Np)/2).astype(int)
+
+            self.optimizable.objectROI = [slice(max(0, yc-ry//2),
+                                                min(self.experimentalData.No, yc + ry//2)),
+                                          slice(max(0, xc - rx // 2),
+                                                min(self.experimentalData.No, xc + rx//2))]
+
         if not hasattr(self.optimizable, 'probeROI'):
-            n = 1
-            r = np.int(self.experimentalData.entrancePupilDiameter/self.experimentalData.dxp)
-            self.optimizable.probeROI = [slice(max(0, self.experimentalData.Np//2-n*r),
-                                               min(self.experimentalData.Np, self.experimentalData.Np//2+n*r)),
-                                         slice(max(0, self.experimentalData.Np // 2 - n * r),
-                                               min(self.experimentalData.Np, self.experimentalData.Np//2+n*r))]
+            r = np.int(self.experimentalData.entrancePupilDiameter/self.experimentalData.dxp/self.monitor.probePlotZoom)
+            self.optimizable.probeROI = [slice(max(0, self.experimentalData.Np//2-r),
+                                               min(self.experimentalData.Np, self.experimentalData.Np//2+r)),
+                                         slice(max(0, self.experimentalData.Np // 2 - r),
+                                               min(self.experimentalData.Np, self.experimentalData.Np//2+r))]
 
     def _showInitialGuesses(self):
         self.monitor.initializeVisualisation()
