@@ -92,7 +92,7 @@ class ExperimentalData:
         if self.dxp is None:
             self.dxp = self.wavelength * self.zo / self.Ld
         if self.No is None:
-            self.No = 2**10
+            self.No = 2**11
         if self.positions0 is None:
             self.positions0 = self.positions.copy()
         if self.spectralDensity is None:

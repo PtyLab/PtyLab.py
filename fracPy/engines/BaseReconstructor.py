@@ -495,13 +495,13 @@ class BaseReconstructor(object):
         """ Compute the projected intensity.
             Barebones, need to implement other methods
         """
-        # figure out wether or not to use the GPU
+        # figure out whether or not to use the GPU
         xp = getArrayModule(self.optimizable.esw)
 
         # zero division mitigator
         gimmel = 1e-10
 
-        # propafate to detector
+        # propagate to detector
         self.object2detector()
 
         # get estimated intensity (2D array, in the case of multislice, only take the last slice)

@@ -4,4 +4,3 @@ h5py
 scipy
 scikit-image
 tqdm
-tables

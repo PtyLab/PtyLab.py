@@ -42,7 +42,7 @@ class e3PIE(BaseReconstructor):
         self.betaProbe = 0.25
         self.betaObject = 0.25
         # preallocate transfer function
-        self.H = aspw(np.squeeze(self.optimizable.probe[0, 0, 0, 0, ...]), self.experimentalData.dz, self.experimentalData.wavelength,
+        self.H = aspw(np.squeeze(self.optimizable.probe[0, 0, 0, 0, ...]), self.experimentalData.dz, self.experimentalData.wavelength/self.experimentalData.refrIndex,
                       self.experimentalData.Lp)[1]
         # shift transfer function to avoid fftshifts for FFTS
         self.H = np.fft.ifftshift(self.H)
@@ -66,6 +66,8 @@ class e3PIE(BaseReconstructor):
         # actual reconstruction e3PIE_engine
         for loop in tqdm.tqdm(range(self.numIterations)):
             # set position order
+            if loop == self.numIterations - 1:
+                noreason = True
             self.setPositionOrder()
             for positionLoop, positionIndex in enumerate(self.positionIndices):
                 # get object patch
@@ -74,7 +76,7 @@ class e3PIE(BaseReconstructor):
                 sx = slice(col, col + self.experimentalData.Np)
                 # note that object patch has size of probe array
                 objectPatch = self.optimizable.object[..., sy, sx].copy()
-
+                objectPatch2 = self.optimizable.object[..., :,:].copy()
                 # form first slice esw (exit surface wave)
                 self.optimizable.esw[:,:,:,0,...] = objectPatch[:,:,:,0,...] * self.optimizable.probe[:,:,:,0,...]
 

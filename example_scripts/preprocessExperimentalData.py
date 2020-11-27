@@ -10,23 +10,23 @@ import os
 import h5py
 
 
-filePathForRead = r"D:\Du\Workshop\fracmat\lenspaper4\AVT camera (GX1920)"
-filePathForSave = r"D:\Du\Workshop\fracpy\example_data"
+filePathForRead = r"\\sun.amolf.nl\eikema-witte\group-folder\Phasespace\ptychography\rawData\AutoFocus_708nm\multiSlice22\AVT Camera"
+filePathForSave = r"D:\Workshop_fracpy\example_data"
 # D:\Du\Workshop\fracmat\lenspaper4\AVT camera (GX1920)
 # D:/fracmat/ptyLab/lenspaper4/AVT camera (GX1920)
 os.chdir(filePathForRead)
 
-fileName = 'Lenspaper'
+fileName = 'Multislice22'
 # wavelength
-wavelength = 450e-9
+wavelength = 708.9e-9 #450e-9
 # binning
 binningFactor = 4
 # padding for superresolution
 padFactor = 1
 # set magnification if any objective lens is used
-magfinication = 1
+magnification = 1
 # object detector distance  (initial guess)
-zo = 19.23e-3
+zo = 34.95e-3 #19.23e-3
 # set detection geometry
 # A: camera to closer side of stage (allows to bring camera close in transmission)
 # B: camera to further side of stage (doesn't allow to bring close in transmission),
@@ -38,13 +38,18 @@ camera = 'GX'
 if camera == 'GX':
     N = 1456
     M = 1456
-    dxd = 4.54e-6 * binningFactor / magfinication # effective detector pixel size is magnified by binning
+    dxd = 4.54e-6 * binningFactor / magnification # effective detector pixel size is magnified by binning
     backgroundOffset = 100 # globally subtracted from raw data (diffraction intensities), play with this value
 elif camera == 'Hamamatsu':
     N = 2**11
     M = 2**11
-    dxd = 6.5e-6 * binningFactor / magfinication
+    dxd = 6.5e-6 * binningFactor / magnification
     backgroundOffset = 30
+elif camera == 'Manta':
+    N = 2**11
+    M = 2**11
+    backgroundOffset = 40
+    dxd = 5.5e-6 * binningFactor / magnification
 
 # number of frames is calculated automatically
 framesList = glob.glob('*'+'.tif')
