@@ -125,7 +125,7 @@ class ExperimentalData:
 
         def update(val):
             ind = slider.val
-            plot.set_data(self.ptychogram[int(ind)])
+            plot.set_data(np.log10(self.ptychogram[int(ind)]+1))
             fig.canvas.draw_idle()
 
         slider.on_changed(update)

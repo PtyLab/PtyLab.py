@@ -15,14 +15,14 @@ import os
 import h5py
 from zernike import RZern
 
-fileName = 'WFS_8'
+fileName = 'WFS_8_bin4'
 # create ptyLab object
 simuData = ExperimentalData()
 
-simuData.spectralDensity = 800*1e-9/np.arange(15, 30, 2)  # 9 harmonics
+simuData.spectralDensity = 800*1e-9/np.linspace(15, 29, 8)  # 8 harmonics
 nlambda = len(simuData.spectralDensity)
 simuData.wavelength = min(simuData.spectralDensity)
-simuData.binningFactor = 1
+binningFactor= 1
 
 ## sample detecotr distance
 simuData.zo = 198e-3
@@ -32,10 +32,11 @@ z1 = 80e-2
 
 ## coordinates
 # detector coordinates
-simuData.dxd = 13.5e-6*simuData.binningFactor
-simuData.Nd = int(2**8/simuData.binningFactor)
-# probe coordinates
-dxp = simuData.dxd
+dxd = 13.5e-6/binningFactor
+Nd = int(2**8*binningFactor)
+
+# probe/object coordinates
+dxp = dxd
 Np = 2**11
 xp = np.arange(-Np//2, Np//2)*dxp
 Lp = dxp*Np
@@ -125,7 +126,7 @@ elif WFStype == 'rand':
     WFS = np.abs(ifft2c(fft2c(WFS) * fft2c(subaperture)))  # convolution of the subaperture with the scan grid
     WFS = WFS / np.max(WFS)*aperture
 
-simuData.WFS = WFS[Np//2-simuData.Nd//2:Np//2+simuData.Nd//2, Np//2-simuData.Nd//2:Np//2+simuData.Nd//2]
+simuData.WFS = WFS[Np//2-Nd//2:Np//2+Nd//2, Np//2-Nd//2:Np//2+Nd//2]
 
 nnzPixels = np.sum(WFS)
 fillFactor = nnzPixels / np.sum(aperture)
@@ -153,7 +154,7 @@ plt.plot(R*dxp, C*dxp, 'o-')
 plt.show(block=False)
 
 ## generate ptychogram
-simuData.ptychogram = np.zeros((numFrames, simuData.Nd, simuData.Nd), dtype=np.float32)
+ptychogram = np.zeros((numFrames, Nd, Nd), dtype=np.float32)
 ESW = np.zeros((numFrames, Np, Np), dtype=np.complex64)
 
 for loop in np.arange(numFrames):
@@ -169,26 +170,29 @@ for loop in np.arange(numFrames):
     # save data in ptychogram
     I = np.sum(abs(ESW)**2, axis=0)
     # re-shift step
-    temp = posit(fraccircshift(rescale(I, 1/simuData.binningFactor, order=0), [-R[loop], -C[loop]])) # order = 0 takes the nearest-neighbor))
-    simuData.ptychogram[loop] =temp[Np//2-simuData.Nd//2:Np//2+simuData.Nd//2, Np//2-simuData.Nd//2:Np//2+simuData.Nd//2]
-    if simuData.binningFactor > 1:
-        raise('binning not implemented yet')
+    temp = posit(fraccircshift(rescale(I, 1/binningFactor, order=0), [-R[loop], -C[loop]])) # order = 0 takes the nearest-neighbor))
+    ptychogram[loop] =temp[Np//2-Nd//2:Np//2+Nd//2, Np//2-Nd//2:Np//2+Nd//2]
+    # if binningFactor> 1:
+    #     raise('binning not implemented yet')
+if binningFactor>1:
+    simuData.ptychogram = np.sum(ptychogram.reshape(numFrames, Nd//binningFactor, binningFactor, simuData//binningFactor, binningFactor), axis=(-1, -3))
+else:
+    simuData.ptychogram = ptychogram
 
-    # inspect diffraction data
-
+# inspect diffraction data
 simuData.showPtychogram()
 
-## re-define the coordinates
-simuData.dxp = dxp
-simuData.No = 2**10+2**9
 
+## re-define the coordinates
+simuData.dxd = dxd*binningFactor
+simuData.Nd = simuData.ptychogram.shape[-1]
 simuData.encoder = np.vstack((R*dxp, C*dxp)).T
+simuData.No = 2**10+2**9
 
 ## simulate Poisson noise todo
 
 ## set properties
 simuData.entrancePupilDiameter = pinholeDiameter
-simuData.probe = []
 
 ## data inspection, check sampling requirements todo
 export_data = True # exportBool in MATLAB

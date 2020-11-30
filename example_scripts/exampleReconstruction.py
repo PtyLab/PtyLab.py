@@ -65,7 +65,7 @@ if ptycho_simulation:
     exampleData = ExperimentalData()
 
     import os
-    fileName = 'simu.hdf5'  # WFSpoly   WFS_SingleWave  WFS_9Wave simuRecent  Lenspaper
+    fileName = 'Lenspaper.hdf5'  # WFSpoly   WFS_SingleWave  WFS_9Wave simuRecent  Lenspaper
     filePath = getExampleDataFolder() / fileName
 
     exampleData.loadData(filePath)
@@ -115,7 +115,6 @@ if ptycho_simulation:
     # zPIE
     # engine = zPIE.zPIE_GPU(optimizable, exampleData, monitor)
     # engine = zPIE.zPIE(optimizable, exampleData, monitor)
-    # engine.zPIEgradientStepSize = 200
     # e3PIE
     # engine = e3PIE.e3PIE_GPU(optimizable, exampleData, monitor)
     # engine = e3PIE.e3PIE(optimizable, exampleData, monitor)
@@ -128,7 +127,7 @@ if ptycho_simulation:
     engine.betaObject = 0.25
 
     ## engine specific parameters:
-    engine.zPIEgradientStepSize = 100  # gradient step size for axial position correction (typical range [1, 100])
+    engine.zPIEgradientStepSize = 200  # gradient step size for axial position correction (typical range [1, 100])
 
     ## switches
     engine.probePowerCorrectionSwitch = False

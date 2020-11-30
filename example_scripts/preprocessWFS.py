@@ -9,10 +9,11 @@ import glob
 import os
 import h5py
 from fracPy.utils.utils import fraccircshift, posit
+from fracPy.utils.visualisation import hsvplot
 
 
 # filePathForRead = r"D:\Du\Workshop\fracmat\lenspaper4\AVT camera (GX1920)"
-filePathForRead =r"\\sun\eikema-witte\project-folder\XUV_lensless_imaging\backups\two-pulses\ARCNL\2020_11_04_ptycho_donut_Concentric_28oct_500micronFOV_50micron_stepsize"
+filePathForRead =r"\\sun\eikema-witte\project-folder\XUV_lensless_imaging\backups\two-pulses\ARCNL\2020_11_04_ptycho_no_donut_Concentric_28oct_500micronFOV_50micron_stepsize"
 filePathForSave = r"D:\Du\Workshop\fracpy\example_data"
 # D:\Du\Workshop\fracmat\lenspaper4\AVT camera (GX1920)
 # D:/fracmat/ptyLab/lenspaper4/AVT camera (GX1920)
@@ -23,7 +24,7 @@ fileName = 'WFS_fundamental'
 spectralDensity = 762.2e-9
 # spectralDensity = 850e-9/np.arange(19, 35, 2)
 # wavelength
-wavelength = min(spectralDensity)
+wavelength = np.min(spectralDensity)
 # binning
 binningFactor = 1
 # set magnification if any objective lens is used
@@ -38,7 +39,8 @@ P = 2048
 N = 2**10  # NIR
 # N = 2**9 # EUV
 # dark/readout offset
-backgroundOffset = 460
+backgroundOffset = 60 # 60 for fundamental beam 450 for donut big, 300 for hhg
+
 
 ## set experimental specifications
 # detector coordinates
@@ -51,18 +53,18 @@ positionFileName = glob.glob('*'+'.txt')[0]
 
 # take raw data positions
 T = np.genfromtxt(positionFileName, delimiter=' ', skip_header=1)  # HHG data, skip_header = 1, NIR data skip_hearder = 2
+# convert into pixels
+detectorShifts = T * 1e-6 / dxd
 # match the scan grid with the ptychogram
 T[:, 1] = -T[:, 1]
 # convert to micrometer
 encoder = (T-T[0]) * 1e-6
-# convert into pixels
-detectorShifts = T * 1e-6 / dxd
 # show positions
-plt.figure(figsize=(5, 5))
-plt.plot(encoder[:, 1] * 1e6, encoder[:, 0] * 1e6, 'o-')
-plt.xlabel('(um))')
-plt.ylabel('(um))')
-plt.show(block=False)
+# plt.figure(figsize=(5, 5))
+# plt.plot(encoder[:, 1] * 1e6, encoder[:, 0] * 1e6, 'o-')
+# plt.xlabel('(um))')
+# plt.ylabel('(um))')
+# plt.show(block=False)
 
 ## read data and correct for darks
 # number of frames is calculated automatically
@@ -82,7 +84,12 @@ for k in pbar:
     # get file name
     pbar.set_description('reading frame' + framesList[k])
     I = posit(imageio.imread(framesList[k]).astype('float32')-dark-backgroundOffset)
-    ptychogram[k] = fraccircshift(I, -detectorShifts[k])
+    ptychogram[k] = fraccircshift(I, [-detectorShifts[k, 0], detectorShifts[k, 1]])
+    hsvplot(I-ptychogram[k])
+    plt.show()
+    print(k)
+
+
 
 ## crop data if necessary
 if N < P:
@@ -90,7 +97,7 @@ if N < P:
     x = np.arange(P)
     [X,Y] = np.meshgrid(x, x)
     # ptychogram_forCenter = ptychogram
-    ptychogram_forCenter = posit(ptychogram-200)
+    ptychogram_forCenter = posit(ptychogram-300)
     ptychogram_sum = np.sum(ptychogram_forCenter, axis=0)
     ptychogram_sum = ptychogram_sum/np.sum(ptychogram_sum)
     rowCenter = int(np.round(np.sum(ptychogram_sum*Y)))
