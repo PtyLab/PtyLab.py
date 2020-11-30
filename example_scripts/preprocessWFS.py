@@ -69,6 +69,7 @@ encoder = (T-T[0]) * 1e-6
 ## read data and correct for darks
 # number of frames is calculated automatically
 framesList = glob.glob('*'+'.tif')
+# always check if the names are sorted properly
 framesList.sort()
 numFrames = len(framesList)-1
 
@@ -82,12 +83,15 @@ ptychogram = np.zeros((numFrames, P//binningFactor, P//binningFactor), dtype=np.
 pbar = tqdm.trange(numFrames, leave=True)
 for k in pbar:
     # get file name
-    pbar.set_description('reading frame' + framesList[k])
-    I = posit(imageio.imread(framesList[k]).astype('float32')-dark-backgroundOffset)
+    # pbar.set_description('reading frame' + framesList[k])
+    # I = posit(imageio.imread(framesList[k]).astype('float32')-dark-backgroundOffset)
+    frameName = str(k)+'.tif'
+    pbar.set_description('reading frame' + frameName)
+    I = posit(imageio.imread(frameName).astype('float32')-dark-backgroundOffset)
     ptychogram[k] = fraccircshift(I, [-detectorShifts[k, 0], detectorShifts[k, 1]])
-    hsvplot(I-ptychogram[k])
-    plt.show()
-    print(k)
+    # hsvplot(I-ptychogram[k])
+    # plt.show()
+    # print(k)
 
 
 
@@ -95,7 +99,7 @@ for k in pbar:
 if N < P:
     # center             
     x = np.arange(P)
-    [X,Y] = np.meshgrid(x, x)
+    [X, Y] = np.meshgrid(x, x)
     # ptychogram_forCenter = ptychogram
     ptychogram_forCenter = posit(ptychogram-300)
     ptychogram_sum = np.sum(ptychogram_forCenter, axis=0)

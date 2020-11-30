@@ -95,6 +95,8 @@ class BaseReconstructor(object):
         self._setObjectProbeROI()
         self._showInitialGuesses()
 
+
+
     def _initializeErrors(self):
         """
         initialize all kinds of errors:
@@ -130,8 +132,9 @@ class BaseReconstructor(object):
         else:
             self.probePowerCorrection = np.sqrt(
                 np.max(np.sum(self.experimentalData.ptychogramDownsampled, (-1, -2))))
-        self.optimizable.probe = self.optimizable.probe/np.sqrt(
-            np.sum(self.optimizable.probe*self.optimizable.probe.conj()))*self.probePowerCorrection
+        if self.probePowerCorrectionSwitch:
+            self.optimizable.probe = self.optimizable.probe/np.sqrt(
+                np.sum(self.optimizable.probe*self.optimizable.probe.conj()))*self.probePowerCorrection
 
     def _probeWindow(self):
         # absorbing probe boundary: filter probe with super-gaussian window function
@@ -429,39 +432,18 @@ class BaseReconstructor(object):
         matches getErrorMetrics.m
         :return:
         """
-        # TODO: Check this, I don't think that it makes sense.
-        # Old code:
-        # if not self.saveMemory:
-        #     # Calculate mean error for all positions (make separate function for all of that)
-        #     if self.FourierMaskSwitch:
-        #         self.errorAtPos = np.sum(np.abs(self.detectorError) * self.W)
-        #     else:
-        #         self.errorAtPos = np.sum(np.abs(self.detectorError))
-        # #print(self.errorAtPos, self.energyAtPos)
-        # self.errorAtPos /= (self.energyAtPos + 1)
-        # print(self.errorAtPos)
-        # eAverage = np.sum(self.errorAtPos)
-        #
-        # # append to error vector (for plotting error as function of iteration)
-        # self.optimizable.error = np.append(self.optimizable.error, eAverage)
-
-
-        # new code:
-        xp = getArrayModule(self.detectorError)
         if not self.saveMemory:
             # Calculate mean error for all positions (make separate function for all of that)
             if self.FourierMaskSwitch:
-                self.errorAtPos = np.sum(np.abs(self.detectorError) * self.W) / xp.asarray(1+self.energyAtPos)
+                self.errorAtPos = np.sum(np.abs(self.detectorError) * self.W, axis=(-1, -2))
             else:
-                self.errorAtPos = np.sum(np.abs(self.detectorError)) / xp.asarray(1+self.energyAtPos)
-        #print(self.errorAtPos, self.energyAtPos)
-        #self.errorAtPos /= (self.energyAtPos + 1)
-        #print(self.errorAtPos)
-        eAverage = asNumpyArray(xp.sum(self.errorAtPos))
-
+                self.errorAtPos = np.sum(np.abs(self.detectorError), axis=(-1, -2))
+        self.errorAtPos = asNumpyArray(self.errorAtPos)/asNumpyArray(self.energyAtPos + 1)
+        eAverage = np.sum(self.errorAtPos)
 
         # append to error vector (for plotting error as function of iteration)
         self.optimizable.error = np.append(self.optimizable.error, eAverage)
+
 
     def getRMSD(self, positionIndex):
         """
