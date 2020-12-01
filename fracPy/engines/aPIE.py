@@ -21,15 +21,17 @@ from fracPy.operators.operators import aspw
 import logging
 
 
-class zPIE(BaseReconstructor):
-
+class aPIE(BaseReconstructor):
+    """
+    aPIE: angle correction PIE: ePIE combined with Luus-Jaakola algorithm (the latter for angle correction) + momentum
+    """
     def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData, monitor: Monitor):
         # This contains reconstruction parameters that are specific to the reconstruction
-        # but not necessarily to ePIE reconstruction
+        # but not necessarily to aPIE reconstruction
         super().__init__(optimizable, experimentalData, monitor)
-        self.logger = logging.getLogger('zPIE')
-        self.logger.info('Sucesfully created zPIE zPIE_engine')
-        self.logger.info('Wavelength attribute: %s', self.optimizable.wavelength)
+        self.logger = logging.getLogger('aPIE')
+        self.logger.info('Sucesfully created aPIE aPIE_engine')
+        self.logger.info('Wavelength attribute: #s', self.optimizable.wavelength)
         self.initializeReconstructionParams()
 
     def initializeReconstructionParams(self):
@@ -39,9 +41,15 @@ class zPIE(BaseReconstructor):
         """
         self.betaProbe = 0.25
         self.betaObject = 0.25
-        self.DoF = self.experimentalData.DoF.copy()
-        self.zPIEgradientStepSize = 100  #gradient step size for axial position correction (typical range [1, 100])
-        self.zPIEfriction = 0.7
+        # self.DoF = self.experimentalData.DoF.copy()
+        # self.zPIEgradientStepSize = 100  #gradient step size for axial position correction (typical range [1, 100])
+        self.aPIEfriction = 0.8
+        self.thetaMomentun = 0
+        # set aPIE flag
+        self.aPIEflag = True
+
+        if not hasattr(self, 'thetaHisory'):
+            self.thetaHistory = []
 
     def _prepare_doReconstruction(self):
         """
@@ -57,22 +65,71 @@ class zPIE(BaseReconstructor):
         self._prepare_doReconstruction()
         xp = getArrayModule(self.optimizable.object)
 
-        # actual reconstruction zPIE_engine
-        if not hasattr(self, 'zHisory'):
-            self.zHistory = []
 
-        zMomentun = 0
         # preallocate grids
         if self.propagator == 'ASP':
-            n = self.experimentalData.Np.copy()
+            raise NotImplementedError()
+            # n = self.experimentalData.Np.copy()
         else:
             n = 2*self.experimentalData.Np
 
-        X,Y = xp.meshgrid(xp.arange(-n//2, n//2), xp.arange(-n//2, n//2))
-        w = xp.exp(-(xp.sqrt(X**2+Y**2)/self.experimentalData.Np)**4)
+        # X,Y = xp.meshgrid(xp.arange(-n//2, n//2), xp.arange(-n//2, n//2))
+        # w = xp.exp(-(xp.sqrt(X**2+Y**2)/self.experimentalData.Np)**4)
+        d = self.thetaSearchRadius*fliplr(np.linspace(0, 1, self.numIterations))
 
         pbar = tqdm.trange(self.numIterations, desc='update z = ', leave=True)  # in order to change description to the tqdm progress bar
         for loop in pbar:
+            # save theta search history
+            self.thetaHistory = [self.thetaHistory, gather(self.theta)]
+
+            # select two angles
+            theta = [self.theta, self.theta + d(loop) * (-1 + 2 * np.random.rand(1))] + self.thetaMomentum
+
+            # save object and probe
+            probeTemp = self.optimizable.probe.copy()
+            objectTemp = self.optimizable.object.copy()
+
+            # probe and object buffer
+            probeBuffer = np.zeros_like(self.optimizable.probe)
+            objectBuffer = np.zeros_like(self.No, self.No, 2, 'like',
+                                 self.optimizable.probe) # for polychromatic case this will need to be multimode
+
+            # initialize error
+            errorTemp = np.zeros(2, 1)
+
+            for k in range(2):
+                self.optimizable.probe = probeTemp
+                self.optimizable.object = objectTemp
+                # reset ptychogram(transform into estimate coordinates)
+                Xq = -np.sqrt(cosd(theta(k)) **2 * (sind(theta(k)) * self.experimentalData.zo + self.experimentalData.Xd)** 2 - (
+                            sind(theta(k)) **2 * self.experimentalData.Yd**2 + 2 * sind(
+                        theta(k)) * self.experimentalData.Xd * self.experimentalData.zo + self.experimentalData.Xd**2)) + 1 / 2 * sind(2 * theta(k)) * self.experimentalData.zo + cosd(
+                    theta(k)) * self.experimentalData.Xd
+                Xq = np.real(Xq)
+
+                for l in range(self.numFrames):
+                    temp = self.ptychogramUntransformed(:, :, l)
+                    temp2 = abs(interp2(self.experimentalData.Xd, self.experimentalData.Yd, temp, Xq, self.experimentalData.Yd, 'linear'))
+                    temp2(isnan(temp2)) = 0
+                    temp2(temp2 < 0) = 0
+                    self.experimentalData.ptychogram(:,:, l) = temp2
+
+        # renormalization(for energy conservation)
+        self.ptychogram = self.ptychogram / norm(self.ptychogram(:), 2) *norm(self.params.ptychogramUntransformed(:), 2)
+
+        self.params.W = ones(self.Np, 'single')
+        self.params.W = abs(interp2(self.Xd, self.Yd, self.params.W, Xq, self.Yd, 'linear'))
+        self.params.W(isnan(self.params.W)) = 0
+        self.params.W(self.params.W == 0) = 1e-3
+
+        if self.params.gpuSwitch
+            self.ptychogram = gpuArray(self.ptychogram)
+            self.params.W = gpuArray(self.params.W)
+
+        if self.params.fftshiftSwitch
+            self.ptychogram = ifftshift(ifftshift(self.ptychogram, 1), 2)
+            self.params.W = ifftshift(ifftshift(self.params.W, 1), 2)
+
             # set position order
             self.setPositionOrder()
 
@@ -81,7 +138,7 @@ class zPIE(BaseReconstructor):
                 zNew = self.experimentalData.zo.copy()
             else:
                 d = 10
-                dz = np.linspace(-d * self.DoF, d * self.DoF, 11)/2
+                dz = np.linspace(-d * self.DoF, d * self.DoF, 11)/10
                 merit = []
                 # todo, mixed states implementation, check if more need to be put on GPU to speed up
                 for k in np.arange(len(dz)):
@@ -105,7 +162,7 @@ class zPIE(BaseReconstructor):
             self.zHistory.append(self.experimentalData.zo)
 
             # print updated z
-            pbar.set_description('update z = %.3f mm (dz = %.1f um)' % (self.experimentalData.zo*1e3, zMomentun*1e6))
+            pbar.set_description('update z = #.3f mm (dz = #.1f um)' # (self.experimentalData.zo*1e3, zMomentun*1e6))
 
             # reset coordinates
             self.experimentalData.zo = zNew
@@ -198,7 +255,7 @@ class zPIE(BaseReconstructor):
         r = self.optimizable.probe + self.betaObject * xp.sum(frac * DELTA, axis=(0, 1, 3), keepdims=True)
         return r
 
-class zPIE_GPU(zPIE):
+class aPIE_GPU(zPIE):
     """
     GPU-based implementation of zPIE
     """
@@ -207,8 +264,8 @@ class zPIE_GPU(zPIE):
         super().__init__(*args, **kwargs)
         if cp is None:
             raise ImportError('Could not import cupy')
-        self.logger = logging.getLogger('zPIE_GPU')
-        self.logger.info('Hello from zPIE_GPU')
+        self.logger = logging.getLogger('aPIE_GPU')
+        self.logger.info('Hello from aPIE_GPU')
 
     def _prepare_doReconstruction(self):
         self.logger.info('Ready to start transferring stuff to the GPU')
@@ -222,14 +279,18 @@ class zPIE_GPU(zPIE):
         # optimizable parameters
         self.optimizable.probe = cp.array(self.optimizable.probe, cp.complex64)
         self.optimizable.object = cp.array(self.optimizable.object, cp.complex64)
+        self.optimizable.probeBuffer = cp.array(self.optimizable.probeBuffer, cp.complex64)
+        self.optimizable.objectBuffer = cp.array(self.optimizable.objectBuffer, cp.complex64)
+        self.optimizable.probeMomentum = cp.array(self.optimizable.probeMomentum, cp.complex64)
+        self.optimizable.objectMomentum = cp.array(self.optimizable.objectMomentum, cp.complex64)
 
         # non-optimizable parameters
         self.experimentalData.ptychogram = cp.array(self.experimentalData.ptychogram, cp.float32)
         # self.experimentalData.probe = cp.array(self.experimentalData.probe, cp.complex64)
-        # self.optimizable.Imeasured = cp.array(self.optimizable.Imeasured)
+        #self.optimizable.Imeasured = cp.array(self.optimizable.Imeasured)
 
-        # zPIE parameters
-        self.logger.info('Detector error shape: %s', self.detectorError.shape)
+        # ePIE parameters
+        self.logger.info('Detector error shape: #s', self.detectorError.shape)
         self.detectorError = cp.array(self.detectorError)
 
         # proapgators to GPU
@@ -237,12 +298,6 @@ class zPIE_GPU(zPIE):
             self.optimizable.quadraticPhase = cp.array(self.optimizable.quadraticPhase)
         elif self.propagator == 'ASP' or self.propagator == 'polychromeASP':
             self.optimizable.transferFunction = cp.array(self.optimizable.transferFunction)
-        elif self.propagator == 'scaledASP' or self.propagator == 'scaledPolychromeASP':
+        elif self.propagator =='scaledASP' or self.propagator == 'scaledPolychromeASP':
             self.optimizable.Q1 = cp.array(self.optimizable.Q1)
             self.optimizable.Q2 = cp.array(self.optimizable.Q2)
-
-        # other parameters
-        if self.backgroundModeSwitch:
-            self.background = cp.array(self.background)
-        if self.absorbingProbeBoundary:
-            self.probeWindow = cp.array(self.probeWindow)
