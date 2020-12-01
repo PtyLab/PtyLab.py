@@ -52,9 +52,9 @@ probe = aspw(pinhole, 2*f, simuData.wavelength, simuData.Lp)[0]
 # multiply with quadratic phase and aperture
 aperture = circ(simuData.Xp, simuData.Yp, 3*simuData.Lp/4)
 aperture = convolve2d(aperture, gaussian2D(5, 3).astype(np.float32), mode='same')
-probe = probe * np.exp(-1.j*2*np.pi/simuData.wavelength*(simuData.Xp**2+simuData.Yp**2)/(2*f)) * aperture
-probe = aspw(probe, 2*f, simuData.wavelength, simuData.Lp)[0]
 
+probe = aspw(probe, 2*f, simuData.wavelength, simuData.Lp)[0]
+probe = probe * np.exp(-1.j*2*np.pi/simuData.wavelength*(simuData.Xp**2+simuData.Yp**2)/(2*f)) * aperture
 simuData.probe = np.zeros((simuData.nlambda, 1, simuData.npsm, simuData.nslice, simuData.Np, simuData.Np), dtype='complex128')
 simuData.probe[...,:,:] = probe
 
@@ -71,15 +71,11 @@ plt.show(block=False)
 d = 1e-3   # the smaller this parameter the larger the spatial frequencies in the simulated object
 b = 33     # topological charge (feel free to play with this number)
 theta, rho = cart2pol(simuData.Xo, simuData.Yo)
-t = (1 + np.sign(np.sin(b * theta + 2*np.pi * (rho/d)**2)))/2
-# phaseFun = np.exp(1.j * np.arctan2(simuData.Yo, simuData.Xo))
-phaseFun = 1
-# phaseFun = np.exp(1.j*( 2* theta + 2*np.pi * (rho/d)**2))
-t = t*circ(simuData.Xo, simuData.Yo, simuData.Lo)*(1-circ(simuData.Xo, simuData.Yo, 200*simuData.dxo))*phaseFun\
-    +circ(simuData.Xo, simuData.Yo, 130*simuData.dxo)
-obj = convolve2d(t, gaussian2D(5, 3), mode='same')  # smooth edges
+
+obj = np.exp(-1.j*4*np.pi/hyperbolic(simuData.Xp,simuData.Yp)
+
 # obj_phase = np.exp(1.j*2*np.pi/simuData.wavelength*(simuData.Xo**2+simuData.Yo**2)*20)
-obj = obj*phaseFun
+
 simuData.object = np.zeros((simuData.nlambda, simuData.nosm, 1, simuData.nslice, simuData.No, simuData.No), dtype='complex128')
 simuData.object[...,:,:] = obj
 plt.figure(figsize=(5,5), num=2)
@@ -206,3 +202,11 @@ if export_data:
     hf.create_dataset('entrancePupilDiameter', data=(simuData.entrancePupilDiameter,), dtype='f')
     hf.close()
     print('An hd5f file has been saved')
+
+
+
+
+def hyperbolic_sin(x,y):
+    r=np.sqrt(x**2+y**2)
+    func=(np.exp(r)-np.exp(-r))/2
+    return func
