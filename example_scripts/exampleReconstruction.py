@@ -146,7 +146,7 @@ if ptycho_simulation:
     engine.absorbingProbeBoundary = False
     engine.objectContrastSwitch = False
     engine.absObjectSwitch = False
-    engine.backgroundModeSwitch = False
+    engine.backgroundModeSwitch = True
 
     engine.doReconstruction()
 
