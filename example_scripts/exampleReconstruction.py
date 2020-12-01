@@ -35,7 +35,7 @@ if FPM_simulation:
     # # now create an object to hold everything we're eventually interested in
     optimizable = Optimizable(exampleData)
 
-    optimizable.npsm = 9  # Number of probe modes to reconstruct
+    optimizable.npsm = 4  # Number of probe modes to reconstruct
     optimizable.nosm = 1  # Number of object modes to reconstruct
     optimizable.nlambda = 1  # Number of wavelength
     optimizable.prepare_reconstruction()
@@ -65,22 +65,32 @@ if ptycho_simulation:
     exampleData = ExperimentalData()
 
     import os
-    fileName = 'simu.hdf5'  # WFSpoly   WFS_SingleWave  WFS_9Wave simuRecent  Lenspaper
-    filePath = getExampleDataFolder() / fileName
 
-    exampleData.loadData(filePath)
+    fileName = r'C:\Users\anned\Documents\Python Scripts\lenspaper4\results\lenspaper.hdf5'
+    filePath = getExampleDataFolder()/fileName
+
+    #os.chdir(filePath)
+
+    exampleData.loadData(filePath)  # simuRecent  Lenspaper
 
     exampleData.operationMode = 'CPM'
+    # M = (1+np.sqrt(1-4*exampleData.dxo/exampleData.dxd)/2*exampleData.dxo/exampleData.dxd)
+    # exampleData.zo = exampleData.zo/M
+    # exampleData.dxd = exampleData.dxd/M
+    # absorbedPhase = np.exp(1.j*np.pi/exampleData.wavelength *
+    #                                              (exampleData.Xp**2+exampleData.Yp**2)/(exampleData.zo))
+    # absorbedPhase2 = np.exp(1.j*np.pi/exampleData.wavelength *
+    #                                              (exampleData.Xp**2+exampleData.Yp**2)/(exampleData.zo))
 
     # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
     # now create an object to hold everything we're eventually interested in
     optimizable = Optimizable(exampleData)
-    optimizable.npsm = 1 # Number of probe modes to reconstruct
+    optimizable.npsm = 4 # Number of probe modes to reconstruct
     optimizable.nosm = 1 # Number of object modes to reconstruct
-    optimizable.nlambda = len(exampleData.spectralDensity) # Number of wavelength
+    optimizable.nlambda = 1 # Number of wavelength
     optimizable.nslice = 1 # Number of object slice
-    exampleData.dz = 1e-4  # slice
-    # exampleData.dxp = exampleData.dxd
+    #exampleData.dz = 1e-4  # slice
+    #exampleData.dxp = exampleData.dxd/2
 
 
     optimizable.initialProbe = 'circ'
@@ -92,15 +102,12 @@ if ptycho_simulation:
     # customize initial probe quadratic phase
     # optimizable.probe = optimizable.probe*np.exp(1.j*2*np.pi/exampleData.wavelength *
     #                                              (exampleData.Xp**2+exampleData.Yp**2)/(2*6e-3))
-
     # this will copy any attributes from experimental data that we might care to optimize
     # # Set monitor properties
     monitor = Monitor()
-    monitor.figureUpdateFrequency = 1
+    monitor.figureUpdateFrequency = 10
     monitor.objectPlot = 'complex'  # complex abs angle
     monitor.verboseLevel = 'high'  # high: plot two figures, low: plot only one figure
-
-    # exampleData.zo = exampleData.zo
     # exampleData.dxp = exampleData.dxp/1
     # Run the reconstruction
     ## choose engine
@@ -132,19 +139,19 @@ if ptycho_simulation:
     engine.probePowerCorrectionSwitch = False
     engine.modulusEnforcedProbeSwitch = False
     engine.comStabilizationSwitch = False
-    engine.orthogonalizationSwitch = False
+    engine.orthogonalizationSwitch = True
     engine.orthogonalizationFrequency = 10
-    engine.fftshiftSwitch = False
+    engine.fftshiftSwitch = True
     engine.intensityConstraint = 'standard'  # standard fluctuation exponential poission
     engine.absorbingProbeBoundary = False
     engine.objectContrastSwitch = False
     engine.absObjectSwitch = False
     engine.backgroundModeSwitch = False
-    engine.couplingSwitch = True
-    engine.couplingAleph = 1
 
     engine.doReconstruction()
 
 
-    # now save the data
-    # optimizable.saveResults('reconstruction.hdf5')
+    print('test')
+
+    # now save the da
+#optimizable.saveResults('reconstruction.hdf5')

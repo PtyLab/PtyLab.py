@@ -10,8 +10,8 @@ import os
 import h5py
 
 
-filePathForRead = r"D:\Du\Workshop\fracmat\lenspaper4\AVT camera (GX1920)"
-filePathForSave = r"D:\Du\Workshop\fracpy\example_data"
+filePathForRead = r"C:\Users\anned\Documents\Python Scripts\lenspaper4\AVT camera (GX1920)"
+filePathForSave = r"C:\Users\anned\Documents\Python Scripts\lenspaper4\results"
 # D:\Du\Workshop\fracmat\lenspaper4\AVT camera (GX1920)
 # D:/fracmat/ptyLab/lenspaper4/AVT camera (GX1920)
 os.chdir(filePathForRead)
