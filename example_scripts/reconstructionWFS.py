@@ -6,7 +6,7 @@ from fracPy.io import getExampleDataFolder
 #matplotlib.use('qt5agg')
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Optimizable.Optimizable import Optimizable
-from fracPy.engines import ePIE, mPIE, qNewton, zPIE, e3PIE
+from fracPy.engines import ePIE, mPIE, qNewton, zPIE, e3PIE, multiPIE
 from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray
 from fracPy.monitors.Monitor import Monitor as Monitor
 import logging
@@ -21,7 +21,7 @@ import numpy as np
 exampleData = ExperimentalData()
 
 import os
-fileName = 'WFS_fundamental.hdf5'  #  simuRecent  Lenspaper WFS_1_bin4 WFS_fundamental
+fileName = 'WFS_HHG.hdf5'  #  simuRecent  Lenspaper WFS_1_bin4 WFS_fundamental
 filePath = getExampleDataFolder() / fileName
 
 exampleData.loadData(filePath)
@@ -41,14 +41,19 @@ exampleData.No = 2**11
 optimizable = Optimizable(exampleData)
 optimizable.npsm = 1 # Number of probe modes to reconstruct
 optimizable.nosm = 1 # Number of object modes to reconstruct
-# exampleData.spectralDensity = 0.8*exampleData.spectralDensity
+
+exampleData.spectralDensity = [29.9e-9, 32.11e-9, 34.71e-9, 37.74e-9, 41.35e-9]
+# exampleData.spectralDensity = 870e-9/np.linspace(29,19,6)
+# exampleData.spectralDensity = 800*1e-9/np.linspace(15, 31, 9)
+# exampleData.spectralDensity = 0.9*exampleData.spectralDensity
 exampleData.wavelength = np.min(exampleData.wavelength)
 optimizable.nlambda = len(exampleData.spectralDensity) # Number of wavelength
 optimizable.nslice = 1 # Number of object slice
 exampleData.dz = 1e-4  # slice
 exampleData.dxp = exampleData.dxd/4
 # exampleData.No = 2**11+2**10
-# exampleData.zo = exampleData.zo
+exampleData.zo = 0.20
+# exampleData.zo = 0.9*exampleData.zo
 
 
 optimizable.initialProbe = 'circ'
@@ -103,8 +108,10 @@ monitor = Monitor()
 monitor.figureUpdateFrequency = 1
 monitor.objectPlot = 'complex'  # complex abs angle
 monitor.verboseLevel = 'high'  # high: plot two figures, low: plot only one figure
-monitor.probePlotZoom = 0.5  # control probe plot FoV
-monitor.objectPlotZoom = 0.5  # control object plot FoV
+monitor.probePlotZoom = 1.5  # control probe plot FoV
+monitor.objectPlotZoom = 3  # control object plot FoV
+monitor.objectPlotContrast = 0.5
+monitor.probePlotContrast = 0.5
 
 
 # Run the reconstruction
@@ -115,9 +122,12 @@ monitor.objectPlotZoom = 0.5  # control object plot FoV
 # mPIE
 engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
 # engine = mPIE.mPIE(optimizable, exampleData, monitor)
+# multiPIE
+# engine = multiPIE.multiPIE_GPU(optimizable, exampleData, monitor)
+# engine = multiPIE.multiPIE(optimizable, exampleData, monitor)
 
 ## main parameters
-engine.numIterations = 10
+engine.numIterations = 7000
 engine.positionOrder = 'random'  # 'sequential' or 'random'
 engine.propagator = 'scaledPolychromeASP'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
 engine.betaProbe = 0.05
