@@ -9,36 +9,41 @@ import glob
 import os
 import h5py
 from fracPy.utils.utils import fraccircshift, posit
+from fracPy.utils.visualisation import hsvplot
 
 
 # filePathForRead = r"D:\Du\Workshop\fracmat\lenspaper4\AVT camera (GX1920)"
-filePathForRead = r"\\sun.amolf.nl\eikema-witte\group-folder\Phasespace\ptychography\rawData\calibration\20201112_152654_USAF 2 wavelengths_700_800\AVT camera (Manta)"
-filePathForSave = r"D:\fracPy_Antonios\example_data"
+filePathForRead =r"\\sun\eikema-witte\project-folder\XUV_lensless_imaging\backups\two-pulses\ARCNL\2020_11_27_ptycho_HHG_Concentric_20Nov_500um_FOV_50micron_stepsize"
+# 2020_11_04_ptycho_no_donut_Concentric_28oct_500micronFOV_50micron_stepsize
+# 2020_11_27_ptycho_HHG_Concentric_20Nov_500um_FOV_50micron_stepsize
+filePathForSave = r"D:\Du\Workshop\fracpy\example_data"
 # D:\Du\Workshop\fracmat\lenspaper4\AVT camera (GX1920)
 # D:/fracmat/ptyLab/lenspaper4/AVT camera (GX1920)
 os.chdir(filePathForRead)
 
-fileName = 'Multiwave_USAF'
+fileName = 'WFS_HHG'
 # spectral density
-spectralDensity = np.linspace(700e-9, 800e-9,2)
+# spectralDensity = 762.2e-9
 # spectralDensity = 850e-9/np.arange(19, 35, 2)
+spectralDensity = [29.9e-9, 32.11e-9, 34.71e-9, 37.74e-9, 41.35e-9]
 # wavelength
-wavelength = min(spectralDensity)
+wavelength = np.min(spectralDensity)
 # binning
 binningFactor = 1
 # set magnification if any objective lens is used
 magfinication = 1
 # object detector distance  (initial guess)
-zo = 34.95e-3 #192.0e-3
+zo = 192.0e-3
 # HHG setup
-cameraPixelSize = 5.5e-6#13.5e-6
+cameraPixelSize = 13.5e-6
 # number of pixels in raw data
 P = 2048
 # pixel in cropped data
-N = 2**11 # 2**10  # NIR
-# N = 2**9 # EUV
+# N = 2**10  # NIR
+N = 2**9 # EUV
 # dark/readout offset
-backgroundOffset = 40 # 460
+backgroundOffset = 60 # 60 for fundamental beam 450 for donut big, 300 for hhg
+
 
 ## set experimental specifications
 # detector coordinates
@@ -50,24 +55,24 @@ Nd = N                             # number of detector pixels
 positionFileName = glob.glob('*'+'.txt')[0]
 
 # take raw data positions
-T = np.genfromtxt(positionFileName, delimiter=' ', skip_header=2)
-# T = np.genfromtxt(positionFileName, delimiter=' ', skip_header=1)  # HHG data, skip_header = 1, NIR data skip_hearder = 2
+T = np.genfromtxt(positionFileName, delimiter=' ', skip_header=1)  # HHG data, skip_header = 1, NIR data skip_hearder = 2
+# convert into pixels
+detectorShifts = T * 1e-6 / dxd
 # match the scan grid with the ptychogram
 T[:, 1] = -T[:, 1]
 # convert to micrometer
 encoder = (T-T[0]) * 1e-6
-# convert into pixels
-detectorShifts = T * 1e-6 / dxd
 # show positions
-plt.figure(figsize=(5, 5))
-plt.plot(encoder[:, 1] * 1e6, encoder[:, 0] * 1e6, 'o-')
-plt.xlabel('(um))')
-plt.ylabel('(um))')
-plt.show(block=False)
+# plt.figure(figsize=(5, 5))
+# plt.plot(encoder[:, 1] * 1e6, encoder[:, 0] * 1e6, 'o-')
+# plt.xlabel('(um))')
+# plt.ylabel('(um))')
+# plt.show(block=False)
 
 ## read data and correct for darks
 # number of frames is calculated automatically
 framesList = glob.glob('*'+'.tif')
+# always check if the names are sorted properly
 framesList.sort()
 numFrames = len(framesList)-1
 
@@ -81,16 +86,25 @@ ptychogram = np.zeros((numFrames, P//binningFactor, P//binningFactor), dtype=np.
 pbar = tqdm.trange(numFrames, leave=True)
 for k in pbar:
     # get file name
-    pbar.set_description('reading frame' + framesList[k])
-    I = posit(imageio.imread(framesList[k]).astype('float32')-dark-backgroundOffset)
-    ptychogram[k] = np.resize((fraccircshift(I, -detectorShifts[k])),(P//binningFactor, P//binningFactor))
+    # pbar.set_description('reading frame' + framesList[k])
+    # I = posit(imageio.imread(framesList[k]).astype('float32')-dark-backgroundOffset)
+    frameName = str(k)+'.tif'
+    pbar.set_description('reading frame' + frameName)
+    I = posit(imageio.imread(frameName).astype('float32')-dark-backgroundOffset)
+    ptychogram[k] = fraccircshift(I, [-detectorShifts[k, 0], detectorShifts[k, 1]])
+    # hsvplot(I-ptychogram[k])
+    # plt.show()
+    # print(k)
+
+
+
 ## crop data if necessary
 if N < P:
     # center             
     x = np.arange(P)
-    [X,Y] = np.meshgrid(x, x)
+    [X, Y] = np.meshgrid(x, x)
     # ptychogram_forCenter = ptychogram
-    ptychogram_forCenter = posit(ptychogram-200)
+    ptychogram_forCenter = posit(ptychogram-300)
     ptychogram_sum = np.sum(ptychogram_forCenter, axis=0)
     ptychogram_sum = ptychogram_sum/np.sum(ptychogram_sum)
     rowCenter = int(np.round(np.sum(ptychogram_sum*Y)))
@@ -117,7 +131,7 @@ if exportBool:
     hf.create_dataset('Nd', data=(Nd,), dtype='i')
     hf.create_dataset('zo', data=(zo,), dtype='f')
     hf.create_dataset('wavelength', data=(wavelength,), dtype='f')
-    hf.create_dataset('spectralDensity', data=(spectralDensity,), dtype='f')
+    hf.create_dataset('spectralDensity', data=spectralDensity, dtype='f')
     hf.create_dataset('entrancePupilDiameter', data=(entrancePupilDiameter,), dtype='f')
     hf.close()
     print('An hd5f file has been saved')

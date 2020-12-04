@@ -35,7 +35,7 @@ if FPM_simulation:
     # # now create an object to hold everything we're eventually interested in
     optimizable = Optimizable(exampleData)
 
-    optimizable.npsm = 1  # Number of probe modes to reconstruct
+    optimizable.npsm = 9  # Number of probe modes to reconstruct
     optimizable.nosm = 1  # Number of object modes to reconstruct
     optimizable.nlambda = 1  # Number of wavelength
     optimizable.prepare_reconstruction()
@@ -65,7 +65,7 @@ if ptycho_simulation:
     exampleData = ExperimentalData()
 
     import os
-    fileName = 'simuVortex4wavel.hdf5'  # WFSpoly   WFS_SingleWave  WFS_9Wave simuRecent  Lenspaper
+    fileName = 'Lenspaper.hdf5'  # WFSpoly   WFS_SingleWave  WFS_9Wave simuRecent  Lenspaper
     filePath = getExampleDataFolder() / fileName
 
     exampleData.loadData(filePath)
@@ -79,8 +79,7 @@ if ptycho_simulation:
     optimizable.nosm = 1 # Number of object modes to reconstruct
     optimizable.nlambda = len(exampleData.spectralDensity) # Number of wavelength
     optimizable.nslice = 1 # Number of object slice
-    exampleData.dz = 1e-3  # slice
-    exampleData.refrIndex = 1.57 # refractive index of object
+    exampleData.dz = 1e-4  # slice
     # exampleData.dxp = exampleData.dxd
 
 
@@ -100,6 +99,8 @@ if ptycho_simulation:
     monitor.figureUpdateFrequency = 1
     monitor.objectPlot = 'complex'  # complex abs angle
     monitor.verboseLevel = 'high'  # high: plot two figures, low: plot only one figure
+    monitor.objectPlotZoom = 2.5   # control object plot FoV
+    monitor.probePlotZoom = 1.5   # control probe plot FoV
 
     # exampleData.zo = exampleData.zo
     # exampleData.dxp = exampleData.dxp/1
@@ -114,23 +115,22 @@ if ptycho_simulation:
     # zPIE
     # engine = zPIE.zPIE_GPU(optimizable, exampleData, monitor)
     # engine = zPIE.zPIE(optimizable, exampleData, monitor)
-    # engine.zPIEgradientStepSize = 200
     # e3PIE
     # engine = e3PIE.e3PIE_GPU(optimizable, exampleData, monitor)
     # engine = e3PIE.e3PIE(optimizable, exampleData, monitor)
 
     ## main parameters
-    engine.numIterations = 8
+    engine.numIterations = 100
     engine.positionOrder = 'random'  # 'sequential' or 'random'
-    engine.propagator = 'twoStepPolychrome'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
+    engine.propagator = 'Fresnel'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
     engine.betaProbe = 0.25
     engine.betaObject = 0.25
 
     ## engine specific parameters:
-    engine.zPIEgradientStepSize = 100  # gradient step size for axial position correction (typical range [1, 100])
+    engine.zPIEgradientStepSize = 200  # gradient step size for axial position correction (typical range [1, 100])
 
     ## switches
-    engine.probePowerCorrectionSwitch = True
+    engine.probePowerCorrectionSwitch = False
     engine.modulusEnforcedProbeSwitch = False
     engine.comStabilizationSwitch = False
     engine.orthogonalizationSwitch = False
@@ -142,8 +142,7 @@ if ptycho_simulation:
     engine.absObjectSwitch = False
     engine.backgroundModeSwitch = False
     engine.couplingSwitch = True
-    engine.couplingAlephObj = 0.95
-    engine.couplingAlephProbe = 0.001
+    engine.couplingAleph = 1
 
     engine.doReconstruction()
 

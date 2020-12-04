@@ -10,6 +10,10 @@ class Monitor(object):
         self.figureUpdateFrequency = 1
         self.objectPlot = 'complex'
         self.verboseLevel = 'high'
+        self.objectPlotZoom = 1
+        self.probePlotZoom = 1
+        self.objectPlotContrast = 1
+        self.probePlotContrast = 1
         self.optimizable = None
 
     def initializeVisualisation(self):
@@ -30,9 +34,11 @@ class Monitor(object):
         """
         self.defaultMonitor.updateError(self.optimizable.error)
         self.defaultMonitor.updateObject(object_estimate, objectPlot=self.objectPlot,
-                                         pixelSize=self.optimizable.data.dxo, axisUnit='mm')
+                                         pixelSize=self.optimizable.data.dxo, axisUnit='mm',
+                                         amplitudeScalingFactor=self.objectPlotContrast)
         self.defaultMonitor.updateProbe(probe_estimate, self.optimizable,
-                                        pixelSize=self.optimizable.data.dxp, axisUnit='mm')
+                                        pixelSize=self.optimizable.data.dxp, axisUnit='mm',
+                                        amplitudeScalingFactor=self.probePlotContrast)
         self.defaultMonitor.drawNow()
 
     def updateDiffractionDataMonitor(self, Iestimated, Imeasured):

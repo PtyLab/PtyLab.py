@@ -1,6 +1,4 @@
-# momentum-based multi PIE
 import numpy as np
-import tqdm
 from matplotlib import pyplot as plt
 
 try:
@@ -15,16 +13,13 @@ except ImportError:
 from fracPy.Optimizable.Optimizable import Optimizable
 from fracPy.engines.BaseReconstructor import BaseReconstructor
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
-from fracPy.utils.gpuUtils import getArrayModule
+from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray
 from fracPy.monitors.Monitor import Monitor
 from fracPy.utils.utils import fft2c, ifft2c
 import logging
 
 
 class multiPIE(BaseReconstructor):
-    """
-    momentum-based multi PIE
-    """
 
     def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData, monitor: Monitor):
         # This contains reconstruction parameters that are specific to the reconstruction
@@ -32,34 +27,29 @@ class multiPIE(BaseReconstructor):
         super().__init__(optimizable, experimentalData, monitor)
         self.logger = logging.getLogger('multiPIE')
         self.logger.info('Sucesfully created multiPIE multiPIE_engine')
-
         self.logger.info('Wavelength attribute: %s', self.optimizable.wavelength)
-
+        # initialize multiPIE params
         self.initializeReconstructionParams()
-
-        # todo check if this is the same as mPIEoperation
+        # initialize momentum
         self.optimizable.initializeObjectMomentum()
         self.optimizable.initializeProbeMomentum()
+        # set object and probe buffers
         self.optimizable.objectBuffer = self.optimizable.object.copy()
         self.optimizable.probeBuffer = self.optimizable.probe.copy()
 
     def initializeReconstructionParams(self):
         """
-        Set parameters that are specific to the mPIE settings.
+        Set parameters that are specific to the multiPIE settings.
         :return:
         """
+        # self.eswUpdate = self.optimizable.esw.copy()
         self.betaProbe = 0.25
         self.betaObject = 0.25
-        self.beta = 0.5   # feedback
-        self.eta = 0.9  # friction
-        self.t = 0
-
-        # modulus enforced probe
-        # if self.modulusEnforcedProbeSwitch:
-        #     self.modulusEnforcedProbe()
-
-        # initialize spectral weights
-        self.spectralDensityWeights = np.sum(abs(self.optimizable.probe)**2, axis=(-1, -2))
+        self.alphaProbe = 0.1  # probe regularization
+        self.alphaObject = 0.1  # object regularization
+        self.betaM = 0.3  # feedback
+        self.stepM = 0.7  # friction
+        self.probeWindow = np.abs(self.optimizable.probe)
 
     def _prepare_doReconstruction(self):
         """
@@ -73,24 +63,22 @@ class multiPIE(BaseReconstructor):
     def doReconstruction(self):
         self._initializeParams()
         self._prepare_doReconstruction()
-        # actual reconstruction multiPIE_engine
+        # actual reconstruction ePIE_engine
+        import tqdm
         for loop in tqdm.tqdm(range(self.numIterations)):
             # set position order
             self.setPositionOrder()
+
             for positionLoop, positionIndex in enumerate(self.positionIndices):
-                # time increment
-                self.t = self.t+1
                 # get object patch
                 row, col = self.experimentalData.positions[positionIndex]
                 sy = slice(row, row + self.experimentalData.Np)
                 sx = slice(col, col + self.experimentalData.Np)
                 # note that object patch has size of probe array
                 objectPatch = self.optimizable.object[..., sy, sx].copy()
+
                 # make exit surface wave
                 self.optimizable.esw = objectPatch * self.optimizable.probe
-                # normalize exit wave
-                # self.optimizable.esw = self.optimizable.esw * xp.sqrt(self.spectralDensity) \
-                #                        / xp.sqrt(sum(self.spectralDensity, axis=0))
 
                 # propagate to camera, intensityProjection, propagate back to object
                 self.intensityProjection(positionIndex)
@@ -104,76 +92,83 @@ class multiPIE(BaseReconstructor):
                 # probe update
                 self.optimizable.probe = self.probeUpdate(objectPatch, DELTA)
 
-                # update spectral density
-                # self.spectralDensityWeights= xp.sum(abs(self.optimizable.probe)**2, axis=(-1, -2))
-
-                # momentum updates
-                if len(self.optimizable.error) > 2*max(self.objectUpdateStart, self.probeUpdateStart) \
-                        and np.random.rand(1) > 0.99:
+                # momentum updates todo: make this every T iteration?
+                # Todo @lars explain this
+                if np.random.rand(1) > 0.95:
                     self.objectMomentumUpdate()
                     self.probeMomentumUpdate()
-                elif len(self.optimizable.error) < 2*max(self.objectUpdateStart, self.probeUpdateStart):
-                    self.optimizable.objectBuffer = self.optimizable.object.copy()
-                    self.optimizable.probeButter = self.optimizable.probe.copy()
 
             # get error metric
             self.getErrorMetrics()
 
             # apply Constraints
-            self.absorbingProbeBoundaryAleph = 1e-2
             self.applyConstraints(loop)
 
             # show reconstruction
             self.showReconstruction(loop)
 
-            # todo check mPIEoperations('mode', 'clearMemory') in matlab
-
+            # todo clearMemory implementation
 
     def objectMomentumUpdate(self):
         """
-        Update the object with momentum acceleration and update the objectBuffer
+        momentum update object, save updated objectMomentum and objectBuffer.
+        :return:
         """
         gradient = self.optimizable.objectBuffer - self.optimizable.object
-        self.optimizable.objectMomentum = gradient + self.eta * self.optimizable.objectMomentum
-        self.optimizable.object = self.optimizable.object - self.beta * self.optimizable.objectMomentum
+        self.optimizable.objectMomentum = gradient + self.stepM * self.optimizable.objectMomentum
+        self.optimizable.object = self.optimizable.object - self.betaM * self.optimizable.objectMomentum
         self.optimizable.objectBuffer = self.optimizable.object.copy()
 
     def probeMomentumUpdate(self):
         """
-        Update the probe with momentum acceleration and update the probeBuffer
+        momentum update probe, save updated probeMomentum and probeBuffer.
+        :return:
         """
         gradient = self.optimizable.probeBuffer - self.optimizable.probe
-        self.optimizable.probeMomentum = gradient + self.eta * self.optimizable.probeMomentum
-        self.optimizable.probe = self.optimizable.probe - self.beta * self.optimizable.probeMomentum
+        self.optimizable.probeMomentum = gradient + self.stepM * self.optimizable.probeMomentum
+        self.optimizable.probe = self.optimizable.probe - self.betaM * self.optimizable.probeMomentum
         self.optimizable.probeBuffer = self.optimizable.probe.copy()
 
     def objectPatchUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
         """
-        ePIE-type update
+        Todo add docstring
         :param objectPatch:
         :param DELTA:
         :return:
         """
         # find out which array module to use, numpy or cupy (or other...)
+        # xp = getArrayModule(objectPatch)
+        # absP2 = xp.abs(self.optimizable.probe[0]) ** 2
+        # Pmax = xp.max(xp.sum(absP2, axis=(0, 1, 2)), axis=(-1, -2))
+        # if self.experimentalData.operationMode == 'FPM':
+        #     frac = abs(self.optimizable.probe) / Pmax * \
+        #            self.optimizable.probe[0].conj() / (self.alphaObject * Pmax + (1 - self.alphaObject) * absP2)
+        # else:
+        #     frac = self.optimizable.probe[0].conj() / (self.alphaObject * Pmax + (1 - self.alphaObject) * absP2)
+        # return objectPatch + self.betaObject * frac * DELTA
         xp = getArrayModule(objectPatch)
-
-        frac = self.optimizable.probe.conj() / xp.max(xp.sum(xp.abs(self.optimizable.probe) ** 2, axis=(1, 2, 3)), axis=(-1,-2))
-        return objectPatch + self.betaObject * frac * DELTA
-
+        absP2 = xp.abs(self.optimizable.probe)**2
+        Pmax = xp.max(xp.sum(absP2, axis=(0, 1, 2, 3)), axis=(-1, -2))
+        if self.experimentalData.operationMode =='FPM':
+            frac = abs(self.optimizable.probe)/Pmax*\
+                   self.optimizable.probe.conj()/(self.alphaObject*Pmax+(1-self.alphaObject)*absP2)
+        else:
+            frac = self.optimizable.probe.conj()/(self.alphaObject*Pmax+(1-self.alphaObject)*absP2)
+        return objectPatch + self.betaObject * xp.sum(frac * DELTA, axis=2, keepdims=True)
 
     def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
         """
-        ePIE-type update
+        Todo add docstring
         :param objectPatch:
         :param DELTA:
         :return:
         """
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
-
-        frac = objectPatch.conj() / xp.max(xp.sum(xp.abs(objectPatch) ** 2, axis=(1, 2, 3)), axis=(-1,-2))
-        r = self.optimizable.probe + self.betaProbe * frac * DELTA
-        # absorbingProbeBoundary has been moved into applyConstraints
+        absO2 = xp.abs(objectPatch) ** 2
+        Omax = xp.max(xp.sum(absO2, axis=(0, 1, 2, 3)), axis=(-1, -2))
+        frac = objectPatch.conj() / (self.alphaProbe * Omax + (1 - self.alphaProbe) * absO2)
+        r = self.optimizable.probe + self.betaProbe * xp.sum(frac * DELTA, axis=0, keepdims=True)
         return r
 
 
@@ -190,7 +185,7 @@ class multiPIE_GPU(multiPIE):
         self.logger.info('Hello from multiPIE_GPU')
 
     def _prepare_doReconstruction(self):
-        self.logger.info('Ready to start transfering stuff to the GPU')
+        self.logger.info('Ready to start transferring stuff to the GPU')
         self._move_data_to_gpu()
 
     def _move_data_to_gpu(self):
