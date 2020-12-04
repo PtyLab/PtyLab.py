@@ -21,7 +21,7 @@ import numpy as np
 exampleData = ExperimentalData()
 
 import os
-fileName = 'simu.hdf5'  # WFSpoly   WFS_SingleWave  WFS_9Wave simuRecent  Lenspaper
+fileName = 'Multiwave_USAF.hdf5'  # WFSpoly   WFS_SingleWave  WFS_9Wave simuRecent  Lenspaper
 filePath = getExampleDataFolder() / fileName
 
 exampleData.loadData(filePath)
@@ -101,8 +101,8 @@ monitor.verboseLevel = 'high'  # high: plot two figures, low: plot only one figu
 # engine = ePIE.ePIE_GPU(optimizable, exampleData, monitor)
 # engine = ePIE.ePIE(optimizable, exampleData, monitor)
 # mPIE
-engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
-# engine = mPIE.mPIE(optimizable, exampleData, monitor)
+# engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
+engine = mPIE.mPIE(optimizable, exampleData, monitor)
 # zPIE
 # engine = zPIE.zPIE_GPU(optimizable, exampleData, monitor)
 # engine = zPIE.zPIE(optimizable, exampleData, monitor)

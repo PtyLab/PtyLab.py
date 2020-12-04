@@ -235,6 +235,26 @@ class BaseReconstructor(object):
                             self.experimentalData.spectralDensity[nlmabda], self.experimentalData.dxo,
                             self.experimentalData.dxd)
 
+        elif self.propagator == 'twoStepPolychrome':
+            if self.fftshiftSwitch:
+                raise ValueError('twoStepPolychrome propagator works only with fftshiftSwitch = False!')
+            dummy = np.ones((self.optimizable.nlambda, self.optimizable.nosm, self.optimizable.npsm,
+                             1, self.experimentalData.Np, self.experimentalData.Np), dtype='complex64')
+            # self.optimizable.quadraticPhase = np.ones_like(dummy)
+            self.optimizable.transferFunction = np.array(
+                [[[[aspw(dummy[nlambda, nosm, npsm, nslice, :, :],
+                         self.experimentalData.zo *
+                            (1-self.experimentalData.spectralDensity[0]/self.experimentalData.spectralDensity[nlambda]),
+                         self.experimentalData.spectralDensity[nlambda],
+                         self.experimentalData.Lp)[1]
+                    for nslice in range(1)]
+                   for npsm in range(self.optimizable.npsm)]
+                  for nosm in range(self.optimizable.nosm)]
+                 for nlambda in range(self.optimizable.nlambda)])
+            self.optimizable.quadraticPhase = np.exp(
+                1.j * np.pi / (self.experimentalData.spectralDensity[0] * self.experimentalData.zo)
+                * (self.experimentalData.Xp ** 2 + self.experimentalData.Yp ** 2))
+
     def _checkMISC(self):
         """
         checks miscellaneous quantities specific certain engines
@@ -361,6 +381,10 @@ class BaseReconstructor(object):
             self.optimizable.ESW = ifft2c(fft2c(self.optimizable.esw) * self.optimizable.transferFunction)
         elif self.propagator == 'scaledASP' or self.propagator == 'scaledPolychromeASP':
             self.optimizable.ESW = ifft2c(fft2c(self.optimizable.esw * self.optimizable.Q1) * self.optimizable.Q2)
+        elif self.propagator == 'twoStepPolychrome':
+            self.optimizable.esw = ifft2c(fft2c(self.optimizable.esw) * self.optimizable.transferFunction) * \
+                self.optimizable.quadraticPhase
+            self.fft2s()
         else:
             raise Exception('Propagator is not properly set, choose from Fraunhofer, Fresnel, ASP and scaledASP')
 
@@ -383,6 +407,14 @@ class BaseReconstructor(object):
         elif self.propagator == 'scaledASP' or self.propagator == 'scaledPolychromeASP':
             self.optimizable.eswUpdate = ifft2c(fft2c(self.optimizable.ESW) * self.optimizable.Q2.conj()) \
                                          * self.optimizable.Q1.conj()
+        elif self.propagator == 'twoStepPolychrome':
+            self.ifft2s()
+            self.optimizable.esw = ifft2c(fft2c(self.optimizable.esw *
+                                                      self.optimizable.quadraticPhase.conj()) *
+                                                self.optimizable.transferFunction.conj())
+            self.optimizable.eswUpdate = ifft2c(fft2c(self.optimizable.eswUpdate *
+                                               self.optimizable.quadraticPhase.conj()) *
+                                                self.optimizable.transferFunction.conj())
         else:
             raise Exception('Propagator is not properly set, choose from Fraunhofer, Fresnel, ASP and scaledASP')
 
@@ -648,16 +680,27 @@ class BaseReconstructor(object):
                                       np.mean(abs(self.optimizable.object[..., self.optimizable.objectROI[0],
                                                                           self.optimizable.objectROI[1]]))
         if self.couplingSwitch and self.optimizable.nlambda > 1:
-            self.optimizable.probe[0] = (1 - self.couplingAleph) * self.optimizable.probe[0] + \
-                                        self.couplingAleph * self.optimizable.probe[1]
+            self.optimizable.probe[0] = (1 - self.couplingAlephProbe) * self.optimizable.probe[0] + \
+                                        self.couplingAlephProbe * self.optimizable.probe[1]
             for lambdaLoop in np.arange(1, self.optimizable.nlambda - 1):
-                self.optimizable.probe[lambdaLoop] = (1 - self.couplingAleph) * self.optimizable.probe[lambdaLoop] + \
-                                                     self.couplingAleph * (self.optimizable.probe[lambdaLoop + 1] +
+                self.optimizable.probe[lambdaLoop] = (1 - self.couplingAlephProbe) * self.optimizable.probe[lambdaLoop] + \
+                                                     self.couplingAlephProbe * (self.optimizable.probe[lambdaLoop + 1] +
                                                                            self.optimizable.probe[
                                                                                lambdaLoop - 1]) / 2
 
-            self.optimizable.probe[-1] = (1 - self.couplingAleph) * self.optimizable.probe[-1] + \
-                                         self.couplingAleph * self.optimizable.probe[-2]
+            self.optimizable.probe[-1] = (1 - self.couplingAlephProbe) * self.optimizable.probe[-1] + \
+                                         self.couplingAlephProbe * self.optimizable.probe[-2]
+            self.optimizable.object[0] = (1 - self.couplingAlephObj) * self.optimizable.object[0] + \
+                                        self.couplingAlephObj * self.optimizable.object[1]
+            for lambdaLoop in np.arange(1, self.optimizable.nlambda - 1):
+                self.optimizable.object[lambdaLoop] = (1 - self.couplingAlephObj) * self.optimizable.object[lambdaLoop] + \
+                                                     self.couplingAlephObj * (self.optimizable.object[lambdaLoop + 1] +
+                                                                           self.optimizable.object[
+                                                                               lambdaLoop - 1]) / 2
+
+            self.optimizable.object[-1] = (1 - self.couplingAlephObj) * self.optimizable.object[-1] + \
+                                         self.couplingAlephObj * self.optimizable.object[-2]
+
         if self.binaryWFSSwitch:
             self.optimizable.probe = (1 - self.binaryWFSAleph) * self.optimizable.probe + \
                                      self.binaryWFSAleph * abs(self.optimizable.probe)

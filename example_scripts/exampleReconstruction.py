@@ -65,7 +65,7 @@ if ptycho_simulation:
     exampleData = ExperimentalData()
 
     import os
-    fileName = 'Multislice22.hdf5'  # WFSpoly   WFS_SingleWave  WFS_9Wave simuRecent  Lenspaper
+    fileName = 'simuVortex4wavel.hdf5'  # WFSpoly   WFS_SingleWave  WFS_9Wave simuRecent  Lenspaper
     filePath = getExampleDataFolder() / fileName
 
     exampleData.loadData(filePath)
@@ -109,7 +109,7 @@ if ptycho_simulation:
     # engine = ePIE.ePIE_GPU(optimizable, exampleData, monitor)
     # engine = ePIE.ePIE(optimizable, exampleData, monitor)
     # mPIE
-    # engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
+    engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
     # engine = mPIE.mPIE(optimizable, exampleData, monitor)
     # zPIE
     # engine = zPIE.zPIE_GPU(optimizable, exampleData, monitor)
@@ -117,12 +117,12 @@ if ptycho_simulation:
     # engine.zPIEgradientStepSize = 200
     # e3PIE
     # engine = e3PIE.e3PIE_GPU(optimizable, exampleData, monitor)
-    engine = e3PIE.e3PIE(optimizable, exampleData, monitor)
+    # engine = e3PIE.e3PIE(optimizable, exampleData, monitor)
 
     ## main parameters
-    engine.numIterations = 200
+    engine.numIterations = 8
     engine.positionOrder = 'random'  # 'sequential' or 'random'
-    engine.propagator = 'Fresnel'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
+    engine.propagator = 'twoStepPolychrome'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
     engine.betaProbe = 0.25
     engine.betaObject = 0.25
 
@@ -135,14 +135,15 @@ if ptycho_simulation:
     engine.comStabilizationSwitch = False
     engine.orthogonalizationSwitch = False
     engine.orthogonalizationFrequency = 10
-    engine.fftshiftSwitch = True
+    engine.fftshiftSwitch = False
     engine.intensityConstraint = 'standard'  # standard fluctuation exponential poission
     engine.absorbingProbeBoundary = False
     engine.objectContrastSwitch = False
     engine.absObjectSwitch = False
     engine.backgroundModeSwitch = False
-    engine.couplingSwitch = False
-    engine.couplingAleph = 1
+    engine.couplingSwitch = True
+    engine.couplingAlephObj = 0.95
+    engine.couplingAlephProbe = 0.001
 
     engine.doReconstruction()
 

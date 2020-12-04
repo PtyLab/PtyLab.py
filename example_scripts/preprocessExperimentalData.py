@@ -10,17 +10,19 @@ import os
 import h5py
 
 
-filePathForRead = r"\\sun.amolf.nl\eikema-witte\group-folder\Phasespace\ptychography\rawData\AutoFocus_708nm\multiSlice22\AVT Camera"
-filePathForSave = r"D:\Workshop_fracpy\example_data"
+filePathForRead = r"\\sun.amolf.nl\eikema-witte\group-folder\Phasespace\ptychography\rawData\calibration\20201112_134642_USAF_multi_740-860_small beam\AVT camera (Manta)"
+filePathForSave = r"D:\fracPy_Antonios\example_data"
 # D:\Du\Workshop\fracmat\lenspaper4\AVT camera (GX1920)
 # D:/fracmat/ptyLab/lenspaper4/AVT camera (GX1920)
 os.chdir(filePathForRead)
 
-fileName = 'Multislice22'
+fileName = 'Multiwave_USAF7_small'
 # wavelength
-wavelength = 708.9e-9 #450e-9
+spectralDensity = np.linspace(740e-9, 860e-9, 7)
+wavelength = min(spectralDensity)
+# wavelength = 708.9e-9 #450e-9
 # binning
-binningFactor = 4
+binningFactor = 8
 # padding for superresolution
 padFactor = 1
 # set magnification if any objective lens is used
@@ -34,7 +36,7 @@ zo = 34.95e-3 #19.23e-3
 # C: objective + tube lens in transmission
 measurementMode = 'A'
 # camera
-camera = 'GX'
+camera = 'Manta'
 if camera == 'GX':
     N = 1456
     M = 1456
@@ -74,7 +76,7 @@ for k in pbar:
     # crop
     temp = temp[M//2-N//2:M//2+N//2-1, M//2-N//2:M//2+N//2-1]
     # binning
-    temp = rescale(temp, 1/binningFactor, order=0) # order = 0 takes the nearest-neighbor
+    temp = rescale(temp, 1/binningFactor, order=1) # order = 0 takes the nearest-neighbor
     # flipping
     if measurementMode == 'A':
         temp = np.flipud(temp)
@@ -148,6 +150,7 @@ if exportBool:
     hf.create_dataset('dxd', data=(dxd,), dtype='f')
     hf.create_dataset('Nd', data=(Nd,), dtype='i')
     hf.create_dataset('zo', data=(zo,), dtype='f')
+    hf.create_dataset('spectralDensity', data=(spectralDensity,), dtype='f')
     hf.create_dataset('wavelength', data=(wavelength,), dtype='f')
     hf.create_dataset('entrancePupilDiameter', data=(entrancePupilDiameter,), dtype='f')
     hf.close()
