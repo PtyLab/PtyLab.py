@@ -151,8 +151,7 @@ class DiffractionDataMonitor(object):
 
     def updateIestimated(self, Iestimate, cmap='gray',**kwargs):
         # move it to CPU if it's on the GPU
-        if hasattr(Iestimate, 'device'):
-            Iestimate = Iestimate.get()
+        Iestimate = gpuUtils.asNumpyArray(Iestimate)
 
         if self.firstrun:
             self.im_Iestimated = self.ax_Iestimated.imshow(np.log10(np.squeeze(Iestimate+1)),

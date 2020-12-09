@@ -5,6 +5,7 @@ import matplotlib as mpl
 import math
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from fracPy.utils.gpuUtils import asNumpyArray
+from matplotlib.colors import LinearSegmentedColormap
 
 
 def CoherencePlot():
@@ -163,3 +164,14 @@ def absplot(u, ax=None, pixelSize=1, axisUnit='pixel', amplitudeScalingFactor = 
 def absmodeplot(P, ax=None ,normalize = True, pixelSize =1, axisUnit ='pixel', amplitudeScalingFactor = 1):
     Q = modeTile(abs(P), normalize=normalize)
     absplot(Q, ax=ax, pixelSize=pixelSize, axisUnit=axisUnit)
+
+
+
+def setColorMap():
+
+    colors = [(1, 1, 1), (0, 0.0875, 1), (0, 0.4928, 1), (0, 1, 0), (1, 0.6614, 0), (1, 0.4384, 0),
+              (0.8361, 0, 0), (0.6505, 0, 0), (0.4882, 0, 0)]
+
+    n = 100 # Discretizes the interpolation into n bins
+    cm = LinearSegmentedColormap.from_list('cmap', colors, n)
+    return cm
