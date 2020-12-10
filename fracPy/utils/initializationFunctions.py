@@ -25,7 +25,7 @@ def initialProbeOrObject(shape, type_of_init, data):
     if type(type_of_init) is np.ndarray: # it has already been implemented
         return type_of_init
     
-    if type_of_init not in ['circ', 'rand', 'gaussian', 'ones', 'upsampled']:
+    if type_of_init not in ['clean_circ', 'circ', 'rand', 'gaussian', 'ones', 'upsampled']:
         raise NotImplementedError()
         
     if type_of_init == 'ones':
@@ -33,23 +33,23 @@ def initialProbeOrObject(shape, type_of_init, data):
     
     if type_of_init == 'circ':
         try:
-            if 'aperture' in dir(data):
-                pupil = data.aperture.copy()
-            else:
-                pupil = circ(data.Xp, data.Yp, data.entrancePupilDiameter)
+            pupil = circ(data.Xp, data.Yp, data.entrancePupilDiameter)
             return np.ones(shape) * pupil + 0.001 * np.random.rand(*shape)
         
         except AttributeError as e:
             raise AttributeError(e, 'probe/aperture/entrancePupilDiameter was not defined')
 
-    if type_of_init == 'upsampled':
-        return np.ones(shape)*ifft2c(rescale(np.mean(data.ptychogram,0), np.int(data.No/data.Np)))
+    if type_of_init == 'clean_circ':
+        try:
+            pupil = circ(data.Xp, data.Yp, data.entrancePupilDiameter)
+            return np.ones(shape) * pupil
         
-    # if type_of_init == 'rand':
-    #     # TODO: improve
-    #     obj = np.exp(1j * 2*np.pi * (np.random.rand(*shape)-1/2))
-    #     for idx in range(shape[0]):
-    #         obj[idx,:,:] =  gaussian_filter(np.abs(obj[idx,:,:]), 3) * np.exp(1j * gaussian_filter(np.angle(obj[idx,:,:]), 3))
-    #     return obj
-
-   
+        except AttributeError as e:
+            raise AttributeError(e, 'probe/aperture/entrancePupilDiameter was not defined')
+            
+    if type_of_init == 'upsampled':
+        pad_size = (int((data.No-data.Np)/2), int((data.No-data.Np)/2))
+        low_res = ifft2c(np.mean(data.ptychogram,0))
+        upsampled = np.pad(low_res, pad_size,\
+                           mode='constant', constant_values = 0) * data.No / data.Np
+        return np.ones(shape)*upsampled

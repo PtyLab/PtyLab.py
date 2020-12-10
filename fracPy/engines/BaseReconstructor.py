@@ -66,7 +66,7 @@ class BaseReconstructor(object):
         self.probeSmoothenessWidth = 3  # loose object support diameter
         self.absorbingProbeBoundary = False  # controls if probe has period boundary conditions (zero)
         self.absorbingProbeBoundaryAleph = 5e-2
-        self.probePowerCorrectionSwitch = True  # probe normalization to measured PSD
+        self.probePowerCorrectionSwitch = False  # probe normalization to measured PSD
         self.modulusEnforcedProbeSwitch = False  # enforce empty beam
         self.comStabilizationSwitch = False  # center of mass stabilization for probe
         # other
@@ -326,10 +326,10 @@ class BaseReconstructor(object):
         # (i.e. start with brightfield data first, then add the low SNR
         # darkfield)
         elif self.positionOrder == 'NA':
-            rows = self.experimentalData.positions[:, 0] - np.mean(self.experimentalData.positions[:, 0])
-            cols = self.experimentalData.positions[:, 1] - np.mean(self.experimentalData.positions[:, 1])
-            dist = np.sqrt(rows**2 + cols**2)
-            self.positionIndices = np.argsort(dist)
+            mean_x = np.mean(self.experimentalData.positions[:,0])
+            mean_y = np.mean(self.experimentalData.positions[:,1])
+            NA_sum = np.sqrt((self.experimentalData.positions[:,0]-mean_x)**2 + (self.experimentalData.positions[:,1]-mean_y)**2)
+            self.positionIndices = np.argsort(NA_sum)
         else:
             raise ValueError('position order not properly set')
 
@@ -610,9 +610,6 @@ class BaseReconstructor(object):
             raise NotImplementedError()
 
         if self.absorbingProbeBoundary:
-            if self.experimentalData.operationMode =='FPM':
-                self.absorbingProbeBoundaryAleph = 100e-2
-
             self.optimizable.probe = (1 - self.absorbingProbeBoundaryAleph)*self.optimizable.probe+\
                                      self.absorbingProbeBoundaryAleph*self.optimizable.probe*self.probeWindow
 

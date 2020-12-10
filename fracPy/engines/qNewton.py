@@ -60,7 +60,7 @@ class qNewton(BaseReconstructor):
             self.setPositionOrder()
             for positionLoop, positionIndex in enumerate(self.positionIndices):
                 # get object patch
-                row, col = self.optimizable.positions[positionIndex]
+                row, col = self.experimentalData.positions[positionIndex]
                 sy = slice(row, row + self.experimentalData.Np)
                 sx = slice(col, col + self.experimentalData.Np)
                 # note that object patch has size of probe array
@@ -68,7 +68,6 @@ class qNewton(BaseReconstructor):
                 
                 # make exit surface wave
                 self.optimizable.esw = objectPatch * self.optimizable.probe
-                # TODO implementing esw for mix state, where the probe has one more dimension than the object patch
                 
                 # propagate to camera, intensityProjection, propagate back to object
                 self.intensityProjection(positionIndex)
@@ -76,17 +75,16 @@ class qNewton(BaseReconstructor):
                 # difference term
                 DELTA = self.optimizable.eswUpdate - self.optimizable.esw
 
-                
                 # object update
                 self.optimizable.object[..., sy, sx] = self.objectPatchUpdate(objectPatch, DELTA)
 
                 # probe update
-                self.optimizable.probe = self.probeUpdate( objectPatch, DELTA)
+                self.optimizable.probe = self.probeUpdate(objectPatch, DELTA)
 
             # get error metric
             self.getErrorMetrics()
 
-            # add the aperture constraint onto the probe
+            # apply Constraints
             self.applyConstraints(loop)
 
             # show reconstruction
@@ -99,9 +97,9 @@ class qNewton(BaseReconstructor):
         Temporary barebones update
         """
         xp = getArrayModule(objectPatch)
-        Pmax = xp.max(xp.sum(xp.abs(self.optimizable.probe), axis=(0, 1, 2, 3)), axis=(-1, -2))
+        Pmax = xp.max(xp.sum(xp.abs(self.optimizable.probe), axis=(0, 1, 2, 3)))
         frac = xp.abs(self.optimizable.probe)/Pmax * self.optimizable.probe.conj() / (xp.abs(self.optimizable.probe)**2 + self.regObject)
-        return objectPatch + self.betaObject * xp.sum(frac * DELTA, axis=2, keepdims=True)
+        return objectPatch + self.betaObject * xp.sum(frac * DELTA, axis=(0,2,3), keepdims=True)
 
        
     def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
@@ -110,12 +108,9 @@ class qNewton(BaseReconstructor):
 
         """
         xp = getArrayModule(objectPatch)
-
-        # Omax = xp.max(xp.sum(xp.abs(self.optimizable.object), axis=(0,1,2,3)))
-        Omax = xp.max(xp.sum(xp.abs(objectPatch), axis=(0, 1, 2, 3)), axis=(-1, -2))
-
+        Omax = xp.max(xp.sum(xp.abs(self.optimizable.object), axis=(0, 1, 2, 3)))
         frac = xp.abs(objectPatch)/Omax * objectPatch.conj() /  (xp.abs(objectPatch)**2 + self.regProbe)
-        r = self.optimizable.probe + self.betaProbe * xp.sum(frac * DELTA, axis=1, keepdims=True)
+        r = self.optimizable.probe + self.betaProbe * xp.sum(frac * DELTA, axis=(0,1,3), keepdims=True)
         return r
 
 

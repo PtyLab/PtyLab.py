@@ -256,7 +256,11 @@ class ExperimentalData:
         in the spectrogram is updates a patch which has pixel coordinates
         [3,4] in the high-resolution Fourier transform
         """
-        positions = np.round(self.encoder/self.dxo)  # encoder is in m, positions0 and positions are in pixels
+        if self.operationMode == 'FPM':
+            led2kspace = -(1/self.wavelength) * self.dxo * self.Np
+            positions = led2kspace * self.encoder / np.sqrt(self.encoder[:,0]**2 + self.encoder[:,1]**2 + self.zo**2)[...,None]
+        else:
+            positions = np.round(self.encoder/self.dxo)  # encoder is in m, positions0 and positions are in pixels
         positions = positions + self.No//2 - self.Np//2
         return positions.astype(int)
 
