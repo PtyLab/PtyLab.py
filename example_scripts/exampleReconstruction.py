@@ -37,20 +37,10 @@ if FPM_simulation:
     exampleData.operationMode = 'FPM'
     # # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
     # # now create an object to hold everything we're eventually interested in
+    exampleData.No = 2**11
     optimizable = Optimizable(exampleData)
-    optimizable.npsm = 1  # Number of probe modes to reconstruct
-    optimizable.nosm = 1  # Number of object modes to reconstruct
-    optimizable.nlambda = 1  # Number of wavelength
-    # exampleData.entrancePupilDiameter = exampleData.Np / 3 * exampleData.dxp  # initial estimate of beam
-
+    optimizable.positions = (exampleData.positions_fpm + exampleData.No // 2 - exampleData.Np//2).astype(int)
     optimizable.prepare_reconstruction()
-    # # this will copy any attributes from experimental data that we might care to optimize
-    plt.figure(10)
-    plt.imshow(abs(optimizable.probe.squeeze()))
-    plt.show()
-    # plt.figure(10)
-    # plt.imshow(np.log(abs(optimizable.object.squeeze())))
-    # plt.show()
     
     # Set monitor properties
     monitor = Monitor()
