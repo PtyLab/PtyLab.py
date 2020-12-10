@@ -99,10 +99,9 @@ class qNewton(BaseReconstructor):
         Temporary barebones update
         """
         xp = getArrayModule(objectPatch)
-
-        Pmax = xp.max(xp.sum(xp.abs(self.optimizable.probe), axis=(0,1,2,3)))
+        Pmax = xp.max(xp.sum(xp.abs(self.optimizable.probe), axis=(0, 1, 2, 3)), axis=(-1, -2))
         frac = xp.abs(self.optimizable.probe)/Pmax * self.optimizable.probe.conj() / (xp.abs(self.optimizable.probe)**2 + self.regObject)
-        return objectPatch + self.betaObject * xp.sum(frac * DELTA, axis=(0,2,3), keepdims=True)
+        return objectPatch + self.betaObject * xp.sum(frac * DELTA, axis=2, keepdims=True)
 
        
     def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
@@ -113,9 +112,10 @@ class qNewton(BaseReconstructor):
         xp = getArrayModule(objectPatch)
 
         # Omax = xp.max(xp.sum(xp.abs(self.optimizable.object), axis=(0,1,2,3)))
-        Omax = xp.max(xp.sum(xp.abs(objectPatch), axis=(0,1,2,3)))
+        Omax = xp.max(xp.sum(xp.abs(objectPatch), axis=(0, 1, 2, 3)), axis=(-1, -2))
+
         frac = xp.abs(objectPatch)/Omax * objectPatch.conj() /  (xp.abs(objectPatch)**2 + self.regProbe)
-        r = self.optimizable.probe + self.betaObject * xp.sum(frac * DELTA, axis = (0,1,3), keepdims=True)
+        r = self.optimizable.probe + self.betaProbe * xp.sum(frac * DELTA, axis=1, keepdims=True)
         return r
 
 
@@ -147,7 +147,7 @@ class qNewton_GPU(qNewton):
 
         # non-optimizable parameters
         self.experimentalData.ptychogram = cp.array(self.experimentalData.ptychogram, cp.float32)
-        self.experimentalData.probe = cp.array(self.experimentalData.probe, cp.complex64)
+        # self.experimentalData.probe = cp.array(self.experimentalData.probe, cp.complex64)
         #self.optimizable.Imeasured = cp.array(self.optimizable.Imeasured)
 
         # ePIE parameters

@@ -12,7 +12,7 @@ from fracPy.io import readExample
 ##############################################################################
 
 
-loaderObject = ExperimentalData('example:fpm_dataset')
+loaderObject = ExperimentalData('example:simulation_fpm')
 #example_data_folder)
 #loaderObject.loadExample('fpm_dataset')#loadData
 

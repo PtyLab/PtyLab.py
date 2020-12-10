@@ -28,7 +28,11 @@ def scalify(l):
     hdf5 file storing (especially when using matlab) can store integers as
     Numpy arrays of size [1,1]. Convert to scalar if that's the case
     """
-    return l if len(l) > 1 else l[0]
+    # return l if len(l) > 1 else l[0] # <- TODO: doesn't work in all cases!
+    try:
+        return l.item()
+    except:
+        return l
 
 def loadInputData(filename:Path):
     """
@@ -62,7 +66,6 @@ def loadInputData(filename:Path):
                 # if key in required_fields:  
                 dataset[key] = scalify(value)
                 # dataset[key] = value
-
     except Exception as e:
         logger.error('Error reading hdf5 file!')
         raise e

@@ -80,7 +80,11 @@ class ExperimentalData:
         # 4. set object attributes as the essential data fields
         # self.logger.setLevel(logging.DEBUG)
         for a in attributes_to_set:
-            setattr(self, str(a), measurement_dict[a])
+            
+            # make sure that property is not an  attribtue
+            attribute = str(a)
+            if not isinstance(getattr(type(self), attribute, None), property):
+                setattr(self, attribute, measurement_dict[a])
             self.logger.debug('Setting %s', a)
 
         self._setGrid()
@@ -169,7 +173,7 @@ class ExperimentalData:
             return self.Nd * self.dxd
         except AttributeError as e:
             raise AttributeError(e, 'pixel number "Nd" and/or pixel size "dxd" not defined yet')
-
+    
     @property
     def Np(self):
         """Probe pixel numbers"""

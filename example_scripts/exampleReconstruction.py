@@ -21,35 +21,50 @@ FPM data reconstructor
 change data visualization and initialization options manually for now
 """
 
-FPM_simulation = False
-ptycho_simulation = True
+FPM_simulation = True
+ptycho_simulation = False
 
 
 if FPM_simulation:
     # create an experimentalData object and load a measurement
+    # exampleData = ExperimentalData()
+    # exampleData.loadData('example:simulation_fpm')
+    
     exampleData = ExperimentalData()
-    exampleData.loadData('example:simulation_fpm')
-    # exampleData.loadData('example:simulation_ptycho')
+    fileName = 'usaft_441leds_fpm.hdf5'  # experimental data
+    filePath = getExampleDataFolder() / fileName
+    exampleData.loadData(filePath)
     exampleData.operationMode = 'FPM'
     # # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
     # # now create an object to hold everything we're eventually interested in
     optimizable = Optimizable(exampleData)
-
-    optimizable.npsm = 9  # Number of probe modes to reconstruct
+    optimizable.npsm = 1  # Number of probe modes to reconstruct
     optimizable.nosm = 1  # Number of object modes to reconstruct
     optimizable.nlambda = 1  # Number of wavelength
+    # exampleData.entrancePupilDiameter = exampleData.Np / 3 * exampleData.dxp  # initial estimate of beam
+
     optimizable.prepare_reconstruction()
     # # this will copy any attributes from experimental data that we might care to optimize
-
+    plt.figure(10)
+    plt.imshow(abs(optimizable.probe.squeeze()))
+    plt.show()
+    # plt.figure(10)
+    # plt.imshow(np.log(abs(optimizable.object.squeeze())))
+    # plt.show()
+    
     # Set monitor properties
     monitor = Monitor()
     monitor.figureUpdateFrequency = 1
-    monitor.objectPlot = 'complex'
-    monitor.verboseLevel = 'high'
+    monitor.objectPlot = 'complex'  # complex abs angle
+    monitor.verboseLevel = 'high'  # high: plot two figures, low: plot only one figure
+    monitor.objectPlotZoom = 1   # control object plot FoV
+    monitor.probePlotZoom = 1   # control probe plot FoV
 
     # now we want to run an optimizer. First create it.
-    # qNewton_engine = qNewton.qNewton(optimizable, exampleData, monitor)
-    qNewton_engine = qNewton.qNewton_GPU(optimizable, exampleData, monitor)
+    qNewton_engine = qNewton.qNewton(optimizable, exampleData, monitor)
+    # qNewton_engine = qNewton.qNewton_GPU(optimizable, exampleData, monitor)
+    qNewton_engine.positionOrder = 'NA'
+
     # set any settings involving ePIE in this object.
     qNewton_engine.numIterations = 50
     # now, run the reconstruction
@@ -71,7 +86,7 @@ if ptycho_simulation:
     exampleData.loadData(filePath)
 
     exampleData.operationMode = 'CPM'
-
+    
     # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
     # now create an object to hold everything we're eventually interested in
     optimizable = Optimizable(exampleData)
