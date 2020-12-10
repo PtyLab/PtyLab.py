@@ -6,7 +6,7 @@ from fracPy.io import getExampleDataFolder
 #matplotlib.use('qt5agg')
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Optimizable.Optimizable import Optimizable
-from fracPy.engines import ePIE, mPIE, qNewton, zPIE, e3PIE
+from fracPy.engines import ePIE, mPIE, qNewton, zPIE, e3PIE, multiPIE
 from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray
 from fracPy.monitors.Monitor import Monitor as Monitor
 import logging
@@ -65,11 +65,11 @@ if ptycho_simulation:
     exampleData = ExperimentalData()
 
     import os
-    fileName = 'Lenspaper.hdf5'  # WFSpoly   WFS_SingleWave  WFS_9Wave simuRecent  Lenspaper
+    fileName = 'Vortex_as_obj_700_850.hdf5'  # WFSpoly   WFS_SingleWave  WFS_9Wave simuRecent  Lenspaper
     filePath = getExampleDataFolder() / fileName
 
     exampleData.loadData(filePath)
-
+    # exampleData.zo = 67e-3
     exampleData.operationMode = 'CPM'
 
     # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
@@ -80,7 +80,9 @@ if ptycho_simulation:
     optimizable.nlambda = len(exampleData.spectralDensity) # Number of wavelength
     optimizable.nslice = 1 # Number of object slice
     exampleData.dz = 1e-4  # slice
-    # exampleData.dxp = exampleData.dxd
+    # exampleData.dxp = exampleData.dxd/6
+    # optimizable.zo = 67e-3
+    optimizable.spectralDensity = exampleData.spectralDensity
 
 
     optimizable.initialProbe = 'circ'
@@ -90,17 +92,17 @@ if ptycho_simulation:
     optimizable.prepare_reconstruction()
 
     # customize initial probe quadratic phase
-    # optimizable.probe = optimizable.probe*np.exp(1.j*2*np.pi/exampleData.wavelength *
-    #                                              (exampleData.Xp**2+exampleData.Yp**2)/(2*6e-3))
+    optimizable.probe = optimizable.probe*np.exp(1.j*2*np.pi/exampleData.wavelength *
+                                                 (exampleData.Xp**2+exampleData.Yp**2)/(2*6e-3))
 
     # this will copy any attributes from experimental data that we might care to optimize
     # # Set monitor properties
     monitor = Monitor()
-    monitor.figureUpdateFrequency = 1
+    monitor.figureUpdateFrequency = 2
     monitor.objectPlot = 'complex'  # complex abs angle
     monitor.verboseLevel = 'high'  # high: plot two figures, low: plot only one figure
-    monitor.objectPlotZoom = 2.5   # control object plot FoV
-    monitor.probePlotZoom = 1.5   # control probe plot FoV
+    monitor.objectPlotZoom = 0.5   # control object plot FoV
+    monitor.probePlotZoom = 0.5   # control probe plot FoV
 
     # exampleData.zo = exampleData.zo
     # exampleData.dxp = exampleData.dxp/1
@@ -110,8 +112,11 @@ if ptycho_simulation:
     # engine = ePIE.ePIE_GPU(optimizable, exampleData, monitor)
     # engine = ePIE.ePIE(optimizable, exampleData, monitor)
     # mPIE
-    engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
-    # engine = mPIE.mPIE(optimizable, exampleData, monitor)
+    # engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
+    engine = mPIE.mPIE(optimizable, exampleData, monitor)
+    # multiPIE
+    # engine = multiPIE.multiPIE_GPU(optimizable, exampleData, monitor)
+    # engine = multiPIE.multiPIE(optimizable, exampleData, monitor)
     # zPIE
     # engine = zPIE.zPIE_GPU(optimizable, exampleData, monitor)
     # engine = zPIE.zPIE(optimizable, exampleData, monitor)
@@ -120,9 +125,9 @@ if ptycho_simulation:
     # engine = e3PIE.e3PIE(optimizable, exampleData, monitor)
 
     ## main parameters
-    engine.numIterations = 100
+    engine.numIterations = 7500
     engine.positionOrder = 'random'  # 'sequential' or 'random'
-    engine.propagator = 'Fresnel'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
+    engine.propagator = 'scaledPolychromeASP'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP twoStepPolychrome
     engine.betaProbe = 0.25
     engine.betaObject = 0.25
 
@@ -130,7 +135,7 @@ if ptycho_simulation:
     engine.zPIEgradientStepSize = 200  # gradient step size for axial position correction (typical range [1, 100])
 
     ## switches
-    engine.probePowerCorrectionSwitch = False
+    engine.probePowerCorrectionSwitch = True
     engine.modulusEnforcedProbeSwitch = False
     engine.comStabilizationSwitch = False
     engine.orthogonalizationSwitch = False
@@ -141,8 +146,9 @@ if ptycho_simulation:
     engine.objectContrastSwitch = False
     engine.absObjectSwitch = False
     engine.backgroundModeSwitch = False
-    engine.couplingSwitch = True
-    engine.couplingAleph = 1
+    engine.couplingSwitch = False
+    engine.couplingAlephProbe = 0.08
+    engine.couplingAlephObj = 0.0
 
     engine.doReconstruction()
 

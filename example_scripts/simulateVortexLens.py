@@ -14,16 +14,16 @@ from fracPy.monitors.Monitor import Monitor
 import os
 import h5py
 
-fileName = 'simuVortex4wavel'
+fileName = 'simuVortex850nm2'
 # create ptyLab object
 simuData = ExperimentalData()
 
 # set physical properties
 
-simuData.wavelength = 700e-9
-simuData.spectralDensity = np.linspace(700e-9, 850e-9, 4)
+simuData.wavelength = 850e-9
+simuData.spectralDensity = np.linspace(850e-9, 850e-9, 1)
 simuData.zo = 34.95e-3
-simuData.nlambda = 4
+simuData.nlambda = 1
 simuData.nosm = 1
 simuData.npsm = 1
 simuData.nslice = 1
@@ -51,29 +51,30 @@ simuData.probe = np.zeros((simuData.nlambda, 1, simuData.npsm, simuData.nslice, 
                           dtype='complex128')
 thetaV_orig = np.linspace(0, 2 * np.pi, 64)
 
-for int2 in range(4):
-    if int2 == 0:
+for int2 in range(1):
+    if int2 == 2:
         thetaV = np.linspace(0,2*np.pi+1, 64)
         # breakp = np.sum(thetaV >= 2 * np.pi)
         # thetaV[thetaV>=2*np.pi] = thetaV[thetaV>=2*np.pi] - 2*np.pi
-    elif int2 ==1:
+    elif int2 ==3:
         thetaV = np.linspace(0, 2 * np.pi + 0.37, 64)
         # breakp = np.sum(thetaV >= 2 * np.pi)
         # thetaV[thetaV >= 2 * np.pi] = thetaV[thetaV >= 2 * np.pi] - 2 * np.pi
-    elif int2 ==2:
+    elif int2 ==1:
         thetaV = np.linspace(0, 2 * np.pi, 64)
         # breakp = 0
-    elif int2 ==3:
+    elif int2 ==0:
         thetaV = np.linspace(0, 2 * np.pi -0.42, 64)
         # breakp = 0
-    pinhole = circ(simuData.Xp, simuData.Yp, simuData.Lp / 2)
-    pinhole = convolve2d(pinhole, gaussian2D(5, 1), mode='same').astype(complex)
+    pinhole = circ(simuData.Xp, simuData.Yp, simuData.Lp / 2).astype(complex)
     for int1 in range(63):
     # mask = ((thetaV[int1]<=theta)&(theta<=thetaV[int1+1]))
     # np.putmask(pinhole, mask, (pinhole * np.exp(-1.j*thetaV[int1]).astype(np.float32)))
-        phase = np.exp(-1.j * thetaV[int1])
+        phase = np.exp(1.j * thetaV[int1])
         pinhole[(thetaV_orig[int1]<=theta)&(theta<=thetaV_orig[int1+1])] = pinhole[(thetaV_orig[int1]<=theta)&
                                                                          (theta<=thetaV_orig[int1+1])] * phase
+    pinhole = pinhole * (1 - circ(simuData.Xp, simuData.Yp, 7.5 * simuData.dxp))
+    pinhole = convolve2d(pinhole, gaussian2D(5, 1), mode='same').astype(complex)
 
     # pinhole[] = )
 # propagate to lens
@@ -122,7 +123,7 @@ simuData.object = np.zeros((simuData.nlambda, simuData.nosm, 1, simuData.nslice,
 simuData.object[...,:,:] = obj
 plt.figure(figsize=(5,5), num=2)
 ax = plt.axes()
-hsvplot(np.squeeze(simuData.object[1,...]), ax=ax)
+hsvplot(np.squeeze(simuData.object), ax=ax)
 ax.set_title('complex object')
 plt.show(block=False)
 
@@ -167,7 +168,7 @@ print('number of scan points: %d' % numFrames)
 # show scan grid on object
 plt.figure(figsize=(5,5), num=33)
 ax1 = plt.axes()
-hsvplot(np.squeeze(simuData.object[1,...]), ax=ax1)
+hsvplot(np.squeeze(simuData.object), ax=ax)
 ax1.plot(positions[0,1]+simuData.Np//2,positions[0,0]+simuData.Np//2,'.')
 ax1.set_title('complex object')
 plt.show(block=False)

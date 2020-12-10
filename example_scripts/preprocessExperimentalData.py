@@ -10,25 +10,25 @@ import os
 import h5py
 
 
-filePathForRead = r"\\sun.amolf.nl\eikema-witte\group-folder\Phasespace\ptychography\rawData\calibration\20201112_134642_USAF_multi_740-860_small beam\AVT camera (Manta)"
+filePathForRead = r"\\sun.amolf.nl\eikema-witte\group-folder\Phasespace\ptychography\rawData\vortexCharacterization\Vortex_measurements_multiwavelength_700_850nm\20201029_080936_VocationalGuidance00001\AVT camera (GT3400)"
 filePathForSave = r"D:\fracPy_Antonios\example_data"
 # D:\Du\Workshop\fracmat\lenspaper4\AVT camera (GX1920)
 # D:/fracmat/ptyLab/lenspaper4/AVT camera (GX1920)
 os.chdir(filePathForRead)
 
-fileName = 'Multiwave_USAF7_small'
+fileName = 'Vortex_as_obj_700_850'
 # wavelength
-spectralDensity = np.linspace(740e-9, 860e-9, 7)
+spectralDensity = np.linspace(700e-9, 850e-9, 4)
 wavelength = min(spectralDensity)
 # wavelength = 708.9e-9 #450e-9
 # binning
-binningFactor = 8
+binningFactor = 4
 # padding for superresolution
 padFactor = 1
 # set magnification if any objective lens is used
 magnification = 1
 # object detector distance  (initial guess)
-zo = 34.95e-3 #19.23e-3
+zo = 61.95e-3 #19.23e-3
 # set detection geometry
 # A: camera to closer side of stage (allows to bring camera close in transmission)
 # B: camera to further side of stage (doesn't allow to bring close in transmission),
@@ -36,7 +36,7 @@ zo = 34.95e-3 #19.23e-3
 # C: objective + tube lens in transmission
 measurementMode = 'A'
 # camera
-camera = 'Manta'
+camera = 'GT'
 if camera == 'GX':
     N = 1456
     M = 1456
@@ -52,6 +52,11 @@ elif camera == 'Manta':
     M = 2**11
     backgroundOffset = 40
     dxd = 5.5e-6 * binningFactor / magnification
+elif camera == 'GT':
+    N = 3384
+    M = 2704
+    dxd = 3.69e-6 * binningFactor / magnification;
+    backgroundOffset = 5.0
 
 # number of frames is calculated automatically
 framesList = glob.glob('*'+'.tif')
@@ -64,7 +69,7 @@ dark = imageio.imread('background.tif')
 # read empty beam (if available)
 
 # binning
-ptychogram = np.zeros((numFrames, N//binningFactor*padFactor, N//binningFactor*padFactor), dtype=np.float32)
+ptychogram = np.zeros((numFrames, M//binningFactor*padFactor, M//binningFactor*padFactor), dtype=np.float32)
 
 # read frames
 pbar = tqdm.trange(numFrames, leave=True)
@@ -74,8 +79,11 @@ for k in pbar:
     temp = imageio.imread(framesList[k]).astype('float32')-dark-backgroundOffset
     temp[temp < 0] = 0  #todo check if data type is single
     # crop
-    temp = temp[M//2-N//2:M//2+N//2-1, M//2-N//2:M//2+N//2-1]
+    # temp = temp[N//2-M//2:M//2+N//2-1, N//2-M//2:M//2+N//2-1]
+    temp = temp[:, 85:761]
+
     # binning
+    binningFactor = 1
     temp = rescale(temp, 1/binningFactor, order=1) # order = 0 takes the nearest-neighbor
     # flipping
     if measurementMode == 'A':

@@ -756,10 +756,21 @@ class BaseReconstructor(object):
 
             # shift object
             for k in xp.arange(self.optimizable.nosm): # todo check for multislice
-                self.optimizable.object[:,:,k,-1,...] = \
+                self.optimizable.object[:,k,:,-1,...] = \
                     xp.roll(self.optimizable.object[:,:,k,-1,...], (-yc, -xc), axis=(-2, -1))
                 # todo implement for mPIE
 
+            # if self.optimizable.nlambda > 1:
+            #     for k in xp.arange(self.optimizable.nlambda): # todo check for multislice
+            #         P2 = xp.sum(abs(self.optimizable.probe[k, :, :, -1, ...]) ** 2, axis=(1, 2))
+            #         demon = xp.sum(P2) * self.experimentalData.dxp
+            #         xc = xp.int(xp.around(xp.sum(xp.array(self.experimentalData.Xp, xp.float32) * P2) / demon))
+            #         yc = xp.int(xp.around(xp.sum(xp.array(self.experimentalData.Yp, xp.float32) * P2) / demon))
+            #         self.optimizable.probe[k,:,:,-1,...] = \
+            #             xp.roll(self.optimizable.probe[k,:,:,-1,...], (-yc, -xc), axis=(-2, -1))
+            #         self.optimizable.object[k, :, :, -1, ...] = \
+            #             xp.roll(self.optimizable.object[k, :, :, -1, ...], (-yc, -xc), axis=(-2, -1))
+                # todo implement for mPIE
 
     def modulusEnforcedProbe(self):
         # propagate probe to detector
