@@ -205,7 +205,7 @@ class GeneticAlgo():
         return current_best_gene
 
 
-g = GeneticAlgo(hash_map=dist_dict, xy = xy, meanDist = meanDist, start='0',
+g = GeneticAlgo(hash_map=dist_dict, xy=xy, meanDist=meanDist, start='0',
                 population_size=40,  iterations=50000)
 current_best_gene_l = g.converge()
 current_best_gene = np.array(current_best_gene_l).astype(int)
