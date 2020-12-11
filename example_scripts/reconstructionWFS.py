@@ -25,6 +25,7 @@ fileName = 'simu.hdf5'  #  simu  Lenspaper WFS_1_bin4 WFS_fundamental    data_63
 filePath = getExampleDataFolder() / fileName
 
 exampleData.loadData(filePath)
+exampleData.showPtychogram()
 
 exampleData.operationMode = 'CPM'
 exampleData.No = 2**11

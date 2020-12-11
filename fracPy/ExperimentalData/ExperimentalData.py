@@ -1,4 +1,5 @@
 import numpy as np
+import pyqtgraph as pg
 import matplotlib.pyplot as plt
 # from pathlib import Path
 import logging
@@ -6,6 +7,7 @@ import logging
 from fracPy.io import readHdf5
 # from fracPy.io import readExample
 from matplotlib.widgets import Slider
+from fracPy.utils.visualisation import setColorMap
 
 
 class ExperimentalData:
@@ -112,31 +114,20 @@ class ExperimentalData:
 
     def showPtychogram(self):
         """
-        show ptychogram. todo: better plot
+        show ptychogram.
         """
-
+        app = pg.mkQApp()
         self.imv = pg.ImageView(view=pg.PlotItem())
-        self.imv.setImage(self.ptychogram)
+        self.imv.setImage(np.log10(self.ptychogram+1))
+
+        # in order to use the same customized matplotlib colormap
+        positions = np.linspace(0, 1, 9)
+        cmap = setColorMap()
+        colors = [(np.array(cmap(i)[:-1])*255).astype('int') for i in positions]
+        # set the colormap
+        self.imv.setColorMap(pg.ColorMap(pos=positions, color=colors))
         self.imv.show()
-        #
-        # fig, ax = plt.subplots()
-        # plt.subplots_adjust(left=0.25, bottom=0.25)
-        #
-        # plot = plt.imshow(self.ptychogram[0])
-        # plt.colorbar()
-        # ax.margins(x=0)
-        #
-        # axcolor = 'lightgoldenrodyellow'
-        # axNumFrames = plt.axes([0.25, 0.15, 0.65, 0.03], facecolor=axcolor)
-        # slider = Slider(axNumFrames, 'numFrames', 0, self.numFrames, valinit=0, valfmt='%d' )
-        #
-        # def update(val):
-        #     ind = slider.val
-        #     plot.set_data(np.log10(self.ptychogram[int(ind)]+1))
-        #     fig.canvas.draw_idle()
-        #
-        # slider.on_changed(update)
-        # plt.show()
+        app.exec_()
 
     # Set attributes using @property operators: they are set automatically with the functions defined by the
     # @property operators
@@ -271,7 +262,6 @@ class ExperimentalData:
 
 
 if __name__ == '__main__':
-    import pyqtgraph as pg
     app = pg.mkQApp()
     e = ExperimentalData('example:simulation_ptycho')
     e.showPtychogram()

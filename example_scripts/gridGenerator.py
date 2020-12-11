@@ -15,7 +15,6 @@ p = 1    # p = 1 is standard Fermat;  p > 1 yields more points towards the cente
 R, C = GenerateNonUniformFermat(numPoints, radius=radius, power=p)
 
 xy = np.vstack((R, C)).T  # convert to an (n,2) array
-# n = len(R)  # number of points
 distance = np.sum(np.sqrt(np.diff(R) ** 2 + np.diff(C) ** 2))+\
            np.sqrt((R[0] - R[-1]) ** 2 + (C[1] - C[-1]) ** 2)
 print('initial travel distance: %i um' %distance)
@@ -32,7 +31,6 @@ numIteration = 5e3
 optRoute = tsp_ga(xy=xy, population_size=40, iterations=numIteration).converge()
 Rnew = xy[optRoute, 0]
 Cnew = xy[optRoute, 1]
-
 
 ## show optimization result
 plt.figure(figsize=(5, 5), num=100)
