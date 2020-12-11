@@ -27,7 +27,6 @@ class qNewton(BaseReconstructor):
         self.logger.info('Sucesfully created qNewton qNewton_engine')
 
         self.logger.info('Wavelength attribute: %s', self.optimizable.wavelength)
-
         self.initializeReconstructionParams()
 
     def initializeReconstructionParams(self):
@@ -39,7 +38,6 @@ class qNewton(BaseReconstructor):
         self.betaObject = 1
         self.regObject = 1
         self.regProbe = 1
-        self.positionOrder = 'NA'
     
     def _prepare_doReconstruction(self):
         """
@@ -58,6 +56,7 @@ class qNewton(BaseReconstructor):
         for loop in tqdm.tqdm(range(self.numIterations)):
             # set position order
             self.setPositionOrder()
+            
             for positionLoop, positionIndex in enumerate(self.positionIndices):
                 # get object patch
                 row, col = self.experimentalData.positions[positionIndex]
@@ -148,6 +147,9 @@ class qNewton_GPU(qNewton):
         # ePIE parameters
         self.logger.info('Detector error shape: %s', self.detectorError.shape)
         self.detectorError = cp.array(self.detectorError)
+
+        if self.absorbingProbeBoundary or self.probeBoundary:
+            self.probeWindow = cp.array(self.probeWindow, cp.float32)
 
         # proapgators to GPU
         if self.propagator == 'Fresnel':

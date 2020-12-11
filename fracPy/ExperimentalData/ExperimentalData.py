@@ -40,6 +40,10 @@ class ExperimentalData:
         self.dxp = None
         self.No = None
         self.positions0 = None
+        # decide whether the positions will be recomputed each time they are called or whether they will be fixed
+        # without the switch, positions are computed from the encoder values
+        # with the switch calling exampleData.positions will return positions0
+        self.fixedPositions = False
         # positions0 and positions are pixel number, encoder is in meter,
         # positions0 stores the original scan grid, positions is defined as property, automatically updated with dxo
 
@@ -256,13 +260,16 @@ class ExperimentalData:
         in the spectrogram is updates a patch which has pixel coordinates
         [3,4] in the high-resolution Fourier transform
         """
-        if self.operationMode == 'FPM':
-            led2kspace = -(1/self.wavelength) * self.dxo * self.Np
-            positions = led2kspace * self.encoder / np.sqrt(self.encoder[:,0]**2 + self.encoder[:,1]**2 + self.zo**2)[...,None]
+        if self.fixedPositions:
+            return self.positions0
         else:
-            positions = np.round(self.encoder/self.dxo)  # encoder is in m, positions0 and positions are in pixels
-        positions = positions + self.No//2 - self.Np//2
-        return positions.astype(int)
+            if self.operationMode == 'FPM':
+                conv = -(1/self.wavelength) * self.dxo * self.Np
+                positions = np.round(conv * self.encoder / np.sqrt(self.encoder[:,0]**2 + self.encoder[:,1]**2 + self.zo**2)[...,None])
+            else:
+                positions = np.round(self.encoder/self.dxo)  # encoder is in m, positions0 and positions are in pixels
+            positions = positions + self.No//2 - self.Np//2
+            return positions.astype(int)
 
     # system property list
     @property
