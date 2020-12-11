@@ -61,25 +61,27 @@ class ExperimentalData:
                  Only in very special cases should this be false.
         :return:
         """
-        if not filename.exists() and str(filename).startswith('example:'):
+        import os
+        if not os.path.exists(filename) and str(filename).startswith('example:'):
             # Todo @dbs660 Fix this so it works again
             self.filename = filename
             from fracPy.io.readExample import examplePath
             self.filename = examplePath(filename)  # readExample(filename, python_order=True)
         else:
             self.filename = filename
-            # 1. check if the dataset contains what we need before loading
-            readHdf5.checkDataFields(self.filename)
-            # 2. load dictionary. Only the values specified by 'required_fields' 
-            # in readHdf.py file were loaded 
-            measurement_dict = readHdf5.loadInputData(self.filename)
-            # 3. 'required_fields' will be the attributes that must be set
-            attributes_to_set = measurement_dict.keys()
-            # 4. set object attributes as the essential data fields
-            # self.logger.setLevel(logging.DEBUG)
-            for a in attributes_to_set:
-                setattr(self, str(a), measurement_dict[a])
-                self.logger.debug('Setting %s', a)
+
+        # 1. check if the dataset contains what we need before loading
+        readHdf5.checkDataFields(self.filename)
+        # 2. load dictionary. Only the values specified by 'required_fields'
+        # in readHdf.py file were loaded
+        measurement_dict = readHdf5.loadInputData(self.filename)
+        # 3. 'required_fields' will be the attributes that must be set
+        attributes_to_set = measurement_dict.keys()
+        # 4. set object attributes as the essential data fields
+        # self.logger.setLevel(logging.DEBUG)
+        for a in attributes_to_set:
+            setattr(self, str(a), measurement_dict[a])
+            self.logger.debug('Setting %s', a)
 
         self._setGrid()
         # self._checkData()
@@ -112,24 +114,29 @@ class ExperimentalData:
         """
         show ptychogram. todo: better plot
         """
-        fig, ax = plt.subplots()
-        plt.subplots_adjust(left=0.25, bottom=0.25)
 
-        plot = plt.imshow(self.ptychogram[0])
-        plt.colorbar()
-        ax.margins(x=0)
-
-        axcolor = 'lightgoldenrodyellow'
-        axNumFrames = plt.axes([0.25, 0.15, 0.65, 0.03], facecolor=axcolor)
-        slider = Slider(axNumFrames, 'numFrames', 0, self.numFrames, valinit=0, valfmt='%d' )
-
-        def update(val):
-            ind = slider.val
-            plot.set_data(np.log10(self.ptychogram[int(ind)]+1))
-            fig.canvas.draw_idle()
-
-        slider.on_changed(update)
-        plt.show()
+        self.imv = pg.ImageView(view=pg.PlotItem())
+        self.imv.setImage(self.ptychogram)
+        self.imv.show()
+        #
+        # fig, ax = plt.subplots()
+        # plt.subplots_adjust(left=0.25, bottom=0.25)
+        #
+        # plot = plt.imshow(self.ptychogram[0])
+        # plt.colorbar()
+        # ax.margins(x=0)
+        #
+        # axcolor = 'lightgoldenrodyellow'
+        # axNumFrames = plt.axes([0.25, 0.15, 0.65, 0.03], facecolor=axcolor)
+        # slider = Slider(axNumFrames, 'numFrames', 0, self.numFrames, valinit=0, valfmt='%d' )
+        #
+        # def update(val):
+        #     ind = slider.val
+        #     plot.set_data(np.log10(self.ptychogram[int(ind)]+1))
+        #     fig.canvas.draw_idle()
+        #
+        # slider.on_changed(update)
+        # plt.show()
 
     # Set attributes using @property operators: they are set automatically with the functions defined by the
     # @property operators
@@ -264,4 +271,9 @@ class ExperimentalData:
 
 
 if __name__ == '__main__':
-    e = ExperimentalData('example:simulation_fpm')
+    import pyqtgraph as pg
+    app = pg.mkQApp()
+    e = ExperimentalData('example:simulation_ptycho')
+    e.showPtychogram()
+    app.exec_()
+
