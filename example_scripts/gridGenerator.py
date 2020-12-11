@@ -15,11 +15,10 @@ p = 1    # p = 1 is standard Fermat;  p > 1 yields more points towards the cente
 R, C = GenerateNonUniformFermat(numPoints, radius=radius, power=p)
 
 xy = np.vstack((R, C)).T  # convert to an (n,2) array
-n = len(R)  # number of points
-distance = np.sqrt((R[0] - R[-1]) ** 2 + (C[1] - C[-1]) ** 2)
-for k in np.arange(1, n):
-    distance = distance + np.sqrt((R[k] - R[k - 1]) ** 2 + (C[k] - C[k - 1]) ** 2)
-print('initial travel distance: %f' %distance)
+# n = len(R)  # number of points
+distance = np.sum(np.sqrt(np.diff(R) ** 2 + np.diff(C) ** 2))+\
+           np.sqrt((R[0] - R[-1]) ** 2 + (C[1] - C[-1]) ** 2)
+print('initial travel distance: %i um' %distance)
 
 # show scan grid
 plt.figure(figsize=(5, 5), num=99)
@@ -30,7 +29,6 @@ plt.show(block=False)
 
 ## traveling salesman problem, genetic algorithm(tsp_ga)
 numIteration = 5e3
-# g = tsp_ga(hash_map=dist_dict, xy=xy, meanDist=meanDist, start='0', population_size=40, iterations=numIteration)
 optRoute = tsp_ga(xy=xy, population_size=40, iterations=numIteration).converge()
 Rnew = xy[optRoute, 0]
 Cnew = xy[optRoute, 1]
