@@ -6,6 +6,7 @@ from fracPy.io import getExampleDataFolder
 #matplotlib.use('qt5agg')
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Optimizable.Optimizable import Optimizable
+from fracPy.Optimizable.CalibrationFPM import IlluminationCalibration
 from fracPy.engines import ePIE, mPIE, qNewton, zPIE, e3PIE
 from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray
 from fracPy.monitors.Monitor import Monitor as Monitor
@@ -21,51 +22,77 @@ FPM data reconstructor
 change data visualization and initialization options manually for now
 """
 
-FPM_simulation = True
-ptycho_simulation = False
+FPM_recon = True
+ptycho_recon = False
 
 
-if FPM_simulation:
-    # create an experimentalData object and load a measurement
-    # exampleData = ExperimentalData()
-    # exampleData.loadData('example:simulation_fpm')
+if FPM_recon:
     
+    #%% Load in the data
     exampleData = ExperimentalData()
-    fileName = 'usaft_441leds_fpm.hdf5'  # experimental data
+    exampleData.operationMode = 'FPM'
+
+    fileName = 'lung_441leds_fpm.hdf5'  # experimental data
+    # fileName = 'HeLa_49leds_fpm.hdf5'  # experimental data
     filePath = getExampleDataFolder() / fileName
     exampleData.loadData(filePath)
-    exampleData.operationMode = 'FPM'
-    # # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
-    # # now create an object to hold everything we're eventually interested in
-    exampleData.No = 2**11
-    optimizable = Optimizable(exampleData)
-    optimizable.positions = (exampleData.positions_fpm + exampleData.No // 2 - exampleData.Np//2).astype(int)
-    optimizable.prepare_reconstruction()
     
+    # decide whether the positions will be recomputed each time they are called or whether they will be fixed
+    # without the switch, positions are computed from the encoder values
+    # with the switch calling exampleData.positions will return positions0
+    exampleData.fixedPositions = True 
+
+
+    #%% FPM position calibration
+    # NOTE: exampleData.fixedPositions = True must be used!
+    calib = IlluminationCalibration(exampleData)
+    # calib.plot=True
+    calib.fitMode = 'Translation'
+    calibrated_positions, _, _ = calib.runCalibration()
+    # update the fixed non-dynamically computed positions with the new ones
+    exampleData.positions0 = calibrated_positions
+    
+    
+    #%% Prepare everything for the reconstruction
+    # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
+    # now create an object to hold everything we're eventually interested in
+    optimizable = Optimizable(exampleData)
+    optimizable.initialProbe = 'circ'
+    optimizable.initialObject = 'upsampled'
+    optimizable.prepare_reconstruction()
+   
     # Set monitor properties
     monitor = Monitor()
     monitor.figureUpdateFrequency = 1
-    monitor.objectPlot = 'complex'  # complex abs angle
+    monitor.objectPlot = 'abs'  # complex abs angle
     monitor.verboseLevel = 'high'  # high: plot two figures, low: plot only one figure
-    monitor.objectPlotZoom = 1   # control object plot FoV
-    monitor.probePlotZoom = 1   # control probe plot FoV
+    monitor.objectPlotZoom = .01   # control object plot FoV
+    monitor.probePlotZoom = .01   # control probe plot FoV
 
-    # now we want to run an optimizer. First create it.
-    qNewton_engine = qNewton.qNewton(optimizable, exampleData, monitor)
-    # qNewton_engine = qNewton.qNewton_GPU(optimizable, exampleData, monitor)
-    qNewton_engine.positionOrder = 'NA'
-
-    # set any settings involving ePIE in this object.
-    qNewton_engine.numIterations = 50
+    #%% RUn the reconstructor
+    # engine = ePIE.ePIE_GPU(optimizable, exampleData, monitor)
+    engine = qNewton.qNewton_GPU(optimizable, exampleData, monitor)
+    # engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
+    
+    engine.positionOrder = 'NA'
+    engine.probePowerCorrectionSwitch = False 
+    engine.comStabilizationSwitch = False
+    engine.probeBoundary = True
+    # engine.absorbingProbeBoundary = True
+    engine.numIterations = 50
+    engine.betaProbe = .5
+    engine.betaObject = .5
+    
     # now, run the reconstruction
-    qNewton_engine.doReconstruction()
+    engine.doReconstruction()
 
 
+#%%
 """ 
 ptycho data reconstructor 
 change data visualization and initialization options manually for now
 """
-if ptycho_simulation:
+if ptycho_recon:
 
     exampleData = ExperimentalData()
 
