@@ -195,3 +195,9 @@ class e3PIE_GPU(e3PIE):
         elif self.propagator == 'scaledASP':
             self.optimizable.Q1 = cp.array(self.optimizable.Q1)
             self.optimizable.Q2 = cp.array(self.optimizable.Q2)
+
+        # other parameters
+        if self.backgroundModeSwitch:
+            self.background = cp.array(self.background)
+        if self.absorbingProbeBoundary:
+            self.probeWindow = cp.array(self.probeWindow)
