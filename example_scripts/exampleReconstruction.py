@@ -74,14 +74,14 @@ if FPM_recon:
     engine = qNewton.qNewton_GPU(optimizable, exampleData, monitor)
     # engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
     
-    engine.positionOrder = 'NA'
+    # engine.positionOrder = 'NA'
     engine.probePowerCorrectionSwitch = False 
     engine.comStabilizationSwitch = False
     engine.probeBoundary = True
     # engine.absorbingProbeBoundary = True
     engine.numIterations = 50
-    engine.betaProbe = .5
-    engine.betaObject = .5
+    engine.betaProbe = 1
+    engine.betaObject = 1
     
     # now, run the reconstruction
     engine.doReconstruction()
