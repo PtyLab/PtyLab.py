@@ -84,14 +84,34 @@ def GenerateRasterGrid(n, ds, randomOffset = False, amplitude = 1):
 
     return R, C
 
+def generate_txt(R, C, optRoute):
+    ColsForTXT = np.zeros((optRoute.shape[0],2))
+    for ii in range(optRoute.shape[0]):
+        ColsForTXT[ii, 0] = R[optRoute[ii]]
+        ColsForTXT[ii, 1] = C[optRoute[ii]]
+    averageDistance = np.sum(np.sqrt(np.diff(R[optRoute])**2 + np.diff(C[optRoute])**2)) / optRoute.shape[0]
+    print('final travel distance: ', int(np.round(averageDistance * optRoute.shape[0])))
+    print('average step size [um]: ', averageDistance)
+    print('number of scan points: ', optRoute.shape[0])
 
+    fileID = open("positions.txt", "w")
+    stringForFile = 'number of positions: {} \n'.format(ColsForTXT.shape[0])
+    fileID.write(stringForFile)
+    fileID.write('y (row) [um] | x (col) [um] \n')
+    for ii in range(ColsForTXT.shape[0]):
+        stringForFile = '{} {} \n'.format(ColsForTXT[ii, 0], ColsForTXT[ii, 1])
+        fileID.write(stringForFile)
+    fileID.close()
 
 class tsp_ga():
     """
     genetic algorithm for traveling salesman problem.
     """
-    def __init__(self, xy, start='0', population_size=5, iterations=100):
-        self.xy = xy
+    def __init__(self, R, C, start='0', population_size=5, iterations=100):
+        xy_ = np.zeros((R.shape[0], 2))
+        xy_[:, 0] = np.transpose(C)
+        xy_[:, 1] = np.transpose(R)
+        self.xy = xy_
         self.start = start
         self.population_size = population_size
         self.iterations = int(iterations)
@@ -101,7 +121,7 @@ class tsp_ga():
         self.ax_scanGridOpt.set_title('optimized scan grid')
         self.ax_scanGridOpt.set_xlabel('um')
         self.ax_scanGridOpt.set_ylabel('um')
-        self.ax_scanGridOpt_plot, = self.ax_scanGridOpt.plot(xy[:, 0], xy[:, 1], 'o-')
+        self.ax_scanGridOpt_plot, = self.ax_scanGridOpt.plot(self.xy[:, 0], self.xy[:, 1], 'o-')
         self.figure.show()
 
         n = self.xy.shape[0]
@@ -119,8 +139,8 @@ class tsp_ga():
                 city_a = cities[idx_1]  # xy[idx_1,0].astype(int)
                 city_b = cities[idx_2]  # xy[idx_2,0].astype(int)
                 # dist = get_distance(xy[int(city_a), 0], xy[int(city_a), 1], xy[int(city_b), 0], xy[int(city_b), 1], )
-                dist = np.sqrt((xy[int(city_a), 0] - xy[int(city_b), 0]) ** 2 +
-                               (xy[int(city_a), 1] - xy[int(city_b), 1]) ** 2)
+                dist = np.sqrt((self.xy[int(city_a), 0] - self.xy[int(city_b), 0]) ** 2 +
+                               (self.xy[int(city_a), 1] - self.xy[int(city_b), 1]) ** 2)
                 totalDist += dist
                 dist_dict[city_a][city_b] = dist
                 edges.append((city_a, city_b, dist))

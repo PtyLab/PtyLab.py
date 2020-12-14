@@ -52,15 +52,15 @@ simuData.probe = np.zeros((simuData.nlambda, 1, simuData.npsm, simuData.nslice, 
 thetaV_orig = np.linspace(0, 2 * np.pi, 64)
 
 for int2 in range(1):
-    if int2 == 2:
+    if int2 == 3:
         thetaV = np.linspace(0,2*np.pi+1, 64)
         # breakp = np.sum(thetaV >= 2 * np.pi)
         # thetaV[thetaV>=2*np.pi] = thetaV[thetaV>=2*np.pi] - 2*np.pi
-    elif int2 ==3:
+    elif int2 ==1:
         thetaV = np.linspace(0, 2 * np.pi + 0.37, 64)
         # breakp = np.sum(thetaV >= 2 * np.pi)
         # thetaV[thetaV >= 2 * np.pi] = thetaV[thetaV >= 2 * np.pi] - 2 * np.pi
-    elif int2 ==1:
+    elif int2 ==2:
         thetaV = np.linspace(0, 2 * np.pi, 64)
         # breakp = 0
     elif int2 ==0:

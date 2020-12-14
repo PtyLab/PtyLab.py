@@ -65,7 +65,7 @@ if ptycho_simulation:
     exampleData = ExperimentalData()
 
     import os
-    fileName = 'Vortex_as_obj_700_850.hdf5'  # WFSpoly   WFS_SingleWave  WFS_9Wave simuRecent  Lenspaper
+    fileName = 'simuVortex700nm2.hdf5'  # WFSpoly   WFS_SingleWave  WFS_9Wave simuRecent  Lenspaper
     filePath = getExampleDataFolder() / fileName
 
     exampleData.loadData(filePath)
@@ -92,8 +92,8 @@ if ptycho_simulation:
     optimizable.prepare_reconstruction()
 
     # customize initial probe quadratic phase
-    optimizable.probe = optimizable.probe*np.exp(1.j*2*np.pi/exampleData.wavelength *
-                                                 (exampleData.Xp**2+exampleData.Yp**2)/(2*6e-3))
+    # optimizable.probe = optimizable.probe*np.exp(1.j*2*np.pi/exampleData.wavelength *
+    #                                              (exampleData.Xp**2+exampleData.Yp**2)/(2*6e-3))
 
     # this will copy any attributes from experimental data that we might care to optimize
     # # Set monitor properties
@@ -112,8 +112,8 @@ if ptycho_simulation:
     # engine = ePIE.ePIE_GPU(optimizable, exampleData, monitor)
     # engine = ePIE.ePIE(optimizable, exampleData, monitor)
     # mPIE
-    # engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
-    engine = mPIE.mPIE(optimizable, exampleData, monitor)
+    engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
+    # engine = mPIE.mPIE(optimizable, exampleData, monitor)
     # multiPIE
     # engine = multiPIE.multiPIE_GPU(optimizable, exampleData, monitor)
     # engine = multiPIE.multiPIE(optimizable, exampleData, monitor)
@@ -125,9 +125,9 @@ if ptycho_simulation:
     # engine = e3PIE.e3PIE(optimizable, exampleData, monitor)
 
     ## main parameters
-    engine.numIterations = 7500
+    engine.numIterations = 5000
     engine.positionOrder = 'random'  # 'sequential' or 'random'
-    engine.propagator = 'scaledPolychromeASP'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP twoStepPolychrome
+    engine.propagator = 'Fresnel'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP twoStepPolychrome
     engine.betaProbe = 0.25
     engine.betaObject = 0.25
 
@@ -147,8 +147,8 @@ if ptycho_simulation:
     engine.absObjectSwitch = False
     engine.backgroundModeSwitch = False
     engine.couplingSwitch = False
-    engine.couplingAlephProbe = 0.08
-    engine.couplingAlephObj = 0.0
+    engine.couplingAlephProbe = 0.0
+    engine.couplingAlephObj = 0.6
 
     engine.doReconstruction()
 
