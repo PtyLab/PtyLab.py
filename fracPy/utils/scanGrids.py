@@ -3,7 +3,6 @@ from numpy import vectorize
 import random
 from matplotlib import pyplot as plt
 
-
 def GenerateNonUniformFermat(n, radius=1000, power=1):
     """
     generate spiral patterns
@@ -22,12 +21,32 @@ def GenerateNonUniformFermat(n, radius=1000, power=1):
     R = radius*r**power*np.sin(theta)
     return R, C
 
+def GenerateFermatSpiral(n, c):
+    """
+    generate Fermat Spiral
+    :param n: number of points generated
+    :param c: optional argument that controls scaling of spiral
+    :return:
+    R: row
+    C: column
+    """
+    # golden ratio
+    r = np.sqrt(np.arange(0, n))*c
+    theta0 = 137.508 / 180 * np.pi
+    theta = np.arange(0, n) * theta0
+    C = r * np.cos(theta)
+    R = r * np.sin(theta)
+    return R, C
+
 def GenerateConcentricGrid(Nr, s, rend):
     """
     generate concentric circles
     :param Nr: number of circles (or shells)
-    :param s: number of pixels between points on each circle
+    :param s: number of pixels between points on each circle, roughly calculated as rend/Nr
     :param rend: end radius size (in pixel units)
+    :return:
+    R: row
+    C: column
     """
     dx = 1  # max Resolution (Schritt von einem zum anderen Pixel)
     rstart = dx
@@ -85,24 +104,34 @@ def GenerateRasterGrid(n, ds, randomOffset = False, amplitude = 1):
 
     return R, C
 
-
+def generateTXT(R, C, fileName = 'position'):
+    ColsForTXT = np.vstack((R, C)).T
+    fileID = open(fileName+".txt", "w")
+    stringForFile = 'number of positions: {} \n'.format(ColsForTXT.shape[0])
+    fileID.write(stringForFile)
+    fileID.write('y (row) [um] | x (col) [um] \n')
+    for ii in range(ColsForTXT.shape[0]):
+        stringForFile = '{} {} \n'.format(ColsForTXT[ii, 0], ColsForTXT[ii, 1])
+        fileID.write(stringForFile)
+    fileID.close()
 
 class tsp_ga():
     """
     genetic algorithm for traveling salesman problem.
     """
-    def __init__(self, xy, start='0', population_size=5, iterations=100):
-        self.xy = xy
+    def __init__(self, R, C, start='0', population_size=5, iterations=100, plotUpdateFrequency = 20):
+        self.xy = np.vstack((R, C)).T
         self.start = start
         self.population_size = population_size
         self.iterations = int(iterations)
+        self.plotUpdateFrequency = plotUpdateFrequency
 
         self.figure = plt.figure(num=999, clear=True, figsize=(5, 5))
         self.ax_scanGridOpt = self.figure.add_subplot(111)
         self.ax_scanGridOpt.set_title('optimized scan grid')
         self.ax_scanGridOpt.set_xlabel('um')
         self.ax_scanGridOpt.set_ylabel('um')
-        self.ax_scanGridOpt_plot, = self.ax_scanGridOpt.plot(xy[:, 0], xy[:, 1], 'o-')
+        self.ax_scanGridOpt_plot, = self.ax_scanGridOpt.plot(self.xy[:, 0], self.xy[:, 1], 'o-')
         self.figure.show()
 
         n = self.xy.shape[0]
@@ -120,8 +149,8 @@ class tsp_ga():
                 city_a = cities[idx_1]  # xy[idx_1,0].astype(int)
                 city_b = cities[idx_2]  # xy[idx_2,0].astype(int)
                 # dist = get_distance(xy[int(city_a), 0], xy[int(city_a), 1], xy[int(city_b), 0], xy[int(city_b), 1], )
-                dist = np.sqrt((xy[int(city_a), 0] - xy[int(city_b), 0]) ** 2 +
-                               (xy[int(city_a), 1] - xy[int(city_b), 1]) ** 2)
+                dist = np.sqrt((self.xy[int(city_a), 0] - self.xy[int(city_b), 0]) ** 2 +
+                               (self.xy[int(city_a), 1] - self.xy[int(city_b), 1]) ** 2)
                 totalDist += dist
                 dist_dict[city_a][city_b] = dist
                 edges.append((city_a, city_b, dist))
@@ -248,7 +277,7 @@ class tsp_ga():
                             jj += 1
                         tmpPop[k][J] = index_b
                     newPop.append(tmpPop[k])
-            if iter % (self.iterations//10) == 0:
+            if iter % (self.iterations//self.plotUpdateFrequency) == 0:
                 print('distance: %i um, numIteration: %i, ' %(globalMin,iter))
                 current_best_gene_r = np.array(optRoute).astype(int)
 
@@ -266,6 +295,3 @@ class tsp_ga():
         current_score = values[0]
         current_best_gene = values[1]
         return np.array(current_best_gene).astype(int)
-
-
-
