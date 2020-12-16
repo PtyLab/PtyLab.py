@@ -21,12 +21,32 @@ def GenerateNonUniformFermat(n, radius=1000, power=1):
     R = radius*r**power*np.sin(theta)
     return R, C
 
+def GenerateFermatSpiral(n, c):
+    """
+    generate Fermat Spiral
+    :param n: number of points generated
+    :param c: optional argument that controls scaling of spiral
+    :return:
+    R: row
+    C: column
+    """
+    # golden ratio
+    r = np.sqrt(np.arange(0, n))*c
+    theta0 = 137.508 / 180 * np.pi
+    theta = np.arange(0, n) * theta0
+    C = r * np.cos(theta)
+    R = r * np.sin(theta)
+    return R, C
+
 def GenerateConcentricGrid(Nr, s, rend):
     """
     generate concentric circles
     :param Nr: number of circles (or shells)
-    :param s: number of pixels between points on each circle
+    :param s: number of pixels between points on each circle, roughly calculated as rend/Nr
     :param rend: end radius size (in pixel units)
+    :return:
+    R: row
+    C: column
     """
     dx = 1  # max Resolution (Schritt von einem zum anderen Pixel)
     rstart = dx
@@ -84,17 +104,9 @@ def GenerateRasterGrid(n, ds, randomOffset = False, amplitude = 1):
 
     return R, C
 
-def generate_txt(R, C, optRoute):
-    ColsForTXT = np.zeros((optRoute.shape[0],2))
-    for ii in range(optRoute.shape[0]):
-        ColsForTXT[ii, 0] = R[optRoute[ii]]
-        ColsForTXT[ii, 1] = C[optRoute[ii]]
-    averageDistance = np.sum(np.sqrt(np.diff(R[optRoute])**2 + np.diff(C[optRoute])**2)) / optRoute.shape[0]
-    print('final travel distance: ', int(np.round(averageDistance * optRoute.shape[0])))
-    print('average step size [um]: ', averageDistance)
-    print('number of scan points: ', optRoute.shape[0])
-
-    fileID = open("positions.txt", "w")
+def generateTXT(R, C, fileName = 'position'):
+    ColsForTXT = np.vstack((R, C)).T
+    fileID = open(fileName+".txt", "w")
     stringForFile = 'number of positions: {} \n'.format(ColsForTXT.shape[0])
     fileID.write(stringForFile)
     fileID.write('y (row) [um] | x (col) [um] \n')
@@ -107,14 +119,12 @@ class tsp_ga():
     """
     genetic algorithm for traveling salesman problem.
     """
-    def __init__(self, R, C, start='0', population_size=5, iterations=100):
-        xy_ = np.zeros((R.shape[0], 2))
-        xy_[:, 0] = np.transpose(C)
-        xy_[:, 1] = np.transpose(R)
-        self.xy = xy_
+    def __init__(self, R, C, start='0', population_size=5, iterations=100, plotUpdateFrequency = 20):
+        self.xy = np.vstack((R, C)).T
         self.start = start
         self.population_size = population_size
         self.iterations = int(iterations)
+        self.plotUpdateFrequency = plotUpdateFrequency
 
         self.figure = plt.figure(num=999, clear=True, figsize=(5, 5))
         self.ax_scanGridOpt = self.figure.add_subplot(111)
@@ -267,7 +277,7 @@ class tsp_ga():
                             jj += 1
                         tmpPop[k][J] = index_b
                     newPop.append(tmpPop[k])
-            if iter % (self.iterations//10) == 0:
+            if iter % (self.iterations//self.plotUpdateFrequency) == 0:
                 print('distance: %i um, numIteration: %i, ' %(globalMin,iter))
                 current_best_gene_r = np.array(optRoute).astype(int)
 
