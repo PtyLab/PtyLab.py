@@ -185,7 +185,7 @@ class aPIE(BaseReconstructor):
                 objectPatch = self.optimizable.object[..., sy, sx].copy()
 
                 # make exit surface wave
-                self.optimizable.esw = objectPatch * self.optimizable.probe
+                self.optimizable.esw = objectPatch * self.optimizable.beam
 
                 # propagate to camera, intensityProjection, propagate back to object
                 self.intensityProjection(positionIndex)
@@ -277,7 +277,7 @@ class aPIE_GPU(zPIE):
         :return:
         """
         # optimizable parameters
-        self.optimizable.probe = cp.array(self.optimizable.probe, cp.complex64)
+        self.optimizable.beam = cp.array(self.optimizable.beam, cp.complex64)
         self.optimizable.object = cp.array(self.optimizable.object, cp.complex64)
         self.optimizable.probeBuffer = cp.array(self.optimizable.probeBuffer, cp.complex64)
         self.optimizable.objectBuffer = cp.array(self.optimizable.objectBuffer, cp.complex64)

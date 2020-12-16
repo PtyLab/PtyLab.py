@@ -6,6 +6,7 @@ import math
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from fracPy.utils.gpuUtils import asNumpyArray
 from matplotlib.colors import LinearSegmentedColormap
+import pyqtgraph as pg
 
 
 def CoherencePlot():
@@ -168,10 +169,37 @@ def absmodeplot(P, ax=None ,normalize = True, pixelSize =1, axisUnit ='pixel', a
 
 
 def setColorMap():
-
+    """
+    create the colormap for diffraction data (the same as matlab)
+    return: customized matplotlib colormap
+    """
     colors = [(1, 1, 1), (0, 0.0875, 1), (0, 0.4928, 1), (0, 1, 0), (1, 0.6614, 0), (1, 0.4384, 0),
               (0.8361, 0, 0), (0.6505, 0, 0), (0.4882, 0, 0)]
 
     n = 255 # Discretizes the interpolation into n bins
     cm = LinearSegmentedColormap.from_list('cmap', colors, n)
     return cm
+
+def show3Dslider(A, colormap = 'diffraction'):
+    """
+    show a 3D plot with a slider using pyqtgraph.
+    :param A: a 3D array
+    :param colormap: matplotlib colormap, default, customized colormap for plotting diffraction data
+    return: a pyqtgraph plot
+    """
+    app = pg.mkQApp()
+    imv = pg.ImageView(view=pg.PlotItem())
+    imv.setImage(A)
+
+    # choose colormap from matplotlib colormaps
+    if colormap == 'diffraction':
+        cmap = setColorMap()
+    else:
+        cmap = mpl.cm.get_cmap(colormap)
+
+    # set the colormap
+    positions = np.linspace(0, 1, cmap.N)
+    colors = [(np.array(cmap(i)[:-1]) * 255).astype('int') for i in positions]
+    imv.setColorMap(pg.ColorMap(pos=positions, color=colors))
+    imv.show()
+    app.exec_()

@@ -8,11 +8,17 @@ from fracPy.utils.scanGrids import tsp_ga
 
 ## generate(non - optimal) grid
 
-numPoints = 100   # number of points
-radius = 100    # radius of final scan grid (in pixels)
-p = 1    # p = 1 is standard Fermat;  p > 1 yields more points towards the center of grid
-# first argument: number of points, second argument: scaling of Fermat grid
-R, C = GenerateNonUniformFermat(numPoints, radius=radius, power=p)
+# numPoints = 100   # number of points
+# radius = 100    # radius of final scan grid (in pixels)
+# p = 1    # p = 1 is standard Fermat;  p > 1 yields more points towards the center of grid
+# # first argument: number of points, second argument: scaling of Fermat grid
+# R, C = GenerateNonUniformFermat(numPoints, radius=radius, power=p)
+
+Nr = 80
+s = 15
+rend = 1200
+
+R, C = GenerateConcentricGrid(Nr, s, rend)
 
 xy = np.vstack((R, C)).T  # convert to an (n,2) array
 distance = np.sum(np.sqrt(np.diff(R) ** 2 + np.diff(C) ** 2))+\

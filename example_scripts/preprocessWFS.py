@@ -13,16 +13,17 @@ from fracPy.utils.visualisation import hsvplot
 
 
 # filePathForRead = r"D:\Du\Workshop\fracmat\lenspaper4\AVT camera (GX1920)"
-filePathForRead =r"\\sun\eikema-witte\project-folder\XUV_lensless_imaging\backups\two-pulses\ARCNL\2020_12_03_ptycho_762nm_Concentric_20Nov_500um_FOV_50micron_stepsize_1"
+filePathForRead =r"\\sun\eikema-witte\project-folder\XUV_lensless_imaging\backups\two-pulses\ARCNL\2020_11_04_ptycho_HHG_hot_donut_Concentric_04Nov_1mm_FOV_100micron_stepsize"
 # 2020_11_04_ptycho_no_donut_Concentric_28oct_500micronFOV_50micron_stepsize
 # 2020_11_27_ptycho_HHG_Concentric_20Nov_500um_FOV_50micron_stepsize
 # 2020_12_03_ptycho_762nm_Concentric_20Nov_500um_FOV_50micron_stepsize_1
+# 2020_11_04_ptycho_HHG_hot_donut_Concentric_04Nov_1mm_FOV_100micron_stepsize
 filePathForSave = r"D:\Du\Workshop\fracpy\example_data"
 # D:\Du\Workshop\fracmat\lenspaper4\AVT camera (GX1920)
 # D:/fracmat/ptyLab/lenspaper4/AVT camera (GX1920)
 os.chdir(filePathForRead)
 
-fileName = 'WFS_fundamental_20201207'
+fileName = 'WFS_fundamental_20201104'
 # spectral density
 spectralDensity = [762.2e-9]
 # spectralDensity = 850e-9/np.arange(19, 35, 2)
@@ -34,7 +35,7 @@ binningFactor = 1
 # set magnification if any objective lens is used
 magfinication = 1
 # object detector distance  (initial guess)
-zo = 237.0e-3
+zo = 192.0e-3
 # HHG setup
 cameraPixelSize = 13.5e-6
 # number of pixels in raw data

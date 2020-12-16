@@ -6,7 +6,7 @@ import logging
 # import tables
 from fracPy.io import readHdf5
 # from fracPy.io import readExample
-from matplotlib.widgets import Slider
+from fracPy.utils.visualisation import show3Dslider
 from fracPy.utils.visualisation import setColorMap
 
 
@@ -102,6 +102,7 @@ class ExperimentalData:
         if self.spectralDensity is None:
             self.spectralDensity = [self.wavelength]
 
+
     # def _checkData(self):
     #     """
     #     Check that at least all the data we need has been initialized.
@@ -116,18 +117,19 @@ class ExperimentalData:
         """
         show ptychogram.
         """
-        app = pg.mkQApp()
-        self.imv = pg.ImageView(view=pg.PlotItem())
-        self.imv.setImage(np.log10(self.ptychogram+1))
-
-        # in order to use the same customized matplotlib colormap
-        positions = np.linspace(0, 1, 9)
-        cmap = setColorMap()
-        colors = [(np.array(cmap(i)[:-1])*255).astype('int') for i in positions]
-        # set the colormap
-        self.imv.setColorMap(pg.ColorMap(pos=positions, color=colors))
-        self.imv.show()
-        app.exec_()
+        show3Dslider(np.log10(self.ptychogram+1))
+        # app = pg.mkQApp()
+        # self.imv = pg.ImageView(view=pg.PlotItem())
+        # self.imv.setImage(np.log10(self.ptychogram+1))
+        #
+        # # in order to use the same customized matplotlib colormap
+        # positions = np.linspace(0, 1, 9)
+        # cmap = setColorMap()
+        # colors = [(np.array(cmap(i)[:-1])*255).astype('int') for i in positions]
+        # # set the colormap
+        # self.imv.setColorMap(pg.ColorMap(pos=positions, color=colors))
+        # self.imv.show()
+        # app.exec_()
 
     # Set attributes using @property operators: they are set automatically with the functions defined by the
     # @property operators
