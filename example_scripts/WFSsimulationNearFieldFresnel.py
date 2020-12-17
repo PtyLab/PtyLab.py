@@ -11,14 +11,17 @@ from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Optimizable.Optimizable import Optimizable
 from fracPy.monitors.Monitor import Monitor
 from skimage.transform import rescale
+from tifffile import imsave
 import os
 import h5py
 
-fileName = 'WFS_8_bin4'
+fileName = 'WFSnew_Fundamental'
 # create ptyLab object
 simuData = ExperimentalData()
-harmonicNum = np.linspace(15, 29, 4)
-simuData.spectralDensity = 800*1e-9/harmonicNum # 8 harmonics
+# harmonicNum = np.linspace(15, 29, 4)
+# simuData.spectralDensity = 800*1e-9/harmonicNum # 8 harmonics
+harmonicNum = 1
+simuData.spectralDensity = [762.2e-9]
 nlambda = len(simuData.spectralDensity)
 simuData.wavelength = min(simuData.spectralDensity)
 binningFactor = 8
@@ -130,14 +133,18 @@ plt.show(block=False)
 
 
 ## generate WFS for FIB
-N = int(pinholeDiameter/dxp)+20
-WFScrop = WFS[Np//2-N//2:Np//2+N//2,Np//2-N//2:Np//2+N//2]
-FIBpixelSize = 135e-9
-upsamplingFactor = dxp / FIBpixelSize
-WFScrop = rescale(WFScrop, upsamplingFactor, order=0)
-WFScrop[WFScrop> 0.1] = 1
-hsvplot(WFScrop, pixelSize=dxp, axisUnit='mm')
-plt.show(block=False)
+# saveWFS = False
+# N = int(pinholeDiameter/dxp)+20
+# WFScrop = WFS[Np//2-N//2:Np//2+N//2,Np//2-N//2:Np//2+N//2]
+# FIBpixelSize = 135e-9
+# upsamplingFactor = dxp / FIBpixelSize
+# WFScrop = rescale(WFScrop, upsamplingFactor, order=0)
+# WFScrop[WFScrop> 0.1] = 1
+# hsvplot(WFScrop, pixelSize=dxp, axisUnit='mm')
+# plt.show(block=False)
+# if saveWFS:
+#     imsave('test.tif', WFScrop)
+
 
 ## generate scan positions
 Nr = 6
