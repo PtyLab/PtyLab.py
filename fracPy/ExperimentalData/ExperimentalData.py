@@ -42,6 +42,10 @@ class ExperimentalData:
         self.dxp = None
         self.No = None
         self.positions0 = None
+        # decide whether the positions will be recomputed each time they are called or whether they will be fixed
+        # without the switch, positions are computed from the encoder values
+        # with the switch calling exampleData.positions will return positions0
+        self.fixedPositions = False
         # positions0 and positions are pixel number, encoder is in meter,
         # positions0 stores the original scan grid, positions is defined as property, automatically updated with dxo
 
@@ -82,7 +86,11 @@ class ExperimentalData:
         # 4. set object attributes as the essential data fields
         # self.logger.setLevel(logging.DEBUG)
         for a in attributes_to_set:
-            setattr(self, str(a), measurement_dict[a])
+            
+            # make sure that property is not an  attribtue
+            attribute = str(a)
+            if not isinstance(getattr(type(self), attribute, None), property):
+                setattr(self, attribute, measurement_dict[a])
             self.logger.debug('Setting %s', a)
 
         self._setGrid()
@@ -100,7 +108,9 @@ class ExperimentalData:
         if self.positions0 is None:
             self.positions0 = self.positions.copy()
         if self.spectralDensity is None:
-            self.spectralDensity = [self.wavelength]
+            self.spectralDensity = np.array(self.wavelength)
+        if not isinstance(self.spectralDensity, np.ndarray):
+            self.spectralDensity = np.atleast_1d(np.squeeze(self.spectralDensity))
 
 
     # def _checkData(self):
@@ -162,7 +172,7 @@ class ExperimentalData:
             return self.Nd * self.dxd
         except AttributeError as e:
             raise AttributeError(e, 'pixel number "Nd" and/or pixel size "dxd" not defined yet')
-
+    
     @property
     def Np(self):
         """Probe pixel numbers"""
@@ -245,9 +255,16 @@ class ExperimentalData:
         in the spectrogram is updates a patch which has pixel coordinates
         [3,4] in the high-resolution Fourier transform
         """
-        positions = np.round(self.encoder/self.dxo)  # encoder is in m, positions0 and positions are in pixels
-        positions = positions + self.No//2 - self.Np//2
-        return positions.astype(int)
+        if self.fixedPositions:
+            return self.positions0
+        else:
+            if self.operationMode == 'FPM':
+                conv = -(1/self.wavelength) * self.dxo * self.Np
+                positions = np.round(conv * self.encoder / np.sqrt(self.encoder[:,0]**2 + self.encoder[:,1]**2 + self.zo**2)[...,None])
+            else:
+                positions = np.round(self.encoder/self.dxo)  # encoder is in m, positions0 and positions are in pixels
+            positions = positions + self.No//2 - self.Np//2
+            return positions.astype(int)
 
     # system property list
     @property
