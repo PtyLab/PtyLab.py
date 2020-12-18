@@ -1,8 +1,6 @@
 import matplotlib
 matplotlib.use('tkagg')
 from fracPy.io import getExampleDataFolder
-
-
 #matplotlib.use('qt5agg')
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Optimizable.Optimizable import Optimizable
@@ -15,13 +13,14 @@ from fracPy.utils.utils import ifft2c
 from fracPy.utils.visualisation import hsvplot
 from matplotlib import pyplot as plt
 import numpy as np
+from scipy.ndimage import rotate
 
 
 
 exampleData = ExperimentalData()
 
 import os
-fileName = 'WFS_8.hdf5'  #  simu  Lenspaper WFS_1_bin4 WFS_fundamental    data_637nm_662nm WFS_fundamental_20201207
+fileName = 'WFS_HHG_Argon_20201217.hdf5'  #  simu  Lenspaper WFS_1_bin4 WFS_fundamental    data_637nm_662nm WFS_fundamental_20201207
 filePath = getExampleDataFolder() / fileName
 
 exampleData.loadData(filePath)
@@ -51,7 +50,7 @@ optimizable.nlambda = len(exampleData.spectralDensity) # Number of wavelength
 optimizable.nslice = 1 # Number of object slice
 exampleData.dz = 1e-4  # slice
 # binningFactor = 4
-exampleData.dxp = exampleData.dxd/8
+# exampleData.dxp = exampleData.dxd/8
 exampleData.No = 2**11
 # exampleData.zo = 0.20
 # exampleData.zo = 230e-3
@@ -103,6 +102,8 @@ for k in np.arange(len(R)):
 subaperture = rect(exampleData.Xp / apertureSize) * rect(exampleData.Yp / apertureSize)
 WFS = np.abs(ifft2c(fft2c(WFS) * fft2c(subaperture)))  # convolution of the subaperture with the scan grid
 WFS = WFS / np.max(WFS)
+WFS = rotate(WFS, 45, reshape=False)
+hsvplot(WFS)
 
 optimizable.probe[..., :, :] = WFS.astype('complex64')
 hsvplot(np.squeeze(optimizable.probe[0, 0, 0, 0, :, :]), pixelSize=exampleData.dxp, axisUnit='mm')

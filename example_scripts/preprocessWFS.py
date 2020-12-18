@@ -9,24 +9,27 @@ import glob
 import os
 import h5py
 from fracPy.utils.utils import fraccircshift, posit
+from fracPy.utils.visualisation import show3Dslider
 from fracPy.utils.visualisation import hsvplot
 
 
 # filePathForRead = r"D:\Du\Workshop\fracmat\lenspaper4\AVT camera (GX1920)"
-filePathForRead =r"\\sun\eikema-witte\project-folder\XUV_lensless_imaging\backups\two-pulses\ARCNL\2020_11_04_ptycho_HHG_hot_donut_Concentric_04Nov_1mm_FOV_100micron_stepsize"
+filePathForRead =r"\\sun\eikema-witte\project-folder\XUV_lensless_imaging\backups\two-pulses\ARCNL\2020_12_17_ptycho_HHG_ARGON_concentric_17dec_15umstepsize_250umfov"
 # 2020_11_04_ptycho_no_donut_Concentric_28oct_500micronFOV_50micron_stepsize
+# 2020_11_04_ptycho_HHG_hot_donut_Concentric_04Nov_1mm_FOV_100micron_stepsize
 # 2020_11_27_ptycho_HHG_Concentric_20Nov_500um_FOV_50micron_stepsize
 # 2020_12_03_ptycho_762nm_Concentric_20Nov_500um_FOV_50micron_stepsize_1
-# 2020_11_04_ptycho_HHG_hot_donut_Concentric_04Nov_1mm_FOV_100micron_stepsize
+# 2020_12_17_ptycho_HHG_ARGON_kmeans_261scanPoints_scanStep10um_FOV200um
+# 2020_12_17_ptycho_HHG_ARGON_concentric_17dec_15umstepsize_250umfov
 filePathForSave = r"D:\Du\Workshop\fracpy\example_data"
 # D:\Du\Workshop\fracmat\lenspaper4\AVT camera (GX1920)
 # D:/fracmat/ptyLab/lenspaper4/AVT camera (GX1920)
 os.chdir(filePathForRead)
 
-fileName = 'WFS_fundamental_20201104'
+fileName = 'WFS_HHG_Argon_20201217_big'
 # spectral density
-spectralDensity = [762.2e-9]
-# spectralDensity = 850e-9/np.arange(19, 35, 2)
+# spectralDensity = [762.2e-9]
+spectralDensity = 850e-9/np.arange(19, 35, 2)
 # spectralDensity = [29.9e-9, 32.11e-9, 34.71e-9, 37.74e-9, 41.35e-9]
 # wavelength
 wavelength = np.min(spectralDensity)
@@ -41,8 +44,8 @@ cameraPixelSize = 13.5e-6
 # number of pixels in raw data
 P = 2048
 # pixel in cropped data
-N = 2**10  # NIR
-# N = 2**9 # EUV
+# N = 2**10  # NIR
+N = 2**9 # EUV
 # dark/readout offset
 backgroundOffset = 100 # 60 for fundamental beam 450 for donut big, 300 for hhg
 
@@ -79,7 +82,7 @@ framesList.sort()
 numFrames = len(framesList)-1
 
 # read background
-dark = imageio.imread('background.tif')
+dark = imageio.imread('background.tif').astype('float32')
 
 # binning
 ptychogram = np.zeros((numFrames, P//binningFactor, P//binningFactor), dtype=np.float32)
@@ -106,7 +109,7 @@ if N < P:
     x = np.arange(P)
     [X, Y] = np.meshgrid(x, x)
     # ptychogram_forCenter = ptychogram
-    ptychogram_forCenter = posit(ptychogram-300)
+    ptychogram_forCenter = posit(ptychogram[:50]-300)
     ptychogram_sum = np.sum(ptychogram_forCenter, axis=0)
     ptychogram_sum = ptychogram_sum/np.sum(ptychogram_sum)
     rowCenter = int(np.round(np.sum(ptychogram_sum*Y)))
