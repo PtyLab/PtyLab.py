@@ -21,7 +21,7 @@ import numpy as np
 exampleData = ExperimentalData()
 
 import os
-fileName = 'WFS_HHG.hdf5'  #  simuRecent  Lenspaper WFS_1_bin4 WFS_fundamental
+fileName = 'WFS_2.hdf5'  #  simuRecent  Lenspaper WFS_1_bin4 WFS_fundamental
 filePath = getExampleDataFolder() / fileName
 
 exampleData.loadData(filePath)
@@ -42,7 +42,7 @@ optimizable = Optimizable(exampleData)
 optimizable.npsm = 1 # Number of probe modes to reconstruct
 optimizable.nosm = 1 # Number of object modes to reconstruct
 
-exampleData.spectralDensity = [29.9e-9, 32.11e-9, 34.71e-9, 37.74e-9, 41.35e-9]
+# exampleData.spectralDensity = [29.9e-9, 32.11e-9, 34.71e-9, 37.74e-9, 41.35e-9]
 # exampleData.spectralDensity = 870e-9/np.linspace(29,19,6)
 # exampleData.spectralDensity = 800*1e-9/np.linspace(15, 31, 9)
 # exampleData.spectralDensity = 0.9*exampleData.spectralDensity
@@ -50,9 +50,9 @@ exampleData.wavelength = np.min(exampleData.wavelength)
 optimizable.nlambda = len(exampleData.spectralDensity) # Number of wavelength
 optimizable.nslice = 1 # Number of object slice
 exampleData.dz = 1e-4  # slice
-exampleData.dxp = exampleData.dxd/4
+exampleData.dxp = exampleData.dxd
 # exampleData.No = 2**11+2**10
-exampleData.zo = 0.20
+# exampleData.zo = 0.20
 # exampleData.zo = 0.9*exampleData.zo
 
 
@@ -109,7 +109,7 @@ monitor.figureUpdateFrequency = 1
 monitor.objectPlot = 'complex'  # complex abs angle
 monitor.verboseLevel = 'high'  # high: plot two figures, low: plot only one figure
 monitor.probePlotZoom = 1.5  # control probe plot FoV
-monitor.objectPlotZoom = 3  # control object plot FoV
+monitor.objectPlotZoom = 1  # control object plot FoV
 monitor.objectPlotContrast = 0.5
 monitor.probePlotContrast = 0.5
 
@@ -148,7 +148,7 @@ engine.absorbingProbeBoundary = False
 engine.objectContrastSwitch = False
 engine.absObjectSwitch = False
 engine.backgroundModeSwitch = False
-engine.couplingSwitch = True
+engine.couplingSwitch = False
 engine.couplingAleph = 1
 
 engine.doReconstruction()

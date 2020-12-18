@@ -106,7 +106,9 @@ class ExperimentalData:
         if self.positions0 is None:
             self.positions0 = self.positions.copy()
         if self.spectralDensity is None:
-            self.spectralDensity = [self.wavelength]
+            self.spectralDensity = np.array(self.wavelength)
+        if not isinstance(self.spectralDensity, np.ndarray):
+            self.spectralDensity = np.atleast_1d(np.squeeze(self.spectralDensity))
 
     # def _checkData(self):
     #     """

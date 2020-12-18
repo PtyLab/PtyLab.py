@@ -22,8 +22,8 @@ FPM data reconstructor
 change data visualization and initialization options manually for now
 """
 
-FPM_recon = True
-ptycho_recon = False
+FPM_recon = False
+ptycho_recon = True
 
 
 if FPM_recon:
