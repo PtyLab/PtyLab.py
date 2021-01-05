@@ -69,6 +69,8 @@ class BaseReconstructor(object):
         self.probePowerCorrectionSwitch = True  # probe normalization to measured PSD
         self.modulusEnforcedProbeSwitch = False  # enforce empty beam
         self.comStabilizationSwitch = False  # center of mass stabilization for probe
+        self.absProbeSwitch = False  # force the probe to be abs-only
+        self.absProbeBeta = 1e-2   # relaxation parameter for abs-only constraint
         # other
         self.couplingSwitch = False  # couple adjacent wavelengths
         self.couplingAleph = 50e-2  # couple adjacent wavelengths (relaxation parameter)
@@ -627,6 +629,10 @@ class BaseReconstructor(object):
         if self.absObjectSwitch:
             self.optimizable.object = (1-self.absObjectBeta)*self.optimizable.object+\
                                       self.absObjectBeta*abs(self.optimizable.object)
+
+        if self.absProbeSwitch:
+            self.optimizable.probe = (1-self.absProbeBeta)*self.optimizable.probe+\
+                                      self.absProbeBeta*abs(self.optimizable.probe)
 
         # this is intended to slowly push non-measured object region to abs value lower than
         # the max abs inside object ROI allowing for good contrast when monitoring object

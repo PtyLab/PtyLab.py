@@ -20,7 +20,7 @@ from scipy.ndimage import rotate
 exampleData = ExperimentalData()
 
 import os
-fileName = 'WFS_HHG_Argon_20201217.hdf5'  #  simu  Lenspaper WFS_1_bin4 WFS_fundamental    data_637nm_662nm WFS_fundamental_20201207
+fileName = 'WFS_HHG_Argon_20201218_big.hdf5'  #  simu  Lenspaper WFS_1_bin4 WFS_fundamental    data_637nm_662nm WFS_fundamental_20201207
 filePath = getExampleDataFolder() / fileName
 
 exampleData.loadData(filePath)
@@ -102,8 +102,8 @@ for k in np.arange(len(R)):
 subaperture = rect(exampleData.Xp / apertureSize) * rect(exampleData.Yp / apertureSize)
 WFS = np.abs(ifft2c(fft2c(WFS) * fft2c(subaperture)))  # convolution of the subaperture with the scan grid
 WFS = WFS / np.max(WFS)
-WFS = rotate(WFS, 45, reshape=False)
-hsvplot(WFS)
+# WFS = rotate(WFS, 45, reshape=False)
+# hsvplot(WFS)
 
 optimizable.probe[..., :, :] = WFS.astype('complex64')
 hsvplot(np.squeeze(optimizable.probe[0, 0, 0, 0, :, :]), pixelSize=exampleData.dxp, axisUnit='mm')
@@ -115,10 +115,10 @@ monitor = Monitor()
 monitor.figureUpdateFrequency = 1
 monitor.objectPlot = 'complex'  # complex abs angle
 monitor.verboseLevel = 'high'  # high: plot two figures, low: plot only one figure
-monitor.probePlotZoom = 0.8  # control probe plot FoV
+monitor.probePlotZoom = 0.5  # control probe plot FoV
 monitor.objectPlotZoom =0.7   # control object plot FoV
-monitor.objectPlotContrast = 1
-monitor.probePlotContrast = 1
+monitor.objectPlotContrast = 0.5
+monitor.probePlotContrast = 0.05
 
 
 # Run the reconstruction
@@ -137,7 +137,7 @@ engine = multiPIE.multiPIE_GPU(optimizable, exampleData, monitor)
 engine.numIterations = 1000
 engine.positionOrder = 'random'  # 'sequential' or 'random'
 engine.propagator = 'scaledPolychromeASP'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
-engine.betaProbe = 0.05
+engine.betaProbe = 0.01
 engine.betaObject = 0.75
 
 ## engine specific parameters:
@@ -155,8 +155,11 @@ engine.absorbingProbeBoundary = True
 engine.objectContrastSwitch = False
 engine.absObjectSwitch = False
 engine.backgroundModeSwitch = False
-engine.couplingSwitch = False
+engine.couplingSwitch = True
 engine.couplingAleph = 1
+
+engine.absProbeSwitch = True  # force the probe to be abs-only
+engine.absProbeBeta = 1
 
 engine.doReconstruction()
 

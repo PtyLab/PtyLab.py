@@ -14,19 +14,20 @@ from fracPy.utils.visualisation import hsvplot
 
 
 # filePathForRead = r"D:\Du\Workshop\fracmat\lenspaper4\AVT camera (GX1920)"
-filePathForRead =r"\\sun\eikema-witte\project-folder\XUV_lensless_imaging\backups\two-pulses\ARCNL\2020_12_17_ptycho_HHG_ARGON_concentric_17dec_15umstepsize_250umfov"
+filePathForRead =r"\\sun\eikema-witte\project-folder\XUV_lensless_imaging\backups\two-pulses\ARCNL\2020_12_18_ptycho_argon_HHG_WFS_concentric_17dec_15umstepsize_250umfov"
 # 2020_11_04_ptycho_no_donut_Concentric_28oct_500micronFOV_50micron_stepsize
 # 2020_11_04_ptycho_HHG_hot_donut_Concentric_04Nov_1mm_FOV_100micron_stepsize
 # 2020_11_27_ptycho_HHG_Concentric_20Nov_500um_FOV_50micron_stepsize
 # 2020_12_03_ptycho_762nm_Concentric_20Nov_500um_FOV_50micron_stepsize_1
 # 2020_12_17_ptycho_HHG_ARGON_kmeans_261scanPoints_scanStep10um_FOV200um
 # 2020_12_17_ptycho_HHG_ARGON_concentric_17dec_15umstepsize_250umfov
+# 2020_12_18_ptycho_argon_HHG_WFS_concentric_17dec_15umstepsize_250umfov
 filePathForSave = r"D:\Du\Workshop\fracpy\example_data"
 # D:\Du\Workshop\fracmat\lenspaper4\AVT camera (GX1920)
 # D:/fracmat/ptyLab/lenspaper4/AVT camera (GX1920)
 os.chdir(filePathForRead)
 
-fileName = 'WFS_HHG_Argon_20201217_big'
+fileName = 'WFS_HHG_Argon_20201218_big'
 # spectral density
 # spectralDensity = [762.2e-9]
 spectralDensity = 850e-9/np.arange(19, 35, 2)
