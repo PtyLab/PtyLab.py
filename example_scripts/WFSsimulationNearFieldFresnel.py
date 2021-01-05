@@ -17,11 +17,11 @@ import h5py
 fileName = 'WFS_8_bin4'
 # create ptyLab object
 simuData = ExperimentalData()
-harmonicNum = np.linspace(15, 29, 1)
+harmonicNum = np.linspace(15, 29, 4)
 simuData.spectralDensity = 800*1e-9/harmonicNum # 8 harmonics
 nlambda = len(simuData.spectralDensity)
 simuData.wavelength = min(simuData.spectralDensity)
-binningFactor = 4
+binningFactor = 8
 
 ## sample detecotr distance
 simuData.zo = 198e-3
@@ -76,7 +76,7 @@ print('mean spectral probe diameter (fwhm): %.2f mm.' %(2*wzMean*1e3))
 
 
 ## define WFS
-pinholeDiameter = 730e-6
+pinholeDiameter = 250e-6
 f = z1 # create collimation
 WFStype = 'rand'
 if WFStype =='QC':
@@ -94,8 +94,10 @@ if WFStype =='QC':
     WFS = convolve2d(WFS, np.ones((5, 5), dtype=int), mode='same')
 elif WFStype == 'rand':
     aperture = rect(Xp, pinholeDiameter/2)*rect(Yp, pinholeDiameter/2)
-    fullPeriod = 6*13.5e-6
-    apertureSize = 3*13.5e-6
+    # fullPeriod = 6*13.5e-6
+    # apertureSize = 3*13.5e-6
+    fullPeriod = 12e-6
+    apertureSize = 6e-6
     WFS = 0*Xp
     n = int(pinholeDiameter//fullPeriod)
     R, C = GenerateRasterGrid(n, np.round(fullPeriod/dxp))
@@ -105,9 +107,9 @@ elif WFStype == 'rand':
     C = C + Np // 2
 
     np.random.seed(1)
-    R_offset = np.random.randint(1, 3, len(R))*binningFactor
+    R_offset = np.random.randint(1, 3, len(R))
     np.random.seed(2)
-    C_offset = np.random.randint(1, 3, len(C))*binningFactor
+    C_offset = np.random.randint(1, 3, len(C))
     R = R+R_offset-2
     C = C+C_offset-2
 
@@ -128,11 +130,19 @@ plt.show(block=False)
 
 
 ## generate WFS for FIB
+N = int(pinholeDiameter/dxp)+20
+WFScrop = WFS[Np//2-N//2:Np//2+N//2,Np//2-N//2:Np//2+N//2]
+FIBpixelSize = 135e-9
+upsamplingFactor = dxp / FIBpixelSize
+WFScrop = rescale(WFScrop, upsamplingFactor, order=0)
+WFScrop[WFScrop> 0.1] = 1
+hsvplot(WFScrop, pixelSize=dxp, axisUnit='mm')
+plt.show(block=False)
 
 ## generate scan positions
 Nr = 6
-s = 15
-rend = 100
+s = 4
+rend = 20
 R, C = GenerateConcentricGrid(Nr, s, rend)
 # get number of positions
 numFrames = len(R)
@@ -143,7 +153,8 @@ meanOverlap = (1-averageStep/pinholeDiameter)*fillFactor
 print('mean linear overlap: %d %%' % (meanOverlap*100))
 
 plt.figure(figsize=(5, 5), num=3)
-plt.plot(R*dxp, C*dxp, 'o-')
+plt.plot(R*dxp*1e3, C*dxp*1e3, 'o-')
+plt.xlabel('mm')
 plt.show()
 
 ## generate ptychogram
@@ -166,7 +177,7 @@ for loop in np.arange(numFrames):
     temp = posit(fraccircshift(I, [-R[loop], -C[loop]]))
     ptychogram[loop] =temp[Np//2-Nd//2:Np//2+Nd//2, Np//2-Nd//2:Np//2+Nd//2]
 
-if binningFactor>1:
+if binningFactor > 1:
     simuData.ptychogram = np.sum(ptychogram.reshape(numFrames, Nd//binningFactor, binningFactor, Nd//binningFactor, binningFactor), axis=(-1, -3))
 else:
     simuData.ptychogram = ptychogram
@@ -181,7 +192,7 @@ simuData.encoder = np.vstack((R*dxp, C*dxp)).T
 simuData.No = 2**10+2**9
 
 ## simulate Poisson noise
-bitDepth = 14  
+bitDepth = 14
 maxNumCountsPerDiff = 2**bitDepth
 
 # normalize data (ptychogram)
@@ -191,10 +202,10 @@ ptychogram_noNoise = simuData.ptychogram.copy()
 # simulate Poisson noise
 noise = np.random.poisson(simuData.ptychogram)
 simuData.ptychogram += noise
-simuData.ptychogram[simuData.ptychogram<0] = 0
+simuData.ptychogram[simuData.ptychogram < 0] = 0
 
 # compare noiseless data noisy
-ptychogram_comparison = np.concatenate((ptychogram_noNoise,simuData.ptychogram), axis = 1)
+ptychogram_comparison = np.concatenate((ptychogram_noNoise,simuData.ptychogram), axis=1)
 show3Dslider(np.log(ptychogram_comparison+1))
 
 ## set properties
@@ -218,6 +229,3 @@ if export_data:
     hf.create_dataset('entrancePupilDiameter', data=(simuData.entrancePupilDiameter,), dtype='f')
     hf.close()
     print('An hd5f file has been saved')
-
-
-

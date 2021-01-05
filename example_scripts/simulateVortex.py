@@ -14,7 +14,7 @@ from skimage.transform import rescale
 import os
 import h5py
 
-fileName = 'WFS_8_bin4'
+fileName = 'WFS_Vortex_Fundamental'
 # create ptyLab object
 simuData = ExperimentalData()
 harmonicNum = np.linspace(15, 29, 1)
@@ -50,26 +50,30 @@ Xo, Yo = np.meshgrid(xo, xo)
 
 ## define probe
 beam = (1 + 1j) * np.zeros((nlambda, No, No), dtype=np.float32)
-w0 = 15e-6
+w0 = 50e-6
 wzMean = 0
 
+beam_jet = np.exp(-(Xo ** 2 + Yo ** 2) / w0 ** 2)
 for k in np.arange(nlambda):
     z0 = np.pi*w0**2/simuData.spectralDensity[k]   # Rayleigh range
     wz = w0*np.sqrt(1+(z1/z0)**2)   # beam width
     D = 2.5*wz
 
-    H = 1 # phase term todo: find zernike functions
+    H = np.exp(-1j * np.arctan2(Yo, Xo) * harmonicNum[k])
+    # H = 1
+    beam_jet = beam_jet*H
     wzMean = wzMean+wz
-    # probe[k] = np.exp(-(Xo**2+Yo**2)/wz**2)*H
-    beam[k] = aspw(np.exp(-(Xo ** 2 + Yo ** 2) / w0 ** 2), z1, simuData.spectralDensity[k], Lo)[0]
-    # plt.figure(figsize=(10,5), num=1)
-    # ax1 = plt.subplot(121)
-    # hsvplot(beam[k], ax=ax1, pixelSize=dxp, axisUnit='mm')
-    # ax1.set_title('wavelength: %.2f nm' %(simuData.spectralDensity[k]*1e9))
-    # plt.subplot(122)
-    # plt.imshow(abs(probe[k]) ** 2)
-    # plt.title('probe intensity')
-    # plt.show(block=False)
+
+    beam[k] = aspw(beam_jet, z1, simuData.spectralDensity[k], Lo)[0]
+    beam[k] = beam[k]*H
+    plt.figure(figsize=(10,5), num=1)
+    ax1 = plt.subplot(121)
+    hsvplot(beam[k], ax=ax1, pixelSize=dxp, axisUnit='mm')
+    ax1.set_title('wavelength: %.2f nm' %(simuData.spectralDensity[k]*1e9))
+    plt.subplot(122)
+    plt.imshow(abs(beam[k]) ** 2)
+    plt.title('beam intensity')
+    plt.show(block=False)
 
 wzMean = wzMean/nlambda
 print('mean spectral probe diameter (fwhm): %.2f mm.' %(2*wzMean*1e3))
@@ -148,7 +152,7 @@ plt.show()
 
 ## generate ptychogram
 ptychogram = np.zeros((numFrames, Nd, Nd), dtype=np.float32)
-ESW = np.zeros((nlambda, No, No), dtype=np.complex64)
+ESW = np.zeros((numFrames, No, No), dtype=np.complex64)
 
 for loop in np.arange(numFrames):
     print(str(loop))
@@ -181,7 +185,7 @@ simuData.encoder = np.vstack((R*dxp, C*dxp)).T
 simuData.No = 2**10+2**9
 
 ## simulate Poisson noise
-bitDepth = 14  
+bitDepth = 14
 maxNumCountsPerDiff = 2**bitDepth
 
 # normalize data (ptychogram)
@@ -201,7 +205,7 @@ show3Dslider(np.log(ptychogram_comparison+1))
 simuData.entrancePupilDiameter = pinholeDiameter
 
 ## data inspection, check sampling requirements todo
-export_data = False #
+export_data = True #
 from fracPy.io import getExampleDataFolder
 saveFilePath = getExampleDataFolder()
 os.chdir(saveFilePath)

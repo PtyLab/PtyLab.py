@@ -13,16 +13,21 @@ from fracPy.utils.visualisation import hsvplot
 
 
 # filePathForRead = r"D:\Du\Workshop\fracmat\lenspaper4\AVT camera (GX1920)"
-filePathForRead =r"\\sun\eikema-witte\project-folder\XUV_lensless_imaging\backups\two-pulses\ARCNL\2020_11_04_ptycho_no_donut_Concentric_28oct_500micronFOV_50micron_stepsize"
+filePathForRead =r"\\sun\eikema-witte\project-folder\XUV_lensless_imaging\backups\two-pulses\ARCNL\2020_11_04_ptycho_HHG_hot_donut_Concentric_04Nov_1mm_FOV_100micron_stepsize"
+# 2020_11_04_ptycho_no_donut_Concentric_28oct_500micronFOV_50micron_stepsize
+# 2020_11_27_ptycho_HHG_Concentric_20Nov_500um_FOV_50micron_stepsize
+# 2020_12_03_ptycho_762nm_Concentric_20Nov_500um_FOV_50micron_stepsize_1
+# 2020_11_04_ptycho_HHG_hot_donut_Concentric_04Nov_1mm_FOV_100micron_stepsize
 filePathForSave = r"D:\Du\Workshop\fracpy\example_data"
 # D:\Du\Workshop\fracmat\lenspaper4\AVT camera (GX1920)
 # D:/fracmat/ptyLab/lenspaper4/AVT camera (GX1920)
 os.chdir(filePathForRead)
 
-fileName = 'WFS_fundamental'
+fileName = 'WFS_fundamental_20201104'
 # spectral density
-spectralDensity = 762.2e-9
+spectralDensity = [762.2e-9]
 # spectralDensity = 850e-9/np.arange(19, 35, 2)
+# spectralDensity = [29.9e-9, 32.11e-9, 34.71e-9, 37.74e-9, 41.35e-9]
 # wavelength
 wavelength = np.min(spectralDensity)
 # binning
@@ -39,7 +44,7 @@ P = 2048
 N = 2**10  # NIR
 # N = 2**9 # EUV
 # dark/readout offset
-backgroundOffset = 60 # 60 for fundamental beam 450 for donut big, 300 for hhg
+backgroundOffset = 100 # 60 for fundamental beam 450 for donut big, 300 for hhg
 
 
 ## set experimental specifications
@@ -128,6 +133,7 @@ if exportBool:
     hf.create_dataset('Nd', data=(Nd,), dtype='i')
     hf.create_dataset('zo', data=(zo,), dtype='f')
     hf.create_dataset('wavelength', data=(wavelength,), dtype='f')
+    hf.create_dataset('spectralDensity', data=spectralDensity, dtype='f')
     hf.create_dataset('entrancePupilDiameter', data=(entrancePupilDiameter,), dtype='f')
     hf.close()
     print('An hd5f file has been saved')

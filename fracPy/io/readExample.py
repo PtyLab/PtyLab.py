@@ -8,10 +8,10 @@ logger.setLevel(logging.INFO)
 #logger.addHandler(logging.StreamHandler(sys.stderr))
 
 exampleFiles = {
-    'simulation_ptycho': 'ptycho_simulation.hdf5',
+    'simulation_ptycho': 'simu.hdf5',
     'simulation_fpm': 'fourier_simulation.hdf5',
     'simulationTiny': 'simulationTiny.hdf5',
-    # todo@maisie add simu.hdf5
+    # todo @maisie add simu.hdf5
 }
 
 # This is a convenience class to aid in loading a particular example
@@ -31,12 +31,14 @@ def examplePath(key:str):
     :return:
     """
     try:
+        key = key.split('example:')[1]
         filename = exampleFiles[key]
     except KeyError:
-        filename = key
+        raise KeyError(f'Could not find example {key}. Allowed filenames are: {list(exampleFiles.keys())}')
+
     full_filename = getExampleDataFolder() / filename
     if not full_filename.exists():
-        raise FileNotFoundError()
+        raise FileNotFoundError(f'Could not find {full_filename}')
     return full_filename
 
 

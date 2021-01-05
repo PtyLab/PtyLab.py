@@ -4,9 +4,9 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import math
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-
-# TODO: copy-pase all relevant functions from Matlab implementation
-from fracPy.utils import gpuUtils
+from fracPy.utils.gpuUtils import asNumpyArray
+from matplotlib.colors import LinearSegmentedColormap
+import pyqtgraph as pg
 
 
 def CoherencePlot():
@@ -39,7 +39,7 @@ def hsv_to_rgb(hsv: np.ndarray) -> np.ndarray:
     rgb[..., 2] = np.select(conditions, [v, p, t, v, v, q], default=p)
     return rgb.astype('uint8')
 
-def complex_to_rgb(u):
+def complex_to_rgb(u, amplitudeScalingFactor=1):
     """
     Preparation function for a complex plot, converting a 2D complex array into an rgb array
     :param u: a 2D complex array
@@ -47,13 +47,15 @@ def complex_to_rgb(u):
     """
     # hue (normalize angle)
     # if u is on the GPU, remove it as we can toss it now.
-    u = gpuUtils.asNumpyArray(u)
+    u = asNumpyArray(u)
     h = np.angle(u)
     h = (h + np.pi) / (2 * np.pi)
     # saturation  (ones)
     s = np.ones_like(h)
     # value (normalize brightness to 8-bit)
     v = np.abs(u)
+    if amplitudeScalingFactor!=1:
+        v[v>amplitudeScalingFactor*np.max(v)] = amplitudeScalingFactor*np.max(v)
     v = v / (np.max(v) + np.finfo(float).eps) * (2 ** 8-1)
 
     hsv = np.dstack([h, s, v])
@@ -118,7 +120,7 @@ def modeTile(P,normalize = True):
         P = np.squeeze(P)
     return P
 
-def hsvplot(u, ax = None, pixelSize = 1, axisUnit='pixel'):
+def hsvplot(u, ax = None, pixelSize = 1, axisUnit='pixel', amplitudeScalingFactor = 1):
     """
     perform complex plot
     :param ax
@@ -126,20 +128,78 @@ def hsvplot(u, ax = None, pixelSize = 1, axisUnit='pixel'):
     :param axisUnit, default 'pixel', options: 'm', 'cm', 'mm', 'um'
     return: a complex plot
     """
-    rgb = complex_to_rgb(u)
+    u = asNumpyArray(u)
+    rgb = complex_to_rgb(u, amplitudeScalingFactor=amplitudeScalingFactor)
     complex_plot(rgb, ax, pixelSize, axisUnit)
 
-def hsvmodeplot(P,ax=None ,normalize = True, pixelSize =1, axisUnit ='pixel'):
+def hsvmodeplot(P,ax=None ,normalize = True, pixelSize =1, axisUnit ='pixel', amplitudeScalingFactor = 1):
     """
-    Place multi complex images in a squre grid and use hsvplot to display
+    Place multi complex images in a square grid and use hsvplot to display
     :param P: A complex np.ndarray
     :param normalize: normalize each mode individually
     :param pixelSize: pixelSize in x and y, to display the physical dimension of the plot
     :return: a tiled complex plot
     """
-    Q = modeTile(P, normalize=normalize)
-    hsvplot(Q, ax=ax, pixelSize=pixelSize, axisUnit=axisUnit)
 
-# def inshowmodeplot(P,ax=None ,normalize = True, pixelSize =1, axisUnit ='pixel'):
-#     Q = modeTile(P, normalize=normalize)
-#     intensityplot(Q, ax=ax, pixelSize=pixelSize, axisUnit=axisUnit)
+    Q = modeTile(asNumpyArray(P), normalize=normalize)
+    hsvplot(Q, ax=ax, pixelSize=pixelSize, axisUnit=axisUnit, amplitudeScalingFactor=amplitudeScalingFactor)
+
+
+def absplot(u, ax=None, pixelSize=1, axisUnit='pixel', amplitudeScalingFactor = 1, cmap='gray'):
+    U = np.abs(asNumpyArray(u))
+    if not ax:
+        fig, ax = plt.subplots()
+    unitRatio = {'pixel': 1, 'm': 1, 'cm': 1e2, 'mm': 1e3, 'um': 1e6}
+    pixelSize = pixelSize*unitRatio[axisUnit]
+    extent = [0, pixelSize * U.shape[1], pixelSize * U.shape[0], 0]
+
+
+    if amplitudeScalingFactor!=1:
+        U[U > amplitudeScalingFactor*np.max(U)]=amplitudeScalingFactor*np.max(U)
+    im = ax.imshow(U, extent=extent, interpolation=None, cmap=cmap)
+    ax.set_ylabel(axisUnit)
+    ax.set_xlabel(axisUnit)
+
+
+
+def absmodeplot(P, ax=None ,normalize = True, pixelSize =1, axisUnit ='pixel', amplitudeScalingFactor = 1):
+    Q = modeTile(abs(P), normalize=normalize)
+    absplot(Q, ax=ax, pixelSize=pixelSize, axisUnit=axisUnit)
+
+
+
+def setColorMap():
+    """
+    create the colormap for diffraction data (the same as matlab)
+    return: customized matplotlib colormap
+    """
+    colors = [(1, 1, 1), (0, 0.0875, 1), (0, 0.4928, 1), (0, 1, 0), (1, 0.6614, 0), (1, 0.4384, 0),
+              (0.8361, 0, 0), (0.6505, 0, 0), (0.4882, 0, 0)]
+
+    n = 255 # Discretizes the interpolation into n bins
+    cm = LinearSegmentedColormap.from_list('cmap', colors, n)
+    return cm
+
+def show3Dslider(A, colormap = 'diffraction'):
+    """
+    show a 3D plot with a slider using pyqtgraph.
+    :param A: a 3D array
+    :param colormap: matplotlib colormap, default, customized colormap for plotting diffraction data
+    return: a pyqtgraph plot
+    """
+    app = pg.mkQApp()
+    imv = pg.ImageView(view=pg.PlotItem())
+    imv.setImage(A)
+
+    # choose colormap from matplotlib colormaps
+    if colormap == 'diffraction':
+        cmap = setColorMap()
+    else:
+        cmap = mpl.cm.get_cmap(colormap)
+
+    # set the colormap
+    positions = np.linspace(0, 1, cmap.N)
+    colors = [(np.array(cmap(i)[:-1]) * 255).astype('int') for i in positions]
+    imv.setColorMap(pg.ColorMap(pos=positions, color=colors))
+    imv.show()
+    app.exec_()

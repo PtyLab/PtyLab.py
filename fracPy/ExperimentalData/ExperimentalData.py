@@ -1,11 +1,13 @@
 import numpy as np
+import pyqtgraph as pg
 import matplotlib.pyplot as plt
 # from pathlib import Path
 import logging
 # import tables
 from fracPy.io import readHdf5
 # from fracPy.io import readExample
-from matplotlib.widgets import Slider
+from fracPy.utils.visualisation import show3Dslider
+from fracPy.utils.visualisation import setColorMap
 
 
 class ExperimentalData:
@@ -40,6 +42,10 @@ class ExperimentalData:
         self.dxp = None
         self.No = None
         self.positions0 = None
+        # decide whether the positions will be recomputed each time they are called or whether they will be fixed
+        # without the switch, positions are computed from the encoder values
+        # with the switch calling exampleData.positions will return positions0
+        self.fixedPositions = False
         # positions0 and positions are pixel number, encoder is in meter,
         # positions0 stores the original scan grid, positions is defined as property, automatically updated with dxo
 
@@ -61,25 +67,31 @@ class ExperimentalData:
                  Only in very special cases should this be false.
         :return:
         """
-        if not filename.exists() and str(filename).startswith('example:'):
+        import os
+        if not os.path.exists(filename) and str(filename).startswith('example:'):
             # Todo @dbs660 Fix this so it works again
             self.filename = filename
             from fracPy.io.readExample import examplePath
             self.filename = examplePath(filename)  # readExample(filename, python_order=True)
         else:
             self.filename = filename
-            # 1. check if the dataset contains what we need before loading
-            readHdf5.checkDataFields(self.filename)
-            # 2. load dictionary. Only the values specified by 'required_fields' 
-            # in readHdf.py file were loaded 
-            measurement_dict = readHdf5.loadInputData(self.filename)
-            # 3. 'required_fields' will be the attributes that must be set
-            attributes_to_set = measurement_dict.keys()
-            # 4. set object attributes as the essential data fields
-            # self.logger.setLevel(logging.DEBUG)
-            for a in attributes_to_set:
-                setattr(self, str(a), measurement_dict[a])
-                self.logger.debug('Setting %s', a)
+
+        # 1. check if the dataset contains what we need before loading
+        readHdf5.checkDataFields(self.filename)
+        # 2. load dictionary. Only the values specified by 'required_fields'
+        # in readHdf.py file were loaded
+        measurement_dict = readHdf5.loadInputData(self.filename)
+        # 3. 'required_fields' will be the attributes that must be set
+        attributes_to_set = measurement_dict.keys()
+        # 4. set object attributes as the essential data fields
+        # self.logger.setLevel(logging.DEBUG)
+        for a in attributes_to_set:
+            
+            # make sure that property is not an  attribtue
+            attribute = str(a)
+            if not isinstance(getattr(type(self), attribute, None), property):
+                setattr(self, attribute, measurement_dict[a])
+            self.logger.debug('Setting %s', a)
 
         self._setGrid()
         # self._checkData()
@@ -96,7 +108,10 @@ class ExperimentalData:
         if self.positions0 is None:
             self.positions0 = self.positions.copy()
         if self.spectralDensity is None:
-            self.spectralDensity = [self.wavelength]
+            self.spectralDensity = np.array(self.wavelength)
+        if not isinstance(self.spectralDensity, np.ndarray):
+            self.spectralDensity = np.atleast_1d(np.squeeze(self.spectralDensity))
+
 
     # def _checkData(self):
     #     """
@@ -110,26 +125,21 @@ class ExperimentalData:
 
     def showPtychogram(self):
         """
-        show ptychogram. todo: better plot
+        show ptychogram.
         """
-        fig, ax = plt.subplots()
-        plt.subplots_adjust(left=0.25, bottom=0.25)
-
-        plot = plt.imshow(self.ptychogram[0])
-        plt.colorbar()
-        ax.margins(x=0)
-
-        axcolor = 'lightgoldenrodyellow'
-        axNumFrames = plt.axes([0.25, 0.15, 0.65, 0.03], facecolor=axcolor)
-        slider = Slider(axNumFrames, 'numFrames', 0, self.numFrames, valinit=0, valfmt='%d' )
-
-        def update(val):
-            ind = slider.val
-            plot.set_data(np.log10(self.ptychogram[int(ind)]+1))
-            fig.canvas.draw_idle()
-
-        slider.on_changed(update)
-        plt.show()
+        show3Dslider(np.log10(self.ptychogram+1))
+        # app = pg.mkQApp()
+        # self.imv = pg.ImageView(view=pg.PlotItem())
+        # self.imv.setImage(np.log10(self.ptychogram+1))
+        #
+        # # in order to use the same customized matplotlib colormap
+        # positions = np.linspace(0, 1, 9)
+        # cmap = setColorMap()
+        # colors = [(np.array(cmap(i)[:-1])*255).astype('int') for i in positions]
+        # # set the colormap
+        # self.imv.setColorMap(pg.ColorMap(pos=positions, color=colors))
+        # self.imv.show()
+        # app.exec_()
 
     # Set attributes using @property operators: they are set automatically with the functions defined by the
     # @property operators
@@ -162,7 +172,7 @@ class ExperimentalData:
             return self.Nd * self.dxd
         except AttributeError as e:
             raise AttributeError(e, 'pixel number "Nd" and/or pixel size "dxd" not defined yet')
-
+    
     @property
     def Np(self):
         """Probe pixel numbers"""
@@ -245,9 +255,16 @@ class ExperimentalData:
         in the spectrogram is updates a patch which has pixel coordinates
         [3,4] in the high-resolution Fourier transform
         """
-        positions = np.round(self.encoder/self.dxo)  # encoder is in m, positions0 and positions are in pixels
-        positions = positions + self.No//2 - self.Np//2
-        return positions.astype(int)
+        if self.fixedPositions:
+            return self.positions0
+        else:
+            if self.operationMode == 'FPM':
+                conv = -(1/self.wavelength) * self.dxo * self.Np
+                positions = np.round(conv * self.encoder / np.sqrt(self.encoder[:,0]**2 + self.encoder[:,1]**2 + self.zo**2)[...,None])
+            else:
+                positions = np.round(self.encoder/self.dxo)  # encoder is in m, positions0 and positions are in pixels
+            positions = positions + self.No//2 - self.Np//2
+            return positions.astype(int)
 
     # system property list
     @property
@@ -264,4 +281,8 @@ class ExperimentalData:
 
 
 if __name__ == '__main__':
-    e = ExperimentalData('example:simulation_fpm')
+    app = pg.mkQApp()
+    e = ExperimentalData('example:simulation_ptycho')
+    e.showPtychogram()
+    app.exec_()
+

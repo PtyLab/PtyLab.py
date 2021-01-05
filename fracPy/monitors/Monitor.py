@@ -1,5 +1,5 @@
 from .default_visualisation import DefaultMonitor, DiffractionDataMonitor
-
+from fracPy.utils.visualisation import setColorMap
 
 class Monitor(object):
     """
@@ -12,7 +12,11 @@ class Monitor(object):
         self.verboseLevel = 'high'
         self.objectPlotZoom = 1
         self.probePlotZoom = 1
+        self.objectPlotContrast = 1
+        self.probePlotContrast = 1
         self.optimizable = None
+        self.cmapDiffraction = setColorMap()
+
 
     def initializeVisualisation(self):
         """
@@ -32,17 +36,19 @@ class Monitor(object):
         """
         self.defaultMonitor.updateError(self.optimizable.error)
         self.defaultMonitor.updateObject(object_estimate, objectPlot=self.objectPlot,
-                                         pixelSize=self.optimizable.data.dxo, axisUnit='mm')
+                                         pixelSize=self.optimizable.data.dxo, axisUnit='mm',
+                                         amplitudeScalingFactor=self.objectPlotContrast)
         self.defaultMonitor.updateProbe(probe_estimate, self.optimizable,
-                                        pixelSize=self.optimizable.data.dxp, axisUnit='mm')
+                                        pixelSize=self.optimizable.data.dxp, axisUnit='mm',
+                                        amplitudeScalingFactor=self.probePlotContrast)
         self.defaultMonitor.drawNow()
 
     def updateDiffractionDataMonitor(self, Iestimated, Imeasured):
         """
         update the diffraction plots
         """
-        self.diffractionDataMonitor.updateIestimated(Iestimated)
-        self.diffractionDataMonitor.updateImeasured(Imeasured)
+        self.diffractionDataMonitor.updateIestimated(Iestimated, cmap=self.cmapDiffraction)
+        self.diffractionDataMonitor.updateImeasured(Imeasured, cmap=self.cmapDiffraction)
         self.diffractionDataMonitor.drawNow()
 
     def getOverlap(self, ind1,ind2,probePixelsize):

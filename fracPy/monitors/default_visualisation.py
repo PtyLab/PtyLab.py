@@ -48,10 +48,11 @@ class DefaultMonitor(object):
         self.firstrun = True
 
 
-    def updateObject(self, object_estimate, objectPlot, **kwargs):
+    def updateObject(self, object_estimate, objectPlot, amplitudeScalingFactor=1, **kwargs):
         OE = modeTile(object_estimate, normalize=True)
         if objectPlot == 'complex':
-            OE = complex_to_rgb(OE)
+            OE = complex_to_rgb(OE, amplitudeScalingFactor=amplitudeScalingFactor)
+
         elif objectPlot == 'abs':
             OE = abs(OE)
         elif objectPlot == 'angle':
@@ -69,9 +70,9 @@ class DefaultMonitor(object):
             self.im_object.set_data(OE)
         self.im_object.autoscale()
 
-    def updateProbe(self, probe_estimate, optimizable, **kwargs):
+    def updateProbe(self, probe_estimate, optimizable, amplitudeScalingFactor=1, **kwargs):
 
-        PE = complex_to_rgb(modeTile(probe_estimate, normalize=True))
+        PE = complex_to_rgb(modeTile(probe_estimate, normalize=True), amplitudeScalingFactor=amplitudeScalingFactor)
 
         if self.firstrun:
             self.im_probe = complex_plot(PE, ax=self.ax_probe, **kwargs)
@@ -150,8 +151,7 @@ class DiffractionDataMonitor(object):
 
     def updateIestimated(self, Iestimate, cmap='gray',**kwargs):
         # move it to CPU if it's on the GPU
-        if hasattr(Iestimate, 'device'):
-            Iestimate = Iestimate.get()
+        Iestimate = gpuUtils.asNumpyArray(Iestimate)
 
         if self.firstrun:
             self.im_Iestimated = self.ax_Iestimated.imshow(np.log10(np.squeeze(Iestimate+1)),
