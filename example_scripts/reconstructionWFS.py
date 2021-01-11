@@ -20,7 +20,8 @@ from scipy.ndimage import rotate
 exampleData = ExperimentalData()
 
 import os
-fileName = 'WFS_HHG_Argon_20201218_big.hdf5'  #  simu  Lenspaper WFS_1_bin4 WFS_fundamental    data_637nm_662nm WFS_fundamental_20201207
+fileName = 'WFS_HHG_Argon_20201218_big_20210107crop300.hdf5'  #  simu  Lenspaper WFS_1_bin4 WFS_fundamental    data_637nm_662nm WFS_fundamental_20201207  WFS_HHG_Argon_20201218_big
+# WFS_HHG_Argon_20201218_big_20210107crop300
 filePath = getExampleDataFolder() / fileName
 
 exampleData.loadData(filePath)
@@ -103,7 +104,7 @@ subaperture = rect(exampleData.Xp / apertureSize) * rect(exampleData.Yp / apertu
 WFS = np.abs(ifft2c(fft2c(WFS) * fft2c(subaperture)))  # convolution of the subaperture with the scan grid
 WFS = WFS / np.max(WFS)
 # WFS = rotate(WFS, 45, reshape=False)
-# hsvplot(WFS)
+hsvplot(WFS)
 
 optimizable.probe[..., :, :] = WFS.astype('complex64')
 hsvplot(np.squeeze(optimizable.probe[0, 0, 0, 0, :, :]), pixelSize=exampleData.dxp, axisUnit='mm')
@@ -155,11 +156,11 @@ engine.absorbingProbeBoundary = True
 engine.objectContrastSwitch = False
 engine.absObjectSwitch = False
 engine.backgroundModeSwitch = False
-engine.couplingSwitch = True
+engine.couplingSwitch = False
 engine.couplingAleph = 1
 
 engine.absProbeSwitch = True  # force the probe to be abs-only
-engine.absProbeBeta = 1
+engine.absProbeBeta = 0.9
 
 engine.doReconstruction()
 

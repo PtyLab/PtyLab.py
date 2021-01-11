@@ -27,10 +27,12 @@ filePathForSave = r"D:\Du\Workshop\fracpy\example_data"
 # D:/fracmat/ptyLab/lenspaper4/AVT camera (GX1920)
 os.chdir(filePathForRead)
 
-fileName = 'WFS_HHG_Argon_20201218_big'
+fileName = 'WFS_HHG_Argon_20201218_big_20210107crop300'
 # spectral density
 # spectralDensity = [762.2e-9]
-spectralDensity = 850e-9/np.arange(19, 35, 2)
+# spectralDensity = 850e-9/np.arange(19, 35, 2)
+# spectralDensity = np.array([32.6, 35.3, 38.2, 41.9, 46.3, 51.6, 58.6])*1e-9
+spectralDensity = np.array([30.78, 33.05, 35.78, 38.90, 42.66, 47.15, 52.70, 59.77])*1e-9
 # spectralDensity = [29.9e-9, 32.11e-9, 34.71e-9, 37.74e-9, 41.35e-9]
 # wavelength
 wavelength = np.min(spectralDensity)
@@ -39,7 +41,7 @@ binningFactor = 1
 # set magnification if any objective lens is used
 magfinication = 1
 # object detector distance  (initial guess)
-zo = 192.0e-3
+zo = 222.7e-3  #240.0e-3
 # HHG setup
 cameraPixelSize = 13.5e-6
 # number of pixels in raw data
@@ -82,11 +84,15 @@ framesList = glob.glob('*'+'.tif')
 framesList.sort()
 numFrames = len(framesList)-1
 
+numFrames = 300
+encoder = encoder[:300,:]
+
 # read background
 dark = imageio.imread('background.tif').astype('float32')
 
 # binning
 ptychogram = np.zeros((numFrames, P//binningFactor, P//binningFactor), dtype=np.float32)
+
 
 # read frames
 pbar = tqdm.trange(numFrames, leave=True)

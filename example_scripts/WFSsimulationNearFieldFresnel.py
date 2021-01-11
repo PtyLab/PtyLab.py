@@ -51,7 +51,7 @@ xo = np.arange(-No//2, No//2)*dxo
 Lo = dxo*No
 Xo, Yo = np.meshgrid(xo, xo)
 
-## define probe
+## define beam
 beam = (1 + 1j) * np.zeros((nlambda, No, No), dtype=np.float32)
 w0 = 15e-6
 wzMean = 0
