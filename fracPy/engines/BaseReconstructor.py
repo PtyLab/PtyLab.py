@@ -41,6 +41,8 @@ class BaseReconstructor(object):
         self.fontSize = 17
         self.intensityConstraint = 'standard'  # standard or sigmoid
         self.propagator = 'Fraunhofer'  # 'Fresnel' 'ASP'
+        self.momentumAcceleration = False  # default False, it is turned on in the individual engines that use momentum
+        self.optimizable.purity = 1   # default initial value for plots.
 
 
         ## Specific reconstruction settings that are the same for all engines
@@ -662,37 +664,62 @@ class BaseReconstructor(object):
         :return:
         """
         if self.optimizable.npsm > 1:
-            # orthogonalize the probe
+            # orthogonalize the probe for each wavelength and each slice
             for id_l in range(self.optimizable.nlambda):
                 for id_s in range(self.optimizable.nslice):
                     self.optimizable.probe[id_l, 0, :, id_s, :, :], self.normalizedEigenvaluesProbe, self.MSPVprobe = \
                         orthogonalizeModes(self.optimizable.probe[id_l, 0, :, id_s, :, :])
                     self.optimizable.purity = np.sqrt(np.sum(self.normalizedEigenvaluesProbe ** 2))
 
-            # orthogonolize momentum operator
-            try:
-                self.optimizable.probeMomentum[id_l, 0, :, id_s, :, :], none, none = \
-                    orthogonalizeModes(self.optimizable.probeMomentum[id_l, 0, :, id_s, :, :])
-                # replace the orthogonolized buffer
-                self.optimizable.probeBuffer = self.optimizable.probe.copy()
-            except:
-                pass
+                    # orthogonolize momentum operator
+                    if self.momentumAcceleration:
+                        # orthogonalize probe Buffer
+                        p = self.optimizable.probeBuffer[id_l, 0, :, id_s, :, :].reshape(
+                            (self.optimizable.npsm, self.experimentalData.Np**2))
+                        self.optimizable.probeBuffer[id_l, 0, :, id_s, :, :] = (self.MSPVprobe @ p).reshape(
+                            (self.optimizable.npsm, self.experimentalData.Np, self.experimentalData.Np))
+                        # orthogonalize probe momentum
+                        p = self.optimizable.probeMomentum[id_l, 0, :, id_s, :, :].reshape(
+                            (self.optimizable.npsm, self.experimentalData.Np ** 2))
+                        self.optimizable.probeMomentum[id_l, 0, :, id_s, :, :] = (self.MSPVprobe @ p).reshape(
+                            (self.optimizable.npsm, self.experimentalData.Np, self.experimentalData.Np))
+
+            # todo check the difference
+            # try:
+            #     self.optimizable.probeMomentum[id_l, 0, :, id_s, :, :], none, none = \
+            #         orthogonalizeModes(self.optimizable.probeMomentum[id_l, 0, :, id_s, :, :])
+            #     # replace the orthogonolized buffer
+            #     self.optimizable.probeBuffer = self.optimizable.probe.copy()
+            # except:
+            #     pass
 
         elif self.optimizable.nosm > 1:
-            # orthogonalize the object
+            # orthogonalize the object for each wavelength and each slice
             for id_l in range(self.optimizable.nlambda):
                 for id_s in range(self.optimizable.nslice):
                     self.optimizable.object[id_l, :, 0, id_s, :, :], self.normalizedEigenvaluesObject, self.MSPVobject = \
                         orthogonalizeModes(self.optimizable.object[id_l, :, 0, id_s, :, :])
 
             # orthogonolize momentum operator
-            try:
-                self.optimizable.objectMomentum[id_l, :, 0, id_s, :, :], none, none = \
-                    orthogonalizeModes(self.optimizable.objectMomentum[id_l, :, 0, id_s, :, :])
-                # replace the orthogonolized buffer as well
-                self.optimizable.objectBuffer = self.optimizable.object.copy()
-            except:
-                pass
+            if self.momentumAcceleration:
+                # orthogonalize object Buffer
+                p = self.optimizable.objectBuffer[id_l, :, 0, id_s, :, :].reshape(
+                    (self.optimizable.nosm, self.experimentalData.No ** 2))
+                self.optimizable.objectBuffer[id_l, :, 0, id_s, :, :] = (self.MSPVobject @ p).reshape(
+                    (self.optimizable.nosm, self.experimentalData.No, self.experimentalData.No))
+                # orthogonalize object momentum
+                p = self.optimizable.objectMomentum[id_l, :, 0, id_s, :, :].reshape(
+                    (self.optimizable.nosm, self.experimentalData.No ** 2))
+                self.optimizable.objectMomentum[id_l, :, 0, id_s, :, :] = (self.MSPVobject @ p).reshape(
+                    (self.optimizable.nosm, self.experimentalData.No, self.experimentalData.No))
+
+            # try:
+            #     self.optimizable.objectMomentum[id_l, :, 0, id_s, :, :], none, none = \
+            #         orthogonalizeModes(self.optimizable.objectMomentum[id_l, :, 0, id_s, :, :])
+            #     # replace the orthogonolized buffer as well
+            #     self.optimizable.objectBuffer = self.optimizable.object.copy()
+            # except:
+            #     pass
         else:
             pass
 

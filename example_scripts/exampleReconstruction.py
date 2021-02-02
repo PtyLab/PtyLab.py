@@ -75,7 +75,7 @@ if ptycho_simulation:
     # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
     # now create an object to hold everything we're eventually interested in
     optimizable = Optimizable(exampleData)
-    optimizable.npsm = 1 # Number of probe modes to reconstruct
+    optimizable.npsm = 4 # Number of probe modes to reconstruct
     optimizable.nosm = 1 # Number of object modes to reconstruct
     optimizable.nlambda = len(exampleData.spectralDensity) # Number of wavelength
     optimizable.nslice = 1 # Number of object slice
@@ -133,7 +133,7 @@ if ptycho_simulation:
     engine.probePowerCorrectionSwitch = False
     engine.modulusEnforcedProbeSwitch = False
     engine.comStabilizationSwitch = True
-    engine.orthogonalizationSwitch = False
+    engine.orthogonalizationSwitch = True
     engine.orthogonalizationFrequency = 10
     engine.fftshiftSwitch = False
     engine.intensityConstraint = 'standard'  # standard fluctuation exponential poission
