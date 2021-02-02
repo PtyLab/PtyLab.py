@@ -99,8 +99,8 @@ if ptycho_simulation:
     monitor.figureUpdateFrequency = 1
     monitor.objectPlot = 'complex'  # complex abs angle
     monitor.verboseLevel = 'high'  # high: plot two figures, low: plot only one figure
-    monitor.objectPlotZoom = 2.5   # control object plot FoV
-    monitor.probePlotZoom = 1.5   # control probe plot FoV
+    monitor.objectPlotZoom = 1   # control object plot FoV
+    monitor.probePlotZoom = 0.5  # control probe plot FoV
 
     # exampleData.zo = exampleData.zo
     # exampleData.dxp = exampleData.dxp/1
@@ -132,7 +132,7 @@ if ptycho_simulation:
     ## switches
     engine.probePowerCorrectionSwitch = False
     engine.modulusEnforcedProbeSwitch = False
-    engine.comStabilizationSwitch = False
+    engine.comStabilizationSwitch = True
     engine.orthogonalizationSwitch = False
     engine.orthogonalizationFrequency = 10
     engine.fftshiftSwitch = False

@@ -22,7 +22,7 @@ class BaseReconstructor(object):
     inherit from this object
 
     """
-    def __init__(self, optimizable: Optimizable, experimentalData:ExperimentalData, monitor:Monitor):
+    def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData, monitor: Monitor):
         # These statements don't copy any data, they just keep a reference to the object
         self.optimizable = optimizable
         self.experimentalData = experimentalData
@@ -96,7 +96,6 @@ class BaseReconstructor(object):
         self._initializeErrors()
         self._setObjectProbeROI()
         self._showInitialGuesses()
-
 
 
     def _initializeErrors(self):
@@ -714,14 +713,24 @@ class BaseReconstructor(object):
             for k in xp.arange(self.optimizable.npsm): # todo check for multislice
                 self.optimizable.probe[:,:,k,-1,...] = \
                     xp.roll(self.optimizable.probe[:,:,k,-1,...], (-yc, -xc), axis=(-2, -1))
+                # for mPIE
+                if self.momentumAcceleration:
+                    self.optimizable.probeMomentum[:,:,k,-1,...] = \
+                        xp.roll(self.optimizable.probeMomentum[:,:,k,-1,...], (-yc, -xc), axis=(-2, -1))
+                    self.optimizable.probeBuffer[:,:,k,-1,...] = \
+                        xp.roll(self.optimizable.probeBuffer[:,:,k,-1,...], (-yc, -xc), axis=(-2, -1))
 
-                #todo implement for mPIE
 
             # shift object
             for k in xp.arange(self.optimizable.nosm): # todo check for multislice
                 self.optimizable.object[:,:,k,-1,...] = \
                     xp.roll(self.optimizable.object[:,:,k,-1,...], (-yc, -xc), axis=(-2, -1))
-                # todo implement for mPIE
+                # for mPIE
+                if self.momentumAcceleration:
+                    self.optimizable.objectMomentum[:, :, k, -1, ...] = \
+                        xp.roll(self.optimizable.objectMomentum[:, :, k, -1, ...], (-yc, -xc), axis=(-2, -1))
+                    self.optimizable.objectBuffer[:, :, k, -1, ...] = \
+                        xp.roll(self.optimizable.objectBuffer[:, :, k, -1, ...], (-yc, -xc), axis=(-2, -1))
 
 
     def modulusEnforcedProbe(self):
