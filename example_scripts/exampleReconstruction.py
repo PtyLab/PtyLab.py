@@ -141,7 +141,7 @@ if ptycho_simulation:
     engine.objectContrastSwitch = False
     engine.absObjectSwitch = False
     engine.backgroundModeSwitch = False
-    engine.couplingSwitch = True
+    engine.couplingSwitch = False
     engine.couplingAleph = 1
 
     engine.doReconstruction()

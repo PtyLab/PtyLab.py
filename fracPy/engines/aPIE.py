@@ -51,20 +51,19 @@ class aPIE(BaseReconstructor):
         self.betaProbe = 0.25
         self.betaObject = 0.25
         self.aPIEfriction = 0.7
-        self.thetaMomentun = 0
-        # set aPIE flag
-        self.aPIEflag = True
+        self.thetaMomentum = 0
+        self.feedback = 0.5
 
         if not hasattr(self, 'thetaHistory'):
-            self.thetaHistory = []
+            self.thetaHistory = np.array([])
 
-        # todo check
         self.ptychogramUntransformed = self.experimentalData.ptychogram.copy()
-        self.theta =
-        self.thetaSearchRadius =
+        self.thetaSearchRadiusMin = 0
+        self.thetaSearchRadiusMax = 0.1
+        self.W = np.ones_like(self.experimentalData.Xd)
 
-        self.experimentalData.Xq =
-        self.experimentalData.Yq =
+        # self.experimentalData.Xq = self.experimentalData.Xd.copy()
+        # self.experimentalData.Yq =
 
 
     def _prepare_doReconstruction(self):
@@ -79,59 +78,54 @@ class aPIE(BaseReconstructor):
     def doReconstruction(self):
         self._initializeParams()
         self._prepare_doReconstruction()
+        if not hasattr(self, 'theta'):
+            raise ValueError('theta value is not given')
         xp = getArrayModule(self.optimizable.object)
 
-        # preallocate grids
-        if self.propagator == 'ASP':
-            raise NotImplementedError()
-        else:
-            n = 2 * self.experimentalData.Np
-
-        d = self.thetaSearchRadius * np.fliplr(np.linspace(0, 1, self.numIterations))
+        # linear search
+        thetaSearchRadius = np.flipud(np.linspace(self.thetaSearchRadiusMin, self.thetaSearchRadiusMax, self.numIterations))
 
         pbar = tqdm.trange(self.numIterations, desc='angle updated: theta = ',
                            leave=True)  # in order to change description to the tqdm progress bar
         for loop in pbar:
             # save theta search history
-            self.thetaHistory = [self.thetaHistory, asNumpyArray(self.theta)]
-            # self.zHistory = [self.zHistory, asNumpyArray((self.experimentalData.zo))]
+            self.thetaHistory = np.append(self.thetaHistory, asNumpyArray(self.theta))
 
-            # select two angles
-            theta = [self.theta, self.theta + d[loop] * (-1 + 2 * np.random.rand(1))] + self.thetaMomentum
+            # select two angles (todo check if three angles behave better)
+            theta = np.squeeze(np.array([self.theta, self.theta + thetaSearchRadius[loop] * (-1 + 2 * np.random.rand(1,1))] ) + self.thetaMomentum)
 
             # save object and probe
             probeTemp = self.optimizable.probe.copy()
             objectTemp = self.optimizable.object.copy()
 
             # probe and object buffer
-            probeBuffer = np.zeros_like(probeTemp, shape=(np.array([probeTemp, probeTemp]).shape))
-            objectBuffer = np.zeros_like(objectTemp, shape=(
-                np.array([objectTemp, objectTemp]).shape))  # for polychromatic case this will need to be multimode
-
+            probeBuffer = xp.zeros_like(probeTemp) # shape=(np.array([probeTemp, probeTemp])).shape)
+            probeBuffer = [probeBuffer, probeBuffer]
+            objectBuffer = xp.zeros_like(objectTemp) #, shape=(np.array([objectTemp, objectTemp])).shape)  # for polychromatic case this will need to be multimode
+            objectBuffer = [objectBuffer,objectBuffer]
             # initialize error
-            errorTemp = np.zeros(2, 1)
+            errorTemp = np.zeros((2, 1))
 
             for k in range(2):
                 self.optimizable.probe = probeTemp
                 self.optimizable.object = objectTemp
-                # reset ptychogram(transform into estimate coordinates)
-                Xq = T_inv(self.experimentalData.Xq, self.experimentalData.Yq, self.experimentalData.zo, theta)
-                for l in range(self.numFrames):
+                # reset ptychogram (transform into estimate coordinates)
+                Xq = T_inv(self.experimentalData.Xd, self.experimentalData.Yd, self.experimentalData.zo, theta[k])
+                for l in range(self.experimentalData.numFrames):
                     temp = self.ptychogramUntransformed[l]
-                    temp2 = abs(interp2d(self.experimentalData.Xd, self.experimentalData.Yd, temp, kind='linear')
-                                (Xq, self.experimentalData.Yd))
+                    f = interp2d(self.experimentalData.xd, self.experimentalData.xd, temp, kind='linear')
+                    temp2 = abs(f(Xq[0], self.experimentalData.xd))
                     temp2 = np.nan_to_num(temp2)
                     temp2[temp2 < 0] = 0
-                    self.experimentalData.ptychogram[l] = temp2
+                    self.experimentalData.ptychogram[l] = cp.array(temp2)
 
                 # renormalization(for energy conservation)
                 self.experimentalData.ptychogram = self.experimentalData.ptychogram / np.linalg.norm(
                     self.experimentalData.ptychogram) * np.linalg.norm(self.ptychogramUntransformed)
 
-                # TODO check if the name is okay (self.W)
-                self.W = np.ones_like(self.experimentalData.Np) # todo move to initialization?
-                self.W = abs(interp2d(self.experimentalData.Xd, self.experimentalData.Yd, self.W, kind='linear')
-                             (Xq, self.experimentalData.Yd)) # why? not 1 everywhere?
+                 # todo check how interp2d with edge values
+                fw = interp2d(self.experimentalData.xd, self.experimentalData.xd, self.W, kind='linear')
+                self.W = abs(fw(Xq[0], self.experimentalData.xd))
                 self.W = np.nan_to_num(self.W)
                 self.W[self.W == 0] = 1e-3
 
@@ -157,7 +151,7 @@ class aPIE(BaseReconstructor):
                     objectPatch = self.optimizable.object[..., sy, sx].copy()
 
                     # make exit surface wave
-                    self.optimizable.esw = objectPatch * self.optimizable.beam
+                    self.optimizable.esw = objectPatch * self.optimizable.probe
 
                     # propagate to camera, intensityProjection, propagate back to object
                     self.intensityProjection(positionIndex)
@@ -178,7 +172,7 @@ class aPIE(BaseReconstructor):
                 self.getErrorMetrics()
                 # remove error from error history
                 errorTemp[k] = self.optimizable.error[-1]
-                self.optimizable.error[-1] = []
+                self.optimizable.error = np.delete(self.optimizable.error, -1)
 
                 # apply Constraints
                 self.applyConstraints(loop)
@@ -196,7 +190,7 @@ class aPIE(BaseReconstructor):
                 self.optimizable.object = objectBuffer[0]
                 self.optimizable.error = np.append(self.optimizable.error, errorTemp[0])
 
-            thetaMomentum = 0.5 * dtheta + self.aPIEfriction * self.thetaMomentum
+            thetaMomentum = self.feedback * dtheta + self.aPIEfriction * self.thetaMomentum
 
             # show reconstruction
             if loop == 0:
@@ -205,7 +199,7 @@ class aPIE(BaseReconstructor):
                 ax.set_xlabel('iteration')
                 ax.set_ylabel('estimated theta [deg]')
                 ax.set_xscale('symlog')
-                line = plt.plot(0, theta, 'o-')[0]
+                line = plt.plot(0, self.theta, 'o-')[0]
                 plt.tight_layout()
                 plt.show(block=False)
 
@@ -216,13 +210,13 @@ class aPIE(BaseReconstructor):
                 line.set_xdata(idx)
                 line.set_ydata(np.array(self.thetaHistory)[idx])
                 ax.set_xlim(0, np.max(idx))
-                ax.set_ylim(np.min(self.thetaHistory), np.max(self.thetaHistory))
+                ax.set_ylim(min(self.thetaHistory), max(self.thetaHistory))
 
                 figure.canvas.draw()
                 figure.canvas.flush_events()
             self.showReconstruction(loop)
 
-        self.thetaSearchRadius = d[loop]
+        self.thetaSearchRadiusMax = thetaSearchRadius[loop]
         self.thetaMomentun = thetaMomentum
 
     def objectPatchUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
@@ -252,7 +246,7 @@ class aPIE(BaseReconstructor):
         return r
 
 
-class aPIE_GPU(zPIE):
+class aPIE_GPU(aPIE):
     """
     GPU-based implementation of aPIE
     """
@@ -274,12 +268,12 @@ class aPIE_GPU(zPIE):
         :return:
         """
         # optimizable parameters
-        self.optimizable.beam = cp.array(self.optimizable.beam, cp.complex64)
+        self.optimizable.probe = cp.array(self.optimizable.probe, cp.complex64)
         self.optimizable.object = cp.array(self.optimizable.object, cp.complex64)
-        self.optimizable.probeBuffer = cp.array(self.optimizable.probeBuffer, cp.complex64)
-        self.optimizable.objectBuffer = cp.array(self.optimizable.objectBuffer, cp.complex64)
-        self.optimizable.probeMomentum = cp.array(self.optimizable.probeMomentum, cp.complex64)
-        self.optimizable.objectMomentum = cp.array(self.optimizable.objectMomentum, cp.complex64)
+        # self.optimizable.probeBuffer = cp.array(self.optimizable.probeBuffer, cp.complex64)
+        # self.optimizable.objectBuffer = cp.array(self.optimizable.objectBuffer, cp.complex64)
+        # self.optimizable.probeMomentum = cp.array(self.optimizable.probeMomentum, cp.complex64)
+        # self.optimizable.objectMomentum = cp.array(self.optimizable.objectMomentum, cp.complex64)
 
         # non-optimizable parameters
         self.experimentalData.ptychogram = cp.array(self.experimentalData.ptychogram, cp.float32)
