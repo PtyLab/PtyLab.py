@@ -109,7 +109,7 @@ class ExperimentalData:
             self.positions0 = self.positions.copy()
         if self.spectralDensity is None:
             self.spectralDensity = np.array(self.wavelength)
-        if not isinstance(self.spectralDensity, np.ndarray):
+        if isinstance(self.spectralDensity, np.ndarray):
             self.spectralDensity = np.atleast_1d(np.squeeze(self.spectralDensity))
 
 
