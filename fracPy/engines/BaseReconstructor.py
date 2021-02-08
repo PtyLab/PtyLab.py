@@ -79,7 +79,8 @@ class BaseReconstructor(object):
         self.comStabilizationSwitch = True # center of mass stabilization for probe
         self.PSDestimationSwitch = False
         self.objectContrastSwitch = False # pushes object to zero outside ROI
-
+        self.adaptiveDenoisingSwitch = False # estimated noise floor to be clipped from raw data
+        
     def _initializeParams(self):
         """
         Initialize everything that depends on user changeable attributes.
@@ -509,6 +510,10 @@ class BaseReconstructor(object):
 
         self.getRMSD(positionIndex)
 
+        # adaptive denoising 
+        if self.adaptiveDenoisingSwitch:
+            self.adaptiveDenoising()
+
         # intensity projection constraints
         if self.intensityConstraint == 'fluctuation':
             # scaling
@@ -655,7 +660,27 @@ class BaseReconstructor(object):
                                      self.binaryWFSAleph * abs(self.optimizable.probe)
 
 
-
+    def adaptiveDenoising(self):
+        """
+        Use the difference of mean intensities between the low-resolution 
+        object estimate and the low-resolution raw data to estimate the
+        noise floor to be clipped.
+        :return:
+        """
+        # figure out wether or not to use the GPU
+        xp = getArrayModule(self.optimizable.esw)
+        
+        Ameasured = self.optimizable.Imeasured**0.5
+        Aestimated = xp.abs(self.optimizable.Iestimated)**0.5 
+        
+        scaling_factor = 1
+        noise = xp.abs(xp.mean(Ameasured - Aestimated)) * scaling_factor
+    
+        Ameasured = Ameasured - noise
+        Ameasured[Ameasured<0]=0
+        self.optimizable.Imeasured = Ameasured**2
+        
+        
     def orthogonalization(self):
         """
         Perform orthogonalization

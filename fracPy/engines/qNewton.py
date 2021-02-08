@@ -12,10 +12,9 @@ from fracPy.Optimizable.Optimizable import Optimizable
 from fracPy.engines.BaseReconstructor import BaseReconstructor
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.monitors.Monitor import Monitor
-from fracPy.utils.gpuUtils import getArrayModule
+from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray
 from fracPy.utils.utils import fft2c, ifft2c
 import logging
-
 
 class qNewton(BaseReconstructor):
 
@@ -89,7 +88,7 @@ class qNewton(BaseReconstructor):
             # show reconstruction
             self.showReconstruction(loop)
 
-
+        self._unload_data_from_gpu()
         
     def objectPatchUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
         """
@@ -159,3 +158,28 @@ class qNewton_GPU(qNewton):
         elif self.propagator =='scaledASP':
             self.optimizable.Q1 = cp.array(self.optimizable.Q1)
             self.optimizable.Q2 = cp.array(self.optimizable.Q2)
+            
+    def _unload_data_from_gpu(self):
+        """
+        Move the back to RAM
+        :return:
+        """
+        # optimizable parameters
+        self.optimizable.probe = asNumpyArray(self.optimizable.probe)
+        self.optimizable.object = asNumpyArray(self.optimizable.object)
+
+        # non-optimizable parameters
+        self.experimentalData.ptychogram = asNumpyArray(self.experimentalData.ptychogram)
+        self.detectorError = asNumpyArray(self.detectorError)
+
+        if self.absorbingProbeBoundary or self.probeBoundary:
+            self.probeWindow = asNumpyArray(self.probeWindow)
+
+        # proapgators to GPU
+        if self.propagator == 'Fresnel':
+            self.optimizable.quadraticPhase = asNumpyArray(self.optimizable.quadraticPhase)
+        elif self.propagator == 'ASP':
+            self.optimizable.transferFunction = asNumpyArray(self.optimizable.transferFunction)
+        elif self.propagator =='scaledASP':
+            self.optimizable.Q1 = asNumpyArray(self.optimizable.Q1)
+            self.optimizable.Q2 = asNumpyArray(self.optimizable.Q2)
