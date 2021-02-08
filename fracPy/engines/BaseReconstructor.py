@@ -425,10 +425,48 @@ class BaseReconstructor(object):
 
     def getBeamWidth(self):
         """
-        Matches getBeamWith.m
+        Calculate probe beam width (Full width half maximum)
         :return:
         """
-        raise NotImplementedError()
+        xp = getArrayModule(self.optimizable.probe)
+        P = xp.sum(abs(self.optimizable.probe[..., -1, :, :]) ** 2, axes=(0, 1, 2))
+        P = P/xp.sum(P, axes=(-1, -2))
+        xMean = np.sum(self.experimentalData.Xp * P, axes=(-1, -2))
+        yMean = np.sum(self.experimentalData.Yp * P, axes=(-1, -2))
+        xVariance = np.sum((self.experimentalData.Xp - xMean) ** 2 * P, axes=(-1, -2))
+        yVariance = np.sum((self.experimentalData.Yp - xMean) ** 2 * P, axes=(-1, -2))
+
+        c = 2 * xp.sqrt(2 * xp.log(2)) # constant for converting variance to FWHM (see e.g. https://en.wikipedia.org/wiki/Full_width_at_half_maximum)
+        self.optimizable.beamWidthX = (c * xp.sqrt(xVariance)).get()
+        self.optimizable.beamWidthY = (c * xp.sqrt(yVariance)).get()
+
+    def getOverlap(self, ind1, ind2):
+        """
+        Calculate area overlap
+        """
+        sy = abs(self.experimentalData.positions[ind2, 0] - self.experimentalData.positions[ind1, 0]) * self.experimentalData.dxp
+        sx = abs(self.experimentalData.positions[ind2, 1] - self.experimentalData.positions[ind1, 1]) * self.experimentalData.dxp
+
+        # task 1: get linear overlap
+        self.getBeamWidth()
+        xp = getArrayModule(self.optimizable.probe)
+        self.optimizable.linearOverlap = 1 - xp.sqrt(sx**2+sy**2)/\
+                                         np.minimum(self.optimizable.beamWidthX, self.optimizable.beamWidthY)
+        self.optimizable.linearOverlap = np.maximum(self.optimizable.linearOverlap, 0)
+
+        # task 2: get area overlap
+        # spatial frequency pixel size
+        df = 1/(self.experimentalData.Np*self.experimentalData.dxp)
+        # spatial frequency meshgrid
+        fx = np.arange(-self.experimentalData.Np//2, self.experimentalData.Np//2) * df
+        Fx, Fy = np.meshgrid(fx, fx)
+        # absolute value of probe and 2D fft
+        P = abs(self.optimizable.probe[:, 0, 0, -1,...])
+        Q = fft2c(p)
+        # calculate overlap between positions
+        self.optimizable.areaOverlap = abs(xp.sum(Q**2*xp.exp(-1.j*2*xp.pi*(Fx*sx+Fy*sy))), axes=(-1, -2))/\
+                                       xp.sum(abs(Q)**2, axis=(-1, -2))
+
 
     def getErrorMetrics(self):
         """
