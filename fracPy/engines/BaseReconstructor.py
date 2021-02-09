@@ -22,7 +22,7 @@ class BaseReconstructor(object):
     inherit from this object
 
     """
-    def __init__(self, optimizable: Optimizable, experimentalData:ExperimentalData, monitor:Monitor):
+    def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData, monitor: Monitor):
         # These statements don't copy any data, they just keep a reference to the object
         self.optimizable = optimizable
         self.experimentalData = experimentalData
@@ -41,6 +41,8 @@ class BaseReconstructor(object):
         self.fontSize = 17
         self.intensityConstraint = 'standard'  # standard or sigmoid
         self.propagator = 'Fraunhofer'  # 'Fresnel' 'ASP'
+        self.momentumAcceleration = False  # default False, it is turned on in the individual engines that use momentum
+        self.optimizable.purity = 1   # default initial value for plots.
 
 
         ## Specific reconstruction settings that are the same for all engines
@@ -70,6 +72,8 @@ class BaseReconstructor(object):
         self.probePowerCorrectionSwitch = False  # probe normalization to measured PSD
         self.modulusEnforcedProbeSwitch = False  # enforce empty beam
         self.comStabilizationSwitch = False  # center of mass stabilization for probe
+        self.absProbeSwitch = False  # force the probe to be abs-only
+        self.absProbeBeta = 1e-2   # relaxation parameter for abs-only constraint
         # other
         self.couplingSwitch = False  # couple adjacent wavelengths
         self.couplingAleph = 50e-2  # couple adjacent wavelengths (relaxation parameter)
@@ -95,7 +99,6 @@ class BaseReconstructor(object):
         self._initializeErrors()
         self._setObjectProbeROI()
         self._showInitialGuesses()
-
 
 
     def _initializeErrors(self):
@@ -459,10 +462,48 @@ class BaseReconstructor(object):
 
     def getBeamWidth(self):
         """
-        Matches getBeamWith.m
+        Calculate probe beam width (Full width half maximum)
         :return:
         """
-        raise NotImplementedError()
+        xp = getArrayModule(self.optimizable.probe)
+        P = xp.sum(abs(self.optimizable.probe[..., -1, :, :]) ** 2, axes=(0, 1, 2))
+        P = P/xp.sum(P, axes=(-1, -2))
+        xMean = np.sum(self.experimentalData.Xp * P, axes=(-1, -2))
+        yMean = np.sum(self.experimentalData.Yp * P, axes=(-1, -2))
+        xVariance = np.sum((self.experimentalData.Xp - xMean) ** 2 * P, axes=(-1, -2))
+        yVariance = np.sum((self.experimentalData.Yp - xMean) ** 2 * P, axes=(-1, -2))
+
+        c = 2 * xp.sqrt(2 * xp.log(2)) # constant for converting variance to FWHM (see e.g. https://en.wikipedia.org/wiki/Full_width_at_half_maximum)
+        self.optimizable.beamWidthX = (c * xp.sqrt(xVariance)).get()
+        self.optimizable.beamWidthY = (c * xp.sqrt(yVariance)).get()
+
+    def getOverlap(self, ind1, ind2):
+        """
+        Calculate area overlap
+        """
+        sy = abs(self.experimentalData.positions[ind2, 0] - self.experimentalData.positions[ind1, 0]) * self.experimentalData.dxp
+        sx = abs(self.experimentalData.positions[ind2, 1] - self.experimentalData.positions[ind1, 1]) * self.experimentalData.dxp
+
+        # task 1: get linear overlap
+        self.getBeamWidth()
+        xp = getArrayModule(self.optimizable.probe)
+        self.optimizable.linearOverlap = 1 - xp.sqrt(sx**2+sy**2)/\
+                                         np.minimum(self.optimizable.beamWidthX, self.optimizable.beamWidthY)
+        self.optimizable.linearOverlap = np.maximum(self.optimizable.linearOverlap, 0)
+
+        # task 2: get area overlap
+        # spatial frequency pixel size
+        df = 1/(self.experimentalData.Np*self.experimentalData.dxp)
+        # spatial frequency meshgrid
+        fx = np.arange(-self.experimentalData.Np//2, self.experimentalData.Np//2) * df
+        Fx, Fy = np.meshgrid(fx, fx)
+        # absolute value of probe and 2D fft
+        P = abs(self.optimizable.probe[:, 0, 0, -1,...])
+        Q = fft2c(p)
+        # calculate overlap between positions
+        self.optimizable.areaOverlap = abs(xp.sum(Q**2*xp.exp(-1.j*2*xp.pi*(Fx*sx+Fy*sy))), axes=(-1, -2))/\
+                                       xp.sum(abs(Q)**2, axis=(-1, -2))
+
 
     def getErrorMetrics(self):
         """
@@ -665,6 +706,10 @@ class BaseReconstructor(object):
             self.optimizable.object = (1-self.absObjectBeta)*self.optimizable.object+\
                                       self.absObjectBeta*abs(self.optimizable.object)
 
+        if self.absProbeSwitch:
+            self.optimizable.probe = (1-self.absProbeBeta)*self.optimizable.probe+\
+                                      self.absProbeBeta*abs(self.optimizable.probe)
+
         # this is intended to slowly push non-measured object region to abs value lower than
         # the max abs inside object ROI allowing for good contrast when monitoring object
         if self.objectContrastSwitch:
@@ -705,37 +750,62 @@ class BaseReconstructor(object):
         :return:
         """
         if self.optimizable.npsm > 1:
-            # orthogonalize the probe
+            # orthogonalize the probe for each wavelength and each slice
             for id_l in range(self.optimizable.nlambda):
                 for id_s in range(self.optimizable.nslice):
                     self.optimizable.probe[id_l, 0, :, id_s, :, :], self.normalizedEigenvaluesProbe, self.MSPVprobe = \
                         orthogonalizeModes(self.optimizable.probe[id_l, 0, :, id_s, :, :])
                     self.optimizable.purity = np.sqrt(np.sum(self.normalizedEigenvaluesProbe ** 2))
 
-            # orthogonolize momentum operator
-            try:
-                self.optimizable.probeMomentum[id_l, 0, :, id_s, :, :], none, none = \
-                    orthogonalizeModes(self.optimizable.probeMomentum[id_l, 0, :, id_s, :, :])
-                # replace the orthogonolized buffer
-                self.optimizable.probeBuffer = self.optimizable.probe.copy()
-            except:
-                pass
+                    # orthogonolize momentum operator
+                    if self.momentumAcceleration:
+                        # orthogonalize probe Buffer
+                        p = self.optimizable.probeBuffer[id_l, 0, :, id_s, :, :].reshape(
+                            (self.optimizable.npsm, self.experimentalData.Np**2))
+                        self.optimizable.probeBuffer[id_l, 0, :, id_s, :, :] = (self.MSPVprobe @ p).reshape(
+                            (self.optimizable.npsm, self.experimentalData.Np, self.experimentalData.Np))
+                        # orthogonalize probe momentum
+                        p = self.optimizable.probeMomentum[id_l, 0, :, id_s, :, :].reshape(
+                            (self.optimizable.npsm, self.experimentalData.Np ** 2))
+                        self.optimizable.probeMomentum[id_l, 0, :, id_s, :, :] = (self.MSPVprobe @ p).reshape(
+                            (self.optimizable.npsm, self.experimentalData.Np, self.experimentalData.Np))
+
+            # todo check the difference
+            # try:
+            #     self.optimizable.probeMomentum[id_l, 0, :, id_s, :, :], none, none = \
+            #         orthogonalizeModes(self.optimizable.probeMomentum[id_l, 0, :, id_s, :, :])
+            #     # replace the orthogonolized buffer
+            #     self.optimizable.probeBuffer = self.optimizable.probe.copy()
+            # except:
+            #     pass
 
         elif self.optimizable.nosm > 1:
-            # orthogonalize the object
+            # orthogonalize the object for each wavelength and each slice
             for id_l in range(self.optimizable.nlambda):
                 for id_s in range(self.optimizable.nslice):
                     self.optimizable.object[id_l, :, 0, id_s, :, :], self.normalizedEigenvaluesObject, self.MSPVobject = \
                         orthogonalizeModes(self.optimizable.object[id_l, :, 0, id_s, :, :])
 
             # orthogonolize momentum operator
-            try:
-                self.optimizable.objectMomentum[id_l, :, 0, id_s, :, :], none, none = \
-                    orthogonalizeModes(self.optimizable.objectMomentum[id_l, :, 0, id_s, :, :])
-                # replace the orthogonolized buffer as well
-                self.optimizable.objectBuffer = self.optimizable.object.copy()
-            except:
-                pass
+            if self.momentumAcceleration:
+                # orthogonalize object Buffer
+                p = self.optimizable.objectBuffer[id_l, :, 0, id_s, :, :].reshape(
+                    (self.optimizable.nosm, self.experimentalData.No ** 2))
+                self.optimizable.objectBuffer[id_l, :, 0, id_s, :, :] = (self.MSPVobject @ p).reshape(
+                    (self.optimizable.nosm, self.experimentalData.No, self.experimentalData.No))
+                # orthogonalize object momentum
+                p = self.optimizable.objectMomentum[id_l, :, 0, id_s, :, :].reshape(
+                    (self.optimizable.nosm, self.experimentalData.No ** 2))
+                self.optimizable.objectMomentum[id_l, :, 0, id_s, :, :] = (self.MSPVobject @ p).reshape(
+                    (self.optimizable.nosm, self.experimentalData.No, self.experimentalData.No))
+
+            # try:
+            #     self.optimizable.objectMomentum[id_l, :, 0, id_s, :, :], none, none = \
+            #         orthogonalizeModes(self.optimizable.objectMomentum[id_l, :, 0, id_s, :, :])
+            #     # replace the orthogonolized buffer as well
+            #     self.optimizable.objectBuffer = self.optimizable.object.copy()
+            # except:
+            #     pass
         else:
             pass
 
@@ -756,14 +826,24 @@ class BaseReconstructor(object):
             for k in xp.arange(self.optimizable.npsm): # todo check for multislice
                 self.optimizable.probe[:,:,k,-1,...] = \
                     xp.roll(self.optimizable.probe[:,:,k,-1,...], (-yc, -xc), axis=(-2, -1))
+                # for mPIE
+                if self.momentumAcceleration:
+                    self.optimizable.probeMomentum[:,:,k,-1,...] = \
+                        xp.roll(self.optimizable.probeMomentum[:,:,k,-1,...], (-yc, -xc), axis=(-2, -1))
+                    self.optimizable.probeBuffer[:,:,k,-1,...] = \
+                        xp.roll(self.optimizable.probeBuffer[:,:,k,-1,...], (-yc, -xc), axis=(-2, -1))
 
-                #todo implement for mPIE
 
             # shift object
             for k in xp.arange(self.optimizable.nosm): # todo check for multislice
                 self.optimizable.object[:,k,:,-1,...] = \
                     xp.roll(self.optimizable.object[:,:,k,-1,...], (-yc, -xc), axis=(-2, -1))
-                # todo implement for mPIE
+                # for mPIE
+                if self.momentumAcceleration:
+                    self.optimizable.objectMomentum[:, :, k, -1, ...] = \
+                        xp.roll(self.optimizable.objectMomentum[:, :, k, -1, ...], (-yc, -xc), axis=(-2, -1))
+                    self.optimizable.objectBuffer[:, :, k, -1, ...] = \
+                        xp.roll(self.optimizable.objectBuffer[:, :, k, -1, ...], (-yc, -xc), axis=(-2, -1))
 
             # if self.optimizable.nlambda > 1:
             #     for k in xp.arange(self.optimizable.nlambda): # todo check for multislice

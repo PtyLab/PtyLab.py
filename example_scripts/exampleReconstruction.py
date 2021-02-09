@@ -107,7 +107,7 @@ if ptycho_recon:
     # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
     # now create an object to hold everything we're eventually interested in
     optimizable = Optimizable(exampleData)
-    optimizable.npsm = 1 # Number of probe modes to reconstruct
+    optimizable.npsm = 4 # Number of probe modes to reconstruct
     optimizable.nosm = 1 # Number of object modes to reconstruct
     optimizable.nlambda = len(exampleData.spectralDensity) # Number of wavelength
     optimizable.nslice = 1 # Number of object slice
@@ -131,8 +131,8 @@ if ptycho_recon:
     monitor.figureUpdateFrequency = 1
     monitor.objectPlot = 'complex'  # complex abs angle
     monitor.verboseLevel = 'high'  # high: plot two figures, low: plot only one figure
-    monitor.objectPlotZoom = 2.5   # control object plot FoV
-    monitor.probePlotZoom = 1.5   # control probe plot FoV
+    monitor.objectPlotZoom = 1   # control object plot FoV
+    monitor.probePlotZoom = 0.5  # control probe plot FoV
 
     # exampleData.zo = exampleData.zo
     # exampleData.dxp = exampleData.dxp/1
@@ -164,8 +164,8 @@ if ptycho_recon:
     ## switches
     engine.probePowerCorrectionSwitch = False
     engine.modulusEnforcedProbeSwitch = False
-    engine.comStabilizationSwitch = False
-    engine.orthogonalizationSwitch = False
+    engine.comStabilizationSwitch = True
+    engine.orthogonalizationSwitch = True
     engine.orthogonalizationFrequency = 10
     engine.fftshiftSwitch = False
     engine.intensityConstraint = 'standard'  # standard fluctuation exponential poission
@@ -173,7 +173,7 @@ if ptycho_recon:
     engine.objectContrastSwitch = False
     engine.absObjectSwitch = False
     engine.backgroundModeSwitch = False
-    engine.couplingSwitch = True
+    engine.couplingSwitch = False
     engine.couplingAleph = 1
 
     engine.doReconstruction()

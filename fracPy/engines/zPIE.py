@@ -58,7 +58,7 @@ class zPIE(BaseReconstructor):
         xp = getArrayModule(self.optimizable.object)
 
         # actual reconstruction zPIE_engine
-        if not hasattr(self, 'zHisory'):
+        if not hasattr(self, 'zHistory'):
             self.zHistory = []
 
         zMomentun = 0
@@ -195,7 +195,7 @@ class zPIE(BaseReconstructor):
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
         frac = objectPatch.conj() / xp.max(xp.sum(xp.abs(objectPatch) ** 2, axis=(0, 1, 2, 3)))
-        r = self.optimizable.probe + self.betaObject * xp.sum(frac * DELTA, axis=(0, 1, 3), keepdims=True)
+        r = self.optimizable.probe + self.betaProbe * xp.sum(frac * DELTA, axis=(0, 1, 3), keepdims=True)
         return r
 
 class zPIE_GPU(zPIE):
@@ -246,3 +246,4 @@ class zPIE_GPU(zPIE):
             self.background = cp.array(self.background)
         if self.absorbingProbeBoundary:
             self.probeWindow = cp.array(self.probeWindow)
+

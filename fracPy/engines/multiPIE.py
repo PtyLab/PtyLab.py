@@ -37,6 +37,8 @@ class multiPIE(BaseReconstructor):
         self.optimizable.objectBuffer = self.optimizable.object.copy()
         self.optimizable.probeBuffer = self.optimizable.probe.copy()
 
+        self.momentumAcceleration = True
+
     def initializeReconstructionParams(self):
         """
         Set parameters that are specific to the multiPIE settings.

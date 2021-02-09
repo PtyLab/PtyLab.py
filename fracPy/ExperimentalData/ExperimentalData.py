@@ -8,6 +8,7 @@ from fracPy.io import readHdf5
 # from fracPy.io import readExample
 from fracPy.utils.visualisation import show3Dslider
 from fracPy.utils.visualisation import setColorMap
+from fracPy.utils.gpuUtils import getArrayModule
 
 
 class ExperimentalData:
@@ -127,19 +128,9 @@ class ExperimentalData:
         """
         show ptychogram.
         """
-        show3Dslider(np.log10(self.ptychogram+1))
-        # app = pg.mkQApp()
-        # self.imv = pg.ImageView(view=pg.PlotItem())
-        # self.imv.setImage(np.log10(self.ptychogram+1))
-        #
-        # # in order to use the same customized matplotlib colormap
-        # positions = np.linspace(0, 1, 9)
-        # cmap = setColorMap()
-        # colors = [(np.array(cmap(i)[:-1])*255).astype('int') for i in positions]
-        # # set the colormap
-        # self.imv.setColorMap(pg.ColorMap(pos=positions, color=colors))
-        # self.imv.show()
-        # app.exec_()
+        xp = getArrayModule(self.ptychogram)
+        show3Dslider(xp.log10(xp.swapaxes(self.ptychogram, 1,2)+1))
+
 
     # Set attributes using @property operators: they are set automatically with the functions defined by the
     # @property operators

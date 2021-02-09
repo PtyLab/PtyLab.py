@@ -95,7 +95,7 @@ def complex_plot(rgb, ax=None, pixelSize=1, axisUnit = 'pixel'):
     cbar.ax.set_yticklabels(['$-\pi$', '0', '$\pi$'])
     return im
 
-def modeTile(P,normalize = True):
+def modeTile(P, normalize = True):
     """
     Tile 3D data into a single 2D array
     :param P: A complex np.ndarray
@@ -103,19 +103,24 @@ def modeTile(P,normalize = True):
     :param pixelSize: pixelSize in x and y, to display the physical dimension of the plot
     :return: A big array with flattened modes
     """
-    if P.ndim>2 and P.shape[0]>1:
+    if P.ndim == 3 and P.shape[0]>1:
         if normalize:
-            maxs = np.max(P, axis=(1, 2))
+            maxs = np.max(P, axis=(-1, -2))
             P = (P.T/maxs).T
         S = P.shape[0]
         s = math.ceil(np.sqrt(S))
-        if s>np.sqrt(S):
+        if s > np.sqrt(S):
             P = np.pad(P, ((0, s**2-S), (0, 0), (0, 0)), 'constant')
         P = P[:s**2, ...]
         P = P.reshape((s, s) + P.shape[1:]).transpose(
             (1, 2, 0, 3) + tuple(range(4, P.ndim + 1)))
         P = P.reshape(
             (s * P.shape[1], s * P.shape[3]) + P.shape[4:])
+    elif P.ndim == 4 and P.shape[0]>1:
+        if normalize:
+            maxs = np.max(P, axis=(-1, -2))
+            P = (P.T / maxs).T
+        P = P.reshape(P.shape[0]*P.shape[2],P.shape[1]*P.shape[3])
     else:
         P = np.squeeze(P)
     return P
@@ -132,7 +137,7 @@ def hsvplot(u, ax = None, pixelSize = 1, axisUnit='pixel', amplitudeScalingFacto
     rgb = complex_to_rgb(u, amplitudeScalingFactor=amplitudeScalingFactor)
     complex_plot(rgb, ax, pixelSize, axisUnit)
 
-def hsvmodeplot(P,ax=None ,normalize = True, pixelSize =1, axisUnit ='pixel', amplitudeScalingFactor = 1):
+def hsvmodeplot(P, ax=None ,normalize = True, pixelSize =1, axisUnit ='pixel', amplitudeScalingFactor = 1):
     """
     Place multi complex images in a square grid and use hsvplot to display
     :param P: A complex np.ndarray
