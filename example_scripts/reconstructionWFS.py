@@ -21,13 +21,13 @@ import numpy as np
 exampleData = ExperimentalData()
 
 import os
-fileName = 'WFS_HHG.hdf5'  #  simuRecent  Lenspaper WFS_1_bin4 WFS_fundamental
+fileName = 'WFS_8.hdf5'  #  simu  Lenspaper WFS_1_bin4 WFS_fundamental    data_637nm_662nm WFS_fundamental_20201207
 filePath = getExampleDataFolder() / fileName
 
 exampleData.loadData(filePath)
+exampleData.showPtychogram()
 
 exampleData.operationMode = 'CPM'
-exampleData.No = 2**11
 # M = (1+np.sqrt(1-4*exampleData.dxo/exampleData.dxd)/2*exampleData.dxo/exampleData.dxd)
 # exampleData.zo = exampleData.zo/M
 # exampleData.dxd = exampleData.dxd/M
@@ -41,23 +41,24 @@ exampleData.No = 2**11
 optimizable = Optimizable(exampleData)
 optimizable.npsm = 1 # Number of probe modes to reconstruct
 optimizable.nosm = 1 # Number of object modes to reconstruct
-
-exampleData.spectralDensity = [29.9e-9, 32.11e-9, 34.71e-9, 37.74e-9, 41.35e-9]
+# exampleData.spectralDensity = [662e-9, 637e-9]
+# exampleData.spectralDensity = [29.9e-9, 32.11e-9, 34.71e-9, 37.74e-9, 41.35e-9]
 # exampleData.spectralDensity = 870e-9/np.linspace(29,19,6)
 # exampleData.spectralDensity = 800*1e-9/np.linspace(15, 31, 9)
-# exampleData.spectralDensity = 0.9*exampleData.spectralDensity
-exampleData.wavelength = np.min(exampleData.wavelength)
+# exampleData.spectralDensity = [exampleData.wavelength]
+exampleData.wavelength = np.min(exampleData.spectralDensity)
 optimizable.nlambda = len(exampleData.spectralDensity) # Number of wavelength
 optimizable.nslice = 1 # Number of object slice
 exampleData.dz = 1e-4  # slice
-exampleData.dxp = exampleData.dxd/4
-# exampleData.No = 2**11+2**10
-exampleData.zo = 0.20
-# exampleData.zo = 0.9*exampleData.zo
+# binningFactor = 4
+exampleData.dxp = exampleData.dxd/8
+exampleData.No = 2**11
+# exampleData.zo = 0.20
+# exampleData.zo = 230e-3
 
 
 optimizable.initialProbe = 'circ'
-exampleData.entrancePupilDiameter = 700e-6  # exampleData.Np / 3 * exampleData.dxp  # initial estimate of beam size
+exampleData.entrancePupilDiameter = exampleData.Np / 3 * exampleData.dxp  # initial estimate of beam size
 optimizable.initialObject = 'ones'
 # initialize probe and object and related params
 optimizable.prepare_reconstruction()
@@ -73,9 +74,14 @@ optimizable.prepare_reconstruction()
 
 from fracPy.utils.utils import rect, fft2c, ifft2c
 from fracPy.utils.scanGrids import GenerateRasterGrid
-pinholeDiameter = 730e-6
-fullPeriod = 6 * 13.5e-6
-apertureSize = 4 * 13.5e-6
+
+pinholeDiameter = 250e-6
+fullPeriod = 12e-6
+apertureSize = 6e-6
+
+# pinholeDiameter = 730e-6
+# fullPeriod = 6 * 13.5e-6
+# apertureSize = 3 * 13.5e-6
 WFS = 0 * exampleData.Xp
 n = int(pinholeDiameter // fullPeriod)
 R, C = GenerateRasterGrid(n, np.round(fullPeriod / exampleData.dxp))
@@ -108,10 +114,10 @@ monitor = Monitor()
 monitor.figureUpdateFrequency = 1
 monitor.objectPlot = 'complex'  # complex abs angle
 monitor.verboseLevel = 'high'  # high: plot two figures, low: plot only one figure
-monitor.probePlotZoom = 1.5  # control probe plot FoV
-monitor.objectPlotZoom = 3  # control object plot FoV
-monitor.objectPlotContrast = 0.5
-monitor.probePlotContrast = 0.5
+monitor.probePlotZoom = 0.8  # control probe plot FoV
+monitor.objectPlotZoom =0.7   # control object plot FoV
+monitor.objectPlotContrast = 1
+monitor.probePlotContrast = 1
 
 
 # Run the reconstruction
@@ -120,14 +126,14 @@ monitor.probePlotContrast = 0.5
 # engine = ePIE.ePIE_GPU(optimizable, exampleData, monitor)
 # engine = ePIE.ePIE(optimizable, exampleData, monitor)
 # mPIE
-engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
+# engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
 # engine = mPIE.mPIE(optimizable, exampleData, monitor)
 # multiPIE
-# engine = multiPIE.multiPIE_GPU(optimizable, exampleData, monitor)
+engine = multiPIE.multiPIE_GPU(optimizable, exampleData, monitor)
 # engine = multiPIE.multiPIE(optimizable, exampleData, monitor)
 
 ## main parameters
-engine.numIterations = 7000
+engine.numIterations = 1000
 engine.positionOrder = 'random'  # 'sequential' or 'random'
 engine.propagator = 'scaledPolychromeASP'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
 engine.betaProbe = 0.05
@@ -144,11 +150,11 @@ engine.orthogonalizationSwitch = False
 engine.orthogonalizationFrequency = 10
 engine.fftshiftSwitch = False
 engine.intensityConstraint = 'standard'  # standard fluctuation exponential poission
-engine.absorbingProbeBoundary = False
+engine.absorbingProbeBoundary = True
 engine.objectContrastSwitch = False
 engine.absObjectSwitch = False
 engine.backgroundModeSwitch = False
-engine.couplingSwitch = True
+engine.couplingSwitch = False
 engine.couplingAleph = 1
 
 engine.doReconstruction()

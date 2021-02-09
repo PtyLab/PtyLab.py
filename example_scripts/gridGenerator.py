@@ -50,6 +50,3 @@ print('number of scan points: %i' %optRoute.shape[0])
 ## generate txt file
 generateTXT(Rnew, Cnew, fileName='positions_test2')
 print('A position file has been saved.')
-
-
-

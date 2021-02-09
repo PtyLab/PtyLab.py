@@ -295,6 +295,3 @@ class tsp_ga():
         current_score = values[0]
         current_best_gene = values[1]
         return np.array(current_best_gene).astype(int)
-
-
-

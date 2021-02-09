@@ -8,7 +8,7 @@ from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray
 from fracPy.utils.initializationFunctions import initialProbeOrObject
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Optimizable.Optimizable import Optimizable
-from fracPy.utils.utils import ifft2c, fft2c, orthogonalizeModes
+from fracPy.utils.utils import ifft2c, fft2c, orthogonalizeModes, circ
 from fracPy.operators.operators import aspw, scaledASP
 from fracPy.monitors.Monitor import Monitor
 from fracPy.utils.visualisation import hsvplot
@@ -64,9 +64,10 @@ class BaseReconstructor(object):
         self.probeSmoothenessSwitch = False # enforce probe smootheness
         self.probeSmoothnessAleph = 5e-2  # relaxation parameter for probe smootheness
         self.probeSmoothenessWidth = 3  # loose object support diameter
+        self.probeBoundary = False # probe cut-off based on a window
         self.absorbingProbeBoundary = False  # controls if probe has period boundary conditions (zero)
         self.absorbingProbeBoundaryAleph = 5e-2
-        self.probePowerCorrectionSwitch = True  # probe normalization to measured PSD
+        self.probePowerCorrectionSwitch = False  # probe normalization to measured PSD
         self.modulusEnforcedProbeSwitch = False  # enforce empty beam
         self.comStabilizationSwitch = False  # center of mass stabilization for probe
         # other
@@ -141,7 +142,11 @@ class BaseReconstructor(object):
         if not self.saveMemory or self.absorbingProbeBoundary:
             self.probeWindow = np.exp(-((self.experimentalData.Xp**2+self.experimentalData.Yp**2)/
                                         (2*(3/4*self.experimentalData.Np*self.experimentalData.dxp/2.355)**2))**10)
-
+        
+        if self.probeBoundary:
+            self.probeWindow = circ(self.experimentalData.Xp, self.experimentalData.Yp,
+                                    self.experimentalData.entrancePupilDiameter +  self.experimentalData.entrancePupilDiameter*0.2)
+            
     def _setObjectProbeROI(self):
         """
         Set object/probe ROI for monitoring
@@ -346,10 +351,10 @@ class BaseReconstructor(object):
         # (i.e. start with brightfield data first, then add the low SNR
         # darkfield)
         elif self.positionOrder == 'NA':
-            rows = self.experimentalData.positions[:, 0] - np.mean(self.experimentalData.positions[:, 0])
-            cols = self.experimentalData.positions[:, 1] - np.mean(self.experimentalData.positions[:, 1])
-            dist = np.sqrt(rows**2 + cols**2)
-            self.positionIndices = np.argsort(dist)
+            mean_x = np.mean(self.experimentalData.positions[:,0])
+            mean_y = np.mean(self.experimentalData.positions[:,1])
+            NA_sum = np.sqrt((self.experimentalData.positions[:,0]+mean_x)**2 + (self.experimentalData.positions[:,1]+mean_y)**2)
+            self.positionIndices = np.argsort(NA_sum)
         else:
             raise ValueError('position order not properly set')
 
@@ -641,10 +646,10 @@ class BaseReconstructor(object):
         if self.PSDestimationSwitch:
             raise NotImplementedError()
 
+        if self.probeBoundary:
+            self.optimizable.probe *= self.probeWindow
+                                     
         if self.absorbingProbeBoundary:
-            if self.experimentalData.operationMode =='FPM':
-                self.absorbingProbeBoundaryAleph = 100e-2
-
             self.optimizable.probe = (1 - self.absorbingProbeBoundaryAleph)*self.optimizable.probe+\
                                      self.absorbingProbeBoundaryAleph*self.optimizable.probe*self.probeWindow
 

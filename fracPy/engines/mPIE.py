@@ -211,8 +211,10 @@ class mPIE_GPU(mPIE):
         elif self.propagator =='scaledASP' or self.propagator == 'scaledPolychromeASP':
             self.optimizable.Q1 = cp.array(self.optimizable.Q1)
             self.optimizable.Q2 = cp.array(self.optimizable.Q2)
-        elif self.propagator =='twoStepPolychrome':
-            self.optimizable.quadraticPhase = cp.array(self.optimizable.quadraticPhase)
-            self.optimizable.transferFunction = cp.array(self.optimizable.transferFunction)
 
+        # other parameters
+        if self.backgroundModeSwitch:
+            self.background = cp.array(self.background)
+        if self.absorbingProbeBoundary:
+            self.probeWindow = cp.array(self.probeWindow)
 

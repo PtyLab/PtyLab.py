@@ -1,5 +1,5 @@
 from .default_visualisation import DefaultMonitor, DiffractionDataMonitor
-
+from fracPy.utils.visualisation import setColorMap
 
 class Monitor(object):
     """
@@ -15,6 +15,8 @@ class Monitor(object):
         self.objectPlotContrast = 1
         self.probePlotContrast = 1
         self.optimizable = None
+        self.cmapDiffraction = setColorMap()
+
 
     def initializeVisualisation(self):
         """
@@ -45,8 +47,8 @@ class Monitor(object):
         """
         update the diffraction plots
         """
-        self.diffractionDataMonitor.updateIestimated(Iestimated)
-        self.diffractionDataMonitor.updateImeasured(Imeasured)
+        self.diffractionDataMonitor.updateIestimated(Iestimated, cmap=self.cmapDiffraction)
+        self.diffractionDataMonitor.updateImeasured(Imeasured, cmap=self.cmapDiffraction)
         self.diffractionDataMonitor.drawNow()
 
     def getOverlap(self, ind1,ind2,probePixelsize):
