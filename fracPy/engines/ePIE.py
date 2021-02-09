@@ -16,6 +16,8 @@ from fracPy.utils.gpuUtils import getArrayModule
 from fracPy.monitors.Monitor import Monitor
 from fracPy.utils.utils import fft2c, ifft2c
 import logging
+import tqdm
+import sys
 
 
 class ePIE(BaseReconstructor):
@@ -53,8 +55,8 @@ class ePIE(BaseReconstructor):
         self._initializeParams()
         self._prepare_doReconstruction()
         # actual reconstruction ePIE_engine
-        import tqdm
-        for loop in tqdm.tqdm(range(self.numIterations)):
+        self.pbar = tqdm.trange(self.numIterations, desc='ePIE', file=sys.stdout, leave=True)
+        for loop in self.pbar:
             # set position order
             self.setPositionOrder()
             for positionLoop, positionIndex in enumerate(self.positionIndices):

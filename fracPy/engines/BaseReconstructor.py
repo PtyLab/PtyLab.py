@@ -428,17 +428,16 @@ class BaseReconstructor(object):
         Calculate probe beam width (Full width half maximum)
         :return:
         """
-        xp = getArrayModule(self.optimizable.probe)
-        P = xp.sum(abs(self.optimizable.probe[..., -1, :, :]) ** 2, axes=(0, 1, 2))
-        P = P/xp.sum(P, axes=(-1, -2))
-        xMean = np.sum(self.experimentalData.Xp * P, axes=(-1, -2))
-        yMean = np.sum(self.experimentalData.Yp * P, axes=(-1, -2))
-        xVariance = np.sum((self.experimentalData.Xp - xMean) ** 2 * P, axes=(-1, -2))
-        yVariance = np.sum((self.experimentalData.Yp - xMean) ** 2 * P, axes=(-1, -2))
+        P = np.sum(abs(self.optimizable.probe[..., -1, :, :].get()) ** 2, axis=(0, 1, 2))
+        P = P/np.sum(P, axis=(-1, -2))
+        xMean = np.sum(self.experimentalData.Xp * P, axis=(-1, -2))
+        yMean = np.sum(self.experimentalData.Yp * P, axis=(-1, -2))
+        xVariance = np.sum((self.experimentalData.Xp - xMean) ** 2 * P, axis=(-1, -2))
+        yVariance = np.sum((self.experimentalData.Yp - yMean) ** 2 * P, axis=(-1, -2))
 
-        c = 2 * xp.sqrt(2 * xp.log(2)) # constant for converting variance to FWHM (see e.g. https://en.wikipedia.org/wiki/Full_width_at_half_maximum)
-        self.optimizable.beamWidthX = (c * xp.sqrt(xVariance)).get()
-        self.optimizable.beamWidthY = (c * xp.sqrt(yVariance)).get()
+        c = 2 * np.sqrt(2 * np.log(2)) # constant for converting variance to FWHM (see e.g. https://en.wikipedia.org/wiki/Full_width_at_half_maximum)
+        self.optimizable.beamWidthX = c * np.sqrt(xVariance)
+        self.optimizable.beamWidthY = c * np.sqrt(yVariance)
 
     def getOverlap(self, ind1, ind2):
         """
@@ -461,11 +460,11 @@ class BaseReconstructor(object):
         fx = np.arange(-self.experimentalData.Np//2, self.experimentalData.Np//2) * df
         Fx, Fy = np.meshgrid(fx, fx)
         # absolute value of probe and 2D fft
-        P = abs(self.optimizable.probe[:, 0, 0, -1,...])
-        Q = fft2c(p)
+        P = abs(self.optimizable.probe[:, 0, 0, -1,...].get())
+        Q = fft2c(P)
         # calculate overlap between positions
-        self.optimizable.areaOverlap = abs(xp.sum(Q**2*xp.exp(-1.j*2*xp.pi*(Fx*sx+Fy*sy))), axes=(-1, -2))/\
-                                       xp.sum(abs(Q)**2, axis=(-1, -2))
+        self.optimizable.areaOverlap = abs(np.sum(Q**2*np.exp(-1.j*2*np.pi*(Fx*sx+Fy*sy)), axis=(-1, -2)))/\
+                                       np.sum(abs(Q)**2, axis=(-1, -2))
 
 
     def getErrorMetrics(self):
@@ -620,10 +619,18 @@ class BaseReconstructor(object):
 
                 self.monitor.updateDiffractionDataMonitor(Iestimated=Iestimated, Imeasured=Imeasured)
 
-            # print('iteration:%i' %len(self.optimizable.error))
-            # print('runtime:')
-            # print('error:')
-        # TODO: print info
+                self.getOverlap(0, 1)
+
+                self.pbar.write('iteration: %i' % loop)
+                self.pbar.write('error: %.1f' % self.optimizable.error[loop])
+                self.pbar.write('estimated linear overlap: %.1f %%' % (100*self.optimizable.linearOverlap))
+                self.pbar.write('estimated area overlap: %.1f %%' % (100*self.optimizable.areaOverlap))
+                self.pbar.write('coherence structure:')
+                self.pbar.write('')
+
+
+
+
 
     def applyConstraints(self, loop):
         """
@@ -708,6 +715,7 @@ class BaseReconstructor(object):
                     self.optimizable.probe[id_l, 0, :, id_s, :, :], self.normalizedEigenvaluesProbe, self.MSPVprobe = \
                         orthogonalizeModes(self.optimizable.probe[id_l, 0, :, id_s, :, :])
                     self.optimizable.purity = np.sqrt(np.sum(self.normalizedEigenvaluesProbe ** 2))
+
 
                     # orthogonolize momentum operator
                     if self.momentumAcceleration:
