@@ -441,15 +441,14 @@ class BaseReconstructor(object):
 
     def getOverlap(self, ind1, ind2):
         """
-        Calculate area overlap
+        Calculate linear and area overlap between two scan positions indexed ind1 and ind2
         """
         sy = abs(self.experimentalData.positions[ind2, 0] - self.experimentalData.positions[ind1, 0]) * self.experimentalData.dxp
         sx = abs(self.experimentalData.positions[ind2, 1] - self.experimentalData.positions[ind1, 1]) * self.experimentalData.dxp
 
         # task 1: get linear overlap
         self.getBeamWidth()
-        xp = getArrayModule(self.optimizable.probe)
-        self.optimizable.linearOverlap = 1 - xp.sqrt(sx**2+sy**2)/\
+        self.optimizable.linearOverlap = 1 - np.sqrt(sx**2+sy**2)/\
                                          np.minimum(self.optimizable.beamWidthX, self.optimizable.beamWidthY)
         self.optimizable.linearOverlap = np.maximum(self.optimizable.linearOverlap, 0)
 
@@ -621,12 +620,13 @@ class BaseReconstructor(object):
 
                 self.getOverlap(0, 1)
 
+                self.pbar.write('')
                 self.pbar.write('iteration: %i' % loop)
                 self.pbar.write('error: %.1f' % self.optimizable.error[loop])
                 self.pbar.write('estimated linear overlap: %.1f %%' % (100*self.optimizable.linearOverlap))
                 self.pbar.write('estimated area overlap: %.1f %%' % (100*self.optimizable.areaOverlap))
                 self.pbar.write('coherence structure:')
-                self.pbar.write('')
+
 
 
 

@@ -45,7 +45,6 @@ elif camera == 'GT':
     dxd = 3.69e-6 * binningFactor / magfinication
     backgroundOffset = 30
 
-
 # number of frames is calculated automatically
 framesList = glob.glob('*'+'.tif')
 framesList.sort()
@@ -147,7 +146,7 @@ exportBool = True
 
 if exportBool:
     os.chdir(filePathForSave)
-    hf = h5py.File(fileName+'.hdf5', 'w')
+    hf = h5py.File(fileName+'_bin'+str(binningFactor)+'.hdf5', 'w')
     hf.create_dataset('ptychogram', data=ptychogram, dtype='f')
     hf.create_dataset('encoder', data=encoder, dtype='f')
     hf.create_dataset('dxd', data=(dxd,), dtype='f')

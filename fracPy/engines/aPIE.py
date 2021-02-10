@@ -85,9 +85,9 @@ class aPIE(BaseReconstructor):
         # linear search
         thetaSearchRadius = np.flipud(np.linspace(self.thetaSearchRadiusMin, self.thetaSearchRadiusMax, self.numIterations))
 
-        pbar = tqdm.trange(self.numIterations, desc='angle updated: theta = ',
+        self.pbar = tqdm.trange(self.numIterations, desc='angle updated: theta = ',
                            leave=True)  # in order to change description to the tqdm progress bar
-        for loop in pbar:
+        for loop in self.pbar:
             # save theta search history
             self.thetaHistory = np.append(self.thetaHistory, asNumpyArray(self.theta))
 
@@ -112,8 +112,8 @@ class aPIE(BaseReconstructor):
                 # reset ptychogram (transform into estimate coordinates)
                 Xq = T_inv(self.experimentalData.Xd, self.experimentalData.Yd, self.experimentalData.zo, theta[k])
                 for l in range(self.experimentalData.numFrames):
-                    temp = self.ptychogramUntransformed[l]
-                    f = interp2d(self.experimentalData.xd, self.experimentalData.xd, temp, kind='linear')
+                    temp = self.ptychogramUntransformed[l].get()
+                    f = interp2d(self.experimentalData.xd, self.experimentalData.xd, temp, kind='linear', fill_value=0)
                     temp2 = abs(f(Xq[0], self.experimentalData.xd))
                     temp2 = np.nan_to_num(temp2)
                     temp2[temp2 < 0] = 0
@@ -124,7 +124,7 @@ class aPIE(BaseReconstructor):
                     self.experimentalData.ptychogram) * np.linalg.norm(self.ptychogramUntransformed)
 
                  # todo check how interp2d with edge values
-                fw = interp2d(self.experimentalData.xd, self.experimentalData.xd, self.W, kind='linear')
+                fw = interp2d(self.experimentalData.xd, self.experimentalData.xd, self.W, kind='linear', fill_value=0)
                 self.W = abs(fw(Xq[0], self.experimentalData.xd))
                 self.W = np.nan_to_num(self.W)
                 self.W[self.W == 0] = 1e-3
