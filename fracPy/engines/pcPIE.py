@@ -63,6 +63,8 @@ class pcPIE(BaseReconstructor):
         self.rowShifts = np.array([-1, -1, -1, 0, 0, 0, 1, 1, 1])
         self.colShifts = np.array([-1, 0, 1, -1, 0, 1, -1, 0, 1])
         self.startAtIteration = 20
+        self.meanEncoder00 = np.mean(self.experimentalData.encoder[:,0]).copy()
+        self.meanEncoder01 = np.mean(self.experimentalData.encoder[:,1]).copy()
 
     def _prepare_doReconstruction(self):
         """
@@ -108,18 +110,21 @@ class pcPIE(BaseReconstructor):
                 xp = getArrayModule(objectPatch)
                 if len(self.optimizable.error) > self.startAtIteration:
                     # position gradients
-                    shiftedImages = xp.zeros((self.rowShifts.shape + objectPatch.shape))
+                    # shiftedImages = xp.zeros((self.rowShifts.shape + objectPatch.shape))
+                    cc = xp.zeros((len(self.rowShifts), 1))
                     for shifts in range(len(self.rowShifts)):
                         tempShift = xp.roll(objectPatch, self.rowShifts[shifts], axis=-2)
-                        shiftedImages[shifts, ...] = xp.roll(tempShift, self.colShifts[shifts], axis=-1)
+                        # shiftedImages[shifts, ...] = xp.roll(tempShift, self.colShifts[shifts], axis=-1)
+                        shiftedImages = xp.roll(tempShift, self.colShifts[shifts], axis=-1)
+                        cc[shifts] = xp.squeeze(xp.sum(shiftedImages.conj() * self.optimizable.object[..., sy, sx],
+                                                       axis=(-2, -1)))
                     # truncated cross - correlation
-                    cc = xp.squeeze(xp.sum(xp.conj(shiftedImages) *
-                                           self.optimizable.object[..., sy, sx], axis=(-2,-1)))
+                    # cc = xp.squeeze(xp.sum(shiftedImages.conj() * self.optimizable.object[..., sy, sx], axis=(-2, -1)))
                     cc = abs(cc)
                     betaGrad = 1000
-                    normFactor = xp.squeeze(xp.sum(xp.conj(objectPatch) * objectPatch, axis = (-2,-1)).real)
-                    grad_x = betaGrad * xp.sum((cc - xp.mean(cc)) / normFactor * xp.array(self.colShifts))
-                    grad_y = betaGrad * xp.sum((cc - xp.mean(cc)) / normFactor * xp.array(self.rowShifts))
+                    normFactor = xp.sum(objectPatch.conj() * objectPatch, axis=(-2, -1)).real
+                    grad_x = betaGrad * xp.sum((cc.T - xp.mean(cc)) / normFactor * xp.array(self.colShifts))
+                    grad_y = betaGrad * xp.sum((cc.T - xp.mean(cc)) / normFactor * xp.array(self.rowShifts))
                     r = 3
                     if abs(grad_x) > r:
                         grad_x = r * grad_x / abs(grad_x)
@@ -136,18 +141,15 @@ class pcPIE(BaseReconstructor):
                     self.probeMomentumUpdate()
             if len(self.optimizable.error) > self.startAtIteration:
                 # update positions
-                self.experimentalData.encoder = self.experimentalData.encoder - np.round(self.adaptStep * self.D) * \
+                self.experimentalData.encoder = (self.experimentalData.positions - self.adaptStep * self.D -
+                                                 self.experimentalData.No//2 + self.experimentalData.Np//2) * \
                                                             self.experimentalData.dxo
-
                 # fix center of mass of positions
-                self.experimentalData.encoder[:,0] = self.experimentalData.encoder[:,0] - \
-                                                    np.mean(self.experimentalData.encoder[:, 0]) - \
-                                    np.mean((self.experimentalData.positions0[:, 0]-self.experimentalData.No//2
-                                             + self.experimentalData.Np//2) * self.experimentalData.dxo)
-                self.experimentalData.encoder[:,1] = self.experimentalData.encoder[:,1] - \
-                                                    np.mean(self.experimentalData.encoder[:, 1]) - \
-                                    np.mean((self.experimentalData.positions0[:, 1]-self.experimentalData.No//2
-                                             + self.experimentalData.Np//2) * self.experimentalData.dxo)
+                self.experimentalData.encoder[:, 0] = self.experimentalData.encoder[:, 0] - \
+                                                    np.mean(self.experimentalData.encoder[:, 0]) + self.meanEncoder00
+                self.experimentalData.encoder[:, 1] = self.experimentalData.encoder[:, 1] - \
+                                                    np.mean(self.experimentalData.encoder[:, 1]) + self.meanEncoder01
+
                 # self.experimentalData.positions[:,0] = self.experimentalData.positions[:,0] - \
                 #         np.round(np.mean(self.experimentalData.positions[:,0]) -
                 #                   np.mean(self.experimentalData.positions0[:,0]) )
@@ -156,17 +158,17 @@ class pcPIE(BaseReconstructor):
                 #                                                   np.mean(self.experimentalData.positions0[:, 1]))
 
                 # show reconstruction
-                if (len(self.optimizable.error) > self.startAtIteration) & np.mod(loop,
-                                                            self.monitor.figureUpdateFrequency) == 0:
+                if (len(self.optimizable.error) > self.startAtIteration) & (np.mod(loop,
+                                                            self.monitor.figureUpdateFrequency) == 0):
                     figure, ax = plt.subplots(1, 1, num=102, squeeze=True, clear=True, figsize=(5, 5))
                     ax.set_title('Estimated scan grid positions')
                     ax.set_xlabel('(um)')
                     ax.set_ylabel('(um)')
                     # ax.set_xscale('symlog')
                     plt.plot(self.experimentalData.positions0[:, 1] * self.experimentalData.dxo * 1e6,
-                             self.experimentalData.positions0[:, 0] * self.experimentalData.dxo * 1e6, 'bo-')
+                             self.experimentalData.positions0[:, 0] * self.experimentalData.dxo * 1e6, 'bo')
                     plt.plot(self.experimentalData.positions[:, 1] * self.experimentalData.dxo * 1e6,
-                             self.experimentalData.positions[:, 0] * self.experimentalData.dxo * 1e6, 'yo-')
+                             self.experimentalData.positions[:, 0] * self.experimentalData.dxo * 1e6, 'yo')
                     # plt.xlabel('(um))')
                     # plt.ylabel('(um))')
                     # plt.show()
@@ -178,7 +180,7 @@ class pcPIE(BaseReconstructor):
                     ax2.set_xlabel('(um)')
                     ax2.set_ylabel('(um)')
                     plt.plot(self.D[:, 1] * self.experimentalData.dxo * 1e6,
-                             self.D[:, 0] * self.experimentalData.dxo * 1e6, 'o-')
+                             self.D[:, 0] * self.experimentalData.dxo * 1e6, 'o')
                     # ax.set_xscale('symlog')
                     plt.tight_layout()
                     plt.show(block=False)
