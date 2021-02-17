@@ -2,6 +2,7 @@ import numpy as np
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from copy import copy
 import logging
+import h5py
 # logging.basicConfig(level=logging.DEBUG)
 
 from fracPy.utils.initializationFunctions import initialProbeOrObject
@@ -9,7 +10,7 @@ from fracPy.utils.initializationFunctions import initialProbeOrObject
 
 class Optimizable(object):
     """
-    This object will contain all the things that can be modified by a reconstruction ePIE_engine.
+    This object will contain all the things that can be modified by a reconstruction engine.
 
     In itself, it's little more than a data holder. It is initialized with an ExperimentalData object.
 
@@ -82,15 +83,11 @@ class Optimizable(object):
         # initialize object and probe
         self.initializeObject()
         self.initializeProbe()
-
         
         # set object and probe objects
         self.object = self.initialGuessObject.copy()
         self.probe = self.initialGuessProbe.copy()
 
-
-    def saveResults(self):
-        raise NotImplementedError
 
     def initializeObject(self):
         self.logger.info('Initial object set to %s', self.initialObject)
@@ -107,3 +104,5 @@ class Optimizable(object):
         
     def initializeProbeMomentum(self):
         self.probeMomentum = np.zeros_like(self.initialGuessProbe)
+
+

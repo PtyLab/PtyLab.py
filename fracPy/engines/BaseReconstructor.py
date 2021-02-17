@@ -3,6 +3,7 @@ import numpy as np
 from scipy.signal import get_window
 import logging
 import warnings
+import h5py
 # fracPy imports
 from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray
 from fracPy.utils.initializationFunctions import initialProbeOrObject
@@ -537,7 +538,7 @@ class BaseReconstructor(object):
             self.optimizable.Iestimated = xp.sum(xp.abs(self.optimizable.ESW) ** 2, axis=(0, 1, 2))[-1]
         # get measured intensity todo implement CPSC, kPIE
         if self.CPSCswitch:
-            raise NotImplementedError
+            self.decompressionProjection(self.positionIndices)
         else:
             self.optimizable.Imeasured = xp.array(self.experimentalData.ptychogram[positionIndex])
 
@@ -587,6 +588,9 @@ class BaseReconstructor(object):
         # back propagate to object plane
         self.detector2object()
 
+    def decompressionProjection(self, positionIndices):
+        raise NotImplementedError
+
     def showReconstruction(self, loop):
         """
         Show the reconstruction process.
@@ -625,12 +629,7 @@ class BaseReconstructor(object):
                 self.pbar.write('error: %.1f' % self.optimizable.error[loop])
                 self.pbar.write('estimated linear overlap: %.1f %%' % (100*self.optimizable.linearOverlap))
                 self.pbar.write('estimated area overlap: %.1f %%' % (100*self.optimizable.areaOverlap))
-                self.pbar.write('coherence structure:')
-
-
-
-
-
+                # self.pbar.write('coherence structure:')
 
     def applyConstraints(self, loop):
         """
@@ -638,6 +637,7 @@ class BaseReconstructor(object):
         :param loop: loop number
         :return:
         """
+
         # enforce empty beam constraint
         if self.modulusEnforcedProbeSwitch:
             self.modulusEnforcedProbe()
@@ -821,3 +821,20 @@ class BaseReconstructor(object):
 
         self.detector2object()
         self.optimizable.probe = self.optimizable.esw
+
+
+    def saveResults(self, fileName = 'recent',type = 'all'):
+        if type == 'all':
+            hf = h5py.File(fileName + '_Reconstruction.hdf5', 'w')
+            hf.create_dataset('probe', data=asNumpyArray(self.optimizable.probe), dtype='complex64')
+            hf.create_dataset('object', data=asNumpyArray(self.optimizable.object), dtype='complex64')
+            hf.create_dataset('error', data=asNumpyArray(self.optimizable.error), dtype='f')
+        elif type == 'probe':
+            hf = h5py.File(fileName + '_probe.hdf5', 'w')
+            hf.create_dataset('probe', data=asNumpyArray(self.optimizable.probe), dtype='complex64')
+        elif type == 'object':
+            hf = h5py.File(fileName + '_object.hdf5', 'w')
+            hf.create_dataset('object', data=asNumpyArray(self.optimizable.object), dtype='complex64')
+
+        hf.close()
+        print('The reconstruction results (%s) have been saved' %type)
