@@ -12,6 +12,7 @@ from fracPy.utils.utils import ifft2c, fft2c, orthogonalizeModes, circ
 from fracPy.operators.operators import aspw, scaledASP
 from fracPy.monitors.Monitor import Monitor
 from fracPy.utils.visualisation import hsvplot
+from matplotlib import pyplot as plt
 
 
 class BaseReconstructor(object):
@@ -83,6 +84,7 @@ class BaseReconstructor(object):
         self.comStabilizationSwitch = True # center of mass stabilization for probe
         self.PSDestimationSwitch = False
         self.objectContrastSwitch = False # pushes object to zero outside ROI
+        self.positionCorrectionSwitch = False # position correction for encoder
 
     def _initializeParams(self):
         """
@@ -99,7 +101,20 @@ class BaseReconstructor(object):
         self._initializeErrors()
         self._setObjectProbeROI()
         self._showInitialGuesses()
+        self._initializePCParameters()
 
+    def _initializePCParameters(self):
+        # additional pcPIE parameters as they appear in Matlab
+        self.daleth = 0.5  # feedback
+        self.beth = 0.9  # friction
+        self.adaptStep = 1  # adaptive step size
+        self.D = np.zeros((self.experimentalData.numFrames, 2))  # position search direction
+        # predefine shifts
+        self.rowShifts = np.array([-1, -1, -1, 0, 0, 0, 1, 1, 1])
+        self.colShifts = np.array([-1, 0, 1, -1, 0, 1, -1, 0, 1])
+        self.startAtIteration = 20
+        self.meanEncoder00 = np.mean(self.experimentalData.encoder[:, 0]).copy()
+        self.meanEncoder01 = np.mean(self.experimentalData.encoder[:, 1]).copy()
 
     def _initializeErrors(self):
         """
@@ -657,10 +672,101 @@ class BaseReconstructor(object):
 
                 self.monitor.updateDiffractionDataMonitor(Iestimated=Iestimated, Imeasured=Imeasured)
 
+            if self.positionCorrectionSwitch:
+                # show reconstruction
+                if (len(self.optimizable.error) > self.startAtIteration): #& (np.mod(loop,
+                                                                                   #self.monitor.figureUpdateFrequency) == 0):
+                    figure, ax = plt.subplots(1, 1, num=102, squeeze=True, clear=True, figsize=(5, 5))
+                    ax.set_title('Estimated scan grid positions')
+                    ax.set_xlabel('(um)')
+                    ax.set_ylabel('(um)')
+                    # ax.set_xscale('symlog')
+                    plt.plot(self.experimentalData.positions0[:, 1] * self.experimentalData.dxo * 1e6,
+                             self.experimentalData.positions0[:, 0] * self.experimentalData.dxo * 1e6, 'bo')
+                    plt.plot(self.experimentalData.positions[:, 1] * self.experimentalData.dxo * 1e6,
+                             self.experimentalData.positions[:, 0] * self.experimentalData.dxo * 1e6, 'yo')
+                    # plt.xlabel('(um))')
+                    # plt.ylabel('(um))')
+                    # plt.show()
+                    plt.tight_layout()
+                    plt.show(block=False)
+
+                    figure2, ax2 = plt.subplots(1, 1, num=103, squeeze=True, clear=True, figsize=(5, 5))
+                    ax2.set_title('Displacement')
+                    ax2.set_xlabel('(um)')
+                    ax2.set_ylabel('(um)')
+                    plt.plot(self.D[:, 1] * self.experimentalData.dxo * 1e6,
+                             self.D[:, 0] * self.experimentalData.dxo * 1e6, 'o')
+                    # ax.set_xscale('symlog')
+                    plt.tight_layout()
+                    plt.show(block=False)
+
+                    # elif np.mod(loop, self.monitor.figureUpdateFrequency) == 0:
+                    figure.canvas.draw()
+                    figure.canvas.flush_events()
+                    figure2.canvas.draw()
+                    figure2.canvas.flush_events()
+                    # self.showReconstruction(loop)
             # print('iteration:%i' %len(self.optimizable.error))
             # print('runtime:')
             # print('error:')
         # TODO: print info
+
+    def positionCorrection(self, objectPatch, positionIndex, sy, sx):
+        """
+        Modified from pcPIE. Position correction is done by using positionCorrection and positionCorrectionUpdate
+        :param objectPatch:
+        :param positionIndex:
+        :param sy:
+        :param sx:
+        :return:
+        """
+        xp = getArrayModule(objectPatch)
+        if len(self.optimizable.error) > self.startAtIteration:
+            # position gradients
+            # shiftedImages = xp.zeros((self.rowShifts.shape + objectPatch.shape))
+            cc = xp.zeros((len(self.rowShifts), 1))
+            for shifts in range(len(self.rowShifts)):
+                tempShift = xp.roll(objectPatch, self.rowShifts[shifts], axis=-2)
+                # shiftedImages[shifts, ...] = xp.roll(tempShift, self.colShifts[shifts], axis=-1)
+                shiftedImages = xp.roll(tempShift, self.colShifts[shifts], axis=-1)
+                cc[shifts] = xp.squeeze(xp.sum(shiftedImages.conj() * self.optimizable.object[..., sy, sx],
+                                               axis=(-2, -1)))
+            # truncated cross - correlation
+            # cc = xp.squeeze(xp.sum(shiftedImages.conj() * self.optimizable.object[..., sy, sx], axis=(-2, -1)))
+            cc = abs(cc)
+            betaGrad = 1000
+            normFactor = xp.sum(objectPatch.conj() * objectPatch, axis=(-2, -1)).real
+            grad_x = betaGrad * xp.sum((cc.T - xp.mean(cc)) / normFactor * xp.array(self.colShifts))
+            grad_y = betaGrad * xp.sum((cc.T - xp.mean(cc)) / normFactor * xp.array(self.rowShifts))
+            r = 3
+            if abs(grad_x) > r:
+                grad_x = r * grad_x / abs(grad_x)
+            if abs(grad_y) > r:
+                grad_y = r * grad_y / abs(grad_y)
+            self.D[positionIndex, :] = self.daleth * asNumpyArray([grad_y, grad_x]) + self.beth * \
+                                       self.D[positionIndex, :]
+
+    def positionCorrectionUpdate(self):
+        if len(self.optimizable.error) > self.startAtIteration:
+            # update positions
+            self.experimentalData.encoder = (self.experimentalData.positions - self.adaptStep * self.D -
+                                             self.experimentalData.No // 2 + self.experimentalData.Np // 2) * \
+                                            self.experimentalData.dxo
+            # fix center of mass of positions
+            self.experimentalData.encoder[:, 0] = self.experimentalData.encoder[:, 0] - \
+                                                  np.mean(self.experimentalData.encoder[:, 0]) + self.meanEncoder00
+            self.experimentalData.encoder[:, 1] = self.experimentalData.encoder[:, 1] - \
+                                                  np.mean(self.experimentalData.encoder[:, 1]) + self.meanEncoder01
+
+            # self.experimentalData.positions[:,0] = self.experimentalData.positions[:,0] - \
+            #         np.round(np.mean(self.experimentalData.positions[:,0]) -
+            #                   np.mean(self.experimentalData.positions0[:,0]) )
+            # self.experimentalData.positions[:, 1] = self.experimentalData.positions[:, 1] - \
+            #                                         np.around(np.mean(self.experimentalData.positions[:, 1]) -
+            #                                                   np.mean(self.experimentalData.positions0[:, 1]))
+
+
 
     def applyConstraints(self, loop):
         """
@@ -742,7 +848,8 @@ class BaseReconstructor(object):
             self.optimizable.probe = (1 - self.binaryWFSAleph) * self.optimizable.probe + \
                                      self.binaryWFSAleph * abs(self.optimizable.probe)
 
-
+        if self.positionCorrectionSwitch:
+            self.positionCorrectionUpdate()
 
     def orthogonalization(self):
         """

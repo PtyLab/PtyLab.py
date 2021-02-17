@@ -155,7 +155,7 @@ if ptycho_recon:
     # engine = pcPIE.pcPIE(optimizable, exampleData, monitor)
 
     ## main parameters
-    engine.numIterations = 200
+    engine.numIterations = 1000
     engine.positionOrder = 'random'  # 'sequential' or 'random'
     engine.propagator = 'Fresnel'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
     engine.betaProbe = 0.25
@@ -178,6 +178,7 @@ if ptycho_recon:
     engine.backgroundModeSwitch = False
     engine.couplingSwitch = True
     engine.couplingAleph = 1
+    engine.positionCorrectionSwitch = True
 
     engine.doReconstruction()
 
