@@ -12,6 +12,7 @@ from fracPy.utils.utils import ifft2c, fft2c, orthogonalizeModes, circ
 from fracPy.operators.operators import aspw, scaledASP
 from fracPy.monitors.Monitor import Monitor
 from fracPy.utils.visualisation import hsvplot
+from matplotlib import pyplot as plt
 
 
 class BaseReconstructor(object):
@@ -22,7 +23,7 @@ class BaseReconstructor(object):
     inherit from this object
 
     """
-    def __init__(self, optimizable: Optimizable, experimentalData:ExperimentalData, monitor:Monitor):
+    def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData, monitor: Monitor):
         # These statements don't copy any data, they just keep a reference to the object
         self.optimizable = optimizable
         self.experimentalData = experimentalData
@@ -41,6 +42,8 @@ class BaseReconstructor(object):
         self.fontSize = 17
         self.intensityConstraint = 'standard'  # standard or sigmoid
         self.propagator = 'Fraunhofer'  # 'Fresnel' 'ASP'
+        self.momentumAcceleration = False  # default False, it is turned on in the individual engines that use momentum
+        self.optimizable.purity = 1   # default initial value for plots.
 
 
         ## Specific reconstruction settings that are the same for all engines
@@ -70,6 +73,8 @@ class BaseReconstructor(object):
         self.probePowerCorrectionSwitch = False  # probe normalization to measured PSD
         self.modulusEnforcedProbeSwitch = False  # enforce empty beam
         self.comStabilizationSwitch = False  # center of mass stabilization for probe
+        self.absProbeSwitch = False  # force the probe to be abs-only
+        self.absProbeBeta = 1e-2   # relaxation parameter for abs-only constraint
         # other
         self.couplingSwitch = False  # couple adjacent wavelengths
         self.couplingAleph = 50e-2  # couple adjacent wavelengths (relaxation parameter)
@@ -79,6 +84,7 @@ class BaseReconstructor(object):
         self.comStabilizationSwitch = True # center of mass stabilization for probe
         self.PSDestimationSwitch = False
         self.objectContrastSwitch = False # pushes object to zero outside ROI
+        self.positionCorrectionSwitch = False # position correction for encoder
 
     def _initializeParams(self):
         """
@@ -95,8 +101,20 @@ class BaseReconstructor(object):
         self._initializeErrors()
         self._setObjectProbeROI()
         self._showInitialGuesses()
+        self._initializePCParameters()
 
-
+    def _initializePCParameters(self):
+        # additional pcPIE parameters as they appear in Matlab
+        self.daleth = 0.5  # feedback
+        self.beth = 0.9  # friction
+        self.adaptStep = 1  # adaptive step size
+        self.D = np.zeros((self.experimentalData.numFrames, 2))  # position search direction
+        # predefine shifts
+        self.rowShifts = np.array([-1, -1, -1, 0, 0, 0, 1, 1, 1])
+        self.colShifts = np.array([-1, 0, 1, -1, 0, 1, -1, 0, 1])
+        self.startAtIteration = 20
+        self.meanEncoder00 = np.mean(self.experimentalData.encoder[:, 0]).copy()
+        self.meanEncoder01 = np.mean(self.experimentalData.encoder[:, 1]).copy()
 
     def _initializeErrors(self):
         """
@@ -248,6 +266,26 @@ class BaseReconstructor(object):
                             self.experimentalData.spectralDensity[nlmabda], self.experimentalData.dxo,
                             self.experimentalData.dxd)
 
+        elif self.propagator == 'twoStepPolychrome':
+            if self.fftshiftSwitch:
+                raise ValueError('twoStepPolychrome propagator works only with fftshiftSwitch = False!')
+            dummy = np.ones((self.optimizable.nlambda, self.optimizable.nosm, self.optimizable.npsm,
+                             1, self.experimentalData.Np, self.experimentalData.Np), dtype='complex64')
+            # self.optimizable.quadraticPhase = np.ones_like(dummy)
+            self.optimizable.transferFunction = np.array(
+                [[[[aspw(dummy[nlambda, nosm, npsm, nslice, :, :],
+                         self.experimentalData.zo *
+                            (1-self.experimentalData.spectralDensity[0]/self.experimentalData.spectralDensity[nlambda]),
+                         self.experimentalData.spectralDensity[nlambda],
+                         self.experimentalData.Lp)[1]
+                    for nslice in range(1)]
+                   for npsm in range(self.optimizable.npsm)]
+                  for nosm in range(self.optimizable.nosm)]
+                 for nlambda in range(self.optimizable.nlambda)])
+            self.optimizable.quadraticPhase = np.exp(
+                1.j * np.pi / (self.experimentalData.spectralDensity[0] * self.experimentalData.zo)
+                * (self.experimentalData.Xp ** 2 + self.experimentalData.Yp ** 2))
+
     def _checkMISC(self):
         """
         checks miscellaneous quantities specific certain engines
@@ -374,6 +412,10 @@ class BaseReconstructor(object):
             self.optimizable.ESW = ifft2c(fft2c(self.optimizable.esw) * self.optimizable.transferFunction)
         elif self.propagator == 'scaledASP' or self.propagator == 'scaledPolychromeASP':
             self.optimizable.ESW = ifft2c(fft2c(self.optimizable.esw * self.optimizable.Q1) * self.optimizable.Q2)
+        elif self.propagator == 'twoStepPolychrome':
+            self.optimizable.esw = ifft2c(fft2c(self.optimizable.esw) * self.optimizable.transferFunction) * \
+                self.optimizable.quadraticPhase
+            self.fft2s()
         else:
             raise Exception('Propagator is not properly set, choose from Fraunhofer, Fresnel, ASP and scaledASP')
 
@@ -396,6 +438,14 @@ class BaseReconstructor(object):
         elif self.propagator == 'scaledASP' or self.propagator == 'scaledPolychromeASP':
             self.optimizable.eswUpdate = ifft2c(fft2c(self.optimizable.ESW) * self.optimizable.Q2.conj()) \
                                          * self.optimizable.Q1.conj()
+        elif self.propagator == 'twoStepPolychrome':
+            self.ifft2s()
+            self.optimizable.esw = ifft2c(fft2c(self.optimizable.esw *
+                                                      self.optimizable.quadraticPhase.conj()) *
+                                                self.optimizable.transferFunction.conj())
+            self.optimizable.eswUpdate = ifft2c(fft2c(self.optimizable.eswUpdate *
+                                               self.optimizable.quadraticPhase.conj()) *
+                                                self.optimizable.transferFunction.conj())
         else:
             raise Exception('Propagator is not properly set, choose from Fraunhofer, Fresnel, ASP and scaledASP')
 
@@ -427,10 +477,48 @@ class BaseReconstructor(object):
 
     def getBeamWidth(self):
         """
-        Matches getBeamWith.m
+        Calculate probe beam width (Full width half maximum)
         :return:
         """
-        raise NotImplementedError()
+        xp = getArrayModule(self.optimizable.probe)
+        P = xp.sum(abs(self.optimizable.probe[..., -1, :, :]) ** 2, axes=(0, 1, 2))
+        P = P/xp.sum(P, axes=(-1, -2))
+        xMean = np.sum(self.experimentalData.Xp * P, axes=(-1, -2))
+        yMean = np.sum(self.experimentalData.Yp * P, axes=(-1, -2))
+        xVariance = np.sum((self.experimentalData.Xp - xMean) ** 2 * P, axes=(-1, -2))
+        yVariance = np.sum((self.experimentalData.Yp - xMean) ** 2 * P, axes=(-1, -2))
+
+        c = 2 * xp.sqrt(2 * xp.log(2)) # constant for converting variance to FWHM (see e.g. https://en.wikipedia.org/wiki/Full_width_at_half_maximum)
+        self.optimizable.beamWidthX = (c * xp.sqrt(xVariance)).get()
+        self.optimizable.beamWidthY = (c * xp.sqrt(yVariance)).get()
+
+    def getOverlap(self, ind1, ind2):
+        """
+        Calculate area overlap
+        """
+        sy = abs(self.experimentalData.positions[ind2, 0] - self.experimentalData.positions[ind1, 0]) * self.experimentalData.dxp
+        sx = abs(self.experimentalData.positions[ind2, 1] - self.experimentalData.positions[ind1, 1]) * self.experimentalData.dxp
+
+        # task 1: get linear overlap
+        self.getBeamWidth()
+        xp = getArrayModule(self.optimizable.probe)
+        self.optimizable.linearOverlap = 1 - xp.sqrt(sx**2+sy**2)/\
+                                         np.minimum(self.optimizable.beamWidthX, self.optimizable.beamWidthY)
+        self.optimizable.linearOverlap = np.maximum(self.optimizable.linearOverlap, 0)
+
+        # task 2: get area overlap
+        # spatial frequency pixel size
+        df = 1/(self.experimentalData.Np*self.experimentalData.dxp)
+        # spatial frequency meshgrid
+        fx = np.arange(-self.experimentalData.Np//2, self.experimentalData.Np//2) * df
+        Fx, Fy = np.meshgrid(fx, fx)
+        # absolute value of probe and 2D fft
+        P = abs(self.optimizable.probe[:, 0, 0, -1,...])
+        Q = fft2c(p)
+        # calculate overlap between positions
+        self.optimizable.areaOverlap = abs(xp.sum(Q**2*xp.exp(-1.j*2*xp.pi*(Fx*sx+Fy*sy))), axes=(-1, -2))/\
+                                       xp.sum(abs(Q)**2, axis=(-1, -2))
+
 
     def getErrorMetrics(self):
         """
@@ -487,13 +575,13 @@ class BaseReconstructor(object):
         """ Compute the projected intensity.
             Barebones, need to implement other methods
         """
-        # figure out wether or not to use the GPU
+        # figure out whether or not to use the GPU
         xp = getArrayModule(self.optimizable.esw)
 
         # zero division mitigator
         gimmel = 1e-10
 
-        # propafate to detector
+        # propagate to detector
         self.object2detector()
 
         # get estimated intensity (2D array, in the case of multislice, only take the last slice)
@@ -584,10 +672,101 @@ class BaseReconstructor(object):
 
                 self.monitor.updateDiffractionDataMonitor(Iestimated=Iestimated, Imeasured=Imeasured)
 
+            if self.positionCorrectionSwitch:
+                # show reconstruction
+                if (len(self.optimizable.error) > self.startAtIteration): #& (np.mod(loop,
+                                                                                   #self.monitor.figureUpdateFrequency) == 0):
+                    figure, ax = plt.subplots(1, 1, num=102, squeeze=True, clear=True, figsize=(5, 5))
+                    ax.set_title('Estimated scan grid positions')
+                    ax.set_xlabel('(um)')
+                    ax.set_ylabel('(um)')
+                    # ax.set_xscale('symlog')
+                    plt.plot(self.experimentalData.positions0[:, 1] * self.experimentalData.dxo * 1e6,
+                             self.experimentalData.positions0[:, 0] * self.experimentalData.dxo * 1e6, 'bo')
+                    plt.plot(self.experimentalData.positions[:, 1] * self.experimentalData.dxo * 1e6,
+                             self.experimentalData.positions[:, 0] * self.experimentalData.dxo * 1e6, 'yo')
+                    # plt.xlabel('(um))')
+                    # plt.ylabel('(um))')
+                    # plt.show()
+                    plt.tight_layout()
+                    plt.show(block=False)
+
+                    figure2, ax2 = plt.subplots(1, 1, num=103, squeeze=True, clear=True, figsize=(5, 5))
+                    ax2.set_title('Displacement')
+                    ax2.set_xlabel('(um)')
+                    ax2.set_ylabel('(um)')
+                    plt.plot(self.D[:, 1] * self.experimentalData.dxo * 1e6,
+                             self.D[:, 0] * self.experimentalData.dxo * 1e6, 'o')
+                    # ax.set_xscale('symlog')
+                    plt.tight_layout()
+                    plt.show(block=False)
+
+                    # elif np.mod(loop, self.monitor.figureUpdateFrequency) == 0:
+                    figure.canvas.draw()
+                    figure.canvas.flush_events()
+                    figure2.canvas.draw()
+                    figure2.canvas.flush_events()
+                    # self.showReconstruction(loop)
             # print('iteration:%i' %len(self.optimizable.error))
             # print('runtime:')
             # print('error:')
         # TODO: print info
+
+    def positionCorrection(self, objectPatch, positionIndex, sy, sx):
+        """
+        Modified from pcPIE. Position correction is done by using positionCorrection and positionCorrectionUpdate
+        :param objectPatch:
+        :param positionIndex:
+        :param sy:
+        :param sx:
+        :return:
+        """
+        xp = getArrayModule(objectPatch)
+        if len(self.optimizable.error) > self.startAtIteration:
+            # position gradients
+            # shiftedImages = xp.zeros((self.rowShifts.shape + objectPatch.shape))
+            cc = xp.zeros((len(self.rowShifts), 1))
+            for shifts in range(len(self.rowShifts)):
+                tempShift = xp.roll(objectPatch, self.rowShifts[shifts], axis=-2)
+                # shiftedImages[shifts, ...] = xp.roll(tempShift, self.colShifts[shifts], axis=-1)
+                shiftedImages = xp.roll(tempShift, self.colShifts[shifts], axis=-1)
+                cc[shifts] = xp.squeeze(xp.sum(shiftedImages.conj() * self.optimizable.object[..., sy, sx],
+                                               axis=(-2, -1)))
+            # truncated cross - correlation
+            # cc = xp.squeeze(xp.sum(shiftedImages.conj() * self.optimizable.object[..., sy, sx], axis=(-2, -1)))
+            cc = abs(cc)
+            betaGrad = 1000
+            normFactor = xp.sum(objectPatch.conj() * objectPatch, axis=(-2, -1)).real
+            grad_x = betaGrad * xp.sum((cc.T - xp.mean(cc)) / normFactor * xp.array(self.colShifts))
+            grad_y = betaGrad * xp.sum((cc.T - xp.mean(cc)) / normFactor * xp.array(self.rowShifts))
+            r = 3
+            if abs(grad_x) > r:
+                grad_x = r * grad_x / abs(grad_x)
+            if abs(grad_y) > r:
+                grad_y = r * grad_y / abs(grad_y)
+            self.D[positionIndex, :] = self.daleth * asNumpyArray([grad_y, grad_x]) + self.beth * \
+                                       self.D[positionIndex, :]
+
+    def positionCorrectionUpdate(self):
+        if len(self.optimizable.error) > self.startAtIteration:
+            # update positions
+            self.experimentalData.encoder = (self.experimentalData.positions - self.adaptStep * self.D -
+                                             self.experimentalData.No // 2 + self.experimentalData.Np // 2) * \
+                                            self.experimentalData.dxo
+            # fix center of mass of positions
+            self.experimentalData.encoder[:, 0] = self.experimentalData.encoder[:, 0] - \
+                                                  np.mean(self.experimentalData.encoder[:, 0]) + self.meanEncoder00
+            self.experimentalData.encoder[:, 1] = self.experimentalData.encoder[:, 1] - \
+                                                  np.mean(self.experimentalData.encoder[:, 1]) + self.meanEncoder01
+
+            # self.experimentalData.positions[:,0] = self.experimentalData.positions[:,0] - \
+            #         np.round(np.mean(self.experimentalData.positions[:,0]) -
+            #                   np.mean(self.experimentalData.positions0[:,0]) )
+            # self.experimentalData.positions[:, 1] = self.experimentalData.positions[:, 1] - \
+            #                                         np.around(np.mean(self.experimentalData.positions[:, 1]) -
+            #                                                   np.mean(self.experimentalData.positions0[:, 1]))
+
+
 
     def applyConstraints(self, loop):
         """
@@ -633,6 +812,10 @@ class BaseReconstructor(object):
             self.optimizable.object = (1-self.absObjectBeta)*self.optimizable.object+\
                                       self.absObjectBeta*abs(self.optimizable.object)
 
+        if self.absProbeSwitch:
+            self.optimizable.probe = (1-self.absProbeBeta)*self.optimizable.probe+\
+                                      self.absProbeBeta*abs(self.optimizable.probe)
+
         # this is intended to slowly push non-measured object region to abs value lower than
         # the max abs inside object ROI allowing for good contrast when monitoring object
         if self.objectContrastSwitch:
@@ -640,21 +823,33 @@ class BaseReconstructor(object):
                                       np.mean(abs(self.optimizable.object[..., self.optimizable.objectROI[0],
                                                                           self.optimizable.objectROI[1]]))
         if self.couplingSwitch and self.optimizable.nlambda > 1:
-            self.optimizable.probe[0] = (1 - self.couplingAleph) * self.optimizable.probe[0] + \
-                                        self.couplingAleph * self.optimizable.probe[1]
+            self.optimizable.probe[0] = (1 - self.couplingAlephProbe) * self.optimizable.probe[0] + \
+                                        self.couplingAlephProbe * self.optimizable.probe[1]
             for lambdaLoop in np.arange(1, self.optimizable.nlambda - 1):
-                self.optimizable.probe[lambdaLoop] = (1 - self.couplingAleph) * self.optimizable.probe[lambdaLoop] + \
-                                                     self.couplingAleph * (self.optimizable.probe[lambdaLoop + 1] +
+                self.optimizable.probe[lambdaLoop] = (1 - self.couplingAlephProbe) * self.optimizable.probe[lambdaLoop] + \
+                                                     self.couplingAlephProbe * (self.optimizable.probe[lambdaLoop + 1] +
                                                                            self.optimizable.probe[
                                                                                lambdaLoop - 1]) / 2
 
-            self.optimizable.probe[-1] = (1 - self.couplingAleph) * self.optimizable.probe[-1] + \
-                                         self.couplingAleph * self.optimizable.probe[-2]
+            self.optimizable.probe[-1] = (1 - self.couplingAlephProbe) * self.optimizable.probe[-1] + \
+                                         self.couplingAlephProbe * self.optimizable.probe[-2]
+            self.optimizable.object[0] = (1 - self.couplingAlephObj) * self.optimizable.object[0] + \
+                                        self.couplingAlephObj * self.optimizable.object[1]
+            for lambdaLoop in np.arange(1, self.optimizable.nlambda - 1):
+                self.optimizable.object[lambdaLoop] = (1 - self.couplingAlephObj) * self.optimizable.object[lambdaLoop] + \
+                                                     self.couplingAlephObj * (self.optimizable.object[lambdaLoop + 1] +
+                                                                           self.optimizable.object[
+                                                                               lambdaLoop - 1]) / 2
+
+            self.optimizable.object[-1] = (1 - self.couplingAlephObj) * self.optimizable.object[-1] + \
+                                         self.couplingAlephObj * self.optimizable.object[-2]
+
         if self.binaryWFSSwitch:
             self.optimizable.probe = (1 - self.binaryWFSAleph) * self.optimizable.probe + \
                                      self.binaryWFSAleph * abs(self.optimizable.probe)
 
-
+        if self.positionCorrectionSwitch:
+            self.positionCorrectionUpdate()
 
     def orthogonalization(self):
         """
@@ -662,37 +857,62 @@ class BaseReconstructor(object):
         :return:
         """
         if self.optimizable.npsm > 1:
-            # orthogonalize the probe
+            # orthogonalize the probe for each wavelength and each slice
             for id_l in range(self.optimizable.nlambda):
                 for id_s in range(self.optimizable.nslice):
                     self.optimizable.probe[id_l, 0, :, id_s, :, :], self.normalizedEigenvaluesProbe, self.MSPVprobe = \
                         orthogonalizeModes(self.optimizable.probe[id_l, 0, :, id_s, :, :])
                     self.optimizable.purity = np.sqrt(np.sum(self.normalizedEigenvaluesProbe ** 2))
 
-            # orthogonolize momentum operator
-            try:
-                self.optimizable.probeMomentum[id_l, 0, :, id_s, :, :], none, none = \
-                    orthogonalizeModes(self.optimizable.probeMomentum[id_l, 0, :, id_s, :, :])
-                # replace the orthogonolized buffer
-                self.optimizable.probeBuffer = self.optimizable.probe.copy()
-            except:
-                pass
+                    # orthogonolize momentum operator
+                    if self.momentumAcceleration:
+                        # orthogonalize probe Buffer
+                        p = self.optimizable.probeBuffer[id_l, 0, :, id_s, :, :].reshape(
+                            (self.optimizable.npsm, self.experimentalData.Np**2))
+                        self.optimizable.probeBuffer[id_l, 0, :, id_s, :, :] = (self.MSPVprobe @ p).reshape(
+                            (self.optimizable.npsm, self.experimentalData.Np, self.experimentalData.Np))
+                        # orthogonalize probe momentum
+                        p = self.optimizable.probeMomentum[id_l, 0, :, id_s, :, :].reshape(
+                            (self.optimizable.npsm, self.experimentalData.Np ** 2))
+                        self.optimizable.probeMomentum[id_l, 0, :, id_s, :, :] = (self.MSPVprobe @ p).reshape(
+                            (self.optimizable.npsm, self.experimentalData.Np, self.experimentalData.Np))
+
+            # todo check the difference
+            # try:
+            #     self.optimizable.probeMomentum[id_l, 0, :, id_s, :, :], none, none = \
+            #         orthogonalizeModes(self.optimizable.probeMomentum[id_l, 0, :, id_s, :, :])
+            #     # replace the orthogonolized buffer
+            #     self.optimizable.probeBuffer = self.optimizable.probe.copy()
+            # except:
+            #     pass
 
         elif self.optimizable.nosm > 1:
-            # orthogonalize the object
+            # orthogonalize the object for each wavelength and each slice
             for id_l in range(self.optimizable.nlambda):
                 for id_s in range(self.optimizable.nslice):
                     self.optimizable.object[id_l, :, 0, id_s, :, :], self.normalizedEigenvaluesObject, self.MSPVobject = \
                         orthogonalizeModes(self.optimizable.object[id_l, :, 0, id_s, :, :])
 
             # orthogonolize momentum operator
-            try:
-                self.optimizable.objectMomentum[id_l, :, 0, id_s, :, :], none, none = \
-                    orthogonalizeModes(self.optimizable.objectMomentum[id_l, :, 0, id_s, :, :])
-                # replace the orthogonolized buffer as well
-                self.optimizable.objectBuffer = self.optimizable.object.copy()
-            except:
-                pass
+            if self.momentumAcceleration:
+                # orthogonalize object Buffer
+                p = self.optimizable.objectBuffer[id_l, :, 0, id_s, :, :].reshape(
+                    (self.optimizable.nosm, self.experimentalData.No ** 2))
+                self.optimizable.objectBuffer[id_l, :, 0, id_s, :, :] = (self.MSPVobject @ p).reshape(
+                    (self.optimizable.nosm, self.experimentalData.No, self.experimentalData.No))
+                # orthogonalize object momentum
+                p = self.optimizable.objectMomentum[id_l, :, 0, id_s, :, :].reshape(
+                    (self.optimizable.nosm, self.experimentalData.No ** 2))
+                self.optimizable.objectMomentum[id_l, :, 0, id_s, :, :] = (self.MSPVobject @ p).reshape(
+                    (self.optimizable.nosm, self.experimentalData.No, self.experimentalData.No))
+
+            # try:
+            #     self.optimizable.objectMomentum[id_l, :, 0, id_s, :, :], none, none = \
+            #         orthogonalizeModes(self.optimizable.objectMomentum[id_l, :, 0, id_s, :, :])
+            #     # replace the orthogonolized buffer as well
+            #     self.optimizable.objectBuffer = self.optimizable.object.copy()
+            # except:
+            #     pass
         else:
             pass
 
@@ -713,15 +933,36 @@ class BaseReconstructor(object):
             for k in xp.arange(self.optimizable.npsm): # todo check for multislice
                 self.optimizable.probe[:,:,k,-1,...] = \
                     xp.roll(self.optimizable.probe[:,:,k,-1,...], (-yc, -xc), axis=(-2, -1))
+                # for mPIE
+                if self.momentumAcceleration:
+                    self.optimizable.probeMomentum[:,:,k,-1,...] = \
+                        xp.roll(self.optimizable.probeMomentum[:,:,k,-1,...], (-yc, -xc), axis=(-2, -1))
+                    self.optimizable.probeBuffer[:,:,k,-1,...] = \
+                        xp.roll(self.optimizable.probeBuffer[:,:,k,-1,...], (-yc, -xc), axis=(-2, -1))
 
-                #todo implement for mPIE
 
             # shift object
             for k in xp.arange(self.optimizable.nosm): # todo check for multislice
-                self.optimizable.object[:,:,k,-1,...] = \
+                self.optimizable.object[:,k,:,-1,...] = \
                     xp.roll(self.optimizable.object[:,:,k,-1,...], (-yc, -xc), axis=(-2, -1))
-                # todo implement for mPIE
+                # for mPIE
+                if self.momentumAcceleration:
+                    self.optimizable.objectMomentum[:, :, k, -1, ...] = \
+                        xp.roll(self.optimizable.objectMomentum[:, :, k, -1, ...], (-yc, -xc), axis=(-2, -1))
+                    self.optimizable.objectBuffer[:, :, k, -1, ...] = \
+                        xp.roll(self.optimizable.objectBuffer[:, :, k, -1, ...], (-yc, -xc), axis=(-2, -1))
 
+            # if self.optimizable.nlambda > 1:
+            #     for k in xp.arange(self.optimizable.nlambda): # todo check for multislice
+            #         P2 = xp.sum(abs(self.optimizable.probe[k, :, :, -1, ...]) ** 2, axis=(1, 2))
+            #         demon = xp.sum(P2) * self.experimentalData.dxp
+            #         xc = xp.int(xp.around(xp.sum(xp.array(self.experimentalData.Xp, xp.float32) * P2) / demon))
+            #         yc = xp.int(xp.around(xp.sum(xp.array(self.experimentalData.Yp, xp.float32) * P2) / demon))
+            #         self.optimizable.probe[k,:,:,-1,...] = \
+            #             xp.roll(self.optimizable.probe[k,:,:,-1,...], (-yc, -xc), axis=(-2, -1))
+            #         self.optimizable.object[k, :, :, -1, ...] = \
+            #             xp.roll(self.optimizable.object[k, :, :, -1, ...], (-yc, -xc), axis=(-2, -1))
+                # todo implement for mPIE
 
     def modulusEnforcedProbe(self):
         # propagate probe to detector

@@ -8,6 +8,7 @@ from fracPy.io import readHdf5
 # from fracPy.io import readExample
 from fracPy.utils.visualisation import show3Dslider
 from fracPy.utils.visualisation import setColorMap
+from fracPy.utils.gpuUtils import getArrayModule
 
 
 class ExperimentalData:
@@ -104,12 +105,12 @@ class ExperimentalData:
         if self.dxp is None:
             self.dxp = self.wavelength * self.zo / self.Ld
         if self.No is None:
-            self.No = 2**10
+            self.No = 2**11
         if self.positions0 is None:
             self.positions0 = self.positions.copy()
         if self.spectralDensity is None:
             self.spectralDensity = np.array(self.wavelength)
-        if not isinstance(self.spectralDensity, np.ndarray):
+        if isinstance(self.spectralDensity, np.ndarray):
             self.spectralDensity = np.atleast_1d(np.squeeze(self.spectralDensity))
 
 
@@ -127,19 +128,9 @@ class ExperimentalData:
         """
         show ptychogram.
         """
-        show3Dslider(np.log10(self.ptychogram+1))
-        # app = pg.mkQApp()
-        # self.imv = pg.ImageView(view=pg.PlotItem())
-        # self.imv.setImage(np.log10(self.ptychogram+1))
-        #
-        # # in order to use the same customized matplotlib colormap
-        # positions = np.linspace(0, 1, 9)
-        # cmap = setColorMap()
-        # colors = [(np.array(cmap(i)[:-1])*255).astype('int') for i in positions]
-        # # set the colormap
-        # self.imv.setColorMap(pg.ColorMap(pos=positions, color=colors))
-        # self.imv.show()
-        # app.exec_()
+        xp = getArrayModule(self.ptychogram)
+        show3Dslider(xp.log10(xp.swapaxes(self.ptychogram, 1,2)+1))
+
 
     # Set attributes using @property operators: they are set automatically with the functions defined by the
     # @property operators

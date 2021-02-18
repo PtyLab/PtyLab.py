@@ -1,8 +1,6 @@
 import matplotlib
 matplotlib.use('tkagg')
 from fracPy.io import getExampleDataFolder
-
-
 #matplotlib.use('qt5agg')
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Optimizable.Optimizable import Optimizable
@@ -15,13 +13,15 @@ from fracPy.utils.utils import ifft2c
 from fracPy.utils.visualisation import hsvplot
 from matplotlib import pyplot as plt
 import numpy as np
+from scipy.ndimage import rotate
 
 
 
 exampleData = ExperimentalData()
 
 import os
-fileName = 'WFS_8.hdf5'  #  simu  Lenspaper WFS_1_bin4 WFS_fundamental    data_637nm_662nm WFS_fundamental_20201207
+fileName = 'WFS_HHG_Argon_20201218_big_20210107crop300.hdf5'  #  simu  Lenspaper WFS_1_bin4 WFS_fundamental    data_637nm_662nm WFS_fundamental_20201207  WFS_HHG_Argon_20201218_big
+# WFS_HHG_Argon_20201218_big_20210107crop300
 filePath = getExampleDataFolder() / fileName
 
 exampleData.loadData(filePath)
@@ -51,7 +51,7 @@ optimizable.nlambda = len(exampleData.spectralDensity) # Number of wavelength
 optimizable.nslice = 1 # Number of object slice
 exampleData.dz = 1e-4  # slice
 # binningFactor = 4
-exampleData.dxp = exampleData.dxd/8
+# exampleData.dxp = exampleData.dxd/8
 exampleData.No = 2**11
 # exampleData.zo = 0.20
 # exampleData.zo = 230e-3
@@ -103,6 +103,8 @@ for k in np.arange(len(R)):
 subaperture = rect(exampleData.Xp / apertureSize) * rect(exampleData.Yp / apertureSize)
 WFS = np.abs(ifft2c(fft2c(WFS) * fft2c(subaperture)))  # convolution of the subaperture with the scan grid
 WFS = WFS / np.max(WFS)
+# WFS = rotate(WFS, 45, reshape=False)
+hsvplot(WFS)
 
 optimizable.probe[..., :, :] = WFS.astype('complex64')
 hsvplot(np.squeeze(optimizable.probe[0, 0, 0, 0, :, :]), pixelSize=exampleData.dxp, axisUnit='mm')
@@ -114,10 +116,10 @@ monitor = Monitor()
 monitor.figureUpdateFrequency = 1
 monitor.objectPlot = 'complex'  # complex abs angle
 monitor.verboseLevel = 'high'  # high: plot two figures, low: plot only one figure
-monitor.probePlotZoom = 0.8  # control probe plot FoV
+monitor.probePlotZoom = 0.5  # control probe plot FoV
 monitor.objectPlotZoom =0.7   # control object plot FoV
-monitor.objectPlotContrast = 1
-monitor.probePlotContrast = 1
+monitor.objectPlotContrast = 0.5
+monitor.probePlotContrast = 0.05
 
 
 # Run the reconstruction
@@ -136,7 +138,7 @@ engine = multiPIE.multiPIE_GPU(optimizable, exampleData, monitor)
 engine.numIterations = 1000
 engine.positionOrder = 'random'  # 'sequential' or 'random'
 engine.propagator = 'scaledPolychromeASP'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
-engine.betaProbe = 0.05
+engine.betaProbe = 0.01
 engine.betaObject = 0.75
 
 ## engine specific parameters:
@@ -147,7 +149,7 @@ engine.probePowerCorrectionSwitch = False
 engine.modulusEnforcedProbeSwitch = False
 engine.comStabilizationSwitch = False
 engine.orthogonalizationSwitch = False
-engine.orthogonalizationFrequency = 10
+engine.orthogonalizationFrequency = 5
 engine.fftshiftSwitch = False
 engine.intensityConstraint = 'standard'  # standard fluctuation exponential poission
 engine.absorbingProbeBoundary = True
@@ -156,6 +158,9 @@ engine.absObjectSwitch = False
 engine.backgroundModeSwitch = False
 engine.couplingSwitch = False
 engine.couplingAleph = 1
+
+engine.absProbeSwitch = True  # force the probe to be abs-only
+engine.absProbeBeta = 0.9
 
 engine.doReconstruction()
 

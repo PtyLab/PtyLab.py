@@ -3,7 +3,8 @@ from fracPy.utils.visualisation import setColorMap
 
 class Monitor(object):
     """
-
+    Monitor contains two submonitors: DefaultMonitor (object,probe,error) and DiffractionDataMonitor (diffraction
+    intensity estimate and measurement)
     """
     def __init__(self):
         # settings for visualization
