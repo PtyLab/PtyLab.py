@@ -870,12 +870,12 @@ class BaseReconstructor(object):
                         # orthogonalize probe Buffer
                         p = xp.transpose(self.optimizable.probeBuffer[id_l, 0, :, id_s, :, :].reshape(
                             (self.optimizable.npsm, self.experimentalData.Np**2)))
-                        self.optimizable.probeBuffer[id_l, 0, :, id_s, :, :] = xp.transpose(p @ self.MSPVprobe ).reshape(
+                        self.optimizable.probeBuffer[id_l, 0, :, id_s, :, :] = xp.transpose(p @ xp.array(self.MSPVprobe) ).reshape(
                             (self.optimizable.npsm, self.experimentalData.Np, self.experimentalData.Np))
                         # orthogonalize probe momentum
                         p = xp.transpose(self.optimizable.probeMomentum[id_l, 0, :, id_s, :, :].reshape(
                             (self.optimizable.npsm, self.experimentalData.Np ** 2)))
-                        self.optimizable.probeMomentum[id_l, 0, :, id_s, :, :] = xp.transpose(p @ self.MSPVprobe).reshape(
+                        self.optimizable.probeMomentum[id_l, 0, :, id_s, :, :] = xp.transpose(p @ xp.array(self.MSPVprobe)).reshape(
                             (self.optimizable.npsm, self.experimentalData.Np, self.experimentalData.Np))
 
             # todo check the difference
