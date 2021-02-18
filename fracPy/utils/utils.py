@@ -110,8 +110,8 @@ def orthogonalizeModes(p):
     # orthogonolize modes only for npsm and nosm which are lcoated and indices 1, 2
     xp = getArrayModule(p)
     try:
-        U, s, V = xp.linalg.svd(p.reshape(p.shape[0], p.shape[1]*p.shape[2]), full_matrices=False )
-        p = xp.dot(xp.diag(s), V).reshape(p.shape[0], p.shape[1], p.shape[2])
+        U, s, V = xp.linalg.svd(p.reshape(p.shape[0], p.shape[1]*p.shape[2]), full_matrices=False)
+        p = (xp.diag(s)@V).reshape(p.shape[0], p.shape[1], p.shape[2])
         normalizedEigenvalues = s**2/xp.sum(s**2)
     except Exception as e:
         print('Warning: performing SVD on CPU rather than GPU due to error', e)
@@ -120,9 +120,15 @@ def orthogonalizeModes(p):
         if hasattr(p, 'device'):
             p = p.get()
         U, s, V = np.linalg.svd(p.reshape(p.shape[0], p.shape[1]*p.shape[2]), full_matrices=False )
-        p = np.dot(np.diag(s), V).reshape(p.shape[0], p.shape[1], p.shape[2])
+        p = (np.diag(s)@V).reshape(p.shape[0], p.shape[1], p.shape[2])
         normalizedEigenvalues = s**2/xp.sum(s**2)
+    # # method of snapshots
+    # q = p.reshape(p.shape[0], p.shape[1]*p.shape[2])
+    # D, V = xp.linalg.eigh(q@q.T.conj())
+    # s = xp.sqrt(D[::-1])
+    #
+    # normalizedEigenvalues = s ** 2 / xp.sum(s ** 2)
 
-    return xp.asarray(p), normalizedEigenvalues, U
+    return xp.asarray(p), normalizedEigenvalues, U.T.conj()
 
 

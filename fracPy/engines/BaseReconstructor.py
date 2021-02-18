@@ -730,6 +730,9 @@ class BaseReconstructor(object):
                         self.optimizable.probeMomentum[id_l, 0, :, id_s, :, :] = (self.MSPVprobe @ p).reshape(
                             (self.optimizable.npsm, self.experimentalData.Np, self.experimentalData.Np))
 
+                        if self.comStabilizationSwitch:
+                            self.comStabilization()
+
             # todo check the difference
             # try:
             #     self.optimizable.probeMomentum[id_l, 0, :, id_s, :, :], none, none = \

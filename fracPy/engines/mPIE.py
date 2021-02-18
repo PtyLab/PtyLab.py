@@ -50,8 +50,8 @@ class mPIE(BaseReconstructor):
         self.betaObject = 0.25
         self.alphaProbe = 0.1     # probe regularization
         self.alphaObject = 0.1    # object regularization
-        self.betaM = 0.3          # feedback
-        self.stepM = 0.7          # friction
+        self.feedbackM = 0.3          # feedback
+        self.frictionM = 0.7          # friction
         self.probeWindow = np.abs(self.optimizable.probe)
         
     def _prepare_doReconstruction(self):
@@ -96,8 +96,7 @@ class mPIE(BaseReconstructor):
                 # probe update
                 self.optimizable.probe = self.probeUpdate(objectPatch, DELTA)
 
-                # momentum updates todo: make this every T iteration?
-                # Todo @lars explain this
+                # momentum updates
                 if np.random.rand(1) > 0.95:
                     self.objectMomentumUpdate()
                     self.probeMomentumUpdate()
@@ -119,8 +118,8 @@ class mPIE(BaseReconstructor):
         :return:
         """
         gradient = self.optimizable.objectBuffer - self.optimizable.object
-        self.optimizable.objectMomentum = gradient + self.stepM * self.optimizable.objectMomentum
-        self.optimizable.object = self.optimizable.object - self.betaM * self.optimizable.objectMomentum
+        self.optimizable.objectMomentum = gradient + self.frictionM * self.optimizable.objectMomentum
+        self.optimizable.object = self.optimizable.object - self.feedbackM * self.optimizable.objectMomentum
         self.optimizable.objectBuffer = self.optimizable.object.copy()
 
 
@@ -130,8 +129,8 @@ class mPIE(BaseReconstructor):
         :return:
         """
         gradient = self.optimizable.probeBuffer - self.optimizable.probe
-        self.optimizable.probeMomentum = gradient + self.stepM * self.optimizable.probeMomentum
-        self.optimizable.probe = self.optimizable.probe - self.betaM * self.optimizable.probeMomentum
+        self.optimizable.probeMomentum = gradient + self.frictionM * self.optimizable.probeMomentum
+        self.optimizable.probe = self.optimizable.probe - self.feedbackM * self.optimizable.probeMomentum
         self.optimizable.probeBuffer = self.optimizable.probe.copy()
 
 

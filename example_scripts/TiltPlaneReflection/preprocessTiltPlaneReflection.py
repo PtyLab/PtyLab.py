@@ -9,16 +9,17 @@ import os
 import h5py
 from fracPy.utils.visualisation import show3Dslider
 
-filePathForRead = r"\\sun\eikema-witte\group-folder\Phasespace\ptychography\rawData\TATA\ReflectionAngle\Angle_Green_P140\20210216_113459_VocationalGuidanceMini00001\Camera"
+filePathForRead = r"\\sun\eikema-witte\group-folder\Phasespace\ptychography\rawData\tiltedReflectionTata\20200906_153713_HG700_structured2\AVT camera (GT3400)"
 # \\sun\eikema-witte\group-folder\Phasespace\ptychography\rawData\Reflection_USAF\PtychoOCT\USAF_angle\20201110_133543_VocationalGuidance00001\AVT camera (GT3400)
 # \\sun\eikema-witte\group-folder\Phasespace\ptychography\rawData\AnnesData_angleCorrectionManuscript\1\AVT camera (GT3400)
 # \\sun\eikema-witte\group-folder\Phasespace\ptychography\rawData\TATA\ReflectionAngle\Angle_Green_P140\20210216_113459_VocationalGuidanceMini00001\Camera
+# tiltedReflectionTata\20200906_153713_HG700_structured2\AVT camera (GT3400)
 filePathForSave = r"D:\Du\Workshop\fracpy\example_scripts\TiltPlaneReflection"
 os.chdir(filePathForRead)
 
-fileName = 'USAF_Tilt_StructuredBeam'
+fileName = 'TATA_HG_700'
 # wavelength
-wavelength =  #708.8e-9
+wavelength = 708.8e-9 #708.8e-9
 # binning
 binningFactor = 4
 # padding for super-resolution
@@ -26,7 +27,7 @@ padFactor = 1
 # set magnification if any objective lens is used
 magfinication = 1
 # object detector distance  (initial guess)
-zo = 0.071   #0.064
+zo = 0.069   #0.064
 # reflection angle
 theta = 45.00
 # set detection geometry
