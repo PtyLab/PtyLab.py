@@ -856,6 +856,7 @@ class BaseReconstructor(object):
         Perform orthogonalization
         :return:
         """
+        xp = getArrayModule(self.optimizable.probeBuffer)
         if self.optimizable.npsm > 1:
             # orthogonalize the probe for each wavelength and each slice
             for id_l in range(self.optimizable.nlambda):
@@ -867,14 +868,14 @@ class BaseReconstructor(object):
                     # orthogonolize momentum operator
                     if self.momentumAcceleration:
                         # orthogonalize probe Buffer
-                        p = self.optimizable.probeBuffer[id_l, 0, :, id_s, :, :].reshape(
-                            (self.optimizable.npsm, self.experimentalData.Np**2))
-                        self.optimizable.probeBuffer[id_l, 0, :, id_s, :, :] = (self.MSPVprobe @ p).reshape(
+                        p = xp.transpose(self.optimizable.probeBuffer[id_l, 0, :, id_s, :, :].reshape(
+                            (self.optimizable.npsm, self.experimentalData.Np**2)))
+                        self.optimizable.probeBuffer[id_l, 0, :, id_s, :, :] = xp.transpose(p @ self.MSPVprobe ).reshape(
                             (self.optimizable.npsm, self.experimentalData.Np, self.experimentalData.Np))
                         # orthogonalize probe momentum
-                        p = self.optimizable.probeMomentum[id_l, 0, :, id_s, :, :].reshape(
-                            (self.optimizable.npsm, self.experimentalData.Np ** 2))
-                        self.optimizable.probeMomentum[id_l, 0, :, id_s, :, :] = (self.MSPVprobe @ p).reshape(
+                        p = xp.transpose(self.optimizable.probeMomentum[id_l, 0, :, id_s, :, :].reshape(
+                            (self.optimizable.npsm, self.experimentalData.Np ** 2)))
+                        self.optimizable.probeMomentum[id_l, 0, :, id_s, :, :] = xp.transpose(p @ self.MSPVprobe).reshape(
                             (self.optimizable.npsm, self.experimentalData.Np, self.experimentalData.Np))
 
             # todo check the difference
