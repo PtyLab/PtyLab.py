@@ -114,11 +114,11 @@ def orthogonalizeModes(p):
         # p = xp.dot(xp.diag(s), V).reshape(p.shape[0], p.shape[1], p.shape[2])
         # normalizedEigenvalues = s**2/xp.sum(s**2)
         p2D = p.reshape(p.shape[0], p.shape[1] * p.shape[2])
-        w, V = xp.linalg.eig(xp.dot(p2D, xp.transpose(p2D)))
+        w, V = xp.linalg.eigh(xp.dot(p2D.conj(), xp.transpose(p2D)))
         s = xp.sqrt(w).real
         U = xp.dot(xp.dot(xp.transpose(p2D) , V) , xp.linalg.inv(xp.diag(s) + 1e-17*xp.eye(len(s))))
         indices = xp.flip(xp.argsort(s))
-        s[::-1].sort()
+        s = s[indices]   # [::-1].sort()
         U = U[:, indices]
         V = V[:, indices]
         p = xp.transpose(xp.dot(U, xp.diag(s))).reshape(p.shape[0], p.shape[1], p.shape[2])
@@ -131,7 +131,7 @@ def orthogonalizeModes(p):
         if hasattr(p, 'device'):
             p = p.get()
         p2D = p.reshape(p.shape[0], p.shape[1] * p.shape[2])
-        w, V = np.linalg.eig(np.dot(p2D, np.transpose(p2D)))
+        w, V = np.linalg.eig(np.dot(p2D.conj(), np.transpose(p2D)))
         s = np.sqrt(w).real
         U = np.dot(xp.dot(xp.transpose(p2D) , V) , np.linalg.inv(np.diag(s) + 1e-17*np.eye(len(s))))
         indices = np.flip(np.argsort(s))

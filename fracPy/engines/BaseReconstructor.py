@@ -945,13 +945,13 @@ class BaseReconstructor(object):
             # shift object
             for k in xp.arange(self.optimizable.nosm): # todo check for multislice
                 self.optimizable.object[:,k,:,-1,...] = \
-                    xp.roll(self.optimizable.object[:,:,k,-1,...], (-yc, -xc), axis=(-2, -1))
+                    xp.roll(self.optimizable.object[:,k,:,-1,...], (-yc, -xc), axis=(-2, -1))
                 # for mPIE
                 if self.momentumAcceleration:
-                    self.optimizable.objectMomentum[:, :, k, -1, ...] = \
-                        xp.roll(self.optimizable.objectMomentum[:, :, k, -1, ...], (-yc, -xc), axis=(-2, -1))
-                    self.optimizable.objectBuffer[:, :, k, -1, ...] = \
-                        xp.roll(self.optimizable.objectBuffer[:, :, k, -1, ...], (-yc, -xc), axis=(-2, -1))
+                    self.optimizable.objectMomentum[:, k, :, -1, ...] = \
+                        xp.roll(self.optimizable.objectMomentum[:, k, :, -1, ...], (-yc, -xc), axis=(-2, -1))
+                    self.optimizable.objectBuffer[:, k, :, -1, ...] = \
+                        xp.roll(self.optimizable.objectBuffer[:, k, :, -1, ...], (-yc, -xc), axis=(-2, -1))
 
             # if self.optimizable.nlambda > 1:
             #     for k in xp.arange(self.optimizable.nlambda): # todo check for multislice
