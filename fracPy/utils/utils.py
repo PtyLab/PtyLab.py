@@ -123,6 +123,7 @@ def orthogonalizeModes(p):
         V = V[:, indices]
         p = xp.transpose(xp.dot(U, xp.diag(s))).reshape(p.shape[0], p.shape[1], p.shape[2])
         normalizedEigenvalues = s**2/xp.sum(s**2)
+        V = xp.transpose(V)
     except Exception as e:
         print('Warning: performing SVD on CPU rather than GPU due to error', e)
         #print('Exception: ', e)
@@ -139,6 +140,7 @@ def orthogonalizeModes(p):
         V = V[:, indices]
         p = np.transpose(np.dot(U, np.diag(s))).reshape(p.shape[0], p.shape[1], p.shape[2])
         normalizedEigenvalues = s**2/np.sum(s**2)
+        V = np.transpose(V)
         # U, s, V = np.linalg.svd(p.reshape(p.shape[0], p.shape[1]*p.shape[2]), full_matrices=False )
         # p = np.dot(np.diag(s), V).reshape(p.shape[0], p.shape[1], p.shape[2])
         # normalizedEigenvalues = s**2/xp.sum(s**2)

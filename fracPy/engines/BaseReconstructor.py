@@ -868,14 +868,14 @@ class BaseReconstructor(object):
                     # orthogonolize momentum operator
                     if self.momentumAcceleration:
                         # orthogonalize probe Buffer
-                        p = xp.transpose(self.optimizable.probeBuffer[id_l, 0, :, id_s, :, :].reshape(
-                            (self.optimizable.npsm, self.experimentalData.Np**2)))
-                        self.optimizable.probeBuffer[id_l, 0, :, id_s, :, :] = xp.transpose(p @ xp.array(self.MSPVprobe) ).reshape(
+                        p = self.optimizable.probeBuffer[id_l, 0, :, id_s, :, :].reshape(
+                            (self.optimizable.npsm, self.experimentalData.Np ** 2))
+                        self.optimizable.probeBuffer[id_l, 0, :, id_s, :, :] = (xp.array(self.MSPVprobe) @ p).reshape(
                             (self.optimizable.npsm, self.experimentalData.Np, self.experimentalData.Np))
                         # orthogonalize probe momentum
-                        p = xp.transpose(self.optimizable.probeMomentum[id_l, 0, :, id_s, :, :].reshape(
-                            (self.optimizable.npsm, self.experimentalData.Np ** 2)))
-                        self.optimizable.probeMomentum[id_l, 0, :, id_s, :, :] = xp.transpose(p @ xp.array(self.MSPVprobe)).reshape(
+                        p = self.optimizable.probeMomentum[id_l, 0, :, id_s, :, :].reshape(
+                            (self.optimizable.npsm, self.experimentalData.Np ** 2))
+                        self.optimizable.probeMomentum[id_l, 0, :, id_s, :, :] = (xp.array(self.MSPVprobe) @ p).reshape(
                             (self.optimizable.npsm, self.experimentalData.Np, self.experimentalData.Np))
 
             # todo check the difference
@@ -894,18 +894,18 @@ class BaseReconstructor(object):
                     self.optimizable.object[id_l, :, 0, id_s, :, :], self.normalizedEigenvaluesObject, self.MSPVobject = \
                         orthogonalizeModes(self.optimizable.object[id_l, :, 0, id_s, :, :])
 
-            # orthogonolize momentum operator
-            if self.momentumAcceleration:
-                # orthogonalize object Buffer
-                p = self.optimizable.objectBuffer[id_l, :, 0, id_s, :, :].reshape(
-                    (self.optimizable.nosm, self.experimentalData.No ** 2))
-                self.optimizable.objectBuffer[id_l, :, 0, id_s, :, :] = (self.MSPVobject @ p).reshape(
-                    (self.optimizable.nosm, self.experimentalData.No, self.experimentalData.No))
-                # orthogonalize object momentum
-                p = self.optimizable.objectMomentum[id_l, :, 0, id_s, :, :].reshape(
-                    (self.optimizable.nosm, self.experimentalData.No ** 2))
-                self.optimizable.objectMomentum[id_l, :, 0, id_s, :, :] = (self.MSPVobject @ p).reshape(
-                    (self.optimizable.nosm, self.experimentalData.No, self.experimentalData.No))
+                    # orthogonolize momentum operator
+                    if self.momentumAcceleration:
+                        # orthogonalize object Buffer
+                        p = self.optimizable.objectBuffer[id_l, :, 0, id_s, :, :].reshape(
+                            (self.optimizable.nosm, self.experimentalData.No ** 2))
+                        self.optimizable.objectBuffer[id_l, :, 0, id_s, :, :] = (xp.array(self.MSPVobject) @ p).reshape(
+                            (self.optimizable.nosm, self.experimentalData.No, self.experimentalData.No))
+                        # orthogonalize object momentum
+                        p = self.optimizable.objectMomentum[id_l, :, 0, id_s, :, :].reshape(
+                            (self.optimizable.nosm, self.experimentalData.No ** 2))
+                        self.optimizable.objectMomentum[id_l, :, 0, id_s, :, :] = (xp.array(self.MSPVobject) @ p).reshape(
+                            (self.optimizable.nosm, self.experimentalData.No, self.experimentalData.No))
 
             # try:
             #     self.optimizable.objectMomentum[id_l, :, 0, id_s, :, :], none, none = \
