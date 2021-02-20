@@ -78,6 +78,8 @@ class Optimizable(object):
             self.initialProbe = 'circ'
             self.initialObject = 'ones'
 
+        self.theta = None
+
     def prepare_reconstruction(self):
         
         # initialize object and probe

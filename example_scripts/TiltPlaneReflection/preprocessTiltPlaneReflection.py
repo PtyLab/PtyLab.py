@@ -9,15 +9,17 @@ import os
 import h5py
 from fracPy.utils.visualisation import show3Dslider
 
-filePathForRead = r"\\sun\eikema-witte\group-folder\Phasespace\ptychography\rawData\tiltedReflectionTata\20200906_153713_HG700_structured2\AVT camera (GT3400)"
-# \\sun\eikema-witte\group-folder\Phasespace\ptychography\rawData\Reflection_USAF\PtychoOCT\USAF_angle\20201110_133543_VocationalGuidance00001\AVT camera (GT3400)
-# \\sun\eikema-witte\group-folder\Phasespace\ptychography\rawData\AnnesData_angleCorrectionManuscript\1\AVT camera (GT3400)
-# \\sun\eikema-witte\group-folder\Phasespace\ptychography\rawData\TATA\ReflectionAngle\Angle_Green_P140\20210216_113459_VocationalGuidanceMini00001\Camera
-# tiltedReflectionTata\20200906_153713_HG700_structured2\AVT camera (GT3400)
+filePathForRead = r"\\sun\eikema-witte\group-folder\Phasespace\ptychography\rawData\TATA\ReflectionAngleNIR\Hilan\20210219_174920_VocationalGuidance00001\AVT camera (GT3400)"
+# Reflection_USAF\PtychoOCT\USAF_angle\20201110_133543_VocationalGuidance00001\AVT camera (GT3400)
+# AnnesData_angleCorrectionManuscript\1\AVT camera (GT3400)
+# TATA\ReflectionAngle\Angle_Green_P140\20210216_113459_VocationalGuidanceMini00001\Camera
+# TATA\tiltedReflectionTata\20200906_153713_HG700_structured2\AVT camera (GT3400)
+# TATA\Calibration_USAF_strucruedBeam\20210219_120619_VocationalGuidance00001\AVT camera (GT3400)
+# TATA\ReflectionAngleNIR\Hilan\20210219_174920_VocationalGuidance00001\AVT camera (GT3400)
 filePathForSave = r"D:\Du\Workshop\fracpy\example_scripts\TiltPlaneReflection"
 os.chdir(filePathForRead)
 
-fileName = 'TATA_HG_700'
+fileName = 'Hilan_700'
 # wavelength
 wavelength = 708.8e-9 #708.8e-9
 # binning
@@ -27,9 +29,9 @@ padFactor = 1
 # set magnification if any objective lens is used
 magfinication = 1
 # object detector distance  (initial guess)
-zo = 0.069   #0.064
+zo = 0.07   #0.064
 # reflection angle
-theta = 45.00
+theta = 43.15
 # set detection geometry
 # A: camera to closer side of stage (allows to bring camera close in transmission)
 # B: camera to further side of stage (doesn't allow to bring close in transmission),
@@ -68,7 +70,7 @@ for k in pbar:
     temp = imageio.imread(framesList[k]).astype('float32')-dark-backgroundOffset
     temp[temp < 0] = 0
     # crop
-    temp = temp[:, N//2-M//2:M//2+N//2-1]
+    temp = temp[:, N//2-M//2-250:M//2+N//2-1-250]
     # binning
     temp = rescale(temp, 1/binningFactor, order=0) # order = 0 takes the nearest-neighbor
 
@@ -156,6 +158,7 @@ if exportBool:
     hf.create_dataset('dxd', data=(dxd,), dtype='f')
     hf.create_dataset('Nd', data=(Nd,), dtype='i')
     hf.create_dataset('zo', data=(zo,), dtype='f')
+    hf.create_dataset('theta', data=(theta,), dtype='f')
     hf.create_dataset('wavelength', data=(wavelength,), dtype='f')
     hf.create_dataset('entrancePupilDiameter', data=(entrancePupilDiameter,), dtype='f')
     hf.close()

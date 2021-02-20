@@ -42,6 +42,7 @@ class ExperimentalData:
         self.magnificaiton = None
         self.dxp = None
         self.No = None
+        self.ptychogramUntransformed = None
         self.positions0 = None
         # positions0 and positions are pixel number, encoder is in meter,
         # positions0 stores the original scan grid, positions is defined as property, automatically updated with dxo
@@ -102,6 +103,8 @@ class ExperimentalData:
             self.positions0 = self.positions.copy()
         if self.spectralDensity is None:
             self.spectralDensity = [self.wavelength]
+        if self.ptychogramUntransformed is None:
+            self.ptychogramUntransformed = self.ptychogram.copy()
 
 
     # def _checkData(self):
