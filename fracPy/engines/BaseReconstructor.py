@@ -860,7 +860,7 @@ class BaseReconstructor(object):
         Perform orthogonalization
         :return:
         """
-        xp = getArrayModule(self.optimizable.probeBuffer)
+        xp = getArrayModule(self.optimizable.probe)
         if self.optimizable.npsm > 1:
             # orthogonalize the probe for each wavelength and each slice
             for id_l in range(self.optimizable.nlambda):
