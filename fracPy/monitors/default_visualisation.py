@@ -80,7 +80,7 @@ class DefaultMonitor(object):
             self.im_probe.set_data(PE)
             if optimizable.npsm > 1:
                 self.txt_purity.set_text('Probe estimate\nPurity: %i' %(100*optimizable.purity)+'%')
-        # self.im_probe.autoscale()
+        self.im_probe.autoscale()
         
     def updateError(self, error_estimate: np.ndarray) -> None:
         """
