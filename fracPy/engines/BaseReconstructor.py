@@ -14,6 +14,7 @@ from fracPy.operators.operators import aspw, scaledASP
 from fracPy.monitors.Monitor import Monitor
 from fracPy.utils.visualisation import hsvplot
 from matplotlib import pyplot as plt
+import cupy as cp
 
 
 class BaseReconstructor(object):
@@ -48,6 +49,7 @@ class BaseReconstructor(object):
 
 
         ## Specific reconstruction settings that are the same for all engines
+        self.gpuSwitch = False
         # This only makes sense on a GPU, not there yet
         self.saveMemory = False
         self.probeUpdateStart = 1
@@ -351,6 +353,43 @@ class BaseReconstructor(object):
                     self.experimentalData.empyBeam = np.fft.fftshift(
                         self.experimentalData.empyBeam, axes=(-1, -2))
                 self.fftshiftFlag = 0
+
+    def _move_data_to_gpu(self):
+        """
+        Move the data to the GPU, called when the gpuSwitch is on.
+        :return:
+        """
+        # optimizable parameters
+        self.optimizable.probe = cp.array(self.optimizable.probe, cp.complex64)
+        self.optimizable.object = cp.array(self.optimizable.object, cp.complex64)
+
+        if self.momentumAcceleration:
+            self.optimizable.probeBuffer = cp.array(self.optimizable.probeBuffer, cp.complex64)
+            self.optimizable.objectBuffer = cp.array(self.optimizable.objectBuffer, cp.complex64)
+            self.optimizable.probeMomentum = cp.array(self.optimizable.probeMomentum, cp.complex64)
+            self.optimizable.objectMomentum = cp.array(self.optimizable.objectMomentum, cp.complex64)
+
+        # non-optimizable parameters
+        self.experimentalData.ptychogram = cp.array(self.experimentalData.ptychogram, cp.float32)
+        self.detectorError = cp.array(self.detectorError)
+
+        # propagators
+        if self.propagator == 'Fresnel':
+            self.optimizable.quadraticPhase = cp.array(self.optimizable.quadraticPhase)
+        elif self.propagator == 'ASP' or self.propagator == 'polychromeASP':
+            self.optimizable.transferFunction = cp.array(self.optimizable.transferFunction)
+        elif self.propagator == 'scaledASP' or self.propagator == 'scaledPolychromeASP':
+            self.optimizable.Q1 = cp.array(self.optimizable.Q1)
+            self.optimizable.Q2 = cp.array(self.optimizable.Q2)
+        elif self.propagator =='twoStepPolychrome':
+            self.optimizable.quadraticPhase = cp.array(self.optimizable.quadraticPhase)
+            self.optimizable.transferFunction = cp.array(self.optimizable.transferFunction)
+
+        # other parameters
+        if self.backgroundModeSwitch:
+            self.background = cp.array(self.background)
+        if self.absorbingProbeBoundary:
+            self.probeWindow = cp.array(self.probeWindow)
 
     def setPositionOrder(self):
         if self.positionOrder == 'sequential':

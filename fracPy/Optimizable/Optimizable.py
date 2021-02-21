@@ -8,6 +8,8 @@ import h5py
 from fracPy.utils.initializationFunctions import initialProbeOrObject
 
 
+
+
 class Optimizable(object):
     """
     This object will contain all the things that can be modified by a reconstruction engine.
@@ -106,5 +108,7 @@ class Optimizable(object):
         
     def initializeProbeMomentum(self):
         self.probeMomentum = np.zeros_like(self.initialGuessProbe)
+
+
 
 
