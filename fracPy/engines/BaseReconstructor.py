@@ -89,7 +89,7 @@ class BaseReconstructor(object):
         self.objectContrastSwitch = False # pushes object to zero outside ROI
         self.positionCorrectionSwitch = False # position correction for encoder
 
-    def _initializeParams(self):
+    def _prepareReconstruction(self):
         """
         Initialize everything that depends on user changeable attributes.
         :return:
@@ -105,19 +105,21 @@ class BaseReconstructor(object):
         self._setObjectProbeROI()
         self._showInitialGuesses()
         self._initializePCParameters()
+        self._checkGPU()  # checkGPU needs to be the last
 
     def _initializePCParameters(self):
-        # additional pcPIE parameters as they appear in Matlab
-        self.daleth = 0.5  # feedback
-        self.beth = 0.9  # friction
-        self.adaptStep = 1  # adaptive step size
-        self.D = np.zeros((self.experimentalData.numFrames, 2))  # position search direction
-        # predefine shifts
-        self.rowShifts = np.array([-1, -1, -1, 0, 0, 0, 1, 1, 1])
-        self.colShifts = np.array([-1, 0, 1, -1, 0, 1, -1, 0, 1])
-        self.startAtIteration = 20
-        self.meanEncoder00 = np.mean(self.experimentalData.encoder[:, 0]).copy()
-        self.meanEncoder01 = np.mean(self.experimentalData.encoder[:, 1]).copy()
+        if self.positionCorrectionSwitch:
+            # additional pcPIE parameters as they appear in Matlab
+            self.daleth = 0.5  # feedback
+            self.beth = 0.9  # friction
+            self.adaptStep = 1  # adaptive step size
+            self.D = np.zeros((self.experimentalData.numFrames, 2))  # position search direction
+            # predefine shifts
+            self.rowShifts = np.array([-1, -1, -1, 0, 0, 0, 1, 1, 1])
+            self.colShifts = np.array([-1, 0, 1, -1, 0, 1, -1, 0, 1])
+            self.startAtIteration = 20
+            self.meanEncoder00 = np.mean(self.experimentalData.encoder[:, 0]).copy()
+            self.meanEncoder01 = np.mean(self.experimentalData.encoder[:, 1]).copy()
 
     def _initializeErrors(self):
         """
@@ -390,6 +392,70 @@ class BaseReconstructor(object):
             self.background = cp.array(self.background)
         if self.absorbingProbeBoundary:
             self.probeWindow = cp.array(self.probeWindow)
+        if self.modulusEnforcedProbeSwitch:
+            self.emptyBeam = cp.array(self.emptyBeam)
+
+
+
+    def _move_data_to_cpu(self):
+        """
+        Move the data to the CPU, called when the gpuSwitch is off.
+        :return:
+        """
+        # optimizable parameters
+        self.optimizable.probe = self.optimizable.probe.get()
+        self.optimizable.object = self.optimizable.object.get()
+
+        if self.momentumAcceleration:
+            self.optimizable.probeBuffer = self.optimizable.probeBuffer.get()
+            self.optimizable.objectBuffer = self.optimizable.objectBuffer.get()
+            self.optimizable.probeMomentum = self.optimizable.probeMomentum.get()
+            self.optimizable.objectMomentum = self.optimizable.objectMomentum.get()
+
+        # non-optimizable parameters
+        self.experimentalData.ptychogram = self.experimentalData.ptychogram.get()
+        self.detectorError = self.detectorError.get()
+
+        # propagators
+        if self.propagator == 'Fresnel':
+            self.optimizable.quadraticPhase = self.optimizable.quadraticPhase.get()
+        elif self.propagator == 'ASP' or self.propagator == 'polychromeASP':
+            self.optimizable.transferFunction = self.optimizable.transferFunction.get()
+        elif self.propagator == 'scaledASP' or self.propagator == 'scaledPolychromeASP':
+            self.optimizable.Q1 = self.optimizable.Q1.get()
+            self.optimizable.Q2 = self.optimizable.Q2.get()
+        elif self.propagator =='twoStepPolychrome':
+            self.optimizable.quadraticPhase = self.optimizable.quadraticPhase.get()
+            self.optimizable.transferFunction = self.optimizable.transferFunction.get()
+
+        # other parameters
+        if self.backgroundModeSwitch:
+            self.background = self.background.get()
+        if self.absorbingProbeBoundary:
+            self.probeWindow = self.probeWindow.get()
+        if self.modulusEnforcedProbeSwitch:
+            self.emptyBeam = self.emptyBeam.get()
+
+    def _checkGPU(self):
+        if not hasattr(self, 'gpuFlag'):
+            self.gpuFlag = 0
+
+        if self.gpuSwitch:
+            if cp is None:
+                raise ImportError('Could not import cupy, turn gpuSwitch to false, perform CPU reconstruction')
+            if not self.gpuFlag:
+                self.logger.info('switch to gpu')
+
+                # clear gpu to prevent memory issues todo
+
+                # load data to gpu
+                self._move_data_to_gpu()
+                self.gpuFlag = 1
+        else:
+            if self.gpuFlag:
+                self.logger.info('switch to cpu')
+                self._move_data_to_cpu()
+                self.gpuFlag = 0
 
     def setPositionOrder(self):
         if self.positionOrder == 'sequential':

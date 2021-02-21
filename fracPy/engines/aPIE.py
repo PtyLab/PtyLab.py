@@ -60,30 +60,8 @@ class aPIE(BaseReconstructor):
         if self.optimizable.theta == None:
             raise ValueError('theta value is not given')
 
-
-
-    # def _prepare_doReconstruction(self):
-    #     """
-    #     This function is called just before the reconstructions start.
-    #     Can be used to (for instance) transfer data to the GPU at the last moment.
-    #     :return:
-    #     """
-    #     if self.gpuSwitch:
-    #         self.logger.info('Ready to start transferring stuff to the GPU')
-    #         self._move_data_to_gpu()
-    #     else:
-    #         pass
-
     def doReconstruction(self):
-        self._initializeParams()
-
-        # check gpuSwitch
-        if self.gpuSwitch:
-            if cp is None:
-                raise ImportError('Could not import cupy, turn gpuSwitch to false, perform CPU reconstruction')
-            self.logger = logging.getLogger('aPIE')
-            self.logger.info('Perform reconstruction on GPU')
-            self._move_data_to_gpu()
+        self._prepareReconstruction()
 
         xp = getArrayModule(self.optimizable.object)
 
@@ -251,25 +229,6 @@ class aPIE(BaseReconstructor):
         frac = objectPatch.conj() / xp.max(xp.sum(xp.abs(objectPatch) ** 2, axis=(0, 1, 2, 3)))
         r = self.optimizable.probe + self.betaProbe * xp.sum(frac * DELTA, axis=(0, 1, 3), keepdims=True)
         return r
-
-
-# class aPIE_GPU(aPIE):
-#     """
-#     GPU-based implementation of aPIE
-#     """
-#
-#     def __init__(self, *args, **kwargs):
-#         super().__init__(*args, **kwargs)
-#         if cp is None:
-#             raise ImportError('Could not import cupy')
-#         self.logger = logging.getLogger('aPIE_GPU')
-#         self.logger.info('Hello from aPIE_GPU')
-#
-#     def _prepare_doReconstruction(self):
-#         self.logger.info('Ready to start transferring stuff to the GPU')
-#         self._move_data_to_gpu()
-
-
 
 
 def T(x, y, z, theta):

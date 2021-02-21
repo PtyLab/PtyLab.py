@@ -70,9 +70,9 @@ if FPM_recon:
     monitor.probePlotZoom = .01   # control probe plot FoV
 
     #%% RUn the reconstructor
-    # engine = ePIE.ePIE_GPU(optimizable, exampleData, monitor)
-    engine = qNewton.qNewton_GPU(optimizable, exampleData, monitor)
-    # engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
+    # engine = ePIE.ePIE(optimizable, exampleData, monitor)
+    engine = qNewton.qNewton(optimizable, exampleData, monitor)
+    # engine = mPIE.mPIE(optimizable, exampleData, monitor)
     
     # engine.positionOrder = 'NA'
     engine.probePowerCorrectionSwitch = False 
@@ -97,7 +97,7 @@ if ptycho_recon:
     exampleData = ExperimentalData()
 
     import os
-    fileName = 'simu_PC_09deviation.hdf5'  # WFSpoly   WFS_SingleWave  WFS_9Wave simuRecent  Lenspaper
+    fileName = 'Lenspaper.hdf5'  # WFSpoly   WFS_SingleWave  WFS_9Wave simuRecent  Lenspaper
     filePath = getExampleDataFolder() / fileName
 
     exampleData.loadData(filePath)
@@ -137,25 +137,21 @@ if ptycho_recon:
     # exampleData.zo = exampleData.zo
     # exampleData.dxp = exampleData.dxp/1
     # Run the reconstruction
+
     ## choose engine
     # ePIE
-    # engine = ePIE.ePIE_GPU(optimizable, exampleData, monitor)
     # engine = ePIE.ePIE(optimizable, exampleData, monitor)
     # mPIE
-    # engine = mPIE.mPIE_GPU(optimizable, exampleData, monitor)
-    # engine = mPIE.mPIE(optimizable, exampleData, monitor)
+    engine = mPIE.mPIE(optimizable, exampleData, monitor)
     # zPIE
-    # engine = zPIE.zPIE_GPU(optimizable, exampleData, monitor)
     # engine = zPIE.zPIE(optimizable, exampleData, monitor)
     # e3PIE
-    # engine = e3PIE.e3PIE_GPU(optimizable, exampleData, monitor)
     # engine = e3PIE.e3PIE(optimizable, exampleData, monitor)
     # pcPIE
-    engine = pcPIE.pcPIE_GPU(optimizable, exampleData, monitor)
     # engine = pcPIE.pcPIE(optimizable, exampleData, monitor)
 
     ## main parameters
-    engine.numIterations = 1000
+    engine.numIterations = 100
     engine.positionOrder = 'random'  # 'sequential' or 'random'
     engine.propagator = 'Fresnel'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
     engine.betaProbe = 0.25
@@ -165,6 +161,7 @@ if ptycho_recon:
     engine.zPIEgradientStepSize = 200  # gradient step size for axial position correction (typical range [1, 100])
 
     ## switches
+    engine.gpuSwitch = True
     engine.probePowerCorrectionSwitch = True
     engine.modulusEnforcedProbeSwitch = False
     engine.comStabilizationSwitch = True

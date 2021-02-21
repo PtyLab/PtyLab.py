@@ -169,7 +169,7 @@ monitor = Monitor()
 reconstructor = BaseReconstructor(optimizable, simuData, monitor)
 
 reconstructor.propagator = 'Fresnel'
-reconstructor._initializeParams()  # to calculate the quadratic phase
+reconstructor._prepareReconstruction()  # to calculate the quadratic phase
 reconstructor.fftshiftSwitch = False
 for loop in np.arange(simuData.numFrames):
     # get object patch

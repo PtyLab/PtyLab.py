@@ -31,7 +31,6 @@ class ePIE(BaseReconstructor):
         self.logger.info('Wavelength attribute: %s', self.optimizable.wavelength)
         self.initializeReconstructionParams()
 
-
     def initializeReconstructionParams(self):
         """
         Set parameters that are specific to the ePIE settings.
@@ -40,28 +39,9 @@ class ePIE(BaseReconstructor):
         self.betaProbe = 0.25
         self.betaObject = 0.25
 
-    # def _prepare_doReconstruction(self):
-    #     """
-    #     This function is called just before the reconstructions start.
-    #     Can be used to (for instance) transfer data to the GPU at the last moment.
-    #     :return:
-    #     """
-    #     if self.gpuSwitch:
-    #         self.logger.info('Ready to start transferring stuff to the GPU')
-    #         self._move_data_to_gpu()
-    #     else:
-    #         pass
 
     def doReconstruction(self):
-        self._initializeParams()
-
-        # check gpuSwitch
-        if self.gpuSwitch:
-            if cp is None:
-                raise ImportError('Could not import cupy, turn gpuSwitch to false, perform CPU reconstruction')
-            self.logger = logging.getLogger('ePIE')
-            self.logger.info('Perform reconstruction on GPU')
-            self._move_data_to_gpu()
+        self._prepareReconstruction()
 
         # actual reconstruction ePIE_engine
         self.pbar = tqdm.trange(self.numIterations, desc='ePIE', file=sys.stdout, leave=True)
@@ -129,53 +109,3 @@ class ePIE(BaseReconstructor):
         return r
 
 
-# class ePIE_GPU(ePIE):
-#     """
-#     GPU-based implementation of ePIE
-#     """
-#
-#     def __init__(self, *args, **kwargs):
-#         super().__init__(*args, **kwargs)
-#         if cp is None:
-#             raise ImportError('Could not import cupy')
-#         self.logger = logging.getLogger('ePIE_GPU')
-#         self.logger.info('Hello from ePIE_GPU')
-#
-#     def _prepare_doReconstruction(self):
-#         self.logger.info('Ready to start transfering stuff to the GPU')
-#         self._move_data_to_gpu()
-
-    # def _move_data_to_gpu(self):
-    #     """
-    #     Move the data to the GPU
-    #     :return:
-    #     """
-    #     # optimizable parameters
-    #     self.optimizable.probe = cp.array(self.optimizable.probe, cp.complex64)
-    #     self.optimizable.object = cp.array(self.optimizable.object, cp.complex64)
-    #
-    #     # non-optimizable parameters
-    #     self.experimentalData.ptychogram = cp.array(self.experimentalData.ptychogram, cp.float32)
-    #     # self.experimentalData.probe = cp.array(self.experimentalData.probe, cp.complex64)
-    #
-    #     # ePIE parameters
-    #     self.logger.info('Detector error shape: %s', self.detectorError.shape)
-    #     self.detectorError = cp.array(self.detectorError)
-    #
-    #     # proapgators to GPU
-    #     if self.propagator == 'Fresnel':
-    #         self.optimizable.quadraticPhase = cp.array(self.optimizable.quadraticPhase)
-    #     elif self.propagator == 'ASP' or self.propagator == 'polychromeASP':
-    #         self.optimizable.transferFunction = cp.array(self.optimizable.transferFunction)
-    #     elif self.propagator == 'scaledASP' or self.propagator == 'scaledPolychromeASP':
-    #         self.optimizable.Q1 = cp.array(self.optimizable.Q1)
-    #         self.optimizable.Q2 = cp.array(self.optimizable.Q2)
-    #     elif self.propagator =='twoStepPolychrome':
-    #         self.optimizable.quadraticPhase = cp.array(self.optimizable.quadraticPhase)
-    #         self.optimizable.transferFunction = cp.array(self.optimizable.transferFunction)
-    #
-    #     # other parameters
-    #     if self.backgroundModeSwitch:
-    #         self.background = cp.array(self.background)
-    #     if self.absorbingProbeBoundary:
-    #         self.probeWindow = cp.array(self.probeWindow)
