@@ -100,6 +100,11 @@ class mPIE(BaseReconstructor):
             # show reconstruction
             self.showReconstruction(loop)
 
+        if self.gpuFlag:
+            self.logger.info('switch to cpu')
+            self._move_data_to_cpu()
+            self.gpuFlag = 0
+
             #todo clearMemory implementation
 
     def objectMomentumUpdate(self):

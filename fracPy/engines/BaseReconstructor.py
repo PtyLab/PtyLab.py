@@ -34,9 +34,15 @@ class BaseReconstructor(object):
 
         # datalogger
         self.logger = logging.getLogger('BaseReconstructor')
+        if not hasattr(self, 'initializeSwitchFlag'):
+            self.initializeSwitchFlag = False
+            self._initializeSwitch()
+        elif not self.initializeSwitchFlag:
+            raise ValueError('initializeSwitchFlag is set wrong')
 
-        # Default settings
-        # settings that involve how things are computed
+
+    def _initializeSwitch(self):
+        # Default settings for switches, settings that involve how things are computed
         self.fftshiftSwitch = False
         self.fftshiftFlag = False
         self.FourierMaskSwitch = False
@@ -47,7 +53,6 @@ class BaseReconstructor(object):
         self.momentumAcceleration = False  # default False, it is turned on in the individual engines that use momentum
         self.optimizable.purity = 1   # default initial value for plots.
 
-
         ## Specific reconstruction settings that are the same for all engines
         self.gpuSwitch = False
         # This only makes sense on a GPU, not there yet
@@ -57,7 +62,7 @@ class BaseReconstructor(object):
         self.positionOrder = 'random'  # 'random' or 'sequential'
 
         ## Swtiches used in applyConstraints method:
-        self.orthogonalizationSwitch = True
+        self.orthogonalizationSwitch = False
         self.orthogonalizationFrequency = 10  # probe orthogonalization frequency
         # object regularization
         self.objectSmoothenessSwitch = False
@@ -82,12 +87,14 @@ class BaseReconstructor(object):
         self.couplingSwitch = False  # couple adjacent wavelengths
         self.couplingAleph = 50e-2  # couple adjacent wavelengths (relaxation parameter)
         self.binaryWFSSwitch = False  # enforce WFS to be positive
-        self.binaryWFSAleph =  10e-2  # relaxation parameter for binary constraint
+        self.binaryWFSAleph = 10e-2  # relaxation parameter for binary constraint
         self.backgroundModeSwitch = False  # background estimate
-        self.comStabilizationSwitch = True # center of mass stabilization for probe
+        self.comStabilizationSwitch = True  # center of mass stabilization for probe
         self.PSDestimationSwitch = False
-        self.objectContrastSwitch = False # pushes object to zero outside ROI
-        self.positionCorrectionSwitch = False # position correction for encoder
+        self.objectContrastSwitch = False  # pushes object to zero outside ROI
+        self.positionCorrectionSwitch = False  # position correction for encoder
+
+        self.initializeSwitchFlag = True  # need to be the last
 
     def _prepareReconstruction(self):
         """
@@ -302,6 +309,9 @@ class BaseReconstructor(object):
         # preallocate intensity scaling vector
         if self.intensityConstraint == 'fluctuation':
             self.intensityScaling = np.ones(self.experimentalData.numFrames)
+
+        if self.intensityConstraint == 'interferometric':
+            self.optimizable.background = np.ones(self.experimentalData.ptychogram[0].shape)
 
         # todo check if there is data on gpu that shouldnt be there
 
@@ -587,7 +597,7 @@ class BaseReconstructor(object):
         Calculate probe beam width (Full width half maximum)
         :return:
         """
-        P = np.sum(abs(self.optimizable.probe[..., -1, :, :].get()) ** 2, axis=(0, 1, 2))
+        P = np.sum(abs(asNumpyArray(self.optimizable.probe[..., -1, :, :])) ** 2, axis=(0, 1, 2))
         P = P/np.sum(P, axis=(-1, -2))
         xMean = np.sum(self.experimentalData.Xp * P, axis=(-1, -2))
         yMean = np.sum(self.experimentalData.Yp * P, axis=(-1, -2))
@@ -618,7 +628,7 @@ class BaseReconstructor(object):
         fx = np.arange(-self.experimentalData.Np//2, self.experimentalData.Np//2) * df
         Fx, Fy = np.meshgrid(fx, fx)
         # absolute value of probe and 2D fft
-        P = abs(self.optimizable.probe[:, 0, 0, -1,...].get())
+        P = abs(asNumpyArray(self.optimizable.probe[:, 0, 0, -1,...]))
         Q = fft2c(P)
         # calculate overlap between positions
         self.optimizable.areaOverlap = abs(np.sum(Q**2*np.exp(-1.j*2*np.pi*(Fx*sx+Fy*sy)), axis=(-1, -2)))/\
@@ -718,7 +728,7 @@ class BaseReconstructor(object):
         elif self.intensityConstraint == 'exponential':
             x = self.currentDetectorError/(self.optimizable.Iestimated+gimmel)
             W = xp.exp(-0.05 * x)
-            frac = xp.sqrt( self.optimizable.Imeasured / (self.optimizable.Iestimated + gimmel) )
+            frac = xp.sqrt( self.optimizable.Imeasured / (self.optimizable.Iestimated + gimmel))
             frac = W * frac + (1-W)
 
         elif self.intensityConstraint == 'poission':
@@ -726,6 +736,9 @@ class BaseReconstructor(object):
 
         elif self.intensityConstraint == 'standard':
             frac = xp.sqrt(self.optimizable.Imeasured / (self.optimizable.Iestimated + gimmel))
+
+        elif self.intensityConstraint == 'interferometric':
+            frac = xp.sqrt(self.optimizable.Imeasured / (self.optimizable.Iestimated + self.optimizable.background + gimmel))
         else:
             raise ValueError('intensity constraint not properly specified!')
 

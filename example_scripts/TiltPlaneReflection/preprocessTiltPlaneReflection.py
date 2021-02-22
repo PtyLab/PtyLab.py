@@ -9,17 +9,19 @@ import os
 import h5py
 from fracPy.utils.visualisation import show3Dslider
 
-filePathForRead = r"\\sun\eikema-witte\group-folder\Phasespace\ptychography\rawData\TATA\ReflectionAngleNIR\Hilan\20210219_174920_VocationalGuidance00001\AVT camera (GT3400)"
+filePathForRead = r"\\sun\eikema-witte\group-folder\Phasespace\ptychography\rawData\TwoLayer\TwoLayerB_700_structured_flip\20210222_175051_VocationalGuidance00001\AVT camera (GT3400)"
 # Reflection_USAF\PtychoOCT\USAF_angle\20201110_133543_VocationalGuidance00001\AVT camera (GT3400)
 # AnnesData_angleCorrectionManuscript\1\AVT camera (GT3400)
 # TATA\ReflectionAngle\Angle_Green_P140\20210216_113459_VocationalGuidanceMini00001\Camera
 # TATA\tiltedReflectionTata\20200906_153713_HG700_structured2\AVT camera (GT3400)
 # TATA\Calibration_USAF_strucruedBeam\20210219_120619_VocationalGuidance00001\AVT camera (GT3400)
 # TATA\ReflectionAngleNIR\Hilan\20210219_174920_VocationalGuidance00001\AVT camera (GT3400)
+# TwoLayer\TwoLayerB_700_structured\20210222_143042_VocationalGuidance00001b\AVT camera (GT3400)
+# TwoLayer\TwoLayerB_700_structured_flip\20210222_175051_VocationalGuidance00001\AVT camera (GT3400)
 filePathForSave = r"D:\Du\Workshop\fracpy\example_scripts\TiltPlaneReflection"
 os.chdir(filePathForRead)
 
-fileName = 'Hilan_700'
+fileName = 'TwoLayerB_700_structured_flip'
 # wavelength
 wavelength = 708.8e-9 #708.8e-9
 # binning
@@ -29,9 +31,9 @@ padFactor = 1
 # set magnification if any objective lens is used
 magfinication = 1
 # object detector distance  (initial guess)
-zo = 0.07   #0.064
+zo = 0.07   #0.064  # USAF calibration 70.81 mm
 # reflection angle
-theta = 43.15
+theta = 43.15  # USAF calibration 43.15
 # set detection geometry
 # A: camera to closer side of stage (allows to bring camera close in transmission)
 # B: camera to further side of stage (doesn't allow to bring close in transmission),
@@ -70,7 +72,8 @@ for k in pbar:
     temp = imageio.imread(framesList[k]).astype('float32')-dark-backgroundOffset
     temp[temp < 0] = 0
     # crop
-    temp = temp[:, N//2-M//2-250:M//2+N//2-1-250]
+    offset = -150
+    temp = temp[:, N//2-M//2-offset:M//2+N//2-1-offset]
     # binning
     temp = rescale(temp, 1/binningFactor, order=0) # order = 0 takes the nearest-neighbor
 
