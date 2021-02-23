@@ -9,6 +9,7 @@ from fracPy.Optimizable.Optimizable import Optimizable
 from fracPy.Optimizable.CalibrationFPM import IlluminationCalibration
 from fracPy.engines import ePIE, mPIE, qNewton, zPIE, e3PIE, pcPIE
 from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray
+from fracPy.Params.Params import Params
 from fracPy.monitors.Monitor import Monitor as Monitor
 import logging
 logging.basicConfig(level=logging.INFO)
@@ -138,47 +139,51 @@ if ptycho_recon:
     # exampleData.dxp = exampleData.dxp/1
     # Run the reconstruction
 
-    ## choose engine
-    # ePIE
-    # engine = ePIE.ePIE(optimizable, exampleData, monitor)
-    # mPIE
-    engine = mPIE.mPIE(optimizable, exampleData, monitor)
-    # zPIE
-    # engine = zPIE.zPIE(optimizable, exampleData, monitor)
-    # e3PIE
-    # engine = e3PIE.e3PIE(optimizable, exampleData, monitor)
-    # pcPIE
-    # engine = pcPIE.pcPIE(optimizable, exampleData, monitor)
-
+    params = Params()
     ## main parameters
-    engine.numIterations = 100
-    engine.positionOrder = 'random'  # 'sequential' or 'random'
-    engine.propagator = 'Fresnel'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
-    engine.betaProbe = 0.25
-    engine.betaObject = 0.25
+    params.numIterations = 50
+    params.positionOrder = 'random'  # 'sequential' or 'random'
+    params.propagator = 'Fresnel'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
 
-    ## engine specific parameters:
-    engine.zPIEgradientStepSize = 200  # gradient step size for axial position correction (typical range [1, 100])
 
     ## switches
-    engine.gpuSwitch = True
-    engine.probePowerCorrectionSwitch = True
-    engine.modulusEnforcedProbeSwitch = False
-    engine.comStabilizationSwitch = True
-    engine.orthogonalizationSwitch = False
-    engine.orthogonalizationFrequency = 10
-    engine.fftshiftSwitch = False
-    engine.intensityConstraint = 'standard'  # standard fluctuation exponential poission
-    engine.absorbingProbeBoundary = False
-    engine.objectContrastSwitch = False
-    engine.absObjectSwitch = False
-    engine.backgroundModeSwitch = False
-    engine.couplingSwitch = True
-    engine.couplingAleph = 1
-    engine.positionCorrectionSwitch = True
+    params.gpuSwitch = True
+    params.probePowerCorrectionSwitch = True
+    params.modulusEnforcedProbeSwitch = False
+    params.comStabilizationSwitch = True
+    params.orthogonalizationSwitch = False
+    params.orthogonalizationFrequency = 10
+    params.fftshiftSwitch = False
+    params.intensityConstraint = 'standard'  # standard fluctuation exponential poission
+    params.absorbingProbeBoundary = False
+    params.objectContrastSwitch = False
+    params.absObjectSwitch = False
+    params.backgroundModeSwitch = False
+    params.couplingSwitch = True
+    params.couplingAleph = 1
+    params.positionCorrectionSwitch = False
 
+    ## choose engine
+    # ePIE
+    # engine = ePIE.ePIE(optimizable, exampleData, params,monitor)
+    # mPIE
+    engine = mPIE.mPIE(optimizable, exampleData, params, monitor)
+    # zPIE
+    # engine = zPIE.zPIE(optimizable, exampleData, params,monitor)
+    ## engine specific parameters:
+    # params.zPIEgradientStepSize = 200  # gradient step size for axial position correction (typical range [1, 100])
+
+    # e3PIE
+    # engine = e3PIE.e3PIE(optimizable, exampleData, params,monitor)
+    # pcPIE
+    # engine = pcPIE.pcPIE(optimizable, exampleData, params,monitor)
+
+    params.betaProbe = 0.25
+    params.betaObject = 0.25
     engine.doReconstruction()
 
+    engine = ePIE.ePIE(optimizable, exampleData, params, monitor)
+    engine.doReconstruction()
 
     # now save the data
     # optimizable.saveResults('reconstruction.hdf5')

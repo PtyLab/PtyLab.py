@@ -6,17 +6,18 @@ from fracPy.monitors.Monitor import Monitor
 from fracPy.utils.utils import ifft2c, fft2c, orthogonalizeModes, circ
 from fracPy.operators.operators import aspw, scaledASP
 import cupy as cp
+import logging
 
 class Params(object):
-    def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData, monitor: Monitor):
+    def __init__(self):#, optimizable: Optimizable, experimentalData: ExperimentalData, monitor: Monitor):
         # These statements don't copy any data, they just keep a reference to the object
-        self.optimizable = optimizable
-        self.experimentalData = experimentalData
-        self.monitor = monitor
-        self.monitor.optimizable = optimizable
+        # self.optimizable = optimizable
+        # self.experimentalData = experimentalData
+        # self.monitor = monitor
+        # self.monitor.optimizable = optimizable
 
         # datalogger
-        # self.logger = logging.getLogger('Params')
+        self.logger = logging.getLogger('Params')
         
         # Default settings for switches, settings that involve how things are computed
         self.fftshiftSwitch = False
@@ -70,5 +71,5 @@ class Params(object):
         self.objectContrastSwitch = False  # pushes object to zero outside ROI
         self.positionCorrectionSwitch = False  # position correction for encoder
 
-        self.initializeSwitchFlag = True  # need to be the last
+
 

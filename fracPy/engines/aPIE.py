@@ -44,18 +44,18 @@ class aPIE(BaseReconstructor):
         Set parameters that are specific to the ePIE settings.
         :return:
         """
-        self.betaProbe = 0.25
-        self.betaObject = 0.25
-        self.aPIEfriction = 0.7
-        self.feedback = 0.5
+        self.params.betaProbe = 0.25
+        self.params.betaObject = 0.25
+        self.params.aPIEfriction = 0.7
+        self.params.feedback = 0.5
 
-        if not hasattr(self, 'thetaMomentum'):
-            self.thetaMomentum = 0
-        if not hasattr(self, 'thetaHistory'):
-            self.thetaHistory = np.array([])
+        if not hasattr(self.optimizable, 'thetaMomentum'):
+            self.optimizable.thetaMomentum = 0
+        if not hasattr(self.optimizable, 'thetaHistory'):
+            self.optimizable.thetaHistory = np.array([])
 
-        self.thetaSearchRadiusMin = 0.01
-        self.thetaSearchRadiusMax = 0.1
+        self.params.thetaSearchRadiusMin = 0.01
+        self.params.thetaSearchRadiusMax = 0.1
         self.experimentalData.W = np.ones_like(self.experimentalData.Xd)
 
         if self.optimizable.theta == None:
@@ -67,15 +67,17 @@ class aPIE(BaseReconstructor):
         xp = getArrayModule(self.optimizable.object)
 
         # linear search
-        thetaSearchRadiusList = np.linspace(self.thetaSearchRadiusMax, self.thetaSearchRadiusMin, self.params.numIterations)
+        thetaSearchRadiusList = np.linspace(self.params.thetaSearchRadiusMax, self.params.thetaSearchRadiusMin,
+                                            self.params.numIterations)
 
         self.pbar = tqdm.trange(self.params.numIterations, desc='angle updated: theta = ', leave=True)
         for loop in self.pbar:
             # save theta search history
-            self.thetaHistory = np.append(self.thetaHistory, asNumpyArray(self.optimizable.theta))
+            self.optimizable.thetaHistory = np.append(self.optimizable.thetaHistory, asNumpyArray(self.optimizable.theta))
 
             # select two angles (todo check if three angles behave better)
-            theta = np.array([self.optimizable.theta, self.optimizable.theta + thetaSearchRadiusList[loop] * (-1 + 2 * np.random.rand())]) + self.thetaMomentum
+            theta = np.array([self.optimizable.theta, self.optimizable.theta + thetaSearchRadiusList[loop] *
+                              (-1 + 2 * np.random.rand())]) + self.optimizable.thetaMomentum
 
             # save object and probe
             probeTemp = self.optimizable.probe.copy()
@@ -172,10 +174,10 @@ class aPIE(BaseReconstructor):
                 self.optimizable.object = objectBuffer[0]
                 self.optimizable.error = np.append(self.optimizable.error, errorTemp[0])
 
-            self.thetaMomentum = self.feedback * dtheta + self.aPIEfriction * self.thetaMomentum
+            self.optimizable.thetaMomentum = self.params.feedback * dtheta + self.params.aPIEfriction * self.optimizable.thetaMomentum
             # print updated theta
             self.pbar.set_description('aPIE: update a=%.3f deg (search radius=%.3f deg, thetaMomentum=%.3f deg)'
-                                      % (self.optimizable.theta, thetaSearchRadiusList[loop], self.thetaMomentum))
+                                      % (self.optimizable.theta, thetaSearchRadiusList[loop], self.optimizable.thetaMomentum))
 
             # show reconstruction
             if loop == 0:
@@ -189,18 +191,24 @@ class aPIE(BaseReconstructor):
                 plt.show(block=False)
 
             elif np.mod(loop, self.monitor.figureUpdateFrequency) == 0:
-                idx = np.linspace(0, np.log10(len(self.thetaHistory) - 1), np.minimum(len(self.thetaHistory), 100))
+                idx = np.linspace(0, np.log10(len(self.optimizable.thetaHistory) - 1),
+                                  np.minimum(len(self.optimizable.thetaHistory), 100))
                 idx = np.rint(10 ** idx).astype('int')
 
                 line.set_xdata(idx)
-                line.set_ydata(np.array(self.thetaHistory)[idx])
+                line.set_ydata(np.array(self.optimizable.thetaHistory)[idx])
                 ax.set_xlim(0, np.max(idx))
-                ax.set_ylim(min(self.thetaHistory), max(self.thetaHistory))
+                ax.set_ylim(min(self.optimizable.thetaHistory), max(self.optimizable.thetaHistory))
 
                 figure.canvas.draw()
                 figure.canvas.flush_events()
 
             self.showReconstruction(loop)
+
+        if self.params.gpuFlag:
+            self.logger.info('switch to cpu')
+            self._move_data_to_cpu()
+            self.params.gpuFlag = 0
 
         # self.thetaSearchRadiusMax = thetaSearchRadiusList[loop]
 
@@ -216,7 +224,7 @@ class aPIE(BaseReconstructor):
         xp = getArrayModule(objectPatch)
 
         frac = self.optimizable.probe.conj() / xp.max(xp.sum(xp.abs(self.optimizable.probe) ** 2, axis=(0, 1, 2, 3)))
-        return objectPatch + self.betaObject * xp.sum(frac * DELTA, axis=(0, 2, 3), keepdims=True)
+        return objectPatch + self.params.betaObject * xp.sum(frac * DELTA, axis=(0, 2, 3), keepdims=True)
 
     def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
         """
@@ -228,7 +236,7 @@ class aPIE(BaseReconstructor):
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
         frac = objectPatch.conj() / xp.max(xp.sum(xp.abs(objectPatch) ** 2, axis=(0, 1, 2, 3)))
-        r = self.optimizable.probe + self.betaProbe * xp.sum(frac * DELTA, axis=(0, 1, 3), keepdims=True)
+        r = self.optimizable.probe + self.params.betaProbe * xp.sum(frac * DELTA, axis=(0, 1, 3), keepdims=True)
         return r
 
 

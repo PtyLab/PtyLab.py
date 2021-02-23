@@ -12,6 +12,7 @@ except ImportError:
 from fracPy.Optimizable.Optimizable import Optimizable
 from fracPy.engines.BaseReconstructor import BaseReconstructor
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
+from fracPy.Params.Params import Params
 from fracPy.utils.gpuUtils import getArrayModule
 from fracPy.monitors.Monitor import Monitor
 from fracPy.utils.utils import fft2c, ifft2c
@@ -22,10 +23,10 @@ import sys
 
 class ePIE(BaseReconstructor):
 
-    def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData, monitor: Monitor):
+    def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData, params: Params, monitor: Monitor):
         # This contains reconstruction parameters that are specific to the reconstruction
         # but not necessarily to ePIE reconstruction
-        super().__init__(optimizable, experimentalData,monitor)
+        super().__init__(optimizable, experimentalData, params, monitor)
         self.logger = logging.getLogger('ePIE')
         self.logger.info('Sucesfully created ePIE ePIE_engine')
         self.logger.info('Wavelength attribute: %s', self.optimizable.wavelength)
@@ -36,15 +37,15 @@ class ePIE(BaseReconstructor):
         Set parameters that are specific to the ePIE settings.
         :return:
         """
-        self.betaProbe = 0.25
-        self.betaObject = 0.25
+        self.params.betaProbe = 0.25
+        self.params.betaObject = 0.25
 
 
     def doReconstruction(self):
         self._prepareReconstruction()
 
         # actual reconstruction ePIE_engine
-        self.pbar = tqdm.trange(self.numIterations, desc='ePIE', file=sys.stdout, leave=True)
+        self.pbar = tqdm.trange(self.params.numIterations, desc='ePIE', file=sys.stdout, leave=True)
         for loop in self.pbar:
             # set position order
             self.setPositionOrder()
@@ -80,6 +81,11 @@ class ePIE(BaseReconstructor):
             # show reconstruction
             self.showReconstruction(loop)
 
+        if self.params.gpuFlag:
+            self.logger.info('switch to cpu')
+            self._move_data_to_cpu()
+            self.params.gpuFlag = 0
+
 
     def objectPatchUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
         """
@@ -92,7 +98,7 @@ class ePIE(BaseReconstructor):
         xp = getArrayModule(objectPatch)
 
         frac = self.optimizable.probe.conj() / xp.max(xp.sum(xp.abs(self.optimizable.probe) ** 2, axis=(0,1,2,3)))
-        return objectPatch + self.betaObject * xp.sum(frac * DELTA, axis=(0,2,3), keepdims=True)
+        return objectPatch + self.params.betaObject * xp.sum(frac * DELTA, axis=(0,2,3), keepdims=True)
 
        
     def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
@@ -105,7 +111,7 @@ class ePIE(BaseReconstructor):
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
         frac = objectPatch.conj() / xp.max(xp.sum(xp.abs(objectPatch) ** 2, axis=(0,1,2,3)))
-        r = self.optimizable.probe + self.betaProbe * xp.sum(frac * DELTA, axis=(0,1,3), keepdims=True)
+        r = self.optimizable.probe + self.params.betaProbe * xp.sum(frac * DELTA, axis=(0,1,3), keepdims=True)
         return r
 
 
