@@ -22,7 +22,7 @@ from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray
 from fracPy.monitors.Monitor import Monitor
 from fracPy.operators.operators import aspw
 import logging
-
+import sys
 
 class aPIE(BaseReconstructor):
     """
@@ -44,18 +44,18 @@ class aPIE(BaseReconstructor):
         Set parameters that are specific to the ePIE settings.
         :return:
         """
-        self.params.betaProbe = 0.25
-        self.params.betaObject = 0.25
-        self.params.aPIEfriction = 0.7
-        self.params.feedback = 0.5
+        self.betaProbe = 0.25
+        self.betaObject = 0.25
+        self.aPIEfriction = 0.7
+        self.feedback = 0.5
 
         if not hasattr(self.optimizable, 'thetaMomentum'):
             self.optimizable.thetaMomentum = 0
         if not hasattr(self.optimizable, 'thetaHistory'):
             self.optimizable.thetaHistory = np.array([])
 
-        self.params.thetaSearchRadiusMin = 0.01
-        self.params.thetaSearchRadiusMax = 0.1
+        self.thetaSearchRadiusMin = 0.01
+        self.thetaSearchRadiusMax = 0.1
         self.experimentalData.W = np.ones_like(self.experimentalData.Xd)
 
         if self.optimizable.theta == None:
@@ -67,10 +67,10 @@ class aPIE(BaseReconstructor):
         xp = getArrayModule(self.optimizable.object)
 
         # linear search
-        thetaSearchRadiusList = np.linspace(self.params.thetaSearchRadiusMax, self.params.thetaSearchRadiusMin,
-                                            self.params.numIterations)
+        thetaSearchRadiusList = np.linspace(self.thetaSearchRadiusMax, self.thetaSearchRadiusMin,
+                                            self.numIterations)
 
-        self.pbar = tqdm.trange(self.params.numIterations, desc='angle updated: theta = ', leave=True)
+        self.pbar = tqdm.trange(self.numIterations, desc='aPIE', file=sys.stdout, leave=True)
         for loop in self.pbar:
             # save theta search history
             self.optimizable.thetaHistory = np.append(self.optimizable.thetaHistory, asNumpyArray(self.optimizable.theta))
@@ -174,7 +174,7 @@ class aPIE(BaseReconstructor):
                 self.optimizable.object = objectBuffer[0]
                 self.optimizable.error = np.append(self.optimizable.error, errorTemp[0])
 
-            self.optimizable.thetaMomentum = self.params.feedback * dtheta + self.params.aPIEfriction * self.optimizable.thetaMomentum
+            self.optimizable.thetaMomentum = self.feedback * dtheta + self.aPIEfriction * self.optimizable.thetaMomentum
             # print updated theta
             self.pbar.set_description('aPIE: update a=%.3f deg (search radius=%.3f deg, thetaMomentum=%.3f deg)'
                                       % (self.optimizable.theta, thetaSearchRadiusList[loop], self.optimizable.thetaMomentum))
@@ -224,7 +224,7 @@ class aPIE(BaseReconstructor):
         xp = getArrayModule(objectPatch)
 
         frac = self.optimizable.probe.conj() / xp.max(xp.sum(xp.abs(self.optimizable.probe) ** 2, axis=(0, 1, 2, 3)))
-        return objectPatch + self.params.betaObject * xp.sum(frac * DELTA, axis=(0, 2, 3), keepdims=True)
+        return objectPatch + self.betaObject * xp.sum(frac * DELTA, axis=(0, 2, 3), keepdims=True)
 
     def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
         """
@@ -236,7 +236,7 @@ class aPIE(BaseReconstructor):
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
         frac = objectPatch.conj() / xp.max(xp.sum(xp.abs(objectPatch) ** 2, axis=(0, 1, 2, 3)))
-        r = self.optimizable.probe + self.params.betaProbe * xp.sum(frac * DELTA, axis=(0, 1, 3), keepdims=True)
+        r = self.optimizable.probe + self.betaProbe * xp.sum(frac * DELTA, axis=(0, 1, 3), keepdims=True)
         return r
 
 

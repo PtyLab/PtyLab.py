@@ -11,18 +11,20 @@ except ImportError:
 from fracPy.Optimizable.Optimizable import Optimizable
 from fracPy.engines.BaseReconstructor import BaseReconstructor
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
+from fracPy.Params.Params import Params
 from fracPy.monitors.Monitor import Monitor
 from fracPy.utils.gpuUtils import getArrayModule
 from fracPy.utils.utils import fft2c, ifft2c
 import logging
-
+import tqdm
+import sys
 
 class qNewton(BaseReconstructor):
 
-    def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData, monitor: Monitor):
+    def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData, params: Params, monitor: Monitor):
         # This contains reconstruction parameters that are specific to the reconstruction
         # but not necessarily to ePIE reconstruction
-        super().__init__(optimizable, experimentalData, monitor)
+        super().__init__(optimizable, experimentalData, params, monitor)
         self.logger = logging.getLogger('qNewton')
         self.logger.info('Sucesfully created qNewton qNewton_engine')
 
@@ -42,8 +44,8 @@ class qNewton(BaseReconstructor):
     def doReconstruction(self):
         self._prepareReconstruction()
 
-        import tqdm
-        for loop in tqdm.tqdm(range(self.numIterations)):
+        self.pbar = tqdm.trange(self.numIterations, desc='qNewton', file=sys.stdout, leave=True)
+        for loop in self.pbar:
             # set position order
             self.setPositionOrder()
             

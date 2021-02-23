@@ -114,8 +114,6 @@ class ExperimentalData:
         if self.ptychogramUntransformed is None:
             self.ptychogramUntransformed = self.ptychogram.copy()
 
-
-
     def showPtychogram(self):
         """
         show ptychogram.
