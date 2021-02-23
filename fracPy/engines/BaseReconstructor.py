@@ -396,19 +396,19 @@ class BaseReconstructor(object):
         if self.params.gpuSwitch:
             if cp is None:
                 raise ImportError('Could not import cupy, turn gpuSwitch to false, perform CPU reconstruction')
-            # if not self.params.gpuFlag:
-            self.logger.info('switch to gpu')
+            if not self.params.gpuFlag:
+                self.logger.info('switch to gpu')
 
-            # clear gpu to prevent memory issues todo
+                # clear gpu to prevent memory issues todo
 
-            # load data to gpu
-            self._move_data_to_gpu()
-            self.params.gpuFlag = 1
+                # load data to gpu
+                self._move_data_to_gpu()
+                self.params.gpuFlag = 1
         else:
-            # if self.params.gpuFlag:
-            self.logger.info('switch to cpu')
-            self._move_data_to_cpu()
-            self.params.gpuFlag = 0
+            if self.params.gpuFlag:
+                self.logger.info('switch to cpu')
+                self._move_data_to_cpu()
+                self.params.gpuFlag = 0
 
     def setPositionOrder(self):
         if self.params.positionOrder == 'sequential':

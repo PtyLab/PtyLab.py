@@ -20,6 +20,7 @@ from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray
 from fracPy.monitors.Monitor import Monitor
 from fracPy.operators.operators import aspw
 import logging
+import sys
 
 
 class zPIE(BaseReconstructor):
@@ -38,11 +39,11 @@ class zPIE(BaseReconstructor):
         Set parameters that are specific to the ePIE settings.
         :return:
         """
-        self.params.betaProbe = 0.25
-        self.params.betaObject = 0.25
+        self.betaProbe = 0.25
+        self.betaObject = 0.25
         self.optimizable.DoF = self.experimentalData.DoF
-        self.params.zPIEgradientStepSize = 100  #gradient step size for axial position correction (typical range [1, 100])
-        self.params.zPIEfriction = 0.7
+        self.zPIEgradientStepSize = 100  #gradient step size for axial position correction (typical range [1, 100])
+        self.zPIEfriction = 0.7
 
 
     def doReconstruction(self):
@@ -64,7 +65,7 @@ class zPIE(BaseReconstructor):
         X,Y = xp.meshgrid(xp.arange(-n//2, n//2), xp.arange(-n//2, n//2))
         w = xp.exp(-(xp.sqrt(X**2+Y**2)/self.experimentalData.Np)**4)
 
-        self.pbar = tqdm.trange(self.params.numIterations, desc='zPIE', leave=True)  # in order to change description to the tqdm progress bar
+        self.pbar = tqdm.trange(self.numIterations, desc='zPIE', file=sys.stdout, leave=True)  # in order to change description to the tqdm progress bar
         for loop in self.pbar:
             # set position order
             self.setPositionOrder()
@@ -92,7 +93,7 @@ class zPIE(BaseReconstructor):
                     merit.append(asNumpyArray(xp.sum(xp.sqrt(abs(gradx)**2+abs(grady)**2+aleph))))
 
                 feedback = np.sum(dz*merit)/np.sum(merit)    # at optimal z, feedback term becomes 0
-                zMomentun = self.params.zPIEfriction*zMomentun+self.params.zPIEgradientStepSize*feedback
+                zMomentun = self.zPIEfriction*zMomentun+self.zPIEgradientStepSize*feedback
                 zNew = self.experimentalData.zo+zMomentun
 
             self.optimizable.zHistory.append(self.experimentalData.zo)
@@ -181,7 +182,7 @@ class zPIE(BaseReconstructor):
         xp = getArrayModule(objectPatch)
 
         frac = self.optimizable.probe.conj() / xp.max(xp.sum(xp.abs(self.optimizable.probe) ** 2, axis=(0, 1, 2, 3)))
-        return objectPatch + self.params.betaObject * xp.sum(frac * DELTA, axis=(0, 2, 3), keepdims=True)
+        return objectPatch + self.betaObject * xp.sum(frac * DELTA, axis=(0, 2, 3), keepdims=True)
 
     def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
         """
@@ -193,7 +194,7 @@ class zPIE(BaseReconstructor):
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
         frac = objectPatch.conj() / xp.max(xp.sum(xp.abs(objectPatch) ** 2, axis=(0, 1, 2, 3)))
-        r = self.optimizable.probe + self.params.betaProbe * xp.sum(frac * DELTA, axis=(0, 1, 3), keepdims=True)
+        r = self.optimizable.probe + self.betaProbe * xp.sum(frac * DELTA, axis=(0, 1, 3), keepdims=True)
         return r
 
 

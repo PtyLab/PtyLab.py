@@ -114,17 +114,6 @@ class ExperimentalData:
         if self.ptychogramUntransformed is None:
             self.ptychogramUntransformed = self.ptychogram.copy()
 
-
-    # def _checkData(self):
-    #     """
-    #     Check that at least all the data we need has been initialized.
-    #     :return: None
-    #     :raise: ValueError when one of the required fields are missing.
-    #     """
-    #     if self.ptychogram is None:
-    #         raise ValueError('ptychogram is not loaded correctly.')
-
-
     def showPtychogram(self):
         """
         show ptychogram.

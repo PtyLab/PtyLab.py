@@ -37,15 +37,15 @@ class ePIE(BaseReconstructor):
         Set parameters that are specific to the ePIE settings.
         :return:
         """
-        self.params.betaProbe = 0.25
-        self.params.betaObject = 0.25
+        self.betaProbe = 0.25
+        self.betaObject = 0.25
 
 
     def doReconstruction(self):
         self._prepareReconstruction()
 
         # actual reconstruction ePIE_engine
-        self.pbar = tqdm.trange(self.params.numIterations, desc='ePIE', file=sys.stdout, leave=True)
+        self.pbar = tqdm.trange(self.numIterations, desc='ePIE', file=sys.stdout, leave=True)
         for loop in self.pbar:
             # set position order
             self.setPositionOrder()
@@ -98,7 +98,7 @@ class ePIE(BaseReconstructor):
         xp = getArrayModule(objectPatch)
 
         frac = self.optimizable.probe.conj() / xp.max(xp.sum(xp.abs(self.optimizable.probe) ** 2, axis=(0,1,2,3)))
-        return objectPatch + self.params.betaObject * xp.sum(frac * DELTA, axis=(0,2,3), keepdims=True)
+        return objectPatch + self.betaObject * xp.sum(frac * DELTA, axis=(0,2,3), keepdims=True)
 
        
     def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
@@ -111,7 +111,7 @@ class ePIE(BaseReconstructor):
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
         frac = objectPatch.conj() / xp.max(xp.sum(xp.abs(objectPatch) ** 2, axis=(0,1,2,3)))
-        r = self.optimizable.probe + self.params.betaProbe * xp.sum(frac * DELTA, axis=(0,1,3), keepdims=True)
+        r = self.optimizable.probe + self.betaProbe * xp.sum(frac * DELTA, axis=(0,1,3), keepdims=True)
         return r
 
 

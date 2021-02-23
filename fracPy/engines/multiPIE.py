@@ -39,12 +39,12 @@ class multiPIE(BaseReconstructor):
         :return:
         """
         # self.eswUpdate = self.optimizable.esw.copy()
-        self.params.betaProbe = 0.25
-        self.params.betaObject = 0.25
-        self.params.alphaProbe = 0.1  # probe regularization
-        self.params.alphaObject = 0.1  # object regularization
-        self.params.betaM = 0.3  # feedback
-        self.params.stepM = 0.7  # friction
+        self.betaProbe = 0.25
+        self.betaObject = 0.25
+        self.alphaProbe = 0.1  # probe regularization
+        self.alphaObject = 0.1  # object regularization
+        self.betaM = 0.3  # feedback
+        self.stepM = 0.7  # friction
         # self.optimizable.probeWindow = np.abs(self.optimizable.probe)
 
         # initialize momentum
@@ -59,7 +59,7 @@ class multiPIE(BaseReconstructor):
 
         # actual reconstruction ePIE_engine
         import tqdm
-        for loop in tqdm.tqdm(range(self.params.numIterations)):
+        for loop in tqdm.tqdm(range(self.numIterations)):
             # set position order
             self.setPositionOrder()
 
@@ -114,8 +114,8 @@ class multiPIE(BaseReconstructor):
         :return:
         """
         gradient = self.optimizable.objectBuffer - self.optimizable.object
-        self.optimizable.objectMomentum = gradient + self.params.stepM * self.optimizable.objectMomentum
-        self.optimizable.object = self.optimizable.object - self.params.betaM * self.optimizable.objectMomentum
+        self.optimizable.objectMomentum = gradient + self.stepM * self.optimizable.objectMomentum
+        self.optimizable.object = self.optimizable.object - self.betaM * self.optimizable.objectMomentum
         self.optimizable.objectBuffer = self.optimizable.object.copy()
 
     def probeMomentumUpdate(self):
@@ -124,8 +124,8 @@ class multiPIE(BaseReconstructor):
         :return:
         """
         gradient = self.optimizable.probeBuffer - self.optimizable.probe
-        self.optimizable.probeMomentum = gradient + self.params.stepM * self.optimizable.probeMomentum
-        self.optimizable.probe = self.optimizable.probe - self.params.betaM * self.optimizable.probeMomentum
+        self.optimizable.probeMomentum = gradient + self.stepM * self.optimizable.probeMomentum
+        self.optimizable.probe = self.optimizable.probe - self.betaM * self.optimizable.probeMomentum
         self.optimizable.probeBuffer = self.optimizable.probe.copy()
 
     def objectPatchUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
@@ -150,10 +150,10 @@ class multiPIE(BaseReconstructor):
         Pmax = xp.max(xp.sum(absP2, axis=(0, 1, 2, 3)), axis=(-1, -2))
         if self.experimentalData.operationMode =='FPM':
             frac = abs(self.optimizable.probe)/Pmax*\
-                   self.optimizable.probe.conj()/(self.params.alphaObject*Pmax+(1-self.params.alphaObject)*absP2)
+                   self.optimizable.probe.conj()/(self.alphaObject*Pmax+(1-self.alphaObject)*absP2)
         else:
-            frac = self.optimizable.probe.conj()/(self.params.alphaObject*Pmax+(1-self.params.alphaObject)*absP2)
-        return objectPatch + self.params.betaObject * xp.sum(frac * DELTA, axis=2, keepdims=True)
+            frac = self.optimizable.probe.conj()/(self.alphaObject*Pmax+(1-self.alphaObject)*absP2)
+        return objectPatch + self.betaObject * xp.sum(frac * DELTA, axis=2, keepdims=True)
 
     def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
         """
@@ -166,8 +166,8 @@ class multiPIE(BaseReconstructor):
         xp = getArrayModule(objectPatch)
         absO2 = xp.abs(objectPatch) ** 2
         Omax = xp.max(xp.sum(absO2, axis=(0, 1, 2, 3)), axis=(-1, -2))
-        frac = objectPatch.conj() / (self.params.alphaProbe * Omax + (1 - self.params.alphaProbe) * absO2)
-        r = self.optimizable.probe + self.params.betaProbe * xp.sum(frac * DELTA, axis=0, keepdims=True)
+        frac = objectPatch.conj() / (self.alphaProbe * Omax + (1 - self.alphaProbe) * absO2)
+        r = self.optimizable.probe + self.betaProbe * xp.sum(frac * DELTA, axis=0, keepdims=True)
         return r
 
 
