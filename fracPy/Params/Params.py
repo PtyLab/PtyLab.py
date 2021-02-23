@@ -1,20 +1,7 @@
-import numpy as np
-import warnings
-from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
-from fracPy.Optimizable.Optimizable import Optimizable
-from fracPy.monitors.Monitor import Monitor
-from fracPy.utils.utils import ifft2c, fft2c, orthogonalizeModes, circ
-from fracPy.operators.operators import aspw, scaledASP
-import cupy as cp
 import logging
 
 class Params(object):
-    def __init__(self):#, optimizable: Optimizable, experimentalData: ExperimentalData, monitor: Monitor):
-        # These statements don't copy any data, they just keep a reference to the object
-        # self.optimizable = optimizable
-        # self.experimentalData = experimentalData
-        # self.monitor = monitor
-        # self.monitor.optimizable = optimizable
+    def __init__(self):
 
         # datalogger
         self.logger = logging.getLogger('Params')

@@ -144,7 +144,8 @@ if ptycho_recon:
     params.numIterations = 50
     params.positionOrder = 'random'  # 'sequential' or 'random'
     params.propagator = 'Fresnel'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
-
+    params.betaProbe = 0.25
+    params.betaObject = 0.25
 
     ## switches
     params.gpuSwitch = True
@@ -178,8 +179,6 @@ if ptycho_recon:
     # pcPIE
     # engine = pcPIE.pcPIE(optimizable, exampleData, params,monitor)
 
-    params.betaProbe = 0.25
-    params.betaObject = 0.25
     engine.doReconstruction()
 
     engine = ePIE.ePIE(optimizable, exampleData, params, monitor)

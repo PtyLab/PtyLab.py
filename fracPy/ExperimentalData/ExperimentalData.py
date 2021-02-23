@@ -110,19 +110,10 @@ class ExperimentalData:
         if self.positions0 is None:
             self.positions0 = self.positions.copy()
         if self.spectralDensity is None:
-            self.spectralDensity = [self.wavelength]
+            self.spectralDensity = np.array(self.wavelength)
         if self.ptychogramUntransformed is None:
             self.ptychogramUntransformed = self.ptychogram.copy()
 
-
-    # def _checkData(self):
-    #     """
-    #     Check that at least all the data we need has been initialized.
-    #     :return: None
-    #     :raise: ValueError when one of the required fields are missing.
-    #     """
-    #     if self.ptychogram is None:
-    #         raise ValueError('ptychogram is not loaded correctly.')
 
 
     def showPtychogram(self):
@@ -258,9 +249,6 @@ class ExperimentalData:
                 positions = np.round(self.encoder/self.dxo)  # encoder is in m, positions0 and positions are in pixels
             positions = positions + self.No//2 - self.Np//2
             return positions.astype(int)
-        # positions = np.round(self.encoder/self.dxo)  # encoder is in m, positions0 and positions are in pixels
-        # positions = positions + self.No//2 - self.Np//2
-        # return positions.astype(int)
 
     # system property list
     @property
