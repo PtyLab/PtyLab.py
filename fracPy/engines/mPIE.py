@@ -12,6 +12,7 @@ except ImportError:
 from fracPy.Optimizable.Optimizable import Optimizable
 from fracPy.engines.BaseReconstructor import BaseReconstructor
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
+from fracPy.Params.Params import Params
 from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray
 from fracPy.monitors.Monitor import Monitor
 from fracPy.utils.utils import fft2c, ifft2c
@@ -22,10 +23,10 @@ import sys
 
 class mPIE(BaseReconstructor):
 
-    def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData, monitor: Monitor):
+    def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData, params: Params, monitor: Monitor):
         # This contains reconstruction parameters that are specific to the reconstruction
         # but not necessarily to ePIE reconstruction
-        super().__init__(optimizable, experimentalData,monitor)
+        super().__init__(optimizable, experimentalData, params, monitor)
         self.logger = logging.getLogger('mPIE')
         self.logger.info('Sucesfully created mPIE mPIE_engine')
         self.logger.info('Wavelength attribute: %s', self.optimizable.wavelength)
@@ -37,7 +38,7 @@ class mPIE(BaseReconstructor):
         # set object and probe buffers
         self.optimizable.objectBuffer = self.optimizable.object.copy()
         self.optimizable.probeBuffer = self.optimizable.probe.copy()
-        self.momentumAcceleration = True
+        self.params.momentumAcceleration = True
         
     def initializeReconstructionParams(self):
         """
@@ -58,7 +59,7 @@ class mPIE(BaseReconstructor):
         self._prepareReconstruction()
 
         # actual reconstruction MPIE_engine
-        self.pbar = tqdm.trange(self.numIterations, desc='mPIE', file=sys.stdout, leave=True)
+        self.pbar = tqdm.trange(self.params.numIterations, desc='mPIE', file=sys.stdout, leave=True)
         for loop in self.pbar:
             # set position order
             self.setPositionOrder()
@@ -100,10 +101,10 @@ class mPIE(BaseReconstructor):
             # show reconstruction
             self.showReconstruction(loop)
 
-        if self.gpuFlag:
+        if self.params.gpuFlag:
             self.logger.info('switch to cpu')
             self._move_data_to_cpu()
-            self.gpuFlag = 0
+            self.params.gpuFlag = 0
 
             #todo clearMemory implementation
 

@@ -17,6 +17,7 @@ except ImportError:
 from fracPy.Optimizable.Optimizable import Optimizable
 from fracPy.engines.BaseReconstructor import BaseReconstructor
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
+from fracPy.Params.Params import Params
 from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray
 from fracPy.monitors.Monitor import Monitor
 from fracPy.operators.operators import aspw
@@ -28,13 +29,13 @@ class aPIE(BaseReconstructor):
     aPIE: angle correction PIE: ePIE combined with Luus-Jaakola algorithm (the latter for angle correction) + momentum
     """
 
-    def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData, monitor: Monitor):
+    def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData, params: Params, monitor: Monitor):
         # This contains reconstruction parameters that are specific to the reconstruction
         # but not necessarily to aPIE reconstruction
-        super().__init__(optimizable, experimentalData, monitor)
+        super().__init__(optimizable, experimentalData, params, monitor)
         self.logger = logging.getLogger('aPIE')
         self.logger.info('Sucesfully created aPIE aPIE_engine')
-        self.logger.info('Wavelength attribute: %s', self.optimizable.wavelength)
+        self.logger.info('Wavelength attribute: %s', self.experimentalData.wavelength)
         self.initializeReconstructionParams()
 
 
@@ -55,7 +56,7 @@ class aPIE(BaseReconstructor):
 
         self.thetaSearchRadiusMin = 0.01
         self.thetaSearchRadiusMax = 0.1
-        self.W = np.ones_like(self.experimentalData.Xd)
+        self.experimentalData.W = np.ones_like(self.experimentalData.Xd)
 
         if self.optimizable.theta == None:
             raise ValueError('theta value is not given')
@@ -66,9 +67,9 @@ class aPIE(BaseReconstructor):
         xp = getArrayModule(self.optimizable.object)
 
         # linear search
-        thetaSearchRadiusList = np.linspace(self.thetaSearchRadiusMax, self.thetaSearchRadiusMin, self.numIterations)
+        thetaSearchRadiusList = np.linspace(self.thetaSearchRadiusMax, self.thetaSearchRadiusMin, self.params.numIterations)
 
-        self.pbar = tqdm.trange(self.numIterations, desc='angle updated: theta = ', leave=True)
+        self.pbar = tqdm.trange(self.params.numIterations, desc='angle updated: theta = ', leave=True)
         for loop in self.pbar:
             # save theta search history
             self.thetaHistory = np.append(self.thetaHistory, asNumpyArray(self.optimizable.theta))
@@ -105,18 +106,18 @@ class aPIE(BaseReconstructor):
                 self.experimentalData.ptychogram = self.experimentalData.ptychogram / np.linalg.norm(
                     self.experimentalData.ptychogram) * np.linalg.norm(self.experimentalData.ptychogramUntransformed)
 
-                self.W = np.ones_like(self.experimentalData.Xd)
-                fw = interp2d(self.experimentalData.xd, self.experimentalData.xd, self.W, kind='linear', fill_value=0)
-                self.W = abs(fw(Xq[0], self.experimentalData.xd))
-                self.W = np.nan_to_num(self.W)
-                self.W[self.W == 0] = 1e-3
-                self.W = xp.array(self.W)
+                self.experimentalData.W = np.ones_like(self.experimentalData.Xd)
+                fw = interp2d(self.experimentalData.xd, self.experimentalData.xd, self.experimentalData.W, kind='linear', fill_value=0)
+                self.experimentalData.W = abs(fw(Xq[0], self.experimentalData.xd))
+                self.experimentalData.W = np.nan_to_num(self.experimentalData.W)
+                self.experimentalData.W[self.experimentalData.W == 0] = 1e-3
+                self.experimentalData.W = xp.array(self.experimentalData.W)
 
 
                 # todo check if it is right
-                if self.fftshiftSwitch:
-                    self.ptychogram = xp.fft.ifftshift(self.experimentalData.ptychogram, axes=(-1, -2))
-                    self.W = xp.fft.ifftshift(self.W, axes=(-1, -2))
+                if self.params.fftshiftSwitch:
+                    self.experimentalData.ptychogram = xp.fft.ifftshift(self.experimentalData.ptychogram, axes=(-1, -2))
+                    self.experimentalData.W = xp.fft.ifftshift(self.experimentalData.W, axes=(-1, -2))
 
                 # set position order
                 self.setPositionOrder()

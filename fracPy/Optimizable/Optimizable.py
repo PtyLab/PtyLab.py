@@ -81,6 +81,7 @@ class Optimizable(object):
             self.initialObject = 'ones'
 
         self.theta = None
+        self.purity = 1  # default initial value for plots.
 
     def prepare_reconstruction(self):
         
