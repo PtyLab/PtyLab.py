@@ -1050,19 +1050,3 @@ class BaseReconstructor(object):
         self.detector2object()
         self.optimizable.probe = self.optimizable.esw
 
-
-    def saveResults(self, fileName = 'recent',type = 'all'):
-        if type == 'all':
-            hf = h5py.File(fileName + '_Reconstruction.hdf5', 'w')
-            hf.create_dataset('probe', data=self.optimizable.probe, dtype='complex64')
-            hf.create_dataset('object', data=self.optimizable.object, dtype='complex64')
-            hf.create_dataset('error', data=self.optimizable.error, dtype='f')
-        elif type == 'probe':
-            hf = h5py.File(fileName + '_probe.hdf5', 'w')
-            hf.create_dataset('probe', data=self.optimizable.probe, dtype='complex64')
-        elif type == 'object':
-            hf = h5py.File(fileName + '_object.hdf5', 'w')
-            hf.create_dataset('object', data=self.optimizable.object, dtype='complex64')
-
-        hf.close()
-        print('The reconstruction results (%s) have been saved' %type)

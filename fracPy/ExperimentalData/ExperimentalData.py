@@ -110,7 +110,7 @@ class ExperimentalData:
         if self.positions0 is None:
             self.positions0 = self.positions.copy()
         if self.spectralDensity is None:
-            self.spectralDensity = np.array(self.wavelength)
+            self.spectralDensity = np.atleast_1d(np.array(self.wavelength))
         if self.ptychogramUntransformed is None:
             self.ptychogramUntransformed = self.ptychogram.copy()
 
