@@ -716,7 +716,7 @@ class IlluminationCalibration():
         # lastly pre-process positions into the correct form defined in the exampleData class
         positionsFitted = positionsFitted + self.No//2 - self.Np//2
 
-        return positionsFitted, newNA, calibMatrix
+        return positionsFitted.astype(int), newNA, calibMatrix
     
 def fitCoordinates(src, dst, mode):
     """

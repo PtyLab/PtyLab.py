@@ -7,7 +7,7 @@ from fracPy.io import getExampleDataFolder
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Optimizable.Optimizable import Optimizable
 from fracPy.Optimizable.CalibrationFPM import IlluminationCalibration
-from fracPy.engines import ePIE, mPIE, qNewton, zPIE, e3PIE, pcPIE
+from fracPy.engines import ePIE, mPIE, qNewton, mqNewton, zPIE, e3PIE, pcPIE
 from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray
 from fracPy.Params.Params import Params
 from fracPy.monitors.Monitor import Monitor as Monitor
@@ -92,6 +92,18 @@ params.backgroundModeSwitch = False
 params.couplingSwitch = True
 params.couplingAleph = 1
 params.positionCorrectionSwitch = False
+
+
+engine = mqNewton.mqNewton(optimizable, exampleData, params, monitor)
+engine.numIterations = 50
+engine.betaProbe = 1
+engine.betaObject = 1
+engine.beta1 = 0.5
+engine.beta2 = 0.5
+engine.betaProbe_m = 1
+engine.betaObject_m = 1
+engine.momentum_method = 'NADAM'
+engine.doReconstruction()
 
 ## choose engine
 # ePIE

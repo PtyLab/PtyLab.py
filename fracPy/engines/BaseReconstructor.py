@@ -323,7 +323,8 @@ class BaseReconstructor(object):
             self.optimizable.objectBuffer = cp.array(self.optimizable.objectBuffer, cp.complex64)
             self.optimizable.probeMomentum = cp.array(self.optimizable.probeMomentum, cp.complex64)
             self.optimizable.objectMomentum = cp.array(self.optimizable.objectMomentum, cp.complex64)
-
+        
+        
         # non-optimizable parameters
         self.experimentalData.ptychogram = cp.array(self.experimentalData.ptychogram, cp.float32)
         self.optimizable.detectorError = cp.array(self.optimizable.detectorError)
@@ -343,7 +344,7 @@ class BaseReconstructor(object):
         # other parameters
         if self.params.backgroundModeSwitch:
             self.background = cp.array(self.background)
-        if self.params.absorbingProbeBoundary:
+        if self.params.absorbingProbeBoundary or self.params.probeBoundary:
             self.probeWindow = cp.array(self.probeWindow)
         if self.params.modulusEnforcedProbeSwitch:
             self.experimentalData.emptyBeam = cp.array(self.experimentalData.emptyBeam)
@@ -384,7 +385,7 @@ class BaseReconstructor(object):
         # other parameters
         if self.params.backgroundModeSwitch:
             self.background = self.background.get()
-        if self.params.absorbingProbeBoundary:
+        if self.params.absorbingProbeBoundary or self.params.probeBoundary:
             self.probeWindow = self.probeWindow.get()
         if self.params.modulusEnforcedProbeSwitch:
             self.experimentalData.emptyBeam = self.experimentalData.emptyBeam.get()
@@ -654,6 +655,10 @@ class BaseReconstructor(object):
         else:
             self.optimizable.Imeasured = xp.array(self.experimentalData.ptychogram[positionIndex])
 
+        # adaptive denoising 
+        if self.params.adaptiveDenoisingSwitch:
+            self.adaptiveDenoising()
+            
         self.getRMSD(positionIndex)
 
         # intensity projection constraints
@@ -872,7 +877,7 @@ class BaseReconstructor(object):
 
         if self.params.absorbingProbeBoundary:
             if self.experimentalData.operationMode =='FPM':
-                self.absorbingProbeBoundaryAleph = 100e-2
+                self.absorbingProbeBoundaryAleph = 1
 
             self.optimizable.probe = (1 - self.absorbingProbeBoundaryAleph)*self.optimizable.probe+\
                                      self.absorbingProbeBoundaryAleph*self.optimizable.probe*self.probeWindow
@@ -1050,6 +1055,24 @@ class BaseReconstructor(object):
         self.detector2object()
         self.optimizable.probe = self.optimizable.esw
 
+    def adaptiveDenoising(self):
+        """
+        Use the difference of mean intensities between the low-resolution 
+        object estimate and the low-resolution raw data to estimate the
+        noise floor to be clipped.
+        :return:
+        """
+        # figure out wether or not to use the GPU
+        xp = getArrayModule(self.optimizable.esw)
+        
+        Ameasured = self.optimizable.Imeasured**0.5
+        Aestimated = xp.abs(self.optimizable.Iestimated)**0.5 
+        
+        noise = xp.abs(xp.mean(Ameasured - Aestimated)) 
+    
+        Ameasured = Ameasured - noise
+        Ameasured[Ameasured<0]=0
+        self.optimizable.Imeasured = Ameasured**2
 
     def saveResults(self, fileName = 'recent',type = 'all'):
         if type == 'all':

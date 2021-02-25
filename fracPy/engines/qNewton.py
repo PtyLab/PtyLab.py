@@ -81,7 +81,12 @@ class qNewton(BaseReconstructor):
             # show reconstruction
             self.showReconstruction(loop)
 
+        if self.params.gpuFlag:
+            self.logger.info('switch to cpu')
+            self._move_data_to_cpu()
+            self.params.gpuFlag = 0
 
+            #todo clearMemory implementation
         
     def objectPatchUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
         """

@@ -15,7 +15,7 @@ class Params(object):
         self.intensityConstraint = 'standard'  # standard or sigmoid
         self.propagator = 'Fraunhofer'  # 'Fresnel' 'ASP'
         self.momentumAcceleration = False  # default False, it is turned on in the individual engines that use momentum
-
+        self.adaptiveMomentumAcceleration = False # default False, it is turned on in the individual engines that use momentum
 
         ## Specific reconstruction settings that are the same for all engines
         self.gpuSwitch = False
@@ -57,6 +57,8 @@ class Params(object):
         self.PSDestimationSwitch = False
         self.objectContrastSwitch = False  # pushes object to zero outside ROI
         self.positionCorrectionSwitch = False  # position correction for encoder
+        self.adaptiveDenoisingSwitch = False # estimated noise floor to be clipped from raw data
+
 
 
 
