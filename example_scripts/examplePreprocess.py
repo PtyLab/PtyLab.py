@@ -45,7 +45,7 @@ elif camera == 'Hamamatsu':
     N = 2**11
     M = 2**11
     dxd = 6.5e-6 * binningFactor / magfinication
-    backgroundOffset = 30
+    backgroundOffset = 0
 
 # number of frames is calculated automatically
 framesList = glob.glob('*'+'.tif')

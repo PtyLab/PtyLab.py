@@ -206,3 +206,34 @@ def zernikeAberrations(Xp,Yp,D,z_coeff):
 
     return aperture * np.exp(1j*np.sum(list(Z.values())))
 
+def p2bin(R,binningFactor):
+    """
+    :params
+    :params
+    :return:
+    """
+    M, N = R.shape
+    if np.mod(M,2)!=0 or np.mod(N, 2)!=0:
+        raise ValueError('#rows and #columns of reference need to be powers of 2!')
+    if np.mod(binningFactor, 2) != 0 and binningFactor != 1:
+        raise ValueError('binning factor needs to be a power of 2')
+    T = R
+    if binningFactor!=1:
+        for k in range(1,np.log2(binningFactor)):
+            T = bin2(T)
+        tind = range(T.size)
+        rind = np.arange(M*N).reshape(M//binningFactor, N, binningFactor)
+        rind = np.stack(rind, axis=1).reshape(M,N)
+    else:
+        tind = range(T.size)
+        rind = tind
+    return T, rind, tind
+
+
+def bin2(X):
+    # simple 2-fold binning
+    m,n = X.shape
+    Y = np.sum(X.reshape(2,m//2,2,n//2), axis=(0,2))
+    return Y
+
+

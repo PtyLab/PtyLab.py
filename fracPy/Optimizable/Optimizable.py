@@ -128,4 +128,6 @@ class Optimizable(object):
 
 
 
-
+# hf = h5py.File('Probe2.hdf5','w')
+# hf.create_dataset('probe', data=probe, dtype='complex64')
+# hf.close()

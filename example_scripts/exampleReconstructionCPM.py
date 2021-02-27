@@ -35,6 +35,7 @@ filePath = getExampleDataFolder() / fileName
 exampleData.loadData(filePath)
 
 exampleData.operationMode = 'CPM'
+exampleData.showPtychogram()
 
 # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
 # now create an object to hold everything we're eventually interested in
@@ -60,7 +61,7 @@ optimizable.probe = optimizable.probe*np.exp(1.j*2*np.pi/exampleData.wavelength 
 # this will copy any attributes from experimental data that we might care to optimize
 # # Set monitor properties
 monitor = Monitor()
-monitor.figureUpdateFrequency = 10
+monitor.figureUpdateFrequency = 1
 monitor.objectPlot = 'complex'  # complex abs angle
 monitor.verboseLevel = 'high'  # high: plot two figures, low: plot only one figure
 monitor.objectPlotZoom = 1.5   # control object plot FoV
@@ -103,7 +104,7 @@ params.positionCorrectionSwitch = False
 
 # mPIE
 engine_mPIE = mPIE.mPIE(optimizable, exampleData, params, monitor)
-engine_mPIE.numIterations = 10
+engine_mPIE.numIterations = 100
 engine_mPIE.betaProbe = 0.25
 engine_mPIE.betaObject = 0.25
 engine_mPIE.doReconstruction()

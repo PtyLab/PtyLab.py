@@ -100,6 +100,6 @@ class qNewton(BaseReconstructor):
         """
         xp = getArrayModule(objectPatch)
         Omax = xp.max(xp.sum(xp.abs(self.optimizable.object), axis=(0, 1, 2, 3)))
-        frac = xp.abs(objectPatch)/Omax * objectPatch.conj() /  (xp.abs(objectPatch)**2 + self.regProbe)
+        frac = xp.abs(objectPatch)/Omax * objectPatch.conj() / (xp.abs(objectPatch)**2 + self.regProbe)
         r = self.optimizable.probe + self.betaProbe * xp.sum(frac * DELTA, axis=(0,1,3), keepdims=True)
         return r

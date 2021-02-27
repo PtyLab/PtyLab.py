@@ -10,12 +10,13 @@ from fracPy.utils.initializationFunctions import initialProbeOrObject
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Optimizable.Optimizable import Optimizable
 from fracPy.Params.Params import Params
-from fracPy.utils.utils import ifft2c, fft2c, orthogonalizeModes, circ
+from fracPy.utils.utils import ifft2c, fft2c, orthogonalizeModes, circ, p2bin
 from fracPy.operators.operators import aspw, scaledASP
 from fracPy.monitors.Monitor import Monitor
 from fracPy.utils.visualisation import hsvplot
 from matplotlib import pyplot as plt
 import cupy as cp
+from skimage.transform import rescale
 
 
 class BaseReconstructor(object):
@@ -247,14 +248,14 @@ class BaseReconstructor(object):
         """
         # todo check what does rgn('shuffle') do in matlab
         if self.params.backgroundModeSwitch:
-            self.background = 1e-1*np.ones((self.experimentalData.Np, self.experimentalData.Np))
+            self.optimizable.background = 1e-1*np.ones((self.experimentalData.Np, self.experimentalData.Np))
 
         # preallocate intensity scaling vector
         if self.params.intensityConstraint == 'fluctuation':
             self.intensityScaling = np.ones(self.experimentalData.numFrames)
 
         if self.params.intensityConstraint == 'interferometric':
-            self.optimizable.background = np.ones(self.experimentalData.ptychogram[0].shape)
+            self.optimizable.reference = np.ones(self.experimentalData.ptychogram[0].shape)
 
         # todo check if there is data on gpu that shouldnt be there
 
@@ -342,12 +343,13 @@ class BaseReconstructor(object):
 
         # other parameters
         if self.params.backgroundModeSwitch:
-            self.background = cp.array(self.background)
+            self.optimizable.background = cp.array(self.optimizable.background)
         if self.params.absorbingProbeBoundary:
             self.probeWindow = cp.array(self.probeWindow)
         if self.params.modulusEnforcedProbeSwitch:
             self.experimentalData.emptyBeam = cp.array(self.experimentalData.emptyBeam)
-
+        if self.params.intensityConstraint == 'interferometric':
+            self.optimizable.reference = cp.array(self.optimizable.reference)
 
 
     def _move_data_to_cpu(self):
@@ -383,7 +385,7 @@ class BaseReconstructor(object):
 
         # other parameters
         if self.params.backgroundModeSwitch:
-            self.background = self.background.get()
+            self.optimizable.background = self.optimizable.background.get()
         if self.params.absorbingProbeBoundary:
             self.probeWindow = self.probeWindow.get()
         if self.params.modulusEnforcedProbeSwitch:
@@ -574,8 +576,8 @@ class BaseReconstructor(object):
         P = abs(asNumpyArray(self.optimizable.probe[:, 0, 0, -1,...]))
         Q = fft2c(P)
         # calculate overlap between positions
-        self.optimizable.areaOverlap = abs(np.sum(Q**2*np.exp(-1.j*2*np.pi*(Fx*sx+Fy*sy)), axis=(-1, -2)))/\
-                                       np.sum(abs(Q)**2, axis=(-1, -2))
+        self.optimizable.areaOverlap = np.mean(abs(np.sum(Q**2*np.exp(-1.j*2*np.pi*(Fx*sx+Fy*sy)), axis=(-1, -2)))/\
+                                       np.sum(abs(Q)**2, axis=(-1, -2)), axis=0)
 
 
     def getErrorMetrics(self):
@@ -644,10 +646,13 @@ class BaseReconstructor(object):
         self.object2detector()
 
         # get estimated intensity (2D array, in the case of multislice, only take the last slice)
-        if self.params.backgroundModeSwitch:
-            self.optimizable.Iestimated = xp.sum(xp.abs(self.optimizable.ESW) ** 2, axis=(0, 1, 2))[-1]+self.background
+        if self.params.intensityConstraint == 'interferometric':
+            self.optimizable.Iestimated = xp.sum(xp.abs(self.optimizable.ESW+self.optimizable.reference) ** 2, axis=(0, 1, 2))[-1]
         else:
             self.optimizable.Iestimated = xp.sum(xp.abs(self.optimizable.ESW) ** 2, axis=(0, 1, 2))[-1]
+        if self.params.backgroundModeSwitch:
+            self.optimizable.Iestimated += self.optimizable.background
+
         # get measured intensity todo implement CPSC, kPIE
         if self.params.CPSCswitch:
             self.decompressionProjection(self.positionIndices)
@@ -678,8 +683,9 @@ class BaseReconstructor(object):
         elif self.params.intensityConstraint == 'poission':
             frac = self.optimizable.Imeasured / (self.optimizable.Iestimated + gimmel)
 
-        elif self.params.intensityConstraint == 'standard':
+        elif self.params.intensityConstraint == 'standard' or self.params.intensityConstraint == 'interferometric':
             frac = xp.sqrt(self.optimizable.Imeasured / (self.optimizable.Iestimated + gimmel))
+
 
         # elif self.params.intensityConstraint == 'interferometric':
         #     frac = xp.sqrt(self.optimizable.Imeasured / (self.optimizable.Iestimated + self.optimizable.background + gimmel))
@@ -696,15 +702,39 @@ class BaseReconstructor(object):
         # update background (see PhD thsis by Peng Li)
         if self.params.backgroundModeSwitch:
             if self.params.FourierMaskSwitch:
-                self.background = self.background*(1+1/self.experimentalData.numFrames*(xp.sqrt(frac)-1))**2*self.experimentalData.W
+                self.optimizable.background = self.optimizable.background*(1+1/self.experimentalData.numFrames*(xp.sqrt(frac)-1))**2*self.experimentalData.W
             else:
-                self.background = self.background*(1+1/self.experimentalData.numFrames*(xp.sqrt(frac)-1))**2
+                self.optimizable.background = self.optimizable.background*(1+1/self.experimentalData.numFrames*(xp.sqrt(frac)-1))**2
 
         # back propagate to object plane
         self.detector2object()
 
     def decompressionProjection(self, positionIndices):
-        raise NotImplementedError
+        # overwrite the measured intensity (just to have same dimentions as Iestimated)
+        self.optimizable.Imeasured = self.optimizable.Iestimated.copy()
+
+
+    def setCPSC(self): #, mode='upsampleEstimate', upsamplingFactor = 2):
+        # define temporary image
+        #if mode =='upsampleEstimate':
+        im = rescale(self.optimizable.ptychogram[0], self.params.upsamplingFactor)
+
+        # get upsampling index
+        _,self.optimizable.upsampledIndex, self.optimizable.downsampledIndex = p2bin(im, self.params.upsamplingFactor)
+        self.optimizable.ptychograpmDownsampled = self.optimizable.ptychogram #
+
+        # upsample probe
+        probeTemp = self.optimizable.probe.copy()
+
+
+
+
+
+
+        #
+
+
+
 
     def showReconstruction(self, loop):
         """
@@ -874,8 +904,8 @@ class BaseReconstructor(object):
             if self.experimentalData.operationMode =='FPM':
                 self.absorbingProbeBoundaryAleph = 100e-2
 
-            self.optimizable.probe = (1 - self.absorbingProbeBoundaryAleph)*self.optimizable.probe+\
-                                     self.absorbingProbeBoundaryAleph*self.optimizable.probe*self.probeWindow
+            self.optimizable.probe = (1 - self.params.absorbingProbeBoundaryAleph)*self.optimizable.probe+\
+                                     self.params.absorbingProbeBoundaryAleph*self.optimizable.probe*self.probeWindow
 
         # Todo: objectSmoothenessSwitch,probeSmoothenessSwitch,
         if self.params.probeSmoothenessSwitch:

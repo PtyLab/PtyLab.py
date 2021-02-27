@@ -57,6 +57,8 @@ class Params(object):
         self.PSDestimationSwitch = False
         self.objectContrastSwitch = False  # pushes object to zero outside ROI
         self.positionCorrectionSwitch = False  # position correction for encoder
+        self.CPSCswitch = False
+        self.upsamplingFactor = None
 
 
 
