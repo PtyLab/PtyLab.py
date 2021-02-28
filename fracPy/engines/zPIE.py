@@ -41,7 +41,7 @@ class zPIE(BaseReconstructor):
         """
         self.betaProbe = 0.25
         self.betaObject = 0.25
-        self.optimizable.DoF = self.experimentalData.DoF
+        self.DoF = self.optimizable.DoF
         self.zPIEgradientStepSize = 100  #gradient step size for axial position correction (typical range [1, 100])
         self.zPIEfriction = 0.7
 
@@ -58,12 +58,12 @@ class zPIE(BaseReconstructor):
         zMomentun = 0
         # preallocate grids
         if self.params.propagator == 'ASP':
-            n = self.experimentalData.Np.copy()
+            n = self.optimizable.Np.copy()
         else:
-            n = 2*self.experimentalData.Np
+            n = 2*self.optimizable.Np
 
         X,Y = xp.meshgrid(xp.arange(-n//2, n//2), xp.arange(-n//2, n//2))
-        w = xp.exp(-(xp.sqrt(X**2+Y**2)/self.experimentalData.Np)**4)
+        w = xp.exp(-(xp.sqrt(X**2+Y**2)/self.optimizable.Np)**4)
 
         self.pbar = tqdm.trange(self.numIterations, desc='zPIE', file=sys.stdout, leave=True)  # in order to change description to the tqdm progress bar
         for loop in self.pbar:
@@ -72,19 +72,19 @@ class zPIE(BaseReconstructor):
 
             # get positions
             if loop == 1:
-                zNew = self.experimentalData.zo.copy()
+                zNew = self.optimizable.zo.copy()
             else:
                 d = 10
-                dz = np.linspace(-d * self.optimizable.DoF, d * self.optimizable.DoF, 11)/10
+                dz = np.linspace(-d * self.DoF, d * self.DoF, 11)/10
                 merit = []
                 # todo, mixed states implementation, check if more need to be put on GPU to speed up
                 for k in np.arange(len(dz)):
                     imProp, _ = aspw(
-                        w * xp.squeeze(self.optimizable.object[..., (self.experimentalData.No // 2 - n // 2):
-                                                                    (self.experimentalData.No // 2 + n // 2),
-                                       (self.experimentalData.No // 2 - n // 2):(
-                                                   self.experimentalData.No // 2 + n // 2)]),
-                        dz[k], self.experimentalData.wavelength, n * self.experimentalData.dxo)
+                        w * xp.squeeze(self.optimizable.object[..., (self.optimizable.No // 2 - n // 2):
+                                                                    (self.optimizable.No // 2 + n // 2),
+                                       (self.optimizable.No // 2 - n // 2):(
+                                                   self.optimizable.No // 2 + n // 2)]),
+                        dz[k], self.optimizable.wavelength, n * self.optimizable.dxo)
 
                     # TV approach
                     aleph = 1e-2
@@ -94,30 +94,30 @@ class zPIE(BaseReconstructor):
 
                 feedback = np.sum(dz*merit)/np.sum(merit)    # at optimal z, feedback term becomes 0
                 zMomentun = self.zPIEfriction*zMomentun+self.zPIEgradientStepSize*feedback
-                zNew = self.experimentalData.zo+zMomentun
+                zNew = self.optimizable.zo+zMomentun
 
-            self.optimizable.zHistory.append(self.experimentalData.zo)
+            self.optimizable.zHistory.append(self.optimizable.zo)
 
             # print updated z
-            self.pbar.set_description('zPIE: update z = %.3f mm (dz = %.1f um)' % (self.experimentalData.zo*1e3, zMomentun*1e6))
+            self.pbar.set_description('zPIE: update z = %.3f mm (dz = %.1f um)' % (self.optimizable.zo*1e3, zMomentun*1e6))
 
             # reset coordinates
-            self.experimentalData.zo = zNew
+            self.optimizable.zo = zNew
 
             # re-sample is automatically done by using @property
             if self.params.propagator != 'ASP':
-                self.experimentalData.dxp = self.experimentalData.wavelength*self.experimentalData.zo\
-                                            /self.experimentalData.Ld
+                self.optimizable.dxp = self.optimizable.wavelength*self.optimizable.zo\
+                                            /self.optimizable.Ld
                 # reset propagator
-                self.optimizable.quadraticPhase = xp.array(np.exp(1.j * np.pi/(self.experimentalData.wavelength * self.experimentalData.zo)
-                                                                  * (self.experimentalData.Xp**2 + self.experimentalData.Yp**2)))
+                self.optimizable.quadraticPhase = xp.array(np.exp(1.j * np.pi/(self.optimizable.wavelength * self.optimizable.zo)
+                                                                  * (self.optimizable.Xp**2 + self.optimizable.Yp**2)))
 
             for positionLoop, positionIndex in enumerate(self.positionIndices):
                 ### patch1 ###
                 # get object patch
-                row, col = self.experimentalData.positions[positionIndex]
-                sy = slice(row, row + self.experimentalData.Np)
-                sx = slice(col, col + self.experimentalData.Np)
+                row, col = self.optimizable.positions[positionIndex]
+                sy = slice(row, row + self.optimizable.Np)
+                sx = slice(col, col + self.optimizable.Np)
                 # note that object patch has size of probe array
                 objectPatch = self.optimizable.object[..., sy, sx].copy()
 

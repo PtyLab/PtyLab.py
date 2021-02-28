@@ -8,9 +8,8 @@ logger.setLevel(logging.INFO)
 #logger.addHandler(logging.StreamHandler(sys.stderr))
 
 exampleFiles = {
-    'simulation_ptycho': 'simu.hdf5',
+    'simulation_cpm': 'simu.hdf5',
     'simulation_fpm': 'fourier_simulation.hdf5',
-    # 'simulationTiny': 'simulationTiny.hdf5',
 }
 
 # This is a convenience class to aid in loading a particular example
