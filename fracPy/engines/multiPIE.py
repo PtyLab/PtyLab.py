@@ -13,31 +13,27 @@ except ImportError:
 from fracPy.Optimizable.Optimizable import Optimizable
 from fracPy.engines.BaseReconstructor import BaseReconstructor
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
+from fracPy.Params.Params import Params
 from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray
 from fracPy.monitors.Monitor import Monitor
 from fracPy.utils.utils import fft2c, ifft2c
 import logging
+import tqdm
+import sys
 
 
 class multiPIE(BaseReconstructor):
 
-    def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData, monitor: Monitor):
+    def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData, params: Params, monitor: Monitor):
         # This contains reconstruction parameters that are specific to the reconstruction
         # but not necessarily to ePIE reconstruction
-        super().__init__(optimizable, experimentalData, monitor)
+        super().__init__(optimizable, experimentalData, params, monitor)
         self.logger = logging.getLogger('multiPIE')
         self.logger.info('Sucesfully created multiPIE multiPIE_engine')
         self.logger.info('Wavelength attribute: %s', self.optimizable.wavelength)
         # initialize multiPIE params
         self.initializeReconstructionParams()
-        # initialize momentum
-        self.optimizable.initializeObjectMomentum()
-        self.optimizable.initializeProbeMomentum()
-        # set object and probe buffers
-        self.optimizable.objectBuffer = self.optimizable.object.copy()
-        self.optimizable.probeBuffer = self.optimizable.probe.copy()
-
-        self.momentumAcceleration = True
+        self.params.momentumAcceleration = True
 
     def initializeReconstructionParams(self):
         """
@@ -51,31 +47,29 @@ class multiPIE(BaseReconstructor):
         self.alphaObject = 0.1  # object regularization
         self.betaM = 0.3  # feedback
         self.stepM = 0.7  # friction
-        self.probeWindow = np.abs(self.optimizable.probe)
+        # self.optimizable.probeWindow = np.abs(self.optimizable.probe)
 
-    def _prepare_doReconstruction(self):
-        """
-        This function is called just before the reconstructions start.
-
-        Can be used to (for instance) transfer data to the GPU at the last moment.
-        :return:
-        """
-        pass
+        # initialize momentum
+        self.optimizable.initializeObjectMomentum()
+        self.optimizable.initializeProbeMomentum()
+        # set object and probe buffers
+        self.optimizable.objectBuffer = self.optimizable.object.copy()
+        self.optimizable.probeBuffer = self.optimizable.probe.copy()
 
     def doReconstruction(self):
-        self._initializeParams()
-        self._prepare_doReconstruction()
-        # actual reconstruction ePIE_engine
-        import tqdm
-        for loop in tqdm.tqdm(range(self.numIterations)):
+        self._prepareReconstruction()
+
+        self.pbar = tqdm.trange(self.numIterations, desc='multiPIE', file=sys.stdout, leave=True)
+
+        for loop in self.pbar:
             # set position order
             self.setPositionOrder()
 
             for positionLoop, positionIndex in enumerate(self.positionIndices):
                 # get object patch
-                row, col = self.experimentalData.positions[positionIndex]
-                sy = slice(row, row + self.experimentalData.Np)
-                sx = slice(col, col + self.experimentalData.Np)
+                row, col = self.optimizable.positions[positionIndex]
+                sy = slice(row, row + self.optimizable.Np)
+                sx = slice(col, col + self.optimizable.Np)
                 # note that object patch has size of probe array
                 objectPatch = self.optimizable.object[..., sy, sx].copy()
 
@@ -110,6 +104,11 @@ class multiPIE(BaseReconstructor):
             self.showReconstruction(loop)
 
             # todo clearMemory implementation
+
+        if self.params.gpuFlag:
+            self.logger.info('switch to cpu')
+            self._move_data_to_cpu()
+            self.params.gpuFlag = 0
 
     def objectMomentumUpdate(self):
         """
@@ -173,57 +172,4 @@ class multiPIE(BaseReconstructor):
         r = self.optimizable.probe + self.betaProbe * xp.sum(frac * DELTA, axis=0, keepdims=True)
         return r
 
-
-class multiPIE_GPU(multiPIE):
-    """
-    GPU-based implementation of multiPIE
-    """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if cp is None:
-            raise ImportError('Could not import cupy')
-        self.logger = logging.getLogger('multiPIE_GPU')
-        self.logger.info('Hello from multiPIE_GPU')
-
-    def _prepare_doReconstruction(self):
-        self.logger.info('Ready to start transferring stuff to the GPU')
-        self._move_data_to_gpu()
-
-    def _move_data_to_gpu(self):
-        """
-        Move the data to the GPU
-        :return:
-        """
-        # optimizable parameters
-        self.optimizable.probe = cp.array(self.optimizable.probe, cp.complex64)
-        self.optimizable.object = cp.array(self.optimizable.object, cp.complex64)
-        self.optimizable.probeBuffer = cp.array(self.optimizable.probeBuffer, cp.complex64)
-        self.optimizable.objectBuffer = cp.array(self.optimizable.objectBuffer, cp.complex64)
-        self.optimizable.probeMomentum = cp.array(self.optimizable.probeMomentum, cp.complex64)
-        self.optimizable.objectMomentum = cp.array(self.optimizable.objectMomentum, cp.complex64)
-
-        # non-optimizable parameters
-        self.experimentalData.ptychogram = cp.array(self.experimentalData.ptychogram, cp.float32)
-        # self.experimentalData.probe = cp.array(self.experimentalData.probe, cp.complex64)
-        # self.optimizable.Imeasured = cp.array(self.optimizable.Imeasured)
-
-        # ePIE parameters
-        self.logger.info('Detector error shape: %s', self.detectorError.shape)
-        self.detectorError = cp.array(self.detectorError)
-
-        # proapgators to GPU
-        if self.propagator == 'Fresnel':
-            self.optimizable.quadraticPhase = cp.array(self.optimizable.quadraticPhase)
-        elif self.propagator == 'ASP' or self.propagator == 'polychromeASP':
-            self.optimizable.transferFunction = cp.array(self.optimizable.transferFunction)
-        elif self.propagator == 'scaledASP' or self.propagator == 'scaledPolychromeASP':
-            self.optimizable.Q1 = cp.array(self.optimizable.Q1)
-            self.optimizable.Q2 = cp.array(self.optimizable.Q2)
-
-        # other parameters
-        if self.backgroundModeSwitch:
-            self.background = cp.array(self.background)
-        if self.absorbingProbeBoundary:
-            self.probeWindow = cp.array(self.probeWindow)
 

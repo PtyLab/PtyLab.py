@@ -11,18 +11,20 @@ except ImportError:
 from fracPy.Optimizable.Optimizable import Optimizable
 from fracPy.engines.BaseReconstructor import BaseReconstructor
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
+from fracPy.Params.Params import Params
 from fracPy.monitors.Monitor import Monitor
 from fracPy.utils.gpuUtils import getArrayModule
 from fracPy.utils.utils import fft2c, ifft2c
 import logging
-
+import tqdm
+import sys
 
 class qNewton(BaseReconstructor):
 
-    def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData, monitor: Monitor):
+    def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData, params: Params, monitor: Monitor):
         # This contains reconstruction parameters that are specific to the reconstruction
         # but not necessarily to ePIE reconstruction
-        super().__init__(optimizable, experimentalData, monitor)
+        super().__init__(optimizable, experimentalData, params, monitor)
         self.logger = logging.getLogger('qNewton')
         self.logger.info('Sucesfully created qNewton qNewton_engine')
 
@@ -38,30 +40,20 @@ class qNewton(BaseReconstructor):
         self.betaObject = 1
         self.regObject = 1
         self.regProbe = 1
-    
-    def _prepare_doReconstruction(self):
-        """
-        This function is called just before the reconstructions start.
-
-        Can be used to (for instance) transfer data to the GPU at the last moment.
-        :return:
-        """
-        pass
 
     def doReconstruction(self):
-        self._initializeParams()
-        self._prepare_doReconstruction()
+        self._prepareReconstruction()
 
-        import tqdm
-        for loop in tqdm.tqdm(range(self.numIterations)):
+        self.pbar = tqdm.trange(self.numIterations, desc='qNewton', file=sys.stdout, leave=True)
+        for loop in self.pbar:
             # set position order
             self.setPositionOrder()
             
             for positionLoop, positionIndex in enumerate(self.positionIndices):
                 # get object patch
-                row, col = self.experimentalData.positions[positionIndex]
-                sy = slice(row, row + self.experimentalData.Np)
-                sx = slice(col, col + self.experimentalData.Np)
+                row, col = self.optimizable.positions[positionIndex]
+                sy = slice(row, row + self.optimizable.Np)
+                sx = slice(col, col + self.optimizable.Np)
                 # note that object patch has size of probe array
                 objectPatch = self.optimizable.object[..., sy, sx].copy()
                 
@@ -89,7 +81,12 @@ class qNewton(BaseReconstructor):
             # show reconstruction
             self.showReconstruction(loop)
 
+        if self.params.gpuFlag:
+            self.logger.info('switch to cpu')
+            self._move_data_to_cpu()
+            self.params.gpuFlag = 0
 
+            #todo clearMemory implementation
         
     def objectPatchUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
         """
@@ -108,54 +105,6 @@ class qNewton(BaseReconstructor):
         """
         xp = getArrayModule(objectPatch)
         Omax = xp.max(xp.sum(xp.abs(self.optimizable.object), axis=(0, 1, 2, 3)))
-        frac = xp.abs(objectPatch)/Omax * objectPatch.conj() /  (xp.abs(objectPatch)**2 + self.regProbe)
+        frac = xp.abs(objectPatch)/Omax * objectPatch.conj() / (xp.abs(objectPatch)**2 + self.regProbe)
         r = self.optimizable.probe + self.betaProbe * xp.sum(frac * DELTA, axis=(0,1,3), keepdims=True)
         return r
-
-
-
-class qNewton_GPU(qNewton):
-    """
-    GPU-based implementation of qNewton
-    """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if cp is None:
-            raise ImportError('Could not import cupy')
-        self.logger = logging.getLogger('qNewton_GPU')
-        self.logger.info('Hello from qNewton_GPU')
-
-    def _prepare_doReconstruction(self):
-        self.logger.info('Ready to start transfering stuff to the GPU')
-        self._move_data_to_gpu()
-
-    def _move_data_to_gpu(self):
-        """
-        Move the data to the GPU
-        :return:
-        """
-        # optimizable parameters
-        self.optimizable.probe = cp.array(self.optimizable.probe, cp.complex64)
-        self.optimizable.object = cp.array(self.optimizable.object, cp.complex64)
-
-        # non-optimizable parameters
-        self.experimentalData.ptychogram = cp.array(self.experimentalData.ptychogram, cp.float32)
-        # self.experimentalData.probe = cp.array(self.experimentalData.probe, cp.complex64)
-        #self.optimizable.Imeasured = cp.array(self.optimizable.Imeasured)
-
-        # ePIE parameters
-        self.logger.info('Detector error shape: %s', self.detectorError.shape)
-        self.detectorError = cp.array(self.detectorError)
-
-        if self.absorbingProbeBoundary or self.probeBoundary:
-            self.probeWindow = cp.array(self.probeWindow, cp.float32)
-
-        # proapgators to GPU
-        if self.propagator == 'Fresnel':
-            self.optimizable.quadraticPhase = cp.array(self.optimizable.quadraticPhase)
-        elif self.propagator == 'ASP':
-            self.optimizable.transferFunction = cp.array(self.optimizable.transferFunction)
-        elif self.propagator =='scaledASP':
-            self.optimizable.Q1 = cp.array(self.optimizable.Q1)
-            self.optimizable.Q2 = cp.array(self.optimizable.Q2)

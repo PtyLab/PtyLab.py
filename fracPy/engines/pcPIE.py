@@ -14,6 +14,7 @@ except ImportError:
 from fracPy.Optimizable.Optimizable import Optimizable
 from fracPy.engines.BaseReconstructor import BaseReconstructor
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
+from fracPy.Params.Params import Params
 from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray
 from fracPy.monitors.Monitor import Monitor
 from fracPy.utils.utils import fft2c, ifft2c
@@ -22,10 +23,10 @@ import logging
 
 class pcPIE(BaseReconstructor):
 
-    def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData, monitor: Monitor):
+    def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData, params: Params, monitor: Monitor):
         # This contains reconstruction parameters that are specific to the reconstruction
         # but not necessarily to ePIE reconstruction
-        super().__init__(optimizable, experimentalData, monitor)
+        super().__init__(optimizable, experimentalData, params, monitor)
         self.logger = logging.getLogger('pcPIE')
         self.logger.info('Successfully created pcPIE pcPIE_engine')
         self.logger.info('Wavelength attribute: %s', self.optimizable.wavelength)
@@ -53,31 +54,11 @@ class pcPIE(BaseReconstructor):
         self.alphaObject = 0.1    # object regularization
         self.betaM = 0.3          # feedback
         self.stepM = 0.7          # friction
-        self.probeWindow = np.abs(self.optimizable.probe)
-        # # additional pcPIE parameters as they appear in Matlab
-        # self.daleth = 0.5 # feedback
-        # self.beth = 0.9 # friction
-        # self.adaptStep = 1 # adaptive step size
-        # self.D = np.zeros((self.experimentalData.numFrames, 2)) # position search direction
-        # # predefine shifts
-        # self.rowShifts = np.array([-1, -1, -1, 0, 0, 0, 1, 1, 1])
-        # self.colShifts = np.array([-1, 0, 1, -1, 0, 1, -1, 0, 1])
-        # self.startAtIteration = 20
-        # self.meanEncoder00 = np.mean(self.experimentalData.encoder[:,0]).copy()
-        # self.meanEncoder01 = np.mean(self.experimentalData.encoder[:,1]).copy()
-
-    def _prepare_doReconstruction(self):
-        """
-        This function is called just before the reconstructions start.
-
-        Can be used to (for instance) transfer data to the GPU at the last moment.
-        :return:
-        """
-        pass
+        # self.probeWindow = np.abs(self.optimizable.probe)
 
     def doReconstruction(self):
-        self._initializeParams()
-        self._prepare_doReconstruction()
+        self._prepareReconstruction()
+
         # actual reconstruction ePIE_engine
         import tqdm
         for loop in tqdm.tqdm(range(self.numIterations)):
@@ -86,9 +67,9 @@ class pcPIE(BaseReconstructor):
 
             for positionLoop, positionIndex in enumerate(self.positionIndices):
                 # get object patch
-                row, col = self.experimentalData.positions[positionIndex]
-                sy = slice(row, row + self.experimentalData.Np)
-                sx = slice(col, col + self.experimentalData.Np)
+                row, col = self.optimizable.positions[positionIndex]
+                sy = slice(row, row + self.optimizable.Np)
+                sx = slice(col, col + self.optimizable.Np)
                 # note that object patch has size of probe array
                 objectPatch = self.optimizable.object[..., sy, sx].copy()
                 
@@ -106,7 +87,7 @@ class pcPIE(BaseReconstructor):
 
                 # probe update
                 self.optimizable.probe = self.probeUpdate(objectPatch, DELTA)
-                if self.positionCorrectionSwitch:
+                if self.params.positionCorrectionSwitch:
                     self.positionCorrection(objectPatch, positionIndex, sy, sx)
                 # position correction
                 # xp = getArrayModule(objectPatch)
@@ -136,63 +117,10 @@ class pcPIE(BaseReconstructor):
                 #                                self.D[positionIndex, :]
 
 
-                # momentum updates todo: make this every T iteration?
-                # Todo @lars explain this
+                # momentum updates
                 if np.random.rand(1) > 0.95:
                     self.objectMomentumUpdate()
                     self.probeMomentumUpdate()
-            # if len(self.optimizable.error) > self.startAtIteration:
-            #     # update positions
-            #     self.experimentalData.encoder = (self.experimentalData.positions - self.adaptStep * self.D -
-            #                                      self.experimentalData.No//2 + self.experimentalData.Np//2) * \
-            #                                                 self.experimentalData.dxo
-            #     # fix center of mass of positions
-            #     self.experimentalData.encoder[:, 0] = self.experimentalData.encoder[:, 0] - \
-            #                                         np.mean(self.experimentalData.encoder[:, 0]) + self.meanEncoder00
-            #     self.experimentalData.encoder[:, 1] = self.experimentalData.encoder[:, 1] - \
-            #                                         np.mean(self.experimentalData.encoder[:, 1]) + self.meanEncoder01
-            #
-            #     # self.experimentalData.positions[:,0] = self.experimentalData.positions[:,0] - \
-            #     #         np.round(np.mean(self.experimentalData.positions[:,0]) -
-            #     #                   np.mean(self.experimentalData.positions0[:,0]) )
-            #     # self.experimentalData.positions[:, 1] = self.experimentalData.positions[:, 1] - \
-            #     #                                         np.around(np.mean(self.experimentalData.positions[:, 1]) -
-            #     #                                                   np.mean(self.experimentalData.positions0[:, 1]))
-            #
-            #     # show reconstruction
-            #     if (len(self.optimizable.error) > self.startAtIteration) & (np.mod(loop,
-            #                                                 self.monitor.figureUpdateFrequency) == 0):
-            #         figure, ax = plt.subplots(1, 1, num=102, squeeze=True, clear=True, figsize=(5, 5))
-            #         ax.set_title('Estimated scan grid positions')
-            #         ax.set_xlabel('(um)')
-            #         ax.set_ylabel('(um)')
-            #         # ax.set_xscale('symlog')
-            #         plt.plot(self.experimentalData.positions0[:, 1] * self.experimentalData.dxo * 1e6,
-            #                  self.experimentalData.positions0[:, 0] * self.experimentalData.dxo * 1e6, 'bo')
-            #         plt.plot(self.experimentalData.positions[:, 1] * self.experimentalData.dxo * 1e6,
-            #                  self.experimentalData.positions[:, 0] * self.experimentalData.dxo * 1e6, 'yo')
-            #         # plt.xlabel('(um))')
-            #         # plt.ylabel('(um))')
-            #         # plt.show()
-            #         plt.tight_layout()
-            #         plt.show(block=False)
-            #
-            #         figure2, ax2 = plt.subplots(1, 1, num=103, squeeze=True, clear=True, figsize=(5, 5))
-            #         ax2.set_title('Displacement')
-            #         ax2.set_xlabel('(um)')
-            #         ax2.set_ylabel('(um)')
-            #         plt.plot(self.D[:, 1] * self.experimentalData.dxo * 1e6,
-            #                  self.D[:, 0] * self.experimentalData.dxo * 1e6, 'o')
-            #         # ax.set_xscale('symlog')
-            #         plt.tight_layout()
-            #         plt.show(block=False)
-            #
-            #     # elif np.mod(loop, self.monitor.figureUpdateFrequency) == 0:
-            #         figure.canvas.draw()
-            #         figure.canvas.flush_events()
-            #         figure2.canvas.draw()
-            #         figure2.canvas.flush_events()
-            #         self.showReconstruction(loop)
 
             # get error metric
             self.getErrorMetrics()
@@ -204,6 +132,11 @@ class pcPIE(BaseReconstructor):
             self.showReconstruction(loop)
 
             #todo clearMemory implementation
+
+        if self.params.gpuFlag:
+            self.logger.info('switch to cpu')
+            self._move_data_to_cpu()
+            self.params.gpuFlag = 0
 
     def objectMomentumUpdate(self):
         """
@@ -261,57 +194,4 @@ class pcPIE(BaseReconstructor):
         r = self.optimizable.probe + self.betaProbe * xp.sum(frac * DELTA, axis=1, keepdims=True)
         return r
 
-
-class pcPIE_GPU(pcPIE):
-    """
-    GPU-based implementation of mPIE
-    """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if cp is None:
-            raise ImportError('Could not import cupy')
-        self.logger = logging.getLogger('mPIE_GPU')
-        self.logger.info('Hello from mPIE_GPU')
-
-    def _prepare_doReconstruction(self):
-        self.logger.info('Ready to start transferring stuff to the GPU')
-        self._move_data_to_gpu()
-
-    def _move_data_to_gpu(self):
-        """
-        Move the data to the GPU
-        :return:
-        """
-        # optimizable parameters
-        self.optimizable.probe = cp.array(self.optimizable.probe, cp.complex64)
-        self.optimizable.object = cp.array(self.optimizable.object, cp.complex64)
-        self.optimizable.probeBuffer = cp.array(self.optimizable.probeBuffer, cp.complex64)
-        self.optimizable.objectBuffer = cp.array(self.optimizable.objectBuffer, cp.complex64)
-        self.optimizable.probeMomentum = cp.array(self.optimizable.probeMomentum, cp.complex64)
-        self.optimizable.objectMomentum = cp.array(self.optimizable.objectMomentum, cp.complex64)
-
-        # non-optimizable parameters
-        self.experimentalData.ptychogram = cp.array(self.experimentalData.ptychogram, cp.float32)
-        # self.experimentalData.probe = cp.array(self.experimentalData.probe, cp.complex64)
-        #self.optimizable.Imeasured = cp.array(self.optimizable.Imeasured)
-
-        # ePIE parameters
-        self.logger.info('Detector error shape: %s', self.detectorError.shape)
-        self.detectorError = cp.array(self.detectorError)
-
-        # proapgators to GPU
-        if self.propagator == 'Fresnel':
-            self.optimizable.quadraticPhase = cp.array(self.optimizable.quadraticPhase)
-        elif self.propagator == 'ASP' or self.propagator == 'polychromeASP':
-            self.optimizable.transferFunction = cp.array(self.optimizable.transferFunction)
-        elif self.propagator =='scaledASP' or self.propagator == 'scaledPolychromeASP':
-            self.optimizable.Q1 = cp.array(self.optimizable.Q1)
-            self.optimizable.Q2 = cp.array(self.optimizable.Q2)
-
-        # other parameters
-        if self.backgroundModeSwitch:
-            self.background = cp.array(self.background)
-        if self.absorbingProbeBoundary:
-            self.probeWindow = cp.array(self.probeWindow)
 

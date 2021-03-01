@@ -15,18 +15,20 @@ except ImportError:
 from fracPy.Optimizable.Optimizable import Optimizable
 from fracPy.engines.BaseReconstructor import BaseReconstructor
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
+from fracPy.Params.Params import Params
 from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray
 from fracPy.monitors.Monitor import Monitor
 from fracPy.operators.operators import aspw
 import logging
+import sys
 
 
 class zPIE(BaseReconstructor):
 
-    def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData, monitor: Monitor):
+    def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData, params: Params, monitor: Monitor):
         # This contains reconstruction parameters that are specific to the reconstruction
         # but not necessarily to ePIE reconstruction
-        super().__init__(optimizable, experimentalData, monitor)
+        super().__init__(optimizable, experimentalData, params, monitor)
         self.logger = logging.getLogger('zPIE')
         self.logger.info('Sucesfully created zPIE zPIE_engine')
         self.logger.info('Wavelength attribute: %s', self.optimizable.wavelength)
@@ -39,46 +41,38 @@ class zPIE(BaseReconstructor):
         """
         self.betaProbe = 0.25
         self.betaObject = 0.25
-        self.DoF = self.experimentalData.DoF.copy()
+        self.DoF = self.optimizable.DoF
         self.zPIEgradientStepSize = 100  #gradient step size for axial position correction (typical range [1, 100])
         self.zPIEfriction = 0.7
 
-    def _prepare_doReconstruction(self):
-        """
-        This function is called just before the reconstructions start.
-
-        Can be used to (for instance) transfer data to the GPU at the last moment.
-        :return:
-        """
-        pass
 
     def doReconstruction(self):
-        self._initializeParams()
-        self._prepare_doReconstruction()
+        self._prepareReconstruction()
+
         xp = getArrayModule(self.optimizable.object)
 
         # actual reconstruction zPIE_engine
-        if not hasattr(self, 'zHistory'):
-            self.zHistory = []
+        if not hasattr(self.optimizable, 'zHistory'):
+            self.optimizable.zHistory = []
 
         zMomentun = 0
         # preallocate grids
-        if self.propagator == 'ASP':
-            n = self.experimentalData.Np.copy()
+        if self.params.propagator == 'ASP':
+            n = self.optimizable.Np.copy()
         else:
-            n = 2*self.experimentalData.Np
+            n = 2*self.optimizable.Np
 
         X,Y = xp.meshgrid(xp.arange(-n//2, n//2), xp.arange(-n//2, n//2))
-        w = xp.exp(-(xp.sqrt(X**2+Y**2)/self.experimentalData.Np)**4)
+        w = xp.exp(-(xp.sqrt(X**2+Y**2)/self.optimizable.Np)**4)
 
-        self.pbar = tqdm.trange(self.numIterations, desc='zPIE', leave=True)  # in order to change description to the tqdm progress bar
+        self.pbar = tqdm.trange(self.numIterations, desc='zPIE', file=sys.stdout, leave=True)  # in order to change description to the tqdm progress bar
         for loop in self.pbar:
             # set position order
             self.setPositionOrder()
 
             # get positions
             if loop == 1:
-                zNew = self.experimentalData.zo.copy()
+                zNew = self.optimizable.zo.copy()
             else:
                 d = 10
                 dz = np.linspace(-d * self.DoF, d * self.DoF, 11)/10
@@ -86,11 +80,11 @@ class zPIE(BaseReconstructor):
                 # todo, mixed states implementation, check if more need to be put on GPU to speed up
                 for k in np.arange(len(dz)):
                     imProp, _ = aspw(
-                        w * xp.squeeze(self.optimizable.object[..., (self.experimentalData.No // 2 - n // 2):
-                                                                    (self.experimentalData.No // 2 + n // 2),
-                                       (self.experimentalData.No // 2 - n // 2):(
-                                                   self.experimentalData.No // 2 + n // 2)]),
-                        dz[k], self.experimentalData.wavelength, n * self.experimentalData.dxo)
+                        w * xp.squeeze(self.optimizable.object[..., (self.optimizable.No // 2 - n // 2):
+                                                                    (self.optimizable.No // 2 + n // 2),
+                                       (self.optimizable.No // 2 - n // 2):(
+                                                   self.optimizable.No // 2 + n // 2)]),
+                        dz[k], self.optimizable.wavelength, n * self.optimizable.dxo)
 
                     # TV approach
                     aleph = 1e-2
@@ -100,30 +94,30 @@ class zPIE(BaseReconstructor):
 
                 feedback = np.sum(dz*merit)/np.sum(merit)    # at optimal z, feedback term becomes 0
                 zMomentun = self.zPIEfriction*zMomentun+self.zPIEgradientStepSize*feedback
-                zNew = self.experimentalData.zo+zMomentun
+                zNew = self.optimizable.zo+zMomentun
 
-            self.zHistory.append(self.experimentalData.zo)
+            self.optimizable.zHistory.append(self.optimizable.zo)
 
             # print updated z
-            self.pbar.set_description('zPIE: update z = %.3f mm (dz = %.1f um)' % (self.experimentalData.zo*1e3, zMomentun*1e6))
+            self.pbar.set_description('zPIE: update z = %.3f mm (dz = %.1f um)' % (self.optimizable.zo*1e3, zMomentun*1e6))
 
             # reset coordinates
-            self.experimentalData.zo = zNew
+            self.optimizable.zo = zNew
 
             # re-sample is automatically done by using @property
-            if self.propagator != 'ASP':
-                self.experimentalData.dxp = self.experimentalData.wavelength*self.experimentalData.zo\
-                                            /self.experimentalData.Ld
+            if self.params.propagator != 'ASP':
+                self.optimizable.dxp = self.optimizable.wavelength*self.optimizable.zo\
+                                            /self.optimizable.Ld
                 # reset propagator
-                self.optimizable.quadraticPhase = xp.array(np.exp(1.j * np.pi/(self.experimentalData.wavelength * self.experimentalData.zo)
-                                                                  * (self.experimentalData.Xp**2 + self.experimentalData.Yp**2)))
+                self.optimizable.quadraticPhase = xp.array(np.exp(1.j * np.pi/(self.optimizable.wavelength * self.optimizable.zo)
+                                                                  * (self.optimizable.Xp**2 + self.optimizable.Yp**2)))
 
             for positionLoop, positionIndex in enumerate(self.positionIndices):
                 ### patch1 ###
                 # get object patch
-                row, col = self.experimentalData.positions[positionIndex]
-                sy = slice(row, row + self.experimentalData.Np)
-                sx = slice(col, col + self.experimentalData.Np)
+                row, col = self.optimizable.positions[positionIndex]
+                sy = slice(row, row + self.optimizable.Np)
+                sx = slice(col, col + self.optimizable.Np)
                 # note that object patch has size of probe array
                 objectPatch = self.optimizable.object[..., sy, sx].copy()
 
@@ -160,17 +154,22 @@ class zPIE(BaseReconstructor):
                 plt.show(block=False)
 
             elif np.mod(loop, self.monitor.figureUpdateFrequency) == 0:
-                idx = np.linspace(0, np.log10(len(self.zHistory)-1), np.minimum(len(self.zHistory), 100))
+                idx = np.linspace(0, np.log10(len(self.optimizable.zHistory)-1), np.minimum(len(self.optimizable.zHistory), 100))
                 idx = np.rint(10**idx).astype('int')
 
                 line.set_xdata(idx)
-                line.set_ydata(np.array(self.zHistory)[idx]*1e3)
+                line.set_ydata(np.array(self.optimizable.zHistory)[idx]*1e3)
                 ax.set_xlim(0, np.max(idx))
-                ax.set_ylim(np.min(self.zHistory)*1e3, np.max(self.zHistory)*1e3)
+                ax.set_ylim(np.min(self.optimizable.zHistory)*1e3, np.max(self.optimizable.zHistory)*1e3)
 
                 figure.canvas.draw()
                 figure.canvas.flush_events()
             self.showReconstruction(loop)
+
+        if self.params.gpuFlag:
+            self.logger.info('switch to cpu')
+            self._move_data_to_cpu()
+            self.params.gpuFlag = 0
 
     def objectPatchUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
         """
@@ -198,52 +197,4 @@ class zPIE(BaseReconstructor):
         r = self.optimizable.probe + self.betaProbe * xp.sum(frac * DELTA, axis=(0, 1, 3), keepdims=True)
         return r
 
-class zPIE_GPU(zPIE):
-    """
-    GPU-based implementation of zPIE
-    """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if cp is None:
-            raise ImportError('Could not import cupy')
-        self.logger = logging.getLogger('zPIE_GPU')
-        self.logger.info('Hello from zPIE_GPU')
-
-    def _prepare_doReconstruction(self):
-        self.logger.info('Ready to start transferring stuff to the GPU')
-        self._move_data_to_gpu()
-
-    def _move_data_to_gpu(self):
-        """
-        Move the data to the GPU
-        :return:
-        """
-        # optimizable parameters
-        self.optimizable.probe = cp.array(self.optimizable.probe, cp.complex64)
-        self.optimizable.object = cp.array(self.optimizable.object, cp.complex64)
-
-        # non-optimizable parameters
-        self.experimentalData.ptychogram = cp.array(self.experimentalData.ptychogram, cp.float32)
-        # self.experimentalData.probe = cp.array(self.experimentalData.probe, cp.complex64)
-        # self.optimizable.Imeasured = cp.array(self.optimizable.Imeasured)
-
-        # zPIE parameters
-        self.logger.info('Detector error shape: %s', self.detectorError.shape)
-        self.detectorError = cp.array(self.detectorError)
-
-        # proapgators to GPU
-        if self.propagator == 'Fresnel':
-            self.optimizable.quadraticPhase = cp.array(self.optimizable.quadraticPhase)
-        elif self.propagator == 'ASP' or self.propagator == 'polychromeASP':
-            self.optimizable.transferFunction = cp.array(self.optimizable.transferFunction)
-        elif self.propagator == 'scaledASP' or self.propagator == 'scaledPolychromeASP':
-            self.optimizable.Q1 = cp.array(self.optimizable.Q1)
-            self.optimizable.Q2 = cp.array(self.optimizable.Q2)
-
-        # other parameters
-        if self.backgroundModeSwitch:
-            self.background = cp.array(self.background)
-        if self.absorbingProbeBoundary:
-            self.probeWindow = cp.array(self.probeWindow)
 
