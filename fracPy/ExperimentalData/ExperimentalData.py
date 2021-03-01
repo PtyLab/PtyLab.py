@@ -130,6 +130,7 @@ class ExperimentalData:
         """
         xp = getArrayModule(self.ptychogram)
         show3Dslider(xp.log10(xp.swapaxes(self.ptychogram, 1,2)+1))
+        print('Maximum count in ptychogram is %d'%(np.max(self.ptychogram)))
 
 
     # Set attributes using @property operators: they are set automatically with the functions defined by the

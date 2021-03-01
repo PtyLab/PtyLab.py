@@ -165,7 +165,7 @@ if ptycho_recon:
     engine.zPIEgradientStepSize = 200  # gradient step size for axial position correction (typical range [1, 100])
 
     ## switches
-    engine.probePowerCorrectionSwitch = False
+    engine.probePowerCorrectionSwitch = True
     engine.modulusEnforcedProbeSwitch = False
     engine.comStabilizationSwitch = True
     engine.orthogonalizationSwitch = False

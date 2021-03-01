@@ -71,8 +71,8 @@ class zPIE(BaseReconstructor):
         X,Y = xp.meshgrid(xp.arange(-n//2, n//2), xp.arange(-n//2, n//2))
         w = xp.exp(-(xp.sqrt(X**2+Y**2)/self.experimentalData.Np)**4)
 
-        pbar = tqdm.trange(self.numIterations, desc='update z = ', leave=True)  # in order to change description to the tqdm progress bar
-        for loop in pbar:
+        self.pbar = tqdm.trange(self.numIterations, desc='zPIE', leave=True)  # in order to change description to the tqdm progress bar
+        for loop in self.pbar:
             # set position order
             self.setPositionOrder()
 
@@ -81,7 +81,7 @@ class zPIE(BaseReconstructor):
                 zNew = self.experimentalData.zo.copy()
             else:
                 d = 10
-                dz = np.linspace(-d * self.DoF, d * self.DoF, 11)/2
+                dz = np.linspace(-d * self.DoF, d * self.DoF, 11)/10
                 merit = []
                 # todo, mixed states implementation, check if more need to be put on GPU to speed up
                 for k in np.arange(len(dz)):
@@ -105,7 +105,7 @@ class zPIE(BaseReconstructor):
             self.zHistory.append(self.experimentalData.zo)
 
             # print updated z
-            pbar.set_description('update z = %.3f mm (dz = %.1f um)' % (self.experimentalData.zo*1e3, zMomentun*1e6))
+            self.pbar.set_description('zPIE: update z = %.3f mm (dz = %.1f um)' % (self.experimentalData.zo*1e3, zMomentun*1e6))
 
             # reset coordinates
             self.experimentalData.zo = zNew
