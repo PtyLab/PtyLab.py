@@ -705,7 +705,7 @@ class BaseReconstructor(object):
         # back propagate to object plane
         self.detector2object()
 
-    def decompressionProjection(self, positionIndex):
+    # def decompressionProjection(self, positionIndex):
         # overwrite the measured intensity (just to have same dimentions as Iestimated,
         # further below the actual decompression projection takes place)
         # self.optimizable.Imeasured = self.optimizable.Iestimated.copy()
@@ -715,10 +715,10 @@ class BaseReconstructor(object):
         # self.optimizableImeasuredDownsampled = self.optimizable.ptychogramDownsampled[positionIndex]
         # I = self.optimizable.Iestimated.copy()
 
-    def setCPSC(self):
-        """
-
-        """
+    # def setCPSC(self):
+    #     """
+    #
+    #     """
         # # define temporary image
         # im = rescale(self.experimentalData.ptychogram[0], self.params.upsamplingFactor)
         #

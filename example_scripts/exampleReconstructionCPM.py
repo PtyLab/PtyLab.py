@@ -29,7 +29,7 @@ change data visualization and initialization options manually for now
 exampleData = ExperimentalData()
 
 import os
-fileName = 'simu.hdf5'  # simu.hdf5 or Lenspaper.hdf5
+fileName = 'Lenspaper.hdf5'  # simu.hdf5 or Lenspaper.hdf5
 filePath = getExampleDataFolder() / fileName
 
 exampleData.loadData(filePath)
