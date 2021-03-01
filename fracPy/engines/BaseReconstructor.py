@@ -231,7 +231,6 @@ class BaseReconstructor(object):
         """
         checks miscellaneous quantities specific certain engines
         """
-        # todo check what does rgn('shuffle') do in matlab
         if self.params.backgroundModeSwitch:
             self.optimizable.background = 1e-1*np.ones((self.optimizable.Np, self.optimizable.Np))
 
@@ -704,29 +703,29 @@ class BaseReconstructor(object):
     def decompressionProjection(self, positionIndex):
         # overwrite the measured intensity (just to have same dimentions as Iestimated,
         # further below the actual decompression projection takes place)
-        self.optimizable.Imeasured = self.optimizable.Iestimated.copy()
-
-        # determine downsampled fraction
-        frac = np.ones_like(self.optimizable.ptychogramDownsampled[0])
-        self.optimizableImeasuredDownsampled = self.optimizable.ptychogramDownsampled[positionIndex]
-        I = self.optimizable.Iestimated.copy()
+        # self.optimizable.Imeasured = self.optimizable.Iestimated.copy()
+        #
+        # # determine downsampled fraction
+        # frac = np.ones_like(self.optimizable.ptychogramDownsampled[0])
+        # self.optimizableImeasuredDownsampled = self.optimizable.ptychogramDownsampled[positionIndex]
+        # I = self.optimizable.Iestimated.copy()
 
     def setCPSC(self):
         """
 
         """
-        # define temporary image
-        im = rescale(self.experimentalData.ptychogram[0], self.params.upsamplingFactor)
-
-        # get upsampling index
-        _,self.optimizable.upsampledIndex, self.optimizable.downsampledIndex = p2bin(im, self.params.upsamplingFactor)
-        self.optimizable.ptychograpmDownsampled = self.experimentalData.ptychogram
-
-        # update coordinates (only need to update the dxd, the rest updates automatically)
-        self.optimizable.dxd = self.optimizable.dxd/self.params.upsamplingFactor
-
-        # upsample probe
-        probeTemp = self.optimizable.probe.copy()
+        # # define temporary image
+        # im = rescale(self.experimentalData.ptychogram[0], self.params.upsamplingFactor)
+        #
+        # # get upsampling index
+        # _,self.optimizable.upsampledIndex, self.optimizable.downsampledIndex = p2bin(im, self.params.upsamplingFactor)
+        # self.optimizable.ptychograpmDownsampled = self.experimentalData.ptychogram
+        #
+        # # update coordinates (only need to update the dxd, the rest updates automatically)
+        # self.optimizable.dxd = self.optimizable.dxd/self.params.upsamplingFactor
+        #
+        # # upsample probe
+        # probeTemp = self.optimizable.probe.copy()
 
 
     def showReconstruction(self, loop):
