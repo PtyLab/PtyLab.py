@@ -35,7 +35,7 @@ class aPIE(BaseReconstructor):
         super().__init__(optimizable, experimentalData, params, monitor)
         self.logger = logging.getLogger('aPIE')
         self.logger.info('Sucesfully created aPIE aPIE_engine')
-        self.logger.info('Wavelength attribute: %s', self.experimentalData.wavelength)
+        self.logger.info('Wavelength attribute: %s', self.optimizable.wavelength)
         self.initializeReconstructionParams()
 
 
@@ -56,7 +56,8 @@ class aPIE(BaseReconstructor):
 
         self.thetaSearchRadiusMin = 0.01
         self.thetaSearchRadiusMax = 0.1
-        self.experimentalData.W = np.ones_like(self.experimentalData.Xd)
+        self.ptychogramUntransformed = self.experimentalData.ptychogram.copy()
+        self.experimentalData.W = np.ones_like(self.optimizable.Xd)
 
         if self.optimizable.theta == None:
             raise ValueError('theta value is not given')
@@ -95,25 +96,25 @@ class aPIE(BaseReconstructor):
                 self.optimizable.probe = probeTemp
                 self.optimizable.object = objectTemp
                 # reset ptychogram (transform into estimate coordinates)
-                Xq = T_inv(self.experimentalData.Xd, self.experimentalData.Yd, self.experimentalData.zo, theta[k]) # todo check if 1D is enough to save time
+                Xq = T_inv(self.optimizable.Xd, self.optimizable.Yd, self.optimizable.zo, theta[k]) # todo check if 1D is enough to save time
                 for l in range(self.experimentalData.numFrames):
-                    temp = asNumpyArray(self.experimentalData.ptychogramUntransformed[l])
-                    f = interp2d(self.experimentalData.xd, self.experimentalData.xd, temp, kind='linear', fill_value=0)
-                    temp2 = abs(f(Xq[0], self.experimentalData.xd))
+                    temp = self.ptychogramUntransformed[l]
+                    f = interp2d(self.optimizable.xd, self.optimizable.xd, temp, kind='linear', fill_value=0)
+                    temp2 = abs(f(Xq[0], self.optimizable.xd))
                     temp2 = np.nan_to_num(temp2)
                     temp2[temp2 < 0] = 0
-                    self.experimentalData.ptychogram[l] = xp.array(temp2)
+                    self.optimizable.ptychogram[l] = xp.array(temp2)
 
                 # renormalization(for energy conservation) # todo not layer by layer?
                 self.experimentalData.ptychogram = self.experimentalData.ptychogram / np.linalg.norm(
-                    self.experimentalData.ptychogram) * np.linalg.norm(self.experimentalData.ptychogramUntransformed)
+                    self.experimentalData.ptychogram) * np.linalg.norm(self.ptychogramUntransformed)
 
-                self.experimentalData.W = np.ones_like(self.experimentalData.Xd)
-                fw = interp2d(self.experimentalData.xd, self.experimentalData.xd, self.experimentalData.W, kind='linear', fill_value=0)
-                self.experimentalData.W = abs(fw(Xq[0], self.experimentalData.xd))
+                self.experimentalData.W = np.ones_like(self.optimizable.Xd)
+                fw = interp2d(self.optimizable.xd, self.optimizable.xd, self.experimentalData.W, kind='linear', fill_value=0)
+                self.experimentalData.W = abs(fw(Xq[0], self.optimizable.xd))
                 self.experimentalData.W = np.nan_to_num(self.experimentalData.W)
                 self.experimentalData.W[self.experimentalData.W == 0] = 1e-3
-                self.experimentalData.W = xp.array(self.experimentalData.W)
+                self.experimentalData.W = xp.array(self.optimizable.W)
 
 
                 # todo check if it is right
@@ -127,9 +128,9 @@ class aPIE(BaseReconstructor):
                 for positionLoop, positionIndex in enumerate(self.positionIndices):
                     ### patch1 ###
                     # get object patch1
-                    row1, col1 = self.experimentalData.positions[positionIndex]
-                    sy = slice(row1, row1 + self.experimentalData.Np)
-                    sx = slice(col1, col1 + self.experimentalData.Np)
+                    row1, col1 = self.optimizable.positions[positionIndex]
+                    sy = slice(row1, row1 + self.optimizable.Np)
+                    sx = slice(col1, col1 + self.optimizable.Np)
                     # note that object patch has size of probe array
                     objectPatch = self.optimizable.object[..., sy, sx].copy()
 

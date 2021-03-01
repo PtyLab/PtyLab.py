@@ -32,12 +32,6 @@ class mPIE(BaseReconstructor):
         self.logger.info('Wavelength attribute: %s', self.optimizable.wavelength)
         # initialize mPIE params
         self.initializeReconstructionParams()
-        # initialize momentum
-        self.optimizable.initializeObjectMomentum()
-        self.optimizable.initializeProbeMomentum()
-        # set object and probe buffers
-        self.optimizable.objectBuffer = self.optimizable.object.copy()
-        self.optimizable.probeBuffer = self.optimizable.probe.copy()
         self.params.momentumAcceleration = True
         
     def initializeReconstructionParams(self):
@@ -52,8 +46,15 @@ class mPIE(BaseReconstructor):
         self.alphaObject = 0.1    # object regularization
         self.feedbackM = 0.3          # feedback
         self.frictionM = 0.7          # friction
-        self.optimizable.probeWindow = np.abs(self.optimizable.probe)
 
+        # initialize momentum
+        self.optimizable.initializeObjectMomentum()
+        self.optimizable.initializeProbeMomentum()
+        # set object and probe buffers
+        self.optimizable.objectBuffer = self.optimizable.object.copy()
+        self.optimizable.probeBuffer = self.optimizable.probe.copy()
+
+        self.optimizable.probeWindow = np.abs(self.optimizable.probe)
 
     def doReconstruction(self):
         self._prepareReconstruction()
@@ -66,9 +67,9 @@ class mPIE(BaseReconstructor):
 
             for positionLoop, positionIndex in enumerate(self.positionIndices):
                 # get object patch
-                row, col = self.experimentalData.positions[positionIndex]
-                sy = slice(row, row + self.experimentalData.Np)
-                sx = slice(col, col + self.experimentalData.Np)
+                row, col = self.optimizable.positions[positionIndex]
+                sy = slice(row, row + self.optimizable.Np)
+                sx = slice(col, col + self.optimizable.Np)
                 # note that object patch has size of probe array
                 objectPatch = self.optimizable.object[..., sy, sx].copy()
                 

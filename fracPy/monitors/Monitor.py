@@ -37,10 +37,10 @@ class Monitor(object):
         """
         self.defaultMonitor.updateError(self.optimizable.error)
         self.defaultMonitor.updateObject(object_estimate, objectPlot=self.objectPlot,
-                                         pixelSize=self.optimizable.data.dxo, axisUnit='mm',
+                                         pixelSize=self.optimizable.dxo, axisUnit='mm',
                                          amplitudeScalingFactor=self.objectPlotContrast)
         self.defaultMonitor.updateProbe(probe_estimate, self.optimizable,
-                                        pixelSize=self.optimizable.data.dxp, axisUnit='mm',
+                                        pixelSize=self.optimizable.dxp, axisUnit='mm',
                                         amplitudeScalingFactor=self.probePlotContrast)
         self.defaultMonitor.drawNow()
 

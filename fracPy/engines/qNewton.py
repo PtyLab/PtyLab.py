@@ -51,9 +51,9 @@ class qNewton(BaseReconstructor):
             
             for positionLoop, positionIndex in enumerate(self.positionIndices):
                 # get object patch
-                row, col = self.experimentalData.positions[positionIndex]
-                sy = slice(row, row + self.experimentalData.Np)
-                sx = slice(col, col + self.experimentalData.Np)
+                row, col = self.optimizable.positions[positionIndex]
+                sy = slice(row, row + self.optimizable.Np)
+                sx = slice(col, col + self.optimizable.Np)
                 # note that object patch has size of probe array
                 objectPatch = self.optimizable.object[..., sy, sx].copy()
                 
@@ -105,6 +105,6 @@ class qNewton(BaseReconstructor):
         """
         xp = getArrayModule(objectPatch)
         Omax = xp.max(xp.sum(xp.abs(self.optimizable.object), axis=(0, 1, 2, 3)))
-        frac = xp.abs(objectPatch)/Omax * objectPatch.conj() /  (xp.abs(objectPatch)**2 + self.regProbe)
+        frac = xp.abs(objectPatch)/Omax * objectPatch.conj() / (xp.abs(objectPatch)**2 + self.regProbe)
         r = self.optimizable.probe + self.betaProbe * xp.sum(frac * DELTA, axis=(0,1,3), keepdims=True)
         return r

@@ -29,12 +29,14 @@ change data visualization and initialization options manually for now
 exampleData = ExperimentalData()
 
 import os
-fileName = 'Lenspaper.hdf5'  # simu.hdf5 or Lenspaper.hdf5
+fileName = 'simu.hdf5'  # simu.hdf5 or Lenspaper.hdf5
 filePath = getExampleDataFolder() / fileName
 
 exampleData.loadData(filePath)
 
 exampleData.operationMode = 'CPM'
+exampleData.showPtychogram()
+exampleData.zo = exampleData.zo*0.9
 
 # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
 # now create an object to hold everything we're eventually interested in
@@ -43,31 +45,28 @@ optimizable.npsm = 1 # Number of probe modes to reconstruct
 optimizable.nosm = 1 # Number of object modes to reconstruct
 optimizable.nlambda = 1 # len(exampleData.spectralDensity) # Number of wavelength
 optimizable.nslice = 1 # Number of object slice
-exampleData.dz = 1e-4  # slice
-# exampleData.dxp = exampleData.dxd
+# optimizable.dxp = optimizable.dxd
 
 
 optimizable.initialProbe = 'circ'
-exampleData.entrancePupilDiameter = exampleData.Np / 3 * exampleData.dxp  # initial estimate of beam
+exampleData.entrancePupilDiameter = optimizable.Np / 3 * optimizable.dxp  # initial estimate of beam
 optimizable.initialObject = 'ones'
 # initialize probe and object and related params
 optimizable.prepare_reconstruction()
 
 # customize initial probe quadratic phase
-optimizable.probe = optimizable.probe*np.exp(1.j*2*np.pi/exampleData.wavelength *
-                                             (exampleData.Xp**2+exampleData.Yp**2)/(2*6e-3))
+optimizable.probe = optimizable.probe*np.exp(1.j*2*np.pi/optimizable.wavelength *
+                                             (optimizable.Xp**2+optimizable.Yp**2)/(2*6e-3))
 
 # this will copy any attributes from experimental data that we might care to optimize
 # # Set monitor properties
 monitor = Monitor()
-monitor.figureUpdateFrequency = 10
+monitor.figureUpdateFrequency = 1
 monitor.objectPlot = 'complex'  # complex abs angle
 monitor.verboseLevel = 'high'  # high: plot two figures, low: plot only one figure
 monitor.objectPlotZoom = 1.5   # control object plot FoV
 monitor.probePlotZoom = 0.5   # control probe plot FoV
 
-# exampleData.zo = exampleData.zo
-# exampleData.dxp = exampleData.dxp/1
 # Run the reconstruction
 
 params = Params()
@@ -115,7 +114,7 @@ engine.doReconstruction()
 
 # mPIE
 engine_mPIE = mPIE.mPIE(optimizable, exampleData, params, monitor)
-engine_mPIE.numIterations = 10
+engine_mPIE.numIterations = 50
 engine_mPIE.betaProbe = 0.25
 engine_mPIE.betaObject = 0.25
 engine_mPIE.doReconstruction()
@@ -123,9 +122,9 @@ engine_mPIE.doReconstruction()
 # zPIE
 engine_zPIE = zPIE.zPIE(optimizable, exampleData, params,monitor)
 engine_zPIE.numIterations = 50
-engine_zPIE.betaProbe = 0.25
-engine_zPIE.betaObject = 0.25
-engine_zPIE.zPIEgradientStepSize = 200  # gradient step size for axial position correction (typical range [1, 100])
+engine_zPIE.betaProbe = 0.35
+engine_zPIE.betaObject = 0.35
+engine_zPIE.zPIEgradientStepSize = 1000  # gradient step size for axial position correction (typical range [1, 100])
 engine_zPIE.doReconstruction()
 
 # e3PIE

@@ -18,6 +18,8 @@ from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray
 from fracPy.monitors.Monitor import Monitor
 from fracPy.utils.utils import fft2c, ifft2c
 import logging
+import tqdm
+import sys
 
 
 class multiPIE(BaseReconstructor):
@@ -31,7 +33,7 @@ class multiPIE(BaseReconstructor):
         self.logger.info('Wavelength attribute: %s', self.optimizable.wavelength)
         # initialize multiPIE params
         self.initializeReconstructionParams()
-        self.momentumAcceleration = True
+        self.params.momentumAcceleration = True
 
     def initializeReconstructionParams(self):
         """
@@ -57,17 +59,17 @@ class multiPIE(BaseReconstructor):
     def doReconstruction(self):
         self._prepareReconstruction()
 
-        # actual reconstruction ePIE_engine
-        import tqdm
-        for loop in tqdm.tqdm(range(self.numIterations)):
+        self.pbar = tqdm.trange(self.numIterations, desc='multiPIE', file=sys.stdout, leave=True)
+
+        for loop in self.pbar:
             # set position order
             self.setPositionOrder()
 
             for positionLoop, positionIndex in enumerate(self.positionIndices):
                 # get object patch
-                row, col = self.experimentalData.positions[positionIndex]
-                sy = slice(row, row + self.experimentalData.Np)
-                sx = slice(col, col + self.experimentalData.Np)
+                row, col = self.optimizable.positions[positionIndex]
+                sy = slice(row, row + self.optimizable.Np)
+                sx = slice(col, col + self.optimizable.Np)
                 # note that object patch has size of probe array
                 objectPatch = self.optimizable.object[..., sy, sx].copy()
 

@@ -206,3 +206,42 @@ def zernikeAberrations(Xp,Yp,D,z_coeff):
 
     return aperture * np.exp(1j*np.sum(list(Z.values())))
 
+def p2bin(im,binningFactor):
+    """
+    perform binning at a factor of power of 2, return binned image and the indices for before and after binning.
+    :params im: input image for binning
+    :params binningFactor: must be power of 2 in the current implementation
+    :return:
+    """
+    M, N = im.shape
+    if np.mod(binningFactor, 2) != 0 and binningFactor != 1:
+        raise ValueError('binning factor needs to be a power of 2')
+    if np.mod(M, binningFactor) != 0 or np.mod(N, binningFactor) != 0:
+        raise ValueError('#rows and #columns of reference need to be divided by binningFactor!')
+
+
+    if binningFactor != 1:
+        for k in range(1, int(np.log2(binningFactor))):
+            im_binned = bin2(im)
+        im_binned_ind = range(im_binned.size)
+        im_ind = np.arange(M*N).reshape(M//binningFactor, N, binningFactor)
+        im_ind = np.stack(im_ind, axis=1).reshape(M, N)
+    else:
+        im_binned = im
+        im_binned_ind = range(im_binned.size)
+        im_ind = im_binned_ind
+    return im_binned, im_ind, im_binned_ind
+
+
+def bin2(X):
+    """
+    perform 2-by-2 binning.
+    :params X: input 2D image for binning
+    return: Y: output 2D image after 2-by-2 binning
+    """
+    # simple 2-fold binning
+    m,n = X.shape
+    Y = np.sum(X.reshape(2,m//2,2,n//2), axis=(0,2))
+    return Y
+
+

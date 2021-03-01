@@ -14,7 +14,6 @@ required_fields = [
     'ptychogram',       # 3D image stack 
     'wavelength',       # illumination lambda
     'encoder',          # diffracted field positions
-    'Nd',               # detector pixel number
     'dxd',              # pixel size
     'zo',               # sample to detector distance
 ]
