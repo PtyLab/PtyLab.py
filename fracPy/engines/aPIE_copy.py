@@ -241,18 +241,14 @@ class aPIE(BaseReconstructor):
         return r
 
 
-    def xtotiltU(self, x, y, theta):
-        """
-        Coordinate transformation from detector coordinates to coordinates to spatial frequencies of the object, in the case
-        that the object plane is tilted with respect to the detector plane
-        :param x,y: Detector coordinates
-        :param theta: tilt angle between sample
-        :return:
-        """
-        r0 = np.sqrt(x ** 2 + y ** 2 + self.zo ** 2)
-        v = y
-        u = x * np.cos(toDegree(theta)) - np.sin(toDegree(theta)) * (r0 - self.zo)
-        return u,v
+def T(x, y, z, theta):
+    """
+    Coordinate transformation
+    """
+    r0 = np.sqrt(x ** 2 + y ** 2 + z ** 2)
+    yd = y
+    xd = x * np.cos(toDegree(theta)) - np.sin(toDegree(theta)) * (r0 - z)
+    return xd, yd
 
 
 def T_inv(xd, yd, z, theta):
