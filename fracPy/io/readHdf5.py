@@ -8,15 +8,27 @@ import h5py
 logger = logging.getLogger('readHdf5')
 
 
-# these are the fields required for an FPM dataset (preliminary)
-# need a clause such that
+# These are the fields required for ptyLab to work
+# ALL VALUES MUST BE IN METERS
 required_fields = [
     'ptychogram',       # 3D image stack 
     'wavelength',       # illumination lambda
     'encoder',          # diffracted field positions
     'dxd',              # pixel size
-    'zo',               # sample to detector distance
+    'zo'                # sample to detector distance
 ]
+
+# These fields are optional because they will either be computed later
+# from the "required_fields" or are required for FPM, but not CPM
+# if not provided by the user they will be set as None
+optional_fields = [
+    'magnification',            # magnification, used for FPM computations of dxp
+    'dxp',                      # dxp, can be provided by the user, otherwise will be computed using dxp=dxd/magnification
+    'No',                       # number of upsampled pixels
+    'Nd',                       # probe/pupil plane size, will be set to Ptychogram size by default
+    'entrancePupilDiameter',    # entrance pupil diameter, defined in lens-based microscopes as the aperture diameter, reqquired for FPM
+    'spectralDensity'           # CPM parameters
+    ]
 
 # These extensions can be loaded
 allowed_extensions = ['.h5', '.hdf5', '.mat']
@@ -59,15 +71,25 @@ def loadInputData(filename:Path):
         with tables.open_file(str(filename), mode='r') as hdf5_file:
             # PyTables hierarchy : Table -> Group -> Node
             # Go through all nodes hanging from the default
-            # for node in hdf5_file.root._f_walknodes():
-            for node in hdf5_file.walk_nodes("/", "Array"):
-                key = node.name
-                value = node.read()
-                    
-                # load all fields
-                # if key in required_fields:  
+            # for node in hdf5_file.walk_nodes("/", "Array"):
+            #     key = node.name
+            #     value = node.read()
+            #     dataset[key] = scalify(value)
+                
+            # load the required fields
+            for key in required_fields: 
+                value = hdf5_file.root[key].read()
                 dataset[key] = scalify(value)
-                # dataset[key] = value
+           
+            # load optional fields, otherwise set to None and compute later
+            for key in optional_fields:
+                # check if the optional field exists otherwise set to None
+                if key in hdf5_file.root:
+                    value = hdf5_file.root[key].read()
+                    dataset[key] = scalify(value)
+                else:
+                    dataset[key] = None
+
     except Exception as e:
         logger.error('Error reading hdf5 file!')
         raise e

@@ -12,35 +12,36 @@ import traceback
 
 import matplotlib.animation as animation
 from fracPy.utils.utils import ifft2c, fft2c
+from fracPy.Optimizable.Optimizable import Optimizable
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 
-
 class IlluminationCalibration():
-    def __init__(self, experimentalData: ExperimentalData):
+    def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData):
         # These statements don't copy any data, they just keep a reference to the object
+        self.optimizable = optimizable
         self.experimentalData = experimentalData
         # the following arrays need to be copied in memory for processing
         self.ptychogram = deepcopy(self.experimentalData.ptychogram)
-        self.initialPositions = deepcopy(self.experimentalData.positions)
+        self.initialPositions = deepcopy(self.optimizable.positions)
         # UNSHFIT DUE TO EXAMPLEDATA SHIFTING BY No//2 and Np//2
-        self.initialPositions = self.initialPositions - self.experimentalData.No//2 + self.experimentalData.Np//2
+        self.initialPositions = self.initialPositions - self.optimizable.No//2 + self.optimizable.Np//2
 
         # initialize search variables
-        self.searchGridSize = round(int(experimentalData.Np*0.1))
+        self.searchGridSize = round(int(optimizable.Np*0.1))
         self.gaussSigma = 3
         self.plot = False
         self.calibrateRadius = False
         self.brightfieldIndices = None
         self.fit_mode = 'SimilarityTransform'  
         
-        # compute system parameters to be calibrated from the loaded experimentalData        
-        self.dxp = experimentalData.dxp
-        self.No = experimentalData.No
-        self.Np = experimentalData.Np
-        self.wavelength = experimentalData.wavelength
-        self.img_size = experimentalData.Np
+        # compute system parameters to be calibrated from the loaded optimizable        
+        self.dxp = optimizable.dxp
+        self.No = optimizable.No
+        self.Np = optimizable.Np
+        self.wavelength = optimizable.wavelength
+        self.img_size = optimizable.Np
         # inverse calculation of the NA since we don't have the values provided by the user at the moment
-        self.num_apert = experimentalData.entrancePupilDiameter/2 * experimentalData.wavelength / (experimentalData.dxp**2 * experimentalData.Np)
+        self.num_apert = experimentalData.entrancePupilDiameter/2 * optimizable.wavelength / (optimizable.dxp**2 * optimizable.Np)
         self.apertRadiusPixel = self.dxp * self.img_size * self.num_apert / self.wavelength
         self.apertRadiusPixel_init = self.apertRadiusPixel
 
@@ -51,12 +52,12 @@ class IlluminationCalibration():
 
     
     def initialize_error_search_space(self):
-            self.angleRange_x_init = np.sin(np.mgrid[0:360:10]/180.*np.pi)
-            self.angleRange_y_init =  np.cos(np.mgrid[0:360:10]/180.*np.pi)
-            self.gridSearch_x_init = np.mgrid[-self.searchGridSize:self.searchGridSize+1]
-            self.gridSearch_y_init = np.mgrid[-self.searchGridSize:self.searchGridSize+1]
-            self.x_range = len(self.gridSearch_x_init)
-            self.y_range = len(self.gridSearch_y_init)
+        self.angleRange_x_init = np.sin(np.mgrid[0:360:10]/180.*np.pi)
+        self.angleRange_y_init =  np.cos(np.mgrid[0:360:10]/180.*np.pi)
+        self.gridSearch_x_init = np.mgrid[-self.searchGridSize:self.searchGridSize+1]
+        self.gridSearch_y_init = np.mgrid[-self.searchGridSize:self.searchGridSize+1]
+        self.x_range = len(self.gridSearch_x_init)
+        self.y_range = len(self.gridSearch_y_init)
         
            
     def findBrightfielIndices(self, ptychogram):
@@ -576,7 +577,7 @@ class IlluminationCalibration():
             dst = np.delete(calibrated_positions, failed_position_calib, axis=0)
     
             calibMatrix, updatedPositions =\
-                fitCoordinates(src, dst, self.fit_mode)
+                self.fitCoordinates(src, dst, self.fit_mode)
             
             updatedPositions = matrix_transform(initialPositions, calibMatrix.params)
         else:
@@ -586,8 +587,7 @@ class IlluminationCalibration():
 
 
     
-    
-    def plotCalibration(self, FT_ptychogram, initialPositions, calibrated_positions, matrix=[0,0]):
+    def plotCalibration(self, FT_ptychogram, initialPositions, calibrated_positions):
         """
         Plot the fitted circles and the calibrated positions pre and post 
         calibration
@@ -603,51 +603,47 @@ class IlluminationCalibration():
         """
         self.initialize_error_search_space()
 
-        fig = plt.figure(3)
-        ax = fig.add_subplot(111)
-        plt.title('position calibration results')
-        ims = []
+        plt.figure(3)
         
-        angles_x = np.sin(np.mgrid[0:360:.1]/180.*np.pi)
-        angles_y = np.cos(np.mgrid[0:360:.1]/180.*np.pi)
-        for idx in range(FT_ptychogram.shape[0]):
-            image = FT_ptychogram[idx,:,:]
-            
-            initial_row = self.apertRadiusPixel_init * angles_x +\
-                self.img_size/2 + initialPositions[idx,0] #+ matrix[0]
-            initial_col = self.apertRadiusPixel_init * angles_y +\
-                self.img_size/2 + initialPositions[idx,1] #+ matrix[1]
-    
-            final_row = self.apertRadiusPixel * angles_x +\
-                self.img_size/2 + calibrated_positions[idx,0]
-            final_col = self.apertRadiusPixel * angles_y +\
-                self.img_size/2 + calibrated_positions[idx,1]
-            
-            im1 = plt.imshow(image, animated=True)
-            im2 = plt.scatter(initial_col, initial_row, label='initial guess',c='g',s=1)
-            im3 = plt.scatter(final_col, final_row, label='calibrated', c='r',s=1)
-            # produce a legend with the unique colors from the scatter
-            legend = plt.legend(labels=['initial guess', 'calibrated'], loc="upper right")
-            ims.append([im1,im2,im3,legend])
+        while True:
+            angles_x = np.sin(np.mgrid[0:360:.1]/180.*np.pi)
+            angles_y = np.cos(np.mgrid[0:360:.1]/180.*np.pi)
+            for idx in range(FT_ptychogram.shape[0]):
+                plt.clf()
+
+                plt.title('position calibration results, image {}'.format(idx))
+                image = FT_ptychogram[idx,:,:]
+                
+                initial_row = self.apertRadiusPixel_init * angles_x +\
+                    self.img_size/2 + initialPositions[idx,0] 
+                initial_col = self.apertRadiusPixel_init * angles_y +\
+                    self.img_size/2 + initialPositions[idx,1]
         
-        # animate results
-        ani = animation.ArtistAnimation(fig, ims, interval=500, blit=True, repeat_delay=0)
-        # ani.save('../calib.mp4')
-        plt.show()
-        
+                final_row = self.apertRadiusPixel * angles_x +\
+                    self.img_size/2 + calibrated_positions[idx,0]
+                final_col = self.apertRadiusPixel * angles_y +\
+                    self.img_size/2 + calibrated_positions[idx,1]
+                
+                plt.imshow(image)
+                plt.scatter(initial_col, initial_row, label='initial guess',c='g',s=1)
+                plt.scatter(final_col, final_row, label='calibrated', c='r',s=1)
+                legend = plt.legend(labels=['initial guess', 'calibrated'], loc="upper right")
+                plt.pause(1)
+                
+                if not plt.fignum_exists(3): break
+            if not plt.fignum_exists(3): break
         
         # plot the scattered positions
-        plt.figure(4)
-        x0=initialPositions[:,1]
-        y0=initialPositions[:,0]
-        x1=calibrated_positions[:,1]
-        y1=calibrated_positions[:,0]
-        plt.scatter(x0,y0, label='initial guess',c='g')
-        plt.scatter(x1, y1, label='calibrated', c='r')
-        plt.grid(True)
-        ax.set_aspect(aspect='equal')
-        plt.legend()
-        plt.show()
+        # plt.figure(4)
+        # x0=initialPositions[:,1]
+        # y0=initialPositions[:,0]
+        # x1=calibrated_positions[:,1]
+        # y1=calibrated_positions[:,0]
+        # plt.scatter(x0,y0, label='initial guess',c='g')
+        # plt.scatter(x1, y1, label='calibrated', c='r')
+        # plt.grid(True)
+        # plt.legend()
+        # plt.show()
         return None
     
     
@@ -687,75 +683,97 @@ class IlluminationCalibration():
             print("Initial radius was {}px".format(np.round(oldRadius,2)))
             print("Calibrated radius is {}px".format(np.round(newRadius,2)))
             oldNA = np.round(oldRadius / self.dxp * self.wavelength / self.img_size,3)
-            newNA = np.round(newRadius / self.dxp * self.wavelength / self.img_size,3)
+            self.newNA = np.round(newRadius / self.dxp * self.wavelength / self.img_size,3)
             print("Initial NA was {}".format(oldNA))
-            print("Calibrated NA is {}".format(newNA))
+            print("Calibrated NA is {}".format(self.newNA))
             
         else:
-            newNA = self.apertRadiusPixel / self.dxp * self.wavelength / self.img_size
+            self.newNA = self.apertRadiusPixel / self.dxp * self.wavelength / self.img_size
             
         # find the calibration matrix between the initial positions and the ones
         # found based on circle fitting
-        calibMatrix, updatedPositions = self.findPositionCalibrationMatrix(self.ptychogram[self.brightfieldIndices],
+        self.calibMatrix, updatedPositions = self.findPositionCalibrationMatrix(self.ptychogram[self.brightfieldIndices],
                                                                              FFT_ptychogram[self.brightfieldIndices,:,:],
                                                                              self.initialPositions[self.brightfieldIndices,:])
         # fit the positions
-        positionsFitted = matrix_transform(self.initialPositions, calibMatrix.params)
+        positionsFitted = matrix_transform(self.initialPositions, self.calibMatrix.params)
         
         # plot the results
         if self.plot:
             # self.plotCalibration(FFT_ptychogram, self.initialPositions, positionsFitted)
-            self.plotCalibration(FFT_ptychogram[self.brightfieldIndices], self.initialPositions[self.brightfieldIndices], positionsFitted[self.brightfieldIndices], calibMatrix.translation)
+            self.plotCalibration(FFT_ptychogram[self.brightfieldIndices], self.initialPositions[self.brightfieldIndices], positionsFitted[self.brightfieldIndices])
 
-        # shift the positions back to where they were initially
-        # positionsFitted = positionsFitted + self.img_size/2 
-        
         # update the entrancePupilDiameter
         self.entrancePupilDiameter = self.apertRadiusPixel * self.dxp * 2
 
         # lastly pre-process positions into the correct form defined in the exampleData class
-        positionsFitted = positionsFitted + self.No//2 - self.Np//2
+        self.positionsFitted = (positionsFitted + self.No//2 - self.Np//2).astype(int)
 
-        return positionsFitted.astype(int), newNA, calibMatrix
-    
-def fitCoordinates(src, dst, mode):
-    """
-    Parameters
-    ----------
-    src : 2D array
-        source coordinates (to be calibrated)
-    dst : 2D array
-        destination coordinates (reference)
-    mode : str
-        Transformation mode: Translation, EuclideanTransform, SimilarityTransform, AffineTransform.
-
-    Returns
-    -------
-    matrix : skimage transformation matrix
-        3x3 transformation matrix.
-    fitted : 2D array
-        transformed source coordinates.
-
-    """
-    if mode == 'Translation' or mode == 'EuclideanTransform':
-        tform_mode = EuclideanTransform
-    elif mode == 'SimilarityTransform':
-        tform_mode = SimilarityTransform
-    elif mode == 'AffineTransform':
-        tform_mode = AffineTransform
-    else:
-        tform_mode = EuclideanTransform
-        print("Required fit mode not found, using EuclideanTransform")
+        return self.positionsFitted, self.newNA, self.calibMatrix
+ 
         
+    def fitCoordinates(self, src, dst, mode):
+        """
+        Parameters
+        ----------
+        src : 2D array
+            source coordinates (to be calibrated)
+        dst : 2D array
+            destination coordinates (reference)
+        mode : str
+            Transformation mode: Translation, EuclideanTransform, SimilarityTransform, AffineTransform.
     
-    # residual threshold based on a median value
-    resThresh = np.median(np.abs(dst-src))
+        Returns
+        -------
+        matrix : skimage transformation matrix
+            3x3 transformation matrix.
+        fitted : 2D array
+            transformed source coordinates.
     
-    # compute the transformation matrix between the data points
-    matrix, inliers = ransac((src, dst), tform_mode, min_samples=2,\
-                                residual_threshold=resThresh, max_trials=10000)
+        """
+        if mode == 'Translation' or mode == 'EuclideanTransform':
+            tform_mode = EuclideanTransform
+        elif mode == 'SimilarityTransform':
+            tform_mode = SimilarityTransform
+        elif mode == 'AffineTransform':
+            tform_mode = AffineTransform
+        else:
+            tform_mode = EuclideanTransform
+            print("Required fit mode not found, using EuclideanTransform")
+            
+        
+        # residual threshold based on a median value
+        resThresh = np.median(np.abs(dst-src))
+        
+        # compute the transformation matrix between the data points
+        matrix, inliers = ransac((src, dst), tform_mode, min_samples=2,\
+                                    residual_threshold=resThresh, max_trials=10000)
+    
+        if mode == 'Translation':
+            matrix = tform_mode(translation=matrix.translation)   
+        fitted = matrix_transform(src, matrix.params)
+        return matrix, fitted
 
-    if mode == 'Translation':
-        matrix = tform_mode(translation=matrix.translation)   
-    fitted = matrix_transform(src, matrix.params)
-    return matrix, fitted
+    def updatePositions(self):
+        """
+        Inside the optimizable the positions are computed "on-the-fly"
+        each time "optimizable.postions" are called (required for position optiization routines)
+        
+        We can override this by setting the optimizable switch: 
+        optimizable.fixedPositions = True
+    
+        Once this is done, the positions will be returned as 
+        optimizable.positions0 rathert than optimizable.positions
+        
+        Returns
+        -------
+        None.
+    
+        """
+        # decide whether the positions will be recomputed each time they are called or whether they will be fixed
+        # without the switch, positions are computed from the encoder values
+        # with the switch calling optimizable.positions will return positions0
+        # positions0 and positions are pixel number, encoder is in meter,
+        # positions0 stores the original scan grid, positions is defined as property, automatically updated with dxo
+        self.optimizable.fixedPositions = True
+        self.optimizable.positions0 = self.positionsFitted.copy()
