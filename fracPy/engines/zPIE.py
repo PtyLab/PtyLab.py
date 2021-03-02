@@ -41,26 +41,31 @@ class zPIE(BaseReconstructor):
         """
         self.betaProbe = 0.25
         self.betaObject = 0.25
+        self.numIterations = 50
         self.DoF = self.optimizable.DoF
         self.zPIEgradientStepSize = 100  #gradient step size for axial position correction (typical range [1, 100])
         self.zPIEfriction = 0.7
+        self.focusObject = True
+        self.zMomentun = 0
 
 
     def doReconstruction(self):
         self._prepareReconstruction()
 
-        xp = getArrayModule(self.optimizable.object)
+        ###################################### actual reconstruction zPIE_engine #######################################
 
-        # actual reconstruction zPIE_engine
+        xp = getArrayModule(self.optimizable.object)
         if not hasattr(self.optimizable, 'zHistory'):
             self.optimizable.zHistory = []
 
-        zMomentun = 0
         # preallocate grids
         if self.params.propagator == 'ASP':
             n = self.optimizable.Np.copy()
         else:
             n = 2*self.optimizable.Np
+
+        if not self.focusObject:
+            n = self.optimizable.Np
 
         X,Y = xp.meshgrid(xp.arange(-n//2, n//2), xp.arange(-n//2, n//2))
         w = xp.exp(-(xp.sqrt(X**2+Y**2)/self.optimizable.Np)**4)
@@ -79,12 +84,14 @@ class zPIE(BaseReconstructor):
                 merit = []
                 # todo, mixed states implementation, check if more need to be put on GPU to speed up
                 for k in np.arange(len(dz)):
-                    imProp, _ = aspw(
-                        w * xp.squeeze(self.optimizable.object[..., (self.optimizable.No // 2 - n // 2):
-                                                                    (self.optimizable.No // 2 + n // 2),
-                                       (self.optimizable.No // 2 - n // 2):(
-                                                   self.optimizable.No // 2 + n // 2)]),
-                        dz[k], self.optimizable.wavelength, n * self.optimizable.dxo)
+                    if self.focusObject:
+                        imProp, _ = aspw(w * xp.squeeze(self.optimizable.object[...,
+                                                        (self.optimizable.No // 2 - n // 2):(self.optimizable.No // 2 + n // 2),
+                                                        (self.optimizable.No // 2 - n // 2):(self.optimizable.No // 2 + n // 2)]),
+                                         dz[k], self.optimizable.wavelength, n * self.optimizable.dxo)
+                    else:
+                        imProp, _ = aspw(xp.squeeze(self.optimizable.probe[...,:,:]),
+                                         dz[k], self.optimizable.wavelength, self.optimizable.Lp)
 
                     # TV approach
                     aleph = 1e-2
@@ -93,16 +100,17 @@ class zPIE(BaseReconstructor):
                     merit.append(asNumpyArray(xp.sum(xp.sqrt(abs(gradx)**2+abs(grady)**2+aleph))))
 
                 feedback = np.sum(dz*merit)/np.sum(merit)    # at optimal z, feedback term becomes 0
-                zMomentun = self.zPIEfriction*zMomentun+self.zPIEgradientStepSize*feedback
-                zNew = self.optimizable.zo+zMomentun
+                self.zMomentun = self.zPIEfriction*self.zMomentun+self.zPIEgradientStepSize*feedback
+                zNew = self.optimizable.zo+self.zMomentun
 
             self.optimizable.zHistory.append(self.optimizable.zo)
 
             # print updated z
-            self.pbar.set_description('zPIE: update z = %.3f mm (dz = %.1f um)' % (self.optimizable.zo*1e3, zMomentun*1e6))
+            self.pbar.set_description('zPIE: update z = %.3f mm (dz = %.1f um)' % (self.optimizable.zo*1e3, self.zMomentun*1e6))
 
             # reset coordinates
             self.optimizable.zo = zNew
+
 
             # re-sample is automatically done by using @property
             if self.params.propagator != 'ASP':
@@ -111,6 +119,8 @@ class zPIE(BaseReconstructor):
                 # reset propagator
                 self.optimizable.quadraticPhase = xp.array(np.exp(1.j * np.pi/(self.optimizable.wavelength * self.optimizable.zo)
                                                                   * (self.optimizable.Xp**2 + self.optimizable.Yp**2)))
+        ##################################################################################################################
+
 
             for positionLoop, positionIndex in enumerate(self.positionIndices):
                 ### patch1 ###
