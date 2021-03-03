@@ -956,7 +956,7 @@ class BaseReconstructor(object):
                 for id_s in range(self.optimizable.nslice):
                     self.optimizable.probe[id_l, 0, :, id_s, :, :], self.normalizedEigenvaluesProbe, self.MSPVprobe = \
                         orthogonalizeModes(self.optimizable.probe[id_l, 0, :, id_s, :, :])
-                    self.optimizable.purity = np.sqrt(np.sum(self.normalizedEigenvaluesProbe ** 2))
+                    self.optimizable.purityProbe = np.sqrt(np.sum(self.normalizedEigenvaluesProbe ** 2))
 
                     # orthogonolize momentum operator
                     if self.params.momentumAcceleration:
@@ -974,24 +974,18 @@ class BaseReconstructor(object):
                         # if self.comStabilizationSwitch:
                         #     self.comStabilization()
 
-            # todo check the difference
-            # try:
-            #     self.optimizable.probeMomentum[id_l, 0, :, id_s, :, :], none, none = \
-            #         orthogonalizeModes(self.optimizable.probeMomentum[id_l, 0, :, id_s, :, :])
-            #     # replace the orthogonolized buffer
-            #     self.optimizable.probeBuffer = self.optimizable.probe.copy()
-            # except:
-            #     pass
+
 
         elif self.optimizable.nosm > 1:
             # orthogonalize the object for each wavelength and each slice
             for id_l in range(self.optimizable.nlambda):
                 for id_s in range(self.optimizable.nslice):
                     self.optimizable.object[id_l, :, 0, id_s, :, :], self.normalizedEigenvaluesObject, self.MSPVobject = \
-                        orthogonalizeModes(self.optimizable.object[id_l, :, 0, id_s, :, :])
+                        orthogonalizeModes(self.optimizable.object[id_l, :, 0, id_s, :, :], method='snapShots')
+                    self.optimizable.purityObject = np.sqrt(np.sum(self.normalizedEigenvaluesObject ** 2))
 
                     # orthogonolize momentum operator
-                    if self.momentumAcceleration:
+                    if self.params.momentumAcceleration:
                         # orthogonalize object Buffer
                         p = self.optimizable.objectBuffer[id_l, :, 0, id_s, :, :].reshape(
                             (self.optimizable.nosm, self.optimizable.No ** 2))
@@ -1003,13 +997,6 @@ class BaseReconstructor(object):
                         self.optimizable.objectMomentum[id_l, :, 0, id_s, :, :] = (xp.array(self.MSPVobject) @ p).reshape(
                             (self.optimizable.nosm, self.optimizable.No, self.optimizable.No))
 
-            # try:
-            #     self.optimizable.objectMomentum[id_l, :, 0, id_s, :, :], none, none = \
-            #         orthogonalizeModes(self.optimizable.objectMomentum[id_l, :, 0, id_s, :, :])
-            #     # replace the orthogonolized buffer as well
-            #     self.optimizable.objectBuffer = self.optimizable.object.copy()
-            # except:
-            #     pass
         else:
             pass
 

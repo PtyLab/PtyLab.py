@@ -102,50 +102,58 @@ def gaussian2D(n,std):
     return h
 
 
-def orthogonalizeModes(p):
+def orthogonalizeModes(p, method=None):
     """
     Imposes orthogonality through singular value decomposition
     :return:
     """
     # orthogonolize modes only for npsm and nosm which are lcoated and indices 1, 2
     xp = getArrayModule(p)
-    try:
-        # U, s, V = xp.linalg.svd(p.reshape(p.shape[0], p.shape[1]*p.shape[2]), full_matrices=False )
-        # p = xp.dot(xp.diag(s), V).reshape(p.shape[0], p.shape[1], p.shape[2])
-        # normalizedEigenvalues = s**2/xp.sum(s**2)
-        p2D = p.reshape(p.shape[0], p.shape[1] * p.shape[2])
-        w, V = xp.linalg.eigh(xp.dot(p2D.conj(), xp.transpose(p2D)))
-        s = xp.sqrt(w).real
-        U = xp.dot(xp.dot(xp.transpose(p2D) , V) , xp.linalg.inv(xp.diag(s) + 1e-17*xp.eye(len(s))))
-        indices = xp.flip(xp.argsort(s))
-        s = s[indices]   # [::-1].sort()
-        U = U[:, indices]
-        V = V[:, indices]
-        p = xp.transpose(xp.dot(U, xp.diag(s))).reshape(p.shape[0], p.shape[1], p.shape[2])
-        normalizedEigenvalues = s**2/xp.sum(s**2)
-        V = xp.transpose(V)
-    except Exception as e:
-        print('Warning: performing SVD on CPU rather than GPU due to error', e)
-        #print('Exception: ', e)
-        # TODO: check, most likely this is faster to perform on the CPU rather than GPU
-        if hasattr(p, 'device'):
-            p = p.get()
-        p2D = p.reshape(p.shape[0], p.shape[1] * p.shape[2])
-        w, V = np.linalg.eig(np.dot(p2D.conj(), np.transpose(p2D)))
-        s = np.sqrt(w).real
-        U = np.dot(xp.dot(xp.transpose(p2D) , V) , np.linalg.inv(np.diag(s) + 1e-17*np.eye(len(s))))
-        indices = np.flip(np.argsort(s))
-        s[::-1].sort()
-        U = U[:, indices]
-        V = V[:, indices]
-        p = np.transpose(np.dot(U, np.diag(s))).reshape(p.shape[0], p.shape[1], p.shape[2])
-        normalizedEigenvalues = s**2/np.sum(s**2)
-        V = np.transpose(V)
-        # U, s, V = np.linalg.svd(p.reshape(p.shape[0], p.shape[1]*p.shape[2]), full_matrices=False )
-        # p = np.dot(np.diag(s), V).reshape(p.shape[0], p.shape[1], p.shape[2])
-        # normalizedEigenvalues = s**2/xp.sum(s**2)
 
-    return xp.asarray(p), normalizedEigenvalues, V
+    if method =='snapShots':
+        try:
+            p2D = p.reshape(p.shape[0], p.shape[1] * p.shape[2])
+            w, V = xp.linalg.eigh(xp.dot(p2D.conj(), xp.transpose(p2D)))
+            s = xp.sqrt(w).real
+            U = xp.dot(xp.dot(xp.transpose(p2D) , V) , xp.linalg.inv(xp.diag(s) + 1e-17*xp.eye(len(s))))
+            indices = xp.flip(xp.argsort(s))
+            s = s[indices]   # [::-1].sort()
+            U = U[:, indices]
+            V = V[:, indices]
+            p = xp.transpose(xp.dot(U, xp.diag(s))).reshape(p.shape[0], p.shape[1], p.shape[2])
+            normalizedEigenvalues = s**2/xp.sum(s**2)
+            V = xp.transpose(V)
+        except Exception as e:
+            print('Warning: performing SVD on CPU rather than GPU due to error', e)
+            #print('Exception: ', e)
+            # TODO: check, most likely this is faster to perform on the CPU rather than GPU
+            if hasattr(p, 'device'):
+                p = p.get()
+            p2D = p.reshape(p.shape[0], p.shape[1] * p.shape[2])
+            w, V = np.linalg.eig(np.dot(p2D.conj(), np.transpose(p2D)))
+            s = np.sqrt(w).real
+            U = np.dot(xp.dot(xp.transpose(p2D) , V) , np.linalg.inv(np.diag(s) + 1e-17*np.eye(len(s))))
+            indices = np.flip(np.argsort(s))
+            s[::-1].sort()
+            U = U[:, indices]
+            V = V[:, indices]
+            p = np.transpose(np.dot(U, np.diag(s))).reshape(p.shape[0], p.shape[1], p.shape[2])
+            normalizedEigenvalues = s**2/np.sum(s**2)
+            V = np.transpose(V)
+            # U, s, V = np.linalg.svd(p.reshape(p.shape[0], p.shape[1]*p.shape[2]), full_matrices=False )
+            # p = np.dot(np.diag(s), V).reshape(p.shape[0], p.shape[1], p.shape[2])
+            # normalizedEigenvalues = s**2/xp.sum(s**2)
+        return xp.asarray(p), normalizedEigenvalues, V
+
+    else:
+        U, s, V = xp.linalg.svd(p.reshape(p.shape[0], p.shape[1]*p.shape[2]), full_matrices=False)
+        p = xp.dot(xp.diag(s), V).reshape(p.shape[0], p.shape[1], p.shape[2])
+        normalizedEigenvalues = s**2/xp.sum(s**2)
+
+        return xp.asarray(p), normalizedEigenvalues, U.T.conj()
+
+
+
 
 
 def zernikeAberrations(Xp,Yp,D,z_coeff):

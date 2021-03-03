@@ -68,8 +68,9 @@ class Optimizable(object):
         self.npsm = 1
         self.nslice = 1
 
-        # beam purity
-        self.purity = 1  # default initial value for plots.
+        # beam and object purity (# default initial value for plots.)
+        self.purityProbe = 1
+        self.purityObject = 1
 
         # Probe pixel size (depending on the propagator, if none given, assum Fraunhofer/Fresnel)
         if not hasattr(self, 'dxp'):

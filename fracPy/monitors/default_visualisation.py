@@ -33,9 +33,9 @@ class DefaultMonitor(object):
         self.ax_object = axes[0][0]
         self.ax_probe = axes[0][1]
         self.ax_error_metric = axes[0][2]
-        self.ax_object.set_title('Object estimate')
-        self.txt_purity = self.ax_probe.set_title('Probe estimate')
-        # self.txt_purity = plt.text(0,1.2,'',transform = self.ax_probe.transAxes)
+        # self.ax_object.set_title
+        self.txt_purityProbe = self.ax_probe.set_title('Probe estimate')
+        self.txt_purityObject = self.ax_object.set_title('Object estimate')
         self.ax_error_metric.set_title('Error metric')
         self.ax_error_metric.grid(True)
         self.ax_error_metric.grid(b=True, which='minor', color='#999999', linestyle='-', alpha=0.2)
@@ -48,7 +48,7 @@ class DefaultMonitor(object):
         self.firstrun = True
 
 
-    def updateObject(self, object_estimate, objectPlot, amplitudeScalingFactor=1, **kwargs):
+    def updateObject(self, object_estimate, optimizable, objectPlot, amplitudeScalingFactor=1, **kwargs):
         OE = modeTile(object_estimate, normalize=True)
         if objectPlot == 'complex':
             OE = complex_to_rgb(OE, amplitudeScalingFactor=amplitudeScalingFactor)
@@ -68,6 +68,11 @@ class DefaultMonitor(object):
                 self.objectCbar = plt.colorbar(self.im_object, ax=self.ax_object, cax=cax)
         else:
             self.im_object.set_data(OE)
+            if optimizable.nosm >1:
+                self.txt_purityObject.set_text('Object estimate\nPurity: %i' % (100 * optimizable.purityObject) + '%')
+
+
+
         self.im_object.autoscale()
 
     def updateProbe(self, probe_estimate, optimizable, amplitudeScalingFactor=1, **kwargs):
@@ -79,7 +84,7 @@ class DefaultMonitor(object):
         else:
             self.im_probe.set_data(PE)
             if optimizable.npsm > 1:
-                self.txt_purity.set_text('Probe estimate\nPurity: %i' %(100*optimizable.purity)+'%')
+                self.txt_purityProbe.set_text('Probe estimate\nPurity: %i' %(100*optimizable.purityProbe)+'%')
         self.im_probe.autoscale()
         
     def updateError(self, error_estimate: np.ndarray) -> None:

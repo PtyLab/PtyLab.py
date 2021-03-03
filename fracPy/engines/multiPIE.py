@@ -169,7 +169,7 @@ class multiPIE(BaseReconstructor):
         absO2 = xp.abs(objectPatch) ** 2
         Omax = xp.max(xp.sum(absO2, axis=(0, 1, 2, 3)), axis=(-1, -2))
         frac = objectPatch.conj() / (self.alphaProbe * Omax + (1 - self.alphaProbe) * absO2)
-        r = self.optimizable.probe + self.betaProbe * xp.sum(frac * DELTA, axis=0, keepdims=True)
+        r = self.optimizable.probe + self.betaProbe * xp.sum(frac * DELTA, axis=(0, 1), keepdims=True)
         return r
 
 

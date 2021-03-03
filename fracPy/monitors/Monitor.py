@@ -36,7 +36,7 @@ class Monitor(object):
         :return:
         """
         self.defaultMonitor.updateError(self.optimizable.error)
-        self.defaultMonitor.updateObject(object_estimate, objectPlot=self.objectPlot,
+        self.defaultMonitor.updateObject(object_estimate, self.optimizable, objectPlot=self.objectPlot,
                                          pixelSize=self.optimizable.dxo, axisUnit='mm',
                                          amplitudeScalingFactor=self.objectPlotContrast)
         self.defaultMonitor.updateProbe(probe_estimate, self.optimizable,
