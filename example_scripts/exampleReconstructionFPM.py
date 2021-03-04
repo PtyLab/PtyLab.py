@@ -1,9 +1,9 @@
 import matplotlib
-matplotlib.use('tkagg')
+# matplotlib.use('tkagg')
 from fracPy.io import getExampleDataFolder
 
 
-#matplotlib.use('qt5agg')
+matplotlib.use('qt5agg')
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Optimizable.Optimizable import Optimizable
 from fracPy.Optimizable.CalibrationFPM import IlluminationCalibration
@@ -32,29 +32,24 @@ fileName = 'lung_fpm.hdf5'  # experimental data
 filePath = getExampleDataFolder() / fileName
 exampleData.loadData(filePath)
 
-
-# %% FPM position calibration
-# NOTE: exampleData.fixedPositions = True must be used!
-# decide whether the positions will be recomputed each time they are called or whether they will be fixed
-# without the switch, positions are computed from the encoder values
-# with the switch calling exampleData.positions will return positions0
-exampleData.fixedPositions = True
-calib = IlluminationCalibration(exampleData)
-# calib.plot=True
-calib.fit_mode = 'Translation'
-calibrated_positions, _, _ = calib.runCalibration()
-# update the fixed non-dynamically computed positions with the new ones
-exampleData.positions0 = calibrated_positions
-
 # %% Prepare everything for the reconstruction
 # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
 # now create an object to hold everything we're eventually interested in
 optimizable = Optimizable(exampleData)
 optimizable.initialProbe = 'circ'
 optimizable.initialObject = 'upsampled'
+
+# %% FPM position calibration
+calib = IlluminationCalibration(optimizable, exampleData)
+calib.plot = True
+calib.fit_mode ='Translation'
+calibratedPositions, NA, calibMatrix = calib.runCalibration()
+calib.updatePositions()
+
+# %% Prepare reconstruction post-calibration
 optimizable.prepare_reconstruction()
 
-# Set monitor properties
+# %% Set monitor properties
 monitor = Monitor()
 monitor.figureUpdateFrequency = 1
 monitor.objectPlot = 'abs'  # complex abs angle
@@ -62,6 +57,7 @@ monitor.verboseLevel = 'high'  # high: plot two figures, low: plot only one figu
 monitor.objectPlotZoom = .01  # control object plot FoVW
 monitor.probePlotZoom = .01  # control probe plot FoV
 
+# %% Set param
 params = Params()
 params.gpuSwitch = True
 params.positionOrder = 'NA'
@@ -71,9 +67,7 @@ params.probeBoundary = True
 # params.absorbingProbeBoundary = True
 params.adaptiveDenoisingSwitch = True
 
-
-
-# Run the reconstructor
+#%% Run the reconstructors
 # engine = qNewton.qNewton(optimizable, exampleData, params, monitor)
 # engine.numIterations = 50
 # engine.betaProbe = 1
