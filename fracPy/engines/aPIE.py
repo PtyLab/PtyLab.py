@@ -4,14 +4,7 @@ import tqdm
 from typing import Any
 from scipy.interpolate import interp2d
 from fracPy.utils.visualisation import hsvplot
-
-try:
-    import cupy as cp
-except ImportError:
-    print('Cupy not available, will not be able to run GPU based computation')
-    # Still define the name, we'll take care of it later but in this way it's still possible
-    # to see that gPIE exists for example.
-    cp = None
+from fracPy.utils.test.CoordinateTransformations import xtoU, tiltUtoX, xtoTiltU
 
 # fracPy imports
 from fracPy.Optimizable.Optimizable import Optimizable
@@ -23,6 +16,14 @@ from fracPy.monitors.Monitor import Monitor
 from fracPy.operators.operators import aspw
 import logging
 import sys
+
+try:
+    import cupy as cp
+except ImportError:
+    print('Cupy not available, will not be able to run GPU based computation')
+    # Still define the name, we'll take care of it later but in this way it's still possible
+    # to see that gPIE exists for example.
+    cp = None
 
 
 class aPIE(BaseReconstructor):
@@ -38,6 +39,7 @@ class aPIE(BaseReconstructor):
         self.logger.info('Sucesfully created aPIE aPIE_engine')
         self.logger.info('Wavelength attribute: %s', self.optimizable.wavelength)
         self.initializeReconstructionParams()
+        self.prepareUVgrid()
 
     def initializeReconstructionParams(self):
         """
@@ -89,7 +91,8 @@ class aPIE(BaseReconstructor):
             probeBuffer = xp.zeros_like(probeTemp)  # shape=(np.array([probeTemp, probeTemp])).shape)
             probeBuffer = [probeBuffer, probeBuffer]
             objectBuffer = xp.zeros_like(
-                objectTemp)  # , shape=(np.array([objectTemp, objectTemp])).shape)  # for polychromatic case this will need to be multimode
+                objectTemp)  # , shape=(np.array([objectTemp, objectTemp])).shape)  # for polychromatic case this
+            # will need to be multimode
             objectBuffer = [objectBuffer, objectBuffer]
             # initialize error
             errorTemp = np.zeros((2, 1))
@@ -98,8 +101,8 @@ class aPIE(BaseReconstructor):
                 self.optimizable.probe = probeTemp
                 self.optimizable.object = objectTemp
                 # reset ptychogram (transform into estimate coordinates)
-                Xq = T_inv(self.optimizable.Xd, self.optimizable.Yd, self.optimizable.zo,
-                           theta[k])  # todo check if 1D is enough to save time
+                Xq = tiltUtoX(self.Uq, self.Vq, self.optimizable.zo,
+                              theta[k], self.experimentalData.wavelength)  # todo check if 1D is enough to save time
                 for l in range(self.experimentalData.numFrames):
                     temp = self.ptychogramUntransformed[l]
                     f = interp2d(self.optimizable.xd, self.optimizable.xd, temp, kind='linear', fill_value=0)
@@ -242,69 +245,17 @@ class aPIE(BaseReconstructor):
         r = self.optimizable.probe + self.betaProbe * xp.sum(frac * DELTA, axis=(0, 1, 3), keepdims=True)
         return r
 
-    def xtotiltU(self, x: np.ndarray, y: np.ndarray, theta: np.ndarray, wavelength: np.ndarray):
+    def prepareUVgrid(self):
         """
-        go from detector plane coordinates to corresponding  tilted plane spatial frequency coordinates
-        :param x: detector x coordinates
-        :param y: detector y coordinates
-        :param theta: tilt angle between sample plane and detector plane in degrees
-        :params wavelength: illumination wavelength
-        :return: warped spatial frequencies u,v associated with x,y
+        Generate a Spatial frequency space grid used in the reconstruction, find the largest spatial frequencies
+        associated with the detector grid and then create an equally sampled grid that includes those spatial
+        frequencies, and sets the sample space pixel sizes according to that spatial frequency range
+
         """
-        theta = toRadians(theta)
-
-        ro = np.sqrt(x ** 2 + y ** 2 + self.experimentalData.zo ** 2)
-        v = y
-        u = (x * np.cos(theta) - np.sin(theta) * (ro - self.experimentalData.zo)) / (wavelength * ro)
-
-        return u, v
-
-    def tiltUtoX(self, u: np.ndarray, v: np.ndarray, theta: np.ndarray, wavelength: np.ndarray):
-        """
-        go from tilted plane spatial frequency coordinates to corresponding detector plane coordinates
-        :param u: spatial frequency coordinates associated with x in sample coordinates that are tilted with respect to
-        detector coordinates
-        :param v: spatial frequency coordinates associated with y in sample coordinates that are tilted with respect to detector
-        coordinates
-        :param theta: tilt angle between sample plane and detector plane in degrees
-        :param wavelength:illumination wavelength
-        :return:
-        :rtype: x,y(the detector coordinates associated with the input spatial frequencies, after transform inversion)
-        """
-        # for derivation see ~placeholder for pdf
-        theta = toRadians(theta)
-        a = 1. + ((u / v) + np.sin(theta) / (v * wavelength) / np.cos(theta)) ** 2 - (v * wavelength) ** (-2)
-        b = -(2. * np.sin(theta) * self.experimentalData.zo / (v * np.cos(theta)) ** 2) * (u + np.sin(theta)) / \
-            wavelength
-        c = (1 + np.tan(theta))
-        y = (-b - np.sign(v) * np.sqrt(b ** 2 - 4 * a * c)) / (2 * a)
-        # y is not invertible with this quadratic equation at v=0 as 0/0 is undefined, but y=lambda*r0*v, so y=0
-        y = np.where(v == 0, y, 0)
-        # at a=0 we again gets something that is not defined, furthermore, the numerical accuracy due to rounding
-        # error s becomes problematic when a=very small, so we replace by the linear equation for those cases.
-        y = np.where(a < 1.e-6, y, -c / b)
-        # for x its less trivial to choose the right sign for the solution,
-        # calculate the spatial frequencies where x=0, this marks a ux0(y) line. all coordinates that have a u(x,
-        # y) that is larger are positive, all that are smaller have a negative x
-        #
-
-        rx0 = np.sqrt(self.experimentalData.zo ** 2 + y ** 2)
-        ux0 = np.sin(theta) * (self.experimentalData.zo - rx0) / (wavelength * rx0)
-        x = np.sign(u - ux0) * np.real(np.sqrt(((v * wavelength) ** (-2) - 1) * y ** 2 - self.zo ** 2))
-        # when y=0,v=0 this equation is not defined so we invert for y=0, and get another quadratic equation for x
-        ax = (np.cos(2 * theta) - 2 * wavelength * u * np.sin(theta) - (wavelength * u) ** 2)
-        bx = 2 * self.experimentalData.zo * np.sin(theta) * np.cos(theta)
-        self.experimentalData.zo = self.experimentalData.zo
-        cx = -(self.experimentalData.zo ** 2 * ((wavelength * u) * (2 * np.sin(theta) + (wavelength * u))))
-        x2 = -bx + np.sqrt(bx ** 2 - 4 * ax * cx) / (2 * ax)
-        x2 = np.where(np.abs(ax) < 1.e-6, -cx / bx, x2)
-        x = np.where(np.abs(y) < 1.e-6, x2, y)
-        x = np.where(np.abs(u - ux0) < 1.e-6, 0, x)
-        return x, y
-    def xtoU(self,x,y,wavelength):
-        r0 = np.sqrt(x ** 2 + y ** 2 + self.experimentalData.zo ** 2)
-        
-
-def toRadians(theta):
-    theta =theta*np.pi/180.
-    return theta
+        outer_points = np.array([self.optimizable.Xd[-1, -1], self.optimizable.Yd[-1, -1]], dtype=np.float64)
+        Fdetx, Fdety = xtoU(outer_points[0, 0], outer_points[0, 0], self.optimizable.zo,
+                            self.experimentalData.wavelength)
+        self.Ugrid = np.linspace(-abs(Fdetx), abs(Fdetx), self.optimizable.Nd)
+        self.Uq, self.Vq = np.meshgrid(self.Ugrid, self.Ugrid)
+        self.optimizable.dxp = 1 / abs(Fdetx)
+        self.latest_know_z = self.optimizable.zo
