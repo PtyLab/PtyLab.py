@@ -54,7 +54,7 @@ def xtoTiltU(x: np.ndarray, y: np.ndarray, z, wavelength, theta):
     return u, v
 
 
-def tiltUtoX(u: np.ndarray, v: np.ndarray, z, wavelength, theta):
+def tiltUtoX(u: np.ndarray, v: np.ndarray, z, wavelength, theta, axis=0,output_list=1):
     """
     Warning needs 64 bit precision in u and v near 45 degrees(and potentially other places)
 
@@ -65,20 +65,30 @@ def tiltUtoX(u: np.ndarray, v: np.ndarray, z, wavelength, theta):
     :param v: spatial frequencies associated with y in sample coordinates,
     :param wavelength:illumination wavelength
     :param theta: tilt angle between sample plane and detector plane in degrees
+    :param axis: axis where the detector signal and needs correction, defaults to the x-axis(u(
     :return:
     :rtype: x,y(the detector coordinates associated with the input spatial frequencies, after transform inversion)
     """
 
 
     # for derivation see ~placeholder for pdf
+
+    if axis == 0:
+        uw = u
+        unow = v
+        #allow switching the tilt-axis, the documentation assumes the warped axis(uw) is u and the non warped axis(
+        # unow) is v
+    if axis == 1:
+        uw = v
+        unow = u
     theta = toRadians(theta)
-    a = 1. + (((u / v) + np.sin(theta) / (v * wavelength)) / np.cos(theta)) ** 2 - (v * wavelength) ** (-2)
-    b = -(2. * np.sin(theta) * z / (v * np.cos(theta) ** 2)) * (
-            u + np.sin(theta) / wavelength)
+    a = 1. + (((uw / unow) + np.sin(theta) / (unow * wavelength)) / np.cos(theta)) ** 2 - (unow * wavelength) ** (-2)
+    b = -(2. * np.sin(theta) * z / (unow * np.cos(theta) ** 2)) * (
+            uw + np.sin(theta) / wavelength)
     c = (1 + np.tan(theta) ** 2) * z ** 2
-    y = (-b - np.sign(v) * np.sqrt(b ** 2 - 4 * a * c)) / (2 * a)
+    y = (-b - np.sign(unow) * np.sqrt(b ** 2 - 4 * a * c)) / (2 * a)
     # y is not invertible with this quadratic equation at v=0 as 0/0 is undefined, but y=lambda*r0*v, so y=0
-    y = np.where(v == 0, 0, y)
+    y = np.where(unow == 0, 0, y)
 
     # at a=0 we again gets something that is not defined, furthermore, the numerical accuracy due to
     # rounding
@@ -88,26 +98,30 @@ def tiltUtoX(u: np.ndarray, v: np.ndarray, z, wavelength, theta):
     # to determine the sign of the root for x we  calculate the u spatial frequencies where x=0, this marks a uxo(y)
     # line. all coordinates that have a u(x, y) that is larger then uxo(y) are positive.
     uxo = np.sin(theta) * (z - np.sqrt(z ** 2 + y ** 2)) / (wavelength * np.sqrt(z ** 2 + y ** 2))
-    x = np.sign(u - uxo) * np.real(np.sqrt(((v * wavelength) ** (-2) - 1) * y ** 2 - z ** 2))
+    x = np.sign(uw - uxo) * np.real(np.sqrt(((unow * wavelength) ** (-2) - 1) * y ** 2 - z ** 2))
     # when y=0,v=0 this equation is not defined so we invert for y=0, and get another quadratic equation for x
-    ax = (np.cos(2 * theta) - 2 * wavelength * u[abs(v) < 1e-6] * np.sin(theta) - (wavelength * u[abs(v) < 1e-6]) ** 2)
+    ax = (np.cos(2 * theta) - 2 * wavelength * uw * np.sin(theta) - (wavelength * uw) ** 2)
     bx = 2 * z * np.sin(theta) * np.cos(theta)
-    cx = -(z ** 2 * ((wavelength * u[abs(v) < 1e-6]) * (2 * np.sin(theta) + (wavelength * u[abs(v) < 1e-6]))))
+    cx = -(z ** 2 * ((wavelength * uw) * (2 * np.sin(theta) + (wavelength * uw))))
 
     x2 = (-bx + np.sqrt(bx ** 2 - 4 * ax * cx)) / (2 * ax)
     x2 = np.where(np.abs(ax) < 1.e-6, -cx / bx, x2)
 
-    x = np.where(np.abs(v) < 1.e-6, x2, x)
+    x = np.where(np.abs(unow) < 1.e-6, x2, x)
     # x is unstable near x=0 in some cases, especially near 45 degrees(y has large rounding errors when a is small and
     # the expression for x is sensitive to rounding errors in y, as effectively your trying to infer x from the
     # departure of the linear relationship between y and v), the departure of linearity is not so large at low NA and
     # the numerically instability of y for small(but not zero) a hurts double.
     # however we calculated at which spatial frequencies x=0 before and replace a region where rounding errors are
     # relevant around that with zeros
-    x = np.where(np.abs(u - uxo) < 1.e-6, 0, x)
-
-    return x, y
-
+    x = np.where(np.abs(uw - uxo) < 1.e-6, 0, x)
+    if output_list == 1:
+        x=np.ravel(x)
+        y=np.ravel(y)
+    if axis == 0:
+        return x, y
+    else:
+        return y, x
 
 
 
@@ -118,22 +132,22 @@ def toRadians(theta):
 def two_norm(array):
     norm=np.sum(np.abs(array)**2)
     return norm
-zo = 70.2e-3
-theta = 45
-dx = 1.476e-05
-Nd = 676
-wavelength = 700e-9
-
-dxd = np.arange(-Nd / 2, Nd / 2 + 2) * dx
-
-xd, yd = np.meshgrid(dxd, dxd)
-
-begin = time.time()
-uq, vq = xtoU(xd, yd, zo,  wavelength)
-xq, yq = utoX(uq, vq, zo, wavelength,xd,yd)
-end = time.time() - begin
-norm=two_norm(yq-yd)
-
-print(end)
-outer_points = np.array([[xd[-1, -1], yd[-1, -1]], [xd[0, 0], yd[-1, -1]], [xd[-1, -1], yd[0, 0]], [xd[0, 0], yd[0,
-                                                                                                                 0]]])
+# zo = 70.2e-3
+# theta = 45
+# dx = 1.476e-05
+# Nd = 676
+# wavelength = 700e-9
+#
+# dxd = np.arange(-Nd / 2, Nd / 2 + 2) * dx
+#
+# xd, yd = np.meshgrid(dxd, dxd)
+#
+# begin = time.time()
+# uq, vq = xtoU(xd, yd, zo,  wavelength)
+# xq, yq = utoX(uq, vq, zo, wavelength,xd,yd)
+# end = time.time() - begin
+# norm=two_norm(yq-yd)
+#
+# print(end)
+# outer_points = np.array([[xd[-1, -1], yd[-1, -1]], [xd[0, 0], yd[-1, -1]], [xd[-1, -1], yd[0, 0]], [xd[0, 0], yd[0,
+#                                                                                                                  0]]])
