@@ -328,7 +328,7 @@ class BaseReconstructor(object):
 
         # other parameters
         if self.params.backgroundModeSwitch:
-            self.background = cp.array(self.optimizable.background)
+            self.optimizable.background = cp.array(self.optimizable.background)
         if self.params.absorbingProbeBoundary or self.params.probeBoundary:
             self.probeWindow = cp.array(self.probeWindow)
         if self.params.modulusEnforcedProbeSwitch:

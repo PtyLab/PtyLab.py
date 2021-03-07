@@ -103,7 +103,7 @@ class aPIE(BaseReconstructor):
                     temp2 = abs(f(Xq[0], self.optimizable.xd))
                     temp2 = np.nan_to_num(temp2)
                     temp2[temp2 < 0] = 0
-                    self.optimizable.ptychogram[l] = xp.array(temp2)
+                    self.experimentalData.ptychogram[l] = xp.array(temp2)
 
                 # renormalization(for energy conservation) # todo not layer by layer?
                 self.experimentalData.ptychogram = self.experimentalData.ptychogram / np.linalg.norm(
@@ -114,7 +114,7 @@ class aPIE(BaseReconstructor):
                 self.experimentalData.W = abs(fw(Xq[0], self.optimizable.xd))
                 self.experimentalData.W = np.nan_to_num(self.experimentalData.W)
                 self.experimentalData.W[self.experimentalData.W == 0] = 1e-3
-                self.experimentalData.W = xp.array(self.optimizable.W)
+
 
 
                 # todo check if it is right

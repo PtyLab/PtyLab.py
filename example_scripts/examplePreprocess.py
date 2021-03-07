@@ -18,7 +18,7 @@ os.chdir(filePathForRead)
 
 fileName = 'aPIE_structured'
 # wavelength
-wavelength = 700.88e-9
+wavelength = 700.882e-9
 # binning
 binningFactor = 4
 # padding for superresolution
@@ -26,7 +26,7 @@ padFactor = 1
 # set magnification if any objective lens is used
 magnification = 1
 # object detector distance  (initial guess)
-zo = 70.3e-3
+zo = 71.29e-3
 theta=45
 # set detection geometry
 # A: camera to closer side of stage (allows to bring camera close in transmission)
@@ -68,7 +68,7 @@ pbar = tqdm.trange(numFrames, leave=True)
 for k in pbar:
     # get file name
     pbar.set_description('reading frame' + framesList[k])
-    temp = imageio.imread(framesList[k]).astype('float32') - dark - backgroundOffset
+    temp = np.fliplr(imageio.imread(framesList[k]).astype('float32') - dark - backgroundOffset)
     temp[temp < 0] = 0
     # crop
     temp = temp[:, N // 2 - M // 2:M // 2 + N // 2 - 1]
@@ -119,6 +119,7 @@ elif measurementMode == 'C':
     T[:, 1] = -T[:, 1]
 # convert to micrometer
 encoder = (T - T[0]) * 1e-6
+
 # encoder = (T-T[0]) * 1e-6 / magfinication
 # convert into pixels
 # position0 = np.round(encoder / dxo)

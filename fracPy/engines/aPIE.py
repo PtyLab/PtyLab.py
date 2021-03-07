@@ -116,7 +116,7 @@ class aPIE(BaseReconstructor):
                     # f = interp2d(self.optimizable.xd, self.optimizable.xd, temp, kind='linear', fill_value=0)
                     #temp2 = abs(f(Xq, Yq))
                     temp2= xp2.reshape(ndimage.map_coordinates(temp, xp2.array([Xq,
-                                                                              Yq])),
+                                                                              Yq]), order=1),
                                       (self.optimizable.Nd,self.optimizable.Nd))
 
                     temp2 = np.nan_to_num(temp2)

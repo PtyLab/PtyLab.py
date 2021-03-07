@@ -194,7 +194,7 @@ def show3Dslider(A, colormap = 'diffraction'):
     """
     app = pg.mkQApp()
     imv = pg.ImageView(view=pg.PlotItem())
-    imv.setImage(A)
+    imv.setImage(asNumpyArray(A))
 
     # choose colormap from matplotlib colormaps
     if colormap == 'diffraction':
