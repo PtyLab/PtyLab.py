@@ -290,9 +290,7 @@ class aPIE(BaseReconstructor):
             self.Ugrid = np.linspace(lowerbound, upperbound, interP_samplingDensity, dtype=np.float64)
 
             self.Uq, self.Vq = np.meshgrid(self.Ugrid, self.Ugrid, sparse=False)
-            print(self.optimizable.dxo)
             self.optimizable.dxp = 1 / abs(upperbound - lowerbound)
-            print(self.optimizable.dxo)
             self.latest_know_z = self.optimizable.zo
         else:
             if self.latest_know_z != self.optimizable.zo:
