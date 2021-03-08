@@ -14,26 +14,23 @@ class Optimizable(object):
 
     In itself, it's little more than a data holder. It is initialized with an ExperimentalData object.
 
-    Some parameters which are "immutable" within the ExperimentalData can be modified
-    (e.g. zo modification by zPIE during the reconstruction routine). All of them
-    are defined in the listOfOptimizableProperties
+    From this object, it will copy anything in the
+    listOfOptimizableProperties to itself so the parameters can be changed.
     """
+
     listOfOptimizableProperties = [
-            'wavelength',
-            'zo',
-            'spectralDensity',
-            'dxd',
-            'dxp',
-            'No',
-            'entrancePupilDiameter'
-        ]
-    
+        'wavelength',
+        'zo',
+        'spectralDensity',
+        'dxd',
+    ]
+
     def __init__(self, data:ExperimentalData):
         self.logger = logging.getLogger('Optimizable')
-        self.data = data
         self.copyAttributesFromExperiment(data)
-        self.computeOptionalParameters(data)
-        self.initialize_settings()
+        self.data = data
+        self.initialize_other_settings()
+
 
     def copyAttributesFromExperiment(self, data:ExperimentalData):
         """
@@ -46,41 +43,14 @@ class Optimizable(object):
         for key in self.listOfOptimizableProperties:
             self.logger.debug('Copying attribute %s', key)
             setattr(self, key, copy(np.array(getattr(data, key))))
-       
-    def computeOptionalParameters(self, data:ExperimentalData):
-        """
-        There is a list of optional parameters within the readHdf5 class
-        which can be loaded by the user or are set to None.
-        If they are set to None, some of them will be computed in this
-        function since they might be crucial for FPM but not CPM etc.
-        :param data:
-                Experimental data to copy from
-        :return:
-        """
-        self.logger.debug('Computing optional attributed from Experimental Data')
-        
-        # Probe pixel size (depending on the propagator, if none given, assum Fraunhofer/Fresnel)
-        if self.dxp == None:
-            # CPM dxp
-            if self.data.operationMode == 'CPM':
-                self.dxp = self.wavelength * self.zo / self.Ld
-                
-            # FPM dxp (different from CPM due to lens-based systems)
-            elif self.data.operationMode == 'FPM':
-                if self.data.magnification != None:
-                    self.dxp = self.dxd / self.data.magnification
-                else:
-                    self.logger.error('Neither dxp or magnification was provided. Add one of the parameters to the .hdf5 file')
+            # try:
+            #     self.logger.debug('Set %s to %f', key, getattr(data,key))
+            # except TypeError:
+            #     pass
 
-        # Upsampled object plane dimensions
-        if self.No == None:
-            self.No = 2**11
-
-            
-    def initialize_settings(self):
+    def initialize_other_settings(self):
         """
-        Initialize the attributes that have to do with a reconstruction 
-        or experimentalData fields which will become "optimizable"
+        Initialize the attributes that have to do with a reconstruction but which are not given by data.
 
         This method just sets the settings. It sets the what kind of initial guess should be used for initialObject
         and initialProbe but it does not compute them yet. That will be done by calling prepare_reconstruction()
@@ -92,6 +62,7 @@ class Optimizable(object):
         # 2. mixed state object - nosm
         # 3. mixed state probe - npsm
         # 4. multislice object (thick) - nslice
+
         self.nlambda = 1
         self.nosm = 1
         self.npsm = 1
@@ -101,14 +72,21 @@ class Optimizable(object):
         self.purityProbe = 1
         self.purityObject = 1
 
+        # Probe pixel size (depending on the propagator, if none given, assum Fraunhofer/Fresnel)
+        if not hasattr(self, 'dxp'):
+            self.dxp = self.wavelength * self.zo / self.Ld
+        if not hasattr(self, 'No'):
+            self.No = 2**11
+
         # decide whether the positions will be recomputed each time they are called or whether they will be fixed
         # without the switch, positions are computed from the encoder values
         # with the switch calling optimizable.positions will return positions0
+        self.fixedPositions = False
+
+        self.positions0 = self.positions.copy()
         # positions0 and positions are pixel number, encoder is in meter,
         # positions0 stores the original scan grid, positions is defined as property, automatically updated with dxo
-        self.fixedPositions = False
-        self.positions0 = self.positions.copy()
-        
+
 
         if self.data.operationMode == 'FPM':
             self.initialObject = 'upsampled'

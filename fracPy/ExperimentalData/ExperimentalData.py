@@ -21,10 +21,40 @@ class ExperimentalData:
         self.logger = logging.getLogger('ExperimentalData')
         self.logger.debug('Initializing ExperimentalData object')
 
+        self._initializeAttributes()
         self.filename = filename
         if filename is not None:
             self.loadData(filename)
 
+    def _initializeAttributes(self):
+        """
+        initialize attributes in experimentalData
+        """
+        # required attributes in the hdf5 file
+        self.ptychogram = None
+        self.wavelength = None
+        self.encoder = None
+        self.dxd = None
+        self.zo = None
+
+        # non-require attributes
+
+        self.Nd = None
+        self.xd = None
+        self.Xd = None
+        self.Yd = None
+        self.Ld = None
+
+        self.operationMode = None  # 'FPM' or 'CPM': defines operation mode(FP / CP: Fourier / conventional ptychography)
+        self.numFrames = None
+        self.entrancePupilDiameter = None
+        self.spectralDensity = None  # spectral density is required for polychromatic operation. self.wavelength = min(self.spectralDensity)
+        self.binningFactor = None  # binning factor that was applied to raw data
+        self.padFactor = None
+        self.magnification = None
+        self.emptyBeam = None
+        self.W = None
+        self.PSD = None
 
     def loadData(self, filename=None, python_order=True):
         """
@@ -81,6 +111,7 @@ class ExperimentalData:
         self.Xd, self.Yd = np.meshgrid(self.xd, self.xd)
         # Detector size in SI units
         self.Ld = self.Nd * self.dxd
+
 
         # number of Frames
         self.numFrames = self.ptychogram.shape[0]

@@ -2,7 +2,6 @@ import matplotlib
 matplotlib.use('tkagg')
 from fracPy.io import getExampleDataFolder
 
-
 #matplotlib.use('qt5agg')
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Optimizable.Optimizable import Optimizable
@@ -48,7 +47,7 @@ optimizable.nlambda = 1 # len(exampleData.spectralDensity) # Number of wavelengt
 optimizable.nslice = 1 # Number of object slice
 # optimizable.dxp = optimizable.dxd
 
-
+optimizable.zo=71.30e-3
 optimizable.initialProbe = 'circ'
 exampleData.entrancePupilDiameter = optimizable.Np / 3 * optimizable.dxp  # initial estimate of beam
 optimizable.initialObject = 'ones'
@@ -73,7 +72,7 @@ monitor.probePlotZoom = 3.   # control probe plot FoV
 params = Params()
 ## main parameters
 params.positionOrder = 'random'  # 'sequential' or 'random'
-params.propagator = 'Fresnel'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
+params.propagator = 'Fraunhofer'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
 
 
 ## switches
@@ -81,7 +80,7 @@ params.gpuSwitch = True
 params.probePowerCorrectionSwitch = True
 params.modulusEnforcedProbeSwitch = False
 params.comStabilizationSwitch = True
-params.orthogonalizationSwitch = False
+params.orthogonalizationSwitch = True
 params.orthogonalizationFrequency = 10
 params.fftshiftSwitch = False
 params.intensityConstraint = 'standard'  # standard fluctuation exponential poission
@@ -100,32 +99,33 @@ params.positionCorrectionSwitch = False
 # engine_mPIE.doReconstruction()
 
 
-engine = aPIE_copy.aPIE(optimizable, exampleData, params, monitor)
-engine.numIterations = 50
+engine = aPIE.aPIE(optimizable, exampleData, params, monitor)
+engine.numIterations = 25
 engine.betaProbe = 1
 engine.betaObject = 1
-engine.beta1 = 0.45
-engine.beta2 = 0.45
-engine.betaProbe_m = 1
-engine.betaObject_m = 1
+
+
 
 engine.doReconstruction()
-engine.numIterations = 200
-engine.beta1 = 0.25
-engine.beta2 = 0.25
+engine.numIterations = 50
+engine.betaProbe_m = 0.5
+engine.betaObject_m = 0.5
 engine.doReconstruction()
 
-# mPIE
+engine.doReconstruction()
+engine.numIterations = 100
+engine.betaProbe_m = 0.5
+engine.betaObject_m = 0.5
+engine.doReconstruction()
 
-# engine.numIterations = 200
-# engine.betaProbe = 1
-# engine.betaObject = 1
-# engine.beta1 = 0.35
-# engine.beta2 = 0.35
-# engine.betaProbe_m = 1
-# engine.betaObject_m = 1
-# engine.doReconstruction()
-#
+
+mPIE
+
+engine_mPIE = mPIE.mPIE(optimizable, exampleData, params, monitor)
+engine_mPIE.numIterations = 200
+engine_mPIE.betaProbe = 0.25
+engine_mPIE.betaObject = 0.25
+engine_mPIE.doReconstruction()
 
 ## choose engine
 # ePIE
@@ -136,11 +136,7 @@ engine.doReconstruction()
 # engine_ePIE.doReconstruction()
 
 # mPIE
-# engine_mPIE = mPIE.mPIE(optimizable, exampleData, params, monitor)
-# engine_mPIE.numIterations = 50
-# engine_mPIE.betaProbe = 0.25
-# engine_mPIE.betaObject = 0.25
-# engine_mPIE.doReconstruction()
+
 
 # zPIE
 # engine_zPIE = zPIE.zPIE(optimizable, exampleData, params,monitor)
