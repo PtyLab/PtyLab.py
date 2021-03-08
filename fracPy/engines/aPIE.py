@@ -93,22 +93,25 @@ class aPIE(BaseReconstructor):
                                (-1 + 2 * np.random.rand())]) + self.optimizable.thetaMomentum
 
             # save object and probe
-            probeTemp = self.optimizable.probe.copy()
-            objectTemp = self.optimizable.object.copy()
 
-            # probe and object buffer (todo maybe there's more elegant way )
-            probeBuffer = xp.zeros_like(probeTemp)  # shape=(np.array([probeTemp, probeTemp])).shape)
+
+            # probe and object buffer
+            probeBuffer = xp.zeros_like(self.optimizable.probe)  # shape=(np.array([probeTemp, probeTemp])).shape)
             probeBuffer = [probeBuffer, probeBuffer]
-            objectBuffer = xp.zeros_like(
-                objectTemp)  # , shape=(np.array([objectTemp, objectTemp])).shape)  # for polychromatic case this
+            probeBuffer[1]=self.optimizable.probe.copy()
+
+            objectBuffer = xp.zeros_like(self.optimizable.object)  # , shape=(np.array([objectTemp,
+            # objectTemp])).shape)  # for
+            # polychromatic case this
             # will need to be multimode
             objectBuffer = [objectBuffer, objectBuffer]
+            objectBuffer[1]=self.optimizable.object.copy()
             # initialize error
             errorTemp = np.zeros((2, 1))
 
             for k in range(2):
-                self.optimizable.probe = probeTemp
-                self.optimizable.object = objectTemp
+                self.optimizable.probe = probeBuffer[1]
+                self.optimizable.object = objectBuffer[1]
                 # reset ptychogram (transform into estimate coordinates)
                 Xqcalc, Yqcalc = tiltUtoX(self.Uq, self.Vq, self.optimizable.zo, self.wavelength,
                                   theta[k], axis=self.warp_axis, output_list=1)
@@ -131,7 +134,7 @@ class aPIE(BaseReconstructor):
                     temp2[temp2 < 0] = 0
                     self.experimentalData.ptychogram[l] = xp.array(temp2)
 
-                # renormalization(for energy conservation) # todo not layer by layer?
+                # renormalization(for energy conservation) # todo implement Jacobian determinant normalisation
                 self.experimentalData.ptychogram = self.experimentalData.ptychogram / xp2.linalg.norm(
                     self.experimentalData.ptychogram) * xp2.linalg.norm(self.ptychogramUntransformed)
 

@@ -82,13 +82,13 @@ params.modulusEnforcedProbeSwitch = False
 params.comStabilizationSwitch = True
 params.orthogonalizationSwitch = True
 params.orthogonalizationFrequency = 10
-params.fftshiftSwitch = False
+params.fftshiftSwitch = True
 params.intensityConstraint = 'standard'  # standard fluctuation exponential poission
 params.absorbingProbeBoundary = False
 params.objectContrastSwitch = False
 params.absObjectSwitch = False
 params.backgroundModeSwitch = True
-
+params.FourierMaskSwitch =True
 params.couplingAleph = 1
 params.positionCorrectionSwitch = False
 

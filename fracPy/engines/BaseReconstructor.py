@@ -271,12 +271,12 @@ class BaseReconstructor(object):
                 if hasattr(self.optimizable, 'ptychogramDownsampled'):
                     self.optimizable.ptychogramDownsampled = np.fft.ifftshift(
                         self.optimizable.ptychogramDownsampled, axes=(-1, -2))
-                if self.experimentalData.W != None:
+                if self.experimentalData.W is not None:
                     self.experimentalData.W = np.fft.ifftshift(self.experimentalData.W, axes=(-1, -2))
-                if self.experimentalData.emptyBeam != None:
+                if self.experimentalData.emptyBeam is not None:
                     self.experimentalData.emptyBeam = np.fft.ifftshift(
                         self.experimentalData.emptyBeam, axes=(-1, -2))
-                if self.experimentalData.PSD != None:
+                if self.experimentalData.PSD is not None:
                     self.experimentalData.PSD = np.fft.ifftshift(
                         self.experimentalData.PSD, axes=(-1, -2))
                 self.params.fftshiftFlag = 1
