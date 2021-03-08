@@ -75,6 +75,7 @@ class Optimizable(object):
         # Upsampled object plane dimensions
         if self.No == None:
             self.No = 2**11
+            # self.No = self.Np+np.max(self.positions0[:,0])-np.min(self.positions0[:,0])
 
             
     def initialize_settings(self):

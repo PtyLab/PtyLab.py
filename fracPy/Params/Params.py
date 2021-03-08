@@ -50,8 +50,9 @@ class Params(object):
         # other
         self.couplingSwitch = False  # couple adjacent wavelengths
         self.couplingAleph = 50e-2  # couple adjacent wavelengths (relaxation parameter)
-        self.binaryWFSSwitch = False  # enforce WFS to be positive
-        self.binaryWFSAleph = 10e-2  # relaxation parameter for binary constraint
+        self.binaryProbeSwitch = False  # enforce probe to be binary
+        self.binaryProbeThreshold = 0.1  # binarize threshold
+        self.binaryProbeAleph = 10e-2  # relaxation parameter for binary constraint
         self.backgroundModeSwitch = False  # background estimate
         self.comStabilizationSwitch = True  # center of mass stabilization for probe
         self.PSDestimationSwitch = False

@@ -10,7 +10,7 @@ from fracPy.utils.initializationFunctions import initialProbeOrObject
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Optimizable.Optimizable import Optimizable
 from fracPy.Params.Params import Params
-from fracPy.utils.utils import ifft2c, fft2c, orthogonalizeModes, circ, p2bin
+from fracPy.utils.utils import ifft2c, fft2c, orthogonalizeModes, circ, p2bin, posit
 from fracPy.operators.operators import aspw, scaledASP
 from fracPy.monitors.Monitor import Monitor
 from fracPy.utils.visualisation import hsvplot
@@ -133,7 +133,7 @@ class BaseReconstructor(object):
         object_estimate = np.squeeze(self.optimizable.object
                                      [..., self.optimizable.objectROI[0], self.optimizable.objectROI[1]])
         probe_estimate = np.squeeze(self.optimizable.probe
-                                    [..., self.optimizable.probeROI[0], self.optimizable.probeROI[1]])
+                                    [0,..., self.optimizable.probeROI[0], self.optimizable.probeROI[1]])
         self.monitor.updateDefaultMonitor(object_estimate=object_estimate, probe_estimate=probe_estimate)
 
     def _initializeQuadraticPhase(self):
@@ -750,7 +750,7 @@ class BaseReconstructor(object):
                 object_estimate = np.squeeze(asNumpyArray(
                     self.optimizable.object[..., self.optimizable.objectROI[0], self.optimizable.objectROI[1]]))
                 probe_estimate = np.squeeze(asNumpyArray(
-                    self.optimizable.probe[..., self.optimizable.probeROI[0], self.optimizable.probeROI[1]]))
+                    self.optimizable.probe[0,..., self.optimizable.probeROI[0], self.optimizable.probeROI[1]]))
 
             self.monitor.updateDefaultMonitor(object_estimate=object_estimate, probe_estimate=probe_estimate)
 
@@ -937,9 +937,14 @@ class BaseReconstructor(object):
 
             self.optimizable.probe[-1] = (1 - self.params.couplingAleph) * self.optimizable.probe[-1] + \
                                          self.params.couplingAleph * self.optimizable.probe[-2]
-        if self.params.binaryWFSSwitch:
-            self.optimizable.probe = (1 - self.params.binaryWFSAleph) * self.optimizable.probe + \
-                                     self.params.binaryWFSAleph * abs(self.optimizable.probe)
+        if self.params.binaryProbeSwitch:
+            probePeakAmplitude= np.max(abs(self.optimizable.probe))
+            probeThresholded = self.optimizable.probe.copy()
+            probeThresholded[(abs(probeThresholded)<self.params.binaryProbeThreshold*probePeakAmplitude)]=0
+
+
+            self.optimizable.probe = (1 - self.params.binaryProbeAleph) * self.optimizable.probe + \
+                                     self.params.binaryProbeAleph * probeThresholded
 
         if self.params.positionCorrectionSwitch:
             self.positionCorrectionUpdate()
@@ -955,7 +960,7 @@ class BaseReconstructor(object):
             for id_l in range(self.optimizable.nlambda):
                 for id_s in range(self.optimizable.nslice):
                     self.optimizable.probe[id_l, 0, :, id_s, :, :], self.normalizedEigenvaluesProbe, self.MSPVprobe = \
-                        orthogonalizeModes(self.optimizable.probe[id_l, 0, :, id_s, :, :])
+                        orthogonalizeModes(self.optimizable.probe[id_l, 0, :, id_s, :, :], method='snapShots')
                     self.optimizable.purityProbe = np.sqrt(np.sum(self.normalizedEigenvaluesProbe ** 2))
 
                     # orthogonolize momentum operator

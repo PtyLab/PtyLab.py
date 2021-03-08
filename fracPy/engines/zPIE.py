@@ -90,8 +90,13 @@ class zPIE(BaseReconstructor):
                                                         (self.optimizable.No // 2 - n // 2):(self.optimizable.No // 2 + n // 2)]),
                                          dz[k], self.optimizable.wavelength, n * self.optimizable.dxo)
                     else:
-                        imProp, _ = aspw(xp.squeeze(self.optimizable.probe[...,:,:]),
-                                         dz[k], self.optimizable.wavelength, self.optimizable.Lp)
+                        if self.optimizable.nlambda==1:
+                            imProp, _ = aspw(xp.squeeze(self.optimizable.probe[..., :, :]),
+                                             dz[k], self.optimizable.wavelength, self.optimizable.Lp)
+                        else:
+                            nlambda = self.optimizable.nlambda//2
+                            imProp, _ = aspw(xp.squeeze(self.optimizable.probe[nlambda,...,:,:]),
+                                            dz[k], self.optimizable.spectralDensity[nlambda], self.optimizable.Lp)
 
                     # TV approach
                     aleph = 1e-2
