@@ -57,15 +57,15 @@ optimizable.prepare_reconstruction()
 # customize initial probe quadratic phase
 optimizable.probe = probe2['probe'][()]
 optimizable.ptychogram=exampleData.ptychogram
-optimizable.theta=44
+optimizable.theta=45
 # this will copy any attributes from experimental data that we might care to optimize
 # # Set monitor properties
 monitor = Monitor()
-monitor.figureUpdateFrequency = 1
+monitor.figureUpdateFrequency = 15
 monitor.objectPlot = 'complex'  # complex abs angle
 monitor.verboseLevel = 'high'  # high: plot two figures, low: plot only one figure
-monitor.objectPlotZoom = 3.   # control object plot FoV
-monitor.probePlotZoom = 3.   # control probe plot FoV
+monitor.objectPlotZoom = 2.   # control object plot FoV
+monitor.probePlotZoom = 2.   # control probe plot FoV
 
 # Run the reconstruction
 
@@ -114,8 +114,8 @@ engine.doReconstruction()
 
 engine.doReconstruction()
 engine.numIterations = 100
-engine.betaProbe_m = 0.5
-engine.betaObject_m = 0.5
+engine.betaProbe_m = 0.25
+engine.betaObject_m = 0.25
 engine.doReconstruction()
 
 
@@ -126,7 +126,7 @@ engine_mPIE.numIterations = 200
 engine_mPIE.betaProbe = 0.25
 engine_mPIE.betaObject = 0.25
 engine_mPIE.doReconstruction()
-
+engine_mPIE.betaObject = 0.25
 ## choose engine
 # ePIE
 # engine_ePIE = ePIE.ePIE(optimizable, exampleData, params,monitor)
@@ -157,4 +157,4 @@ engine_mPIE.doReconstruction()
 # engine_pcPIE.doReconstruction()
 
 # now save the data
-# optimizable.saveResults('reconstruction.hdf5')
+optimizable.saveResults('reconstruction.hdf5')

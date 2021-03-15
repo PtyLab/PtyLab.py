@@ -1,11 +1,8 @@
 import numpy as np
 from matplotlib import pyplot as plt
 import tqdm
-from typing import Any
-from scipy.interpolate import interp2d
 from scipy import ndimage
-from fracPy.utils.visualisation import hsvplot
-from fracPy.utils.test.CoordinateTransformations import xtoU, tiltUtoX, xtoTiltU, quickshow
+from fracPy.utils.CoordinateTransformations import xtoU, tiltUtoX
 from cupyx.scipy import ndimage as cuNdimage
 # fracPy imports
 from fracPy.Optimizable.Optimizable import Optimizable
@@ -14,11 +11,8 @@ from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Params.Params import Params
 from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray
 from fracPy.monitors.Monitor import Monitor
-from fracPy.operators.operators import aspw
 import logging
 import sys
-import time
-
 
 try:
     import cupy as cp
@@ -119,20 +113,17 @@ class aPIE(BaseReconstructor):
                 Yq = ((Yqcalc - xp2.amin(self.Yd)) / self.dxd).astype(np.float32)
 
                 for l in range(self.experimentalData.numFrames):
-                    temp = self.ptychogramUntransformed[l]
-                    # f = interp2d(self.optimizable.xd, self.optimizable.xd, temp, kind='linear', fill_value=0)
-                    # temp2 = abs(f(Xq, Yq))
                     if self.params.gpuSwitch is True:
-                        temp2 = xp2.reshape(cuNdimage.map_coordinates(temp, xp2.array([Yq,
-                                                                                                 Xq]), order=0),
+                        temp = xp2.reshape(cuNdimage.map_coordinates(self.ptychogramUntransformed[l], xp2.array([Yq,
+                                                                                                 Xq]), order=1),
                                             (self.optimizable.Nd, self.optimizable.Nd))
                     else:
-                        temp2 = xp2.reshape(ndimage.map_coordinates(temp, xp2.array([Yq,
-                                                                                     Xq]), order=0),
+                        temp = xp2.reshape(ndimage.map_coordinates(self.ptychogramUntransformed[l], xp2.array([Yq,
+                                                                                     Xq]), order=1),
                                             (self.optimizable.Nd, self.optimizable.Nd))
-                    temp2 = xp2.nan_to_num(temp2)
-                    temp2[temp2 < 0] = 0
-                    self.experimentalData.ptychogram[l] = xp.array(temp2)
+                    temp = xp2.nan_to_num(temp)
+                    temp[temp < 0] = 0
+                    self.experimentalData.ptychogram[l] = temp
 
                 # renormalization(for energy conservation) # todo implement Jacobian determinant normalisation
                 self.experimentalData.ptychogram = self.experimentalData.ptychogram / xp2.linalg.norm(
@@ -154,14 +145,12 @@ class aPIE(BaseReconstructor):
 
                 self.experimentalData.W[self.experimentalData.W == 0] = 1e-3
 
-                # todo check if it is right
                 if self.params.fftshiftSwitch:
                     self.experimentalData.ptychogram = xp.fft.ifftshift(self.experimentalData.ptychogram, axes=(-1, -2))
                     self.experimentalData.W = xp.fft.ifftshift(self.experimentalData.W, axes=(-1, -2))
                 for n in range(self.ePIEloops):
                     # set position order
                     self.setPositionOrder()
-
                     for positionLoop, positionIndex in enumerate(self.positionIndices):
                         ### patch1 ###
                         # get object patch1
@@ -250,6 +239,7 @@ class aPIE(BaseReconstructor):
         self.params.aPIEflag=False
         # self.thetaSearchRadiusMax = thetaSearchRadiusList[loop]
 
+
     def objectPatchUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
         """
         Todo add docstring
@@ -283,30 +273,32 @@ class aPIE(BaseReconstructor):
         frequencies, and sets the sample space pixel sizes according to that spatial frequency range.
 
         """
-        if not hasattr(self, 'Ugrid'):
-            if interP_samplingDensity is None:
-                interP_samplingDensity = self.optimizable.Nd
-            Fdetx, Fdety = xtoU(self.optimizable.Xd, self.optimizable.Yd, self.optimizable.zo,
-                                self.experimentalData.wavelength)
-            lowerbound = np.amin(Fdetx)
-            upperbound = np.amax(np.amax(Fdetx))
-            self.Ugrid = np.linspace(lowerbound, upperbound, interP_samplingDensity, dtype=np.float64)
+        # if not hasattr(self, 'Ugrid'):
+        if interP_samplingDensity is None:
+            interP_samplingDensity = self.optimizable.Nd
+        Fdetx, Fdety = xtoU(self.optimizable.Xd, self.optimizable.Yd, self.optimizable.zo,
+                            self.experimentalData.wavelength)
+        bound = np.amax(np.amax(Fdetx))
+        Lfx=bound*2
+        dfx=Lfx/interP_samplingDensity
+        self.Ugrid = np.arange(-interP_samplingDensity/2, interP_samplingDensity/2,
+                               dtype=np.float64)*dfx
 
-            self.Uq, self.Vq = np.meshgrid(self.Ugrid, self.Ugrid, sparse=False)
-            self.optimizable.dxp = 1 / abs(upperbound - lowerbound)
-            self.latest_know_z = self.optimizable.zo
-        else:
-            if self.latest_know_z != self.optimizable.zo:
-                x = getArrayModule(self.Uq)
-
-                if interP_samplingDensity is None:
-                    interP_samplingDensity = self.optimizable.Nd
-                Fdetx, Fdety = xtoU(self.optimizable.Xd, self.optimizable.Yd, self.optimizable.zo,
-                                    self.experimentalData.wavelength)
-                lowerbound = x.amin(Fdetx)
-                upperbound = x.amax(x.amax(Fdetx))
-                self.Ugrid = x.linspace(lowerbound, upperbound, interP_samplingDensity, dtype=np.float64)
-
-                self.Uq, self.Vq = x.meshgrid(self.Ugrid, self.Ugrid, sparse=False)
-                self.optimizable.dxp = 1 / abs(upperbound - lowerbound)
-                self.latest_know_z = self.optimizable.zo
+        self.Uq, self.Vq = np.meshgrid(self.Ugrid, self.Ugrid, sparse=True)
+        self.optimizable.dxp = 1 / Lfx
+        self.latest_know_z = self.optimizable.zo
+        # else:
+        #     if self.latest_know_z != self.optimizable.zo:
+        #         x = getArrayModule(self.Uq)
+        #
+        #         if interP_samplingDensity is None:
+        #             interP_samplingDensity = self.optimizable.Nd
+        #         Fdetx, Fdety = xtoU(self.optimizable.Xd, self.optimizable.Yd, self.optimizable.zo,
+        #                             self.experimentalData.wavelength)
+        #         lowerbound = x.amin(Fdetx)
+        #         upperbound = x.amax(x.amax(Fdetx))
+        #         self.Ugrid = x.linspace(lowerbound, upperbound, interP_samplingDensity, dtype=np.float64)
+        #
+        #         self.Uq, self.Vq = x.meshgrid(self.Ugrid, self.Ugrid, sparse=False)
+        #         self.optimizable.dxp = 1 / abs(upperbound - lowerbound)
+        #         self.latest_know_z = self.optimizable.zo

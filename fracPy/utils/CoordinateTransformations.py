@@ -1,8 +1,8 @@
 import time
 import numpy as np
 import matplotlib.pyplot as plt
-from fracPy.utils.gpuUtils import getArrayModule
 
+from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray
 
 def prepareUVgrid(x, y, zo, wavelength):
     """
@@ -17,7 +17,7 @@ def prepareUVgrid(x, y, zo, wavelength):
     lowerbound = np.amin(Fdetx)
     upperbound = np.amax(Fdetx)
     df = Fdetx[338, 338] - Fdetx[338, 339]
-    Ugrid = np.linspace(lowerbound, upperbound, 676, dtype=np.float64)
+    Ugrid = np.arange(lowerbound, upperbound, 676, dtype=np.float64)
 
     U, V = np.meshgrid(Ugrid, Ugrid, sparse=True)
     return U, V
@@ -144,17 +144,17 @@ def tiltUtoX(u: np.ndarray, v: np.ndarray, z, wavelength, theta, axis=0, output_
     x2 = module.where(module.abs(ax) < 1.e-5, -cx / bx, x2)
 
     x = module.where(module.abs(uw - uxo) < 1.e-5, 0, x)
-    testu1, testv1 = xtoTiltU(x, y, z, wavelength, toDegrees(theta))
-    testu2, testv2 = xtoTiltU(x2, y, z, wavelength, toDegrees(theta))
+    x = module.where(v == 0, x2, x)
 
-    difu = (abs(u - testu1) - abs(u - testu2))
-    x = module.where(difu > 0, x2, x)
     # x is unstable near x=0 in some cases, especially near 45 degrees(y has large rounding errors when a is small and
     # the expression for x is sensitive to rounding errors in y, as effectively your trying to infer x from the
     # departure of the linear relationship between y and v), the departure of linearity is not so large at low NA and
     # the numerically instability of y for small(but not zero) a hurts double.
     # however we calculated at which spatial frequencies x=0 before and replace a region where rounding errors are
     # relevant around that with zeros
+    xuo = (np.sin(theta) * (y/ (wavelength * v))-z * np.sin(theta)) / np.cos(theta)
+    x=np.where(u==0,xuo,x)
+    x[338, 338] = 0
 
     if output_list == 1:
         x = module.ravel(x)

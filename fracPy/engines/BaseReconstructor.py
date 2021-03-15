@@ -309,7 +309,8 @@ class BaseReconstructor(object):
             self.optimizable.objectBuffer = cp.array(self.optimizable.objectBuffer, cp.complex64)
             self.optimizable.probeMomentum = cp.array(self.optimizable.probeMomentum, cp.complex64)
             self.optimizable.objectMomentum = cp.array(self.optimizable.objectMomentum, cp.complex64)
-        # for doing the coordinate transform and especially the slow interpolation of aPIE on the gpu
+
+        # for doing the coordinate transform and especially the otherwise slow interpolation of aPIE on the gpu
         if hasattr(self.params, 'aPIEflag'):
             if self.params.aPIEflag == True:
                 self.ptychogramUntransformed = cp.array(self.ptychogramUntransformed)
@@ -322,6 +323,7 @@ class BaseReconstructor(object):
                 self.dxd = cp.array(self.dxd)
                 self.zo= cp.array(self.zo)
                 self.experimentalData.W= cp.array(self.experimentalData.W)
+
         # non-optimizable parameters
         self.experimentalData.ptychogram = cp.array(self.experimentalData.ptychogram, cp.float32)
         self.optimizable.detectorError = cp.array(self.optimizable.detectorError)
@@ -362,6 +364,12 @@ class BaseReconstructor(object):
             self.optimizable.objectBuffer = self.optimizable.objectBuffer.get()
             self.optimizable.probeMomentum = self.optimizable.probeMomentum.get()
             self.optimizable.objectMomentum = self.optimizable.objectMomentum.get()
+
+            # for doing the coordinate transform and especially the otherwise slow interpolation of aPIE on the gpu
+        if hasattr(self.params, 'aPIEflag'):
+            if self.params.aPIEflag:
+                self.theta = self.theta.get()
+
 
         # non-optimizable parameters
         self.experimentalData.ptychogram = self.experimentalData.ptychogram.get()
