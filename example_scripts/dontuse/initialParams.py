@@ -24,7 +24,7 @@ parser['singleSwitch'] = True  # if True, data is converted to single to save me
 parser['smoothenessSwitch'] = False  # if True, apply smoothness constraint to object
 parser['gpuSwitch'] = False  # if True, then algorithm runs on gpu
 parser['orthogonalizationFrequency'] = 10  # probe orthogonalization frequency
-parser['batchSize'] = 10  # fft-block size for parallel engines
+parser['batchSize'] = 10  # fft-block size for parallel Engines
 parser['makeGIF'] = False  # probe orthogonalization frequency
 parser['fontSize'] = 17
 

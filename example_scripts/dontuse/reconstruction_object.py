@@ -4,7 +4,7 @@ class reconstruction(object):
 
     Settings for the reconstruction are all specified in the params object
 
-    Settings for monitors (called Monitor) are all specified in monitor
+    Settings for Monitors (called Monitor) are all specified in monitor
 
     Settings for
     """
@@ -20,7 +20,7 @@ class reconstruction(object):
 
 class Monitor(object):
     """
-    Settings that involve the data monitors
+    Settings that involve the data Monitors
     """
 
     def __init__(self):

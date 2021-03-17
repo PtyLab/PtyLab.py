@@ -1,4 +1,4 @@
-from fracPy.monitors.default_visualisation import DefaultMonitor,DiffractionDataMonitor
+from fracPy.Monitors.default_visualisation import DefaultMonitor,DiffractionDataMonitor
 import numpy as np
 from scipy.signal import get_window
 import logging
@@ -7,12 +7,12 @@ import h5py
 # fracPy imports
 from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray
 from fracPy.utils.initializationFunctions import initialProbeOrObject
-from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
-from fracPy.Optimizable.Optimizable import Optimizable
-from fracPy.Params.Params import Params
+from fracPy.FixedData.DefaultExperimentalData import ExperimentalData
+from fracPy.Optimizables.Optimizable import Optimizable
+from fracPy.Params.ReconstructionParameters import Reconstruction_parameters
 from fracPy.utils.utils import ifft2c, fft2c, orthogonalizeModes, circ, p2bin
 from fracPy.operators.operators import aspw, scaledASP
-from fracPy.monitors.Monitor import Monitor
+from fracPy.Monitors.Monitor import Monitor
 from fracPy.utils.visualisation import hsvplot
 from matplotlib import pyplot as plt
 import cupy as cp
@@ -21,13 +21,13 @@ from skimage.transform import rescale
 
 class BaseReconstructor(object):
     """
-    Common properties that are common for all reconstruction engines are defined here.
+    Common properties that are common for all reconstruction Engines are defined here.
 
     Unless you are testing the code, there's hardly any need to create this object. For your own implementation,
     inherit from this object
 
     """
-    def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData, params: Params, monitor: Monitor):
+    def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData, params: Reconstruction_parameters, monitor: Monitor):
         # These statements don't copy any data, they just keep a reference to the object
         self.optimizable = optimizable
         self.experimentalData = experimentalData
@@ -44,7 +44,7 @@ class BaseReconstructor(object):
         Initialize everything that depends on user changeable attributes.
         :return:
         """
-        # check miscellaneous quantities specific for certain engines
+        # check miscellaneous quantities specific for certain Engines
         self._checkMISC()
         self._checkFFT()
         self._initializeQuadraticPhase()
@@ -229,7 +229,7 @@ class BaseReconstructor(object):
 
     def _checkMISC(self):
         """
-        checks miscellaneous quantities specific certain engines
+        checks miscellaneous quantities specific certain Engines
         """
         if self.params.backgroundModeSwitch:
             self.optimizable.background = 1e-1*np.ones((self.optimizable.Np, self.optimizable.Np))

@@ -1,5 +1,5 @@
 import numpy as np
-from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
+from fracPy.FixedData.DefaultExperimentalData import ExperimentalData
 from copy import copy
 import logging
 import h5py
@@ -12,9 +12,9 @@ class Optimizable(object):
     """
     This object will contain all the things that can be modified by a reconstruction engine.
 
-    In itself, it's little more than a data holder. It is initialized with an ExperimentalData object.
+    In itself, it's little more than a data holder. It is initialized with an FixedData object.
 
-    Some parameters which are "immutable" within the ExperimentalData can be modified
+    Some parameters which are "immutable" within the FixedData can be modified
     (e.g. zo modification by zPIE during the reconstruction routine). All of them
     are defined in the listOfOptimizableProperties
     """
@@ -29,7 +29,7 @@ class Optimizable(object):
         ]
     
     def __init__(self, data:ExperimentalData):
-        self.logger = logging.getLogger('Optimizable')
+        self.logger = logging.getLogger('Optimizables')
         self.data = data
         self.copyAttributesFromExperiment(data)
         self.computeOptionalParameters(data)

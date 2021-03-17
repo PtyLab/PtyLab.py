@@ -18,8 +18,8 @@ class ExperimentalData:
     """
 
     def __init__(self, filename=None):
-        self.logger = logging.getLogger('ExperimentalData')
-        self.logger.debug('Initializing ExperimentalData object')
+        self.logger = logging.getLogger('FixedData')
+        self.logger.debug('Initializing FixedData object')
 
         self.filename = filename
         if filename is not None:
