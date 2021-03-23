@@ -1011,7 +1011,7 @@ class BaseReconstructor(object):
         :return:
         """
         xp = getArrayModule(self.optimizable.probe)
-        # calculate center of mass of the probe
+        # calculate center of mass of the probe (for multislice cases, the probe for the last slice is used)
         P2 = xp.sum(abs(self.optimizable.probe[:,:,:,-1,...])**2, axis=(0,1,2))
         demon = xp.sum(P2)*self.optimizable.dxp
         xc = xp.int(xp.around(xp.sum(xp.array(self.optimizable.Xp, xp.float32) * P2) / demon))
@@ -1019,7 +1019,7 @@ class BaseReconstructor(object):
         # shift only if necessary
         if xc**2+yc**2>1:
             # shift probe
-            for k in xp.arange(self.optimizable.npsm): # todo check for multislice
+            for k in xp.arange(self.optimizable.npsm):
                 self.optimizable.probe[:,:,k,-1,...] = \
                     xp.roll(self.optimizable.probe[:,:,k,-1,...], (-yc, -xc), axis=(-2, -1))
                 # for mPIE
@@ -1031,7 +1031,7 @@ class BaseReconstructor(object):
 
 
             # shift object
-            for k in xp.arange(self.optimizable.nosm): # todo check for multislice
+            for k in xp.arange(self.optimizable.nosm):
                 self.optimizable.object[:,k,:,-1,...] = \
                     xp.roll(self.optimizable.object[:,k,:,-1,...], (-yc, -xc), axis=(-2, -1))
                 # for mPIE
@@ -1041,17 +1041,6 @@ class BaseReconstructor(object):
                     self.optimizable.objectBuffer[:, k, :, -1, ...] = \
                         xp.roll(self.optimizable.objectBuffer[:, k, :, -1, ...], (-yc, -xc), axis=(-2, -1))
 
-            # if self.optimizable.nlambda > 1:
-            #     for k in xp.arange(self.optimizable.nlambda): # todo check for multislice
-            #         P2 = xp.sum(abs(self.optimizable.probe[k, :, :, -1, ...]) ** 2, axis=(1, 2))
-            #         demon = xp.sum(P2) * self.optimizable.dxp
-            #         xc = xp.int(xp.around(xp.sum(xp.array(self.optimizable.Xp, xp.float32) * P2) / demon))
-            #         yc = xp.int(xp.around(xp.sum(xp.array(self.optimizable.Yp, xp.float32) * P2) / demon))
-            #         self.optimizable.probe[k,:,:,-1,...] = \
-            #             xp.roll(self.optimizable.probe[k,:,:,-1,...], (-yc, -xc), axis=(-2, -1))
-            #         self.optimizable.object[k, :, :, -1, ...] = \
-            #             xp.roll(self.optimizable.object[k, :, :, -1, ...], (-yc, -xc), axis=(-2, -1))
-                # todo implement for mPIE
 
     def modulusEnforcedProbe(self):
         # propagate probe to detector

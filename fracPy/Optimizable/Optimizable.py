@@ -158,6 +158,8 @@ class Optimizable(object):
             hf.create_dataset('object', data=self.object, dtype='complex64')
             hf.create_dataset('error', data=self.error, dtype='f')
             hf.create_dataset('zo', data=self.zo, dtype='f')
+            hf.create_dataset('wavelength', data=self.wavelength, dtype='f')
+            hf.create_dataset('dxp', data=self.dxp, dtype='f')
             if hasattr(self, 'theta'):
                 hf.create_dataset('theta', data=self.theta, dtype='f')
         elif type == 'probe':
