@@ -766,7 +766,7 @@ class BaseReconstructor(object):
                 object_estimate = np.squeeze(asNumpyArray(
                     self.optimizable.object[..., self.optimizable.objectROI[0], self.optimizable.objectROI[1]]))
                 probe_estimate = np.squeeze(asNumpyArray(
-                    self.optimizable.probe[0,..., self.optimizable.probeROI[0], self.optimizable.probeROI[1]]))
+                    self.optimizable.probe[..., self.optimizable.probeROI[0], self.optimizable.probeROI[1]]))
 
             self.monitor.updateDefaultMonitor(object_estimate=object_estimate, probe_estimate=probe_estimate)
 

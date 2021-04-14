@@ -1,18 +1,9 @@
 import numpy as np
 from matplotlib import pyplot as plt
 import tqdm
-from scipy import ndimage
-from fracPy.utils.CoordinateTransformations import xtoU, tiltUtoX
-from cupyx.scipy import ndimage as cuNdimage
-# fracPy imports
-from fracPy.Optimizable.Optimizable import Optimizable
-from fracPy.engines.BaseReconstructor import BaseReconstructor
-from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
-from fracPy.Params.Params import Params
-from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray
-from fracPy.monitors.Monitor import Monitor
-import logging
-import sys
+from typing import Any
+from scipy.interpolate import interp2d
+from fracPy.utils.visualisation import hsvplot
 
 try:
     import cupy as cp
@@ -22,6 +13,16 @@ except ImportError:
     # to see that gPIE exists for example.
     cp = None
 
+# fracPy imports
+from fracPy.Optimizable.Optimizable import Optimizable
+from fracPy.engines.BaseReconstructor import BaseReconstructor
+from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
+from fracPy.Params.Params import Params
+from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray
+from fracPy.monitors.Monitor import Monitor
+from fracPy.operators.operators import aspw
+import logging
+import sys
 
 class aPIE(BaseReconstructor):
     """
@@ -36,14 +37,13 @@ class aPIE(BaseReconstructor):
         self.logger.info('Sucesfully created aPIE aPIE_engine')
         self.logger.info('Wavelength attribute: %s', self.optimizable.wavelength)
         self.initializeReconstructionParams()
-        self.prepareUVgrid()
+
 
     def initializeReconstructionParams(self):
         """
         Set parameters that are specific to the ePIE settings.
         :return:
         """
-        self.params.aPIEflag = True
         self.betaProbe = 0.25
         self.betaObject = 0.25
         self.aPIEfriction = 0.7
@@ -53,20 +53,15 @@ class aPIE(BaseReconstructor):
             self.optimizable.thetaMomentum = 0
         if not hasattr(self.optimizable, 'thetaHistory'):
             self.optimizable.thetaHistory = np.array([])
-        self.warp_axis = 0  # which axis needs tilt correction(z-warp_axis defines the sample reflection plane)
+
         self.thetaSearchRadiusMin = 0.01
         self.thetaSearchRadiusMax = 0.1
         self.ptychogramUntransformed = self.experimentalData.ptychogram.copy()
         self.experimentalData.W = np.ones_like(self.optimizable.Xd)
-        self.ePIEloops = 3  # number of loops to perform with epie with both test angles before choosing which one is
-        # better, making this higher makes it slower, but more stable, I would advise to set it atleast at two,
-        # interpolation bottlenecks the speed anyway otherwise.
+
         if self.optimizable.theta == None:
             raise ValueError('theta value is not given')
-        self.Xd=self.optimizable.Xd.copy()
-        self.Yd=self.optimizable.Yd.copy()
-        self.dxd=self.optimizable.dxd.copy()
-        self.zo=self.optimizable.zo
+
     def doReconstruction(self):
         self._prepareReconstruction()
 
@@ -75,114 +70,94 @@ class aPIE(BaseReconstructor):
         # linear search
         thetaSearchRadiusList = np.linspace(self.thetaSearchRadiusMax, self.thetaSearchRadiusMin,
                                             self.numIterations)
-        xp2 = getArrayModule(self.Uq)
+
         self.pbar = tqdm.trange(self.numIterations, desc='aPIE', file=sys.stdout, leave=True)
         for loop in self.pbar:
             # save theta search history
-            self.optimizable.thetaHistory = np.append(self.optimizable.thetaHistory,
-                                                      asNumpyArray(self.optimizable.theta))
+            self.optimizable.thetaHistory = np.append(self.optimizable.thetaHistory, asNumpyArray(self.optimizable.theta))
 
             # select two angles (todo check if three angles behave better)
-            theta = xp2.array([self.optimizable.theta, self.optimizable.theta + thetaSearchRadiusList[loop] *
-                               (-1 + 2 * np.random.rand())]) + self.optimizable.thetaMomentum
+            theta = np.array([self.optimizable.theta, self.optimizable.theta + thetaSearchRadiusList[loop] *
+                              (-1 + 2 * np.random.rand())]) + self.optimizable.thetaMomentum
 
             # save object and probe
+            probeTemp = self.optimizable.probe.copy()
+            objectTemp = self.optimizable.object.copy()
 
-
-            # probe and object buffer
-            probeBuffer = xp.zeros_like(self.optimizable.probe)  # shape=(np.array([probeTemp, probeTemp])).shape)
+            # probe and object buffer (todo maybe there's more elegant way )
+            probeBuffer = xp.zeros_like(probeTemp) # shape=(np.array([probeTemp, probeTemp])).shape)
             probeBuffer = [probeBuffer, probeBuffer]
-            probeBuffer[1]=self.optimizable.probe.copy()
-
-            objectBuffer = xp.zeros_like(self.optimizable.object)  # , shape=(np.array([objectTemp,
-            # objectTemp])).shape)  # for
-            # polychromatic case this
-            # will need to be multimode
-            objectBuffer = [objectBuffer, objectBuffer]
-            objectBuffer[1]=self.optimizable.object.copy()
+            objectBuffer = xp.zeros_like(objectTemp) #, shape=(np.array([objectTemp, objectTemp])).shape)  # for polychromatic case this will need to be multimode
+            objectBuffer = [objectBuffer,objectBuffer]
             # initialize error
             errorTemp = np.zeros((2, 1))
 
             for k in range(2):
-                self.optimizable.probe = probeBuffer[1]
-                self.optimizable.object = objectBuffer[1]
+                self.optimizable.probe = probeTemp
+                self.optimizable.object = objectTemp
                 # reset ptychogram (transform into estimate coordinates)
-                Xqcalc, Yqcalc = tiltUtoX(self.Uq, self.Vq, self.optimizable.zo, self.wavelength,
-                                  theta[k], axis=self.warp_axis, output_list=1)
-                Xq = ((Xqcalc - xp2.amin(self.Xd)) / self.dxd).astype(np.float32)
-                Yq = ((Yqcalc - xp2.amin(self.Yd)) / self.dxd).astype(np.float32)
-
+                Xq = T_inv(self.optimizable.Xd, self.optimizable.Yd, self.optimizable.zo, theta[k]) # todo check if 1D is enough to save time
                 for l in range(self.experimentalData.numFrames):
-                    if self.params.gpuSwitch is True:
-                        temp = xp2.reshape(cuNdimage.map_coordinates(self.ptychogramUntransformed[l], xp2.array([Yq,
-                                                                                                 Xq]), order=1),
-                                            (self.optimizable.Nd, self.optimizable.Nd))
-                    else:
-                        temp = xp2.reshape(ndimage.map_coordinates(self.ptychogramUntransformed[l], xp2.array([Yq,
-                                                                                     Xq]), order=1),
-                                            (self.optimizable.Nd, self.optimizable.Nd))
-                    temp = xp2.nan_to_num(temp)
-                    temp[temp < 0] = 0
-                    self.experimentalData.ptychogram[l] = temp
+                    temp = self.ptychogramUntransformed[l]
+                    f = interp2d(self.optimizable.xd, self.optimizable.xd, temp, kind='linear', fill_value=0)
+                    temp2 = abs(f(Xq[0], self.optimizable.xd))
+                    temp2 = np.nan_to_num(temp2)
+                    temp2[temp2 < 0] = 0
+                    self.experimentalData.ptychogram[l] = xp.array(temp2)
 
-                # renormalization(for energy conservation) # todo implement Jacobian determinant normalisation
-                self.experimentalData.ptychogram = self.experimentalData.ptychogram / xp2.linalg.norm(
-                    self.experimentalData.ptychogram) * xp2.linalg.norm(self.ptychogramUntransformed)
+                # renormalization(for energy conservation) # todo not layer by layer?
+                self.experimentalData.ptychogram = self.experimentalData.ptychogram / np.linalg.norm(
+                    self.experimentalData.ptychogram) * np.linalg.norm(self.ptychogramUntransformed)
 
-                self.experimentalData.W = xp2.ones_like(self.Xd)
-                if self.params.gpuSwitch is True:
-                    self.experimentalData.W = xp2.nan_to_num(
-                        xp2.reshape(cuNdimage.map_coordinates(self.experimentalData.W, xp2.array([Yq,
-                                                                                                Xq]), order=0),
-                                    (self.optimizable.Nd,
-                                     self.optimizable.Nd)))
-                else:
-                    self.experimentalData.W = xp2.nan_to_num(
-                        xp2.reshape(cuNdimage.map_coordinates(self.experimentalData.W, xp2.array([Yq,
-                                                                                                  Xq]), order=0),
-                                    (self.optimizable.Nd,
-                                     self.optimizable.Nd)))
-
+                self.experimentalData.W = np.ones_like(self.optimizable.Xd)
+                fw = interp2d(self.optimizable.xd, self.optimizable.xd, self.experimentalData.W, kind='linear', fill_value=0)
+                self.experimentalData.W = abs(fw(Xq[0], self.optimizable.xd))
+                self.experimentalData.W = np.nan_to_num(self.experimentalData.W)
                 self.experimentalData.W[self.experimentalData.W == 0] = 1e-3
+                self.experimentalData.W = xp.array(self.experimentalData.W)
 
+
+                # todo check if it is right
                 if self.params.fftshiftSwitch:
                     self.experimentalData.ptychogram = xp.fft.ifftshift(self.experimentalData.ptychogram, axes=(-1, -2))
                     self.experimentalData.W = xp.fft.ifftshift(self.experimentalData.W, axes=(-1, -2))
-                for n in range(self.ePIEloops):
-                    # set position order
-                    self.setPositionOrder()
-                    for positionLoop, positionIndex in enumerate(self.positionIndices):
-                        ### patch1 ###
-                        # get object patch1
-                        row1, col1 = self.optimizable.positions[positionIndex]
-                        sy = slice(row1, row1 + self.optimizable.Np)
-                        sx = slice(col1, col1 + self.optimizable.Np)
-                        # note that object patch has size of probe array
-                        objectPatch = self.optimizable.object[..., sy, sx].copy()
 
-                        # make exit surface wave
-                        self.optimizable.esw = objectPatch * self.optimizable.probe
+                # set position order
+                self.setPositionOrder()
 
-                        # propagate to camera, intensityProjection, propagate back to object
-                        self.intensityProjection(positionIndex)
+                for positionLoop, positionIndex in enumerate(self.positionIndices):
+                    ### patch1 ###
+                    # get object patch1
+                    row1, col1 = self.optimizable.positions[positionIndex]
+                    sy = slice(row1, row1 + self.optimizable.Np)
+                    sx = slice(col1, col1 + self.optimizable.Np)
+                    # note that object patch has size of probe array
+                    objectPatch = self.optimizable.object[..., sy, sx].copy()
 
-                        # difference term1
-                        DELTA = self.optimizable.eswUpdate - self.optimizable.esw
+                    # make exit surface wave
+                    self.optimizable.esw = objectPatch * self.optimizable.probe
 
-                        # object update
-                        self.optimizable.object[..., sy, sx] = self.objectPatchUpdate(objectPatch, DELTA)
+                    # propagate to camera, intensityProjection, propagate back to object
+                    self.intensityProjection(positionIndex)
 
-                        # probe update
-                        self.optimizable.probe = self.probeUpdate(objectPatch, DELTA)
+                    # difference term1
+                    DELTA = self.optimizable.eswUpdate - self.optimizable.esw
 
-                    # get error metric
-                    self.getErrorMetrics()
-                    # remove error from error history
-                    errorTemp[k] = self.optimizable.error[-1]
-                    self.optimizable.error = np.delete(self.optimizable.error, -1)
+                    # object update
+                    self.optimizable.object[..., sy, sx] = self.objectPatchUpdate(objectPatch, DELTA)
 
-                    # apply Constraints
-                    self.applyConstraints(loop)
+                    # probe update
+                    self.optimizable.probe = self.probeUpdate(objectPatch, DELTA)
+
+
+                # get error metric
+                self.getErrorMetrics()
+                # remove error from error history
+                errorTemp[k] = self.optimizable.error[-1]
+                self.optimizable.error = np.delete(self.optimizable.error, -1)
+
+                # apply Constraints
+                self.applyConstraints(loop)
                 # update buffer
                 probeBuffer[k] = self.optimizable.probe
                 objectBuffer[k] = self.optimizable.object
@@ -203,8 +178,7 @@ class aPIE(BaseReconstructor):
             self.optimizable.thetaMomentum = self.feedback * dtheta + self.aPIEfriction * self.optimizable.thetaMomentum
             # print updated theta
             self.pbar.set_description('aPIE: update a=%.3f deg (search radius=%.3f deg, thetaMomentum=%.3f deg)'
-                                      % (self.optimizable.theta, thetaSearchRadiusList[loop],
-                                         self.optimizable.thetaMomentum))
+                                      % (self.optimizable.theta, thetaSearchRadiusList[loop], self.optimizable.thetaMomentum))
 
             # show reconstruction
             if loop == 0:
@@ -213,7 +187,7 @@ class aPIE(BaseReconstructor):
                 ax.set_xlabel('iteration')
                 ax.set_ylabel('estimated theta [deg]')
                 ax.set_xscale('symlog')
-                line = plt.plot(0, asNumpyArray(self.optimizable.theta), 'o-')[0]
+                line = plt.plot(0, self.optimizable.theta, 'o-')[0]
                 plt.tight_layout()
                 plt.show(block=False)
 
@@ -236,7 +210,7 @@ class aPIE(BaseReconstructor):
             self.logger.info('switch to cpu')
             self._move_data_to_cpu()
             self.params.gpuFlag = 0
-        self.params.aPIEflag=False
+
         # self.thetaSearchRadiusMax = thetaSearchRadiusList[loop]
 
 
@@ -266,39 +240,30 @@ class aPIE(BaseReconstructor):
         r = self.optimizable.probe + self.betaProbe * xp.sum(frac * DELTA, axis=(0, 1, 3), keepdims=True)
         return r
 
-    def prepareUVgrid(self, interP_samplingDensity=None):
-        """
-        Generate a Spatial frequency space grid used in the reconstruction, find the largest spatial frequencies
-        associated with the detector grid and then create an equally sampled grid that includes those spatial
-        frequencies, and sets the sample space pixel sizes according to that spatial frequency range.
 
-        """
-        # if not hasattr(self, 'Ugrid'):
-        if interP_samplingDensity is None:
-            interP_samplingDensity = self.optimizable.Nd
-        Fdetx, Fdety = xtoU(self.optimizable.Xd, self.optimizable.Yd, self.optimizable.zo,
-                            self.experimentalData.wavelength)
-        bound = np.amax(np.amax(Fdetx))
-        Lfx=bound*2
-        dfx=Lfx/interP_samplingDensity
-        self.Ugrid = np.arange(-interP_samplingDensity/2, interP_samplingDensity/2,
-                               dtype=np.float64)*dfx
+def T(x, y, z, theta):
+    """
+    Coordinate transformation
+    """
+    r0 = np.sqrt(x ** 2 + y ** 2 + z ** 2)
+    yd = y
+    xd = x * np.cos(toDegree(theta)) - np.sin(toDegree(theta)) * (r0 - z)
+    return xd, yd
 
-        self.Uq, self.Vq = np.meshgrid(self.Ugrid, self.Ugrid, sparse=True)
-        self.optimizable.dxp = 1 / Lfx
-        self.latest_know_z = self.optimizable.zo
-        # else:
-        #     if self.latest_know_z != self.optimizable.zo:
-        #         x = getArrayModule(self.Uq)
-        #
-        #         if interP_samplingDensity is None:
-        #             interP_samplingDensity = self.optimizable.Nd
-        #         Fdetx, Fdety = xtoU(self.optimizable.Xd, self.optimizable.Yd, self.optimizable.zo,
-        #                             self.experimentalData.wavelength)
-        #         lowerbound = x.amin(Fdetx)
-        #         upperbound = x.amax(x.amax(Fdetx))
-        #         self.Ugrid = x.linspace(lowerbound, upperbound, interP_samplingDensity, dtype=np.float64)
-        #
-        #         self.Uq, self.Vq = x.meshgrid(self.Ugrid, self.Ugrid, sparse=False)
-        #         self.optimizable.dxp = 1 / abs(upperbound - lowerbound)
-        #         self.latest_know_z = self.optimizable.zo
+
+def T_inv(xd, yd, z, theta):
+    """
+    inverse coordinate transformation
+    """
+    if theta != 45:
+        rootTerm = np.sqrt((z * np.cos(toDegree(theta))) ** 2 + xd ** 2 + yd ** 2 * np.cos(toDegree(2 * theta)) -
+                           2 * xd * z * np.sin(toDegree(theta)))
+        x = (xd * np.cos(toDegree(theta)) - z * np.sin(toDegree(theta)) * np.cos(toDegree(theta)) +
+             np.sin(toDegree(theta)) * rootTerm) / np.cos(toDegree(2 * theta))
+    else:
+        x = (xd ** 2 - (yd ** 2) / 2 - xd * np.sqrt(2) * z) / (xd * np.sqrt(2) - z)
+    return x
+
+
+def toDegree(theta: Any) -> float:
+    return np.pi * theta / 180
