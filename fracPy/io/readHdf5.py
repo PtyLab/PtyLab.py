@@ -27,7 +27,8 @@ optional_fields = [
     'No',                       # number of upsampled pixels
     'Nd',                       # probe/pupil plane size, will be set to Ptychogram size by default
     'entrancePupilDiameter',    # entrance pupil diameter, defined in lens-based microscopes as the aperture diameter, reqquired for FPM
-    'spectralDensity'           # CPM parameters
+    'spectralDensity',          # CPM parameters: different wavelength
+    'theta'                     # CPM parameters: reflection tilt angle
     ]
 
 # These extensions can be loaded

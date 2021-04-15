@@ -75,6 +75,7 @@ class Optimizable(object):
         # Upsampled object plane dimensions
         if self.No == None:
             self.No = 2**11
+            # self.No = self.Np+np.max(self.positions0[:,0])-np.min(self.positions0[:,0])
 
             
     def initialize_settings(self):
@@ -157,6 +158,8 @@ class Optimizable(object):
             hf.create_dataset('object', data=self.object, dtype='complex64')
             hf.create_dataset('error', data=self.error, dtype='f')
             hf.create_dataset('zo', data=self.zo, dtype='f')
+            hf.create_dataset('wavelength', data=self.wavelength, dtype='f')
+            hf.create_dataset('dxp', data=self.dxp, dtype='f')
             if hasattr(self, 'theta'):
                 hf.create_dataset('theta', data=self.theta, dtype='f')
         elif type == 'probe':

@@ -72,7 +72,7 @@ class ExperimentalData:
         # Set the detector coordinates (detector pixelsize dxd must be given from the hdf5 file.)
         if self.Nd == None:
             self.Nd = self.ptychogram.shape[-1]
-        if self.spectralDensity ==None:
+        if isinstance(self.spectralDensity, type(None)):
             self.spectralDensity = np.atleast_1d(self.wavelength)
 
         # Detector coordinates 1D
