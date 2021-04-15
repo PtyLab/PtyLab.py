@@ -7,10 +7,10 @@ from fracPy.operators.operators import aspw
 from fracPy.utils.visualisation import hsvplot
 import matplotlib.pylab as plt
 from scipy.signal import convolve2d
-from fracPy.engines.BaseReconstructor import BaseReconstructor
-from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
-from fracPy.Optimizable.Optimizable import Optimizable
-from fracPy.monitors.Monitor import Monitor
+from fracPy.Engines.BaseReconstructor import BaseReconstructor
+from fracPy.FixedData.DefaultExperimentalData import ExperimentalData
+from fracPy.Optimizables.Optimizable import Optimizable
+from fracPy.Monitors.Monitor import Monitor
 import os
 import h5py
 

@@ -1,14 +1,14 @@
 from unittest import TestCase
-from fracPy.monitors.default_visualisation import DefaultMonitor
+from fracPy.Monitors.default_visualisation import DefaultMonitor
 import time
 import numpy as np
 import unittest
 
-from fracPy.engines import BaseReconstructor
+from fracPy.Engines import BaseReconstructor
 
-from fracPy.Optimizable.Optimizable import Optimizable
-from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
-from fracPy.engines.BaseReconstructor import BaseReconstructor
+from fracPy.Optimizables.Optimizable import Optimizable
+from fracPy.FixedData.DefaultExperimentalData import ExperimentalData
+from fracPy.Engines.BaseReconstructor import BaseReconstructor
 
 # To run the tests in this file, set this to TRUE
 VISUAL_TESTS = False

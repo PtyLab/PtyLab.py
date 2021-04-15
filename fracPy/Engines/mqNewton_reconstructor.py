@@ -8,11 +8,11 @@ except ImportError:
     # Still define the name, we'll take care of it later but in this way it's still possible
     # to see that gPIE exists for example.
     cp = None
-from fracPy.Optimizable.Optimizable import Optimizable
-from fracPy.engines.BaseReconstructor import BaseReconstructor
-from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
-from fracPy.Params.Params import Params
-from fracPy.monitors.Monitor import Monitor
+from fracPy.Optimizables.Optimizable import Optimizable
+from fracPy.Engines.BaseReconstructor import BaseReconstructor
+from fracPy.FixedData.DefaultExperimentalData import ExperimentalData
+from fracPy.Params.ReconstructionParameters import Reconstruction_parameters
+from fracPy.Monitors.Monitor import Monitor
 from fracPy.utils.gpuUtils import getArrayModule
 from fracPy.utils.utils import fft2c, ifft2c
 import logging
@@ -21,7 +21,7 @@ import sys
 
 class mqNewton(BaseReconstructor):
 
-    def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData, params: Params, monitor: Monitor):
+    def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData, params: Reconstruction_parameters, monitor: Monitor):
         # This contains reconstruction parameters that are specific to the reconstruction
         # but not necessarily to ePIE reconstruction
         super().__init__(optimizable, experimentalData, params, monitor)
@@ -58,7 +58,7 @@ class mqNewton(BaseReconstructor):
         
     def initializeAdaptiveMomentum(self):
         self.momentum_engine = getattr(mqNewton, self.momentum_method)
-        print("Momentum engines implemented: momentum, ADAM, NADAM")
+        print("Momentum Engines implemented: momentum, ADAM, NADAM")
         print("Momentum engine used: {}".format(self.momentum_method))
         if self.momentum_method in ['ADAM', 'NADAM']:
             # 2nd order momentum terms

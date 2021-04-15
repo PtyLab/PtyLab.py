@@ -3,14 +3,14 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 from numpy.testing import assert_almost_equal, assert_array_almost_equal
 
-from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
-from fracPy.Optimizable.Optimizable import Optimizable
+from fracPy.FixedData.DefaultExperimentalData import ExperimentalData
+from fracPy.Optimizables.Optimizable import Optimizable
 
 class TestOptimizable(TestCase):
     def setUp(self):
-        # first, create a ExperimentalData dataset
+        # first, create a FixedData dataset
         data = ExperimentalData('test:nodata')
-        #data = ExperimentalData('example:simulation_fpm')
+        #data = FixedData('example:simulation_fpm')
 
         data.wavelength = 1234
         optimizable = Optimizable(data)

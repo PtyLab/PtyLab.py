@@ -1,8 +1,8 @@
 from unittest import TestCase
 
-from fracPy.Optimizable.Optimizable import Optimizable
-from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
-from fracPy.engines.BaseReconstructor import BaseReconstructor
+from fracPy.Optimizables.Optimizable import Optimizable
+from fracPy.FixedData.DefaultExperimentalData import ExperimentalData
+from fracPy.Engines.BaseReconstructor import BaseReconstructor
 
 
 class TestBaseReconstructor(TestCase):

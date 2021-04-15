@@ -1,10 +1,10 @@
 import unittest
 from unittest import TestCase
 from numpy.testing import assert_almost_equal
-from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
-from fracPy.Optimizable.Optimizable import Optimizable
-from fracPy.engines import ePIE, mPIE, qNewton
-from fracPy.monitors.Monitor import Monitor as Monitor
+from fracPy.FixedData.DefaultExperimentalData import ExperimentalData
+from fracPy.Optimizables.Optimizable import Optimizable
+from fracPy.Engines import ePIE_reconstructor, mPIE_reconstructor, qNewton_reconstructor
+from fracPy.Monitors.Monitor import Monitor as Monitor
 
 class TestPropagator(TestCase):
 
@@ -27,7 +27,7 @@ class TestPropagator(TestCase):
 
         # Compare mPIE to ePIE
         # ePIE_engine = ePIE.ePIE_GPU(optimizable, exampleData, monitor)
-        ePIE_engine = ePIE.ePIE(optimizable, exampleData, monitor)
+        ePIE_engine = ePIE_reconstructor.ePIE(optimizable, exampleData, monitor)
         ePIE_engine.propagator = 'ASP'
         ePIE_engine.numIterations = 1
         ePIE_engine.doReconstruction()

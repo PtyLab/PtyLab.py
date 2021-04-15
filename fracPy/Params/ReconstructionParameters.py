@@ -1,7 +1,16 @@
 import logging
 
-class Params(object):
+class Reconstruction_parameters(object):
+    """
+    Some settings are shared in between different optimizers, such as the type of propagator that you intend to use,
+    if you want to use probe orthogonalization, etc. These are stored in the reconstruction_parameters object.
+
+    This ensures that code like this will work as expected:
+
+    optimizer1 = optimizers.
+    """
     def __init__(self):
+
 
         # datalogger
         self.logger = logging.getLogger('Params')
@@ -14,10 +23,10 @@ class Params(object):
         self.fontSize = 17
         self.intensityConstraint = 'standard'  # standard or sigmoid
         self.propagator = 'Fraunhofer'  # 'Fresnel' 'ASP'
-        self.momentumAcceleration = False  # default False, it is turned on in the individual engines that use momentum
-        self.adaptiveMomentumAcceleration = False # default False, it is turned on in the individual engines that use momentum
+        self.momentumAcceleration = False  # default False, it is turned on in the individual Engines that use momentum
+        self.adaptiveMomentumAcceleration = False # default False, it is turned on in the individual Engines that use momentum
 
-        ## Specific reconstruction settings that are the same for all engines
+        ## Specific reconstruction settings that are the same for all Engines
         self.gpuSwitch = False
         # This only makes sense on a GPU, not there yet
         self.saveMemory = False

@@ -12,12 +12,12 @@ except ImportError:
     cp = None
 
 # fracPy imports
-from fracPy.Optimizable.Optimizable import Optimizable
-from fracPy.engines.BaseReconstructor import BaseReconstructor
-from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
-from fracPy.Params.Params import Params
+from fracPy.Optimizables.Optimizable import Optimizable
+from fracPy.Engines.BaseReconstructor import BaseReconstructor
+from fracPy.FixedData.DefaultExperimentalData import ExperimentalData
+from fracPy.Params.ReconstructionParameters import Reconstruction_parameters
 from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray
-from fracPy.monitors.Monitor import Monitor
+from fracPy.Monitors.Monitor import Monitor
 from fracPy.operators.operators import aspw
 import logging
 import sys
@@ -25,7 +25,7 @@ import sys
 
 class zPIE(BaseReconstructor):
 
-    def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData, params: Params, monitor: Monitor):
+    def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData, params: Reconstruction_parameters, monitor: Monitor):
         # This contains reconstruction parameters that are specific to the reconstruction
         # but not necessarily to ePIE reconstruction
         super().__init__(optimizable, experimentalData, params, monitor)

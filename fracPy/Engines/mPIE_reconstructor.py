@@ -1,7 +1,5 @@
 import numpy as np
 from matplotlib import pyplot as plt
-from fracPy.utils import gpuUtils
-
 try:
     import cupy as cp
 except ImportError:
@@ -11,27 +9,44 @@ except ImportError:
     cp = None
 
 # fracPy imports
-from fracPy.Optimizable.Optimizable import Optimizable
-from fracPy.engines.BaseReconstructor import BaseReconstructor
-from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
-from fracPy.Params.Params import Params
+from fracPy.Optimizables.Optimizable import Optimizable
+from fracPy.Engines.BaseReconstructor import BaseReconstructor
+from fracPy.FixedData.DefaultExperimentalData import ExperimentalData
+from fracPy.Params.ReconstructionParameters import Reconstruction_parameters
 from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray
-from fracPy.monitors.Monitor import Monitor
+from fracPy.Monitors.Monitor import Monitor
 from fracPy.utils.utils import fft2c, ifft2c
 import logging
+import tqdm
+import sys
 
 
-class pcPIE(BaseReconstructor):
+class mPIE(BaseReconstructor):
 
-    def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData, params: Params, monitor: Monitor):
+    def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData, params: Reconstruction_parameters, monitor: Monitor):
         # This contains reconstruction parameters that are specific to the reconstruction
         # but not necessarily to ePIE reconstruction
         super().__init__(optimizable, experimentalData, params, monitor)
-        self.logger = logging.getLogger('pcPIE')
-        self.logger.info('Successfully created pcPIE pcPIE_engine')
+        self.logger = logging.getLogger('mPIE')
+        self.logger.info('Sucesfully created mPIE mPIE_engine')
         self.logger.info('Wavelength attribute: %s', self.optimizable.wavelength)
-        # initialize pcPIE params
+        # initialize mPIE params
         self.initializeReconstructionParams()
+        self.params.momentumAcceleration = True
+        
+    def initializeReconstructionParams(self):
+        """
+        Set parameters that are specific to the mPIE settings.
+        :return:
+        """
+        # self.eswUpdate = self.optimizable.esw.copy()
+        self.betaProbe = 0.25
+        self.betaObject = 0.25
+        self.alphaProbe = 0.1     # probe regularization
+        self.alphaObject = 0.1    # object regularization
+        self.feedbackM = 0.3          # feedback
+        self.frictionM = 0.7          # friction
+
         # initialize momentum
         self.optimizable.initializeObjectMomentum()
         self.optimizable.initializeProbeMomentum()
@@ -39,29 +54,14 @@ class pcPIE(BaseReconstructor):
         self.optimizable.objectBuffer = self.optimizable.object.copy()
         self.optimizable.probeBuffer = self.optimizable.probe.copy()
 
-        self.momentumAcceleration = True
-        
-    def initializeReconstructionParams(self):
-        """
-        Set parameters that are specific to the pcPIE settings.
-        :return:
-        """
-        # these are same as mPIE
-        # self.eswUpdate = self.optimizable.esw.copy()
-        self.betaProbe = 0.25
-        self.betaObject = 0.25
-        self.alphaProbe = 0.1     # probe regularization
-        self.alphaObject = 0.1    # object regularization
-        self.betaM = 0.3          # feedback
-        self.stepM = 0.7          # friction
-        # self.probeWindow = np.abs(self.optimizable.probe)
+        self.optimizable.probeWindow = np.abs(self.optimizable.probe)
 
     def doReconstruction(self):
         self._prepareReconstruction()
 
-        # actual reconstruction ePIE_engine
-        import tqdm
-        for loop in tqdm.tqdm(range(self.numIterations)):
+        # actual reconstruction MPIE_engine
+        self.pbar = tqdm.trange(self.numIterations, desc='mPIE', file=sys.stdout, leave=True)
+        for loop in self.pbar:
             # set position order
             self.setPositionOrder()
 
@@ -87,35 +87,6 @@ class pcPIE(BaseReconstructor):
 
                 # probe update
                 self.optimizable.probe = self.probeUpdate(objectPatch, DELTA)
-                if self.params.positionCorrectionSwitch:
-                    self.positionCorrection(objectPatch, positionIndex, sy, sx)
-                # position correction
-                # xp = getArrayModule(objectPatch)
-                # if len(self.optimizable.error) > self.startAtIteration:
-                #     # position gradients
-                #     # shiftedImages = xp.zeros((self.rowShifts.shape + objectPatch.shape))
-                #     cc = xp.zeros((len(self.rowShifts), 1))
-                #     for shifts in range(len(self.rowShifts)):
-                #         tempShift = xp.roll(objectPatch, self.rowShifts[shifts], axis=-2)
-                #         # shiftedImages[shifts, ...] = xp.roll(tempShift, self.colShifts[shifts], axis=-1)
-                #         shiftedImages = xp.roll(tempShift, self.colShifts[shifts], axis=-1)
-                #         cc[shifts] = xp.squeeze(xp.sum(shiftedImages.conj() * self.optimizable.object[..., sy, sx],
-                #                                        axis=(-2, -1)))
-                #     # truncated cross - correlation
-                #     # cc = xp.squeeze(xp.sum(shiftedImages.conj() * self.optimizable.object[..., sy, sx], axis=(-2, -1)))
-                #     cc = abs(cc)
-                #     betaGrad = 1000
-                #     normFactor = xp.sum(objectPatch.conj() * objectPatch, axis=(-2, -1)).real
-                #     grad_x = betaGrad * xp.sum((cc.T - xp.mean(cc)) / normFactor * xp.array(self.colShifts))
-                #     grad_y = betaGrad * xp.sum((cc.T - xp.mean(cc)) / normFactor * xp.array(self.rowShifts))
-                #     r = 3
-                #     if abs(grad_x) > r:
-                #         grad_x = r * grad_x / abs(grad_x)
-                #     if abs(grad_y) > r:
-                #         grad_y = r * grad_y / abs(grad_y)
-                #     self.D[positionIndex, :] = self.daleth * gpuUtils.asNumpyArray([grad_y, grad_x]) + self.beth *\
-                #                                self.D[positionIndex, :]
-
 
                 # momentum updates
                 if np.random.rand(1) > 0.95:
@@ -131,12 +102,12 @@ class pcPIE(BaseReconstructor):
             # show reconstruction
             self.showReconstruction(loop)
 
-            #todo clearMemory implementation
-
         if self.params.gpuFlag:
             self.logger.info('switch to cpu')
             self._move_data_to_cpu()
             self.params.gpuFlag = 0
+
+            #todo clearMemory implementation
 
     def objectMomentumUpdate(self):
         """
@@ -144,8 +115,8 @@ class pcPIE(BaseReconstructor):
         :return:
         """
         gradient = self.optimizable.objectBuffer - self.optimizable.object
-        self.optimizable.objectMomentum = gradient + self.stepM * self.optimizable.objectMomentum
-        self.optimizable.object = self.optimizable.object - self.betaM * self.optimizable.objectMomentum
+        self.optimizable.objectMomentum = gradient + self.frictionM * self.optimizable.objectMomentum
+        self.optimizable.object = self.optimizable.object - self.feedbackM * self.optimizable.objectMomentum
         self.optimizable.objectBuffer = self.optimizable.object.copy()
 
 
@@ -155,8 +126,8 @@ class pcPIE(BaseReconstructor):
         :return:
         """
         gradient = self.optimizable.probeBuffer - self.optimizable.probe
-        self.optimizable.probeMomentum = gradient + self.stepM * self.optimizable.probeMomentum
-        self.optimizable.probe = self.optimizable.probe - self.betaM * self.optimizable.probeMomentum
+        self.optimizable.probeMomentum = gradient + self.frictionM * self.optimizable.probeMomentum
+        self.optimizable.probe = self.optimizable.probe - self.feedbackM * self.optimizable.probeMomentum
         self.optimizable.probeBuffer = self.optimizable.probe.copy()
 
 
@@ -193,5 +164,3 @@ class pcPIE(BaseReconstructor):
         frac = objectPatch.conj() / (self.alphaProbe * Omax + (1-self.alphaProbe) * absO2)
         r = self.optimizable.probe + self.betaProbe * xp.sum(frac * DELTA, axis=1, keepdims=True)
         return r
-
-
