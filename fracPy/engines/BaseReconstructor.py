@@ -12,7 +12,7 @@ from fracPy.Optimizable.Optimizable import Optimizable
 from fracPy.Params.Params import Params
 from fracPy.utils.utils import ifft2c, fft2c, orthogonalizeModes, circ, p2bin, posit
 from fracPy.operators.operators import aspw, scaledASP
-from fracPy.monitors.Monitor import Monitor
+from fracPy.Monitors.Monitor import Monitor
 from fracPy.utils.visualisation import hsvplot
 from matplotlib import pyplot as plt
 import cupy as cp
@@ -784,7 +784,7 @@ class BaseReconstructor(object):
 
                 self.pbar.write('')
                 self.pbar.write('iteration: %i' % loop)
-                self.pbar.write('error: %.1f' % self.optimizable.error[loop])
+                self.pbar.write('error: %.1f' % self.optimizable.error[-1])
                 self.pbar.write('estimated linear overlap: %.1f %%' % (100*self.optimizable.linearOverlap))
                 self.pbar.write('estimated area overlap: %.1f %%' % (100*self.optimizable.areaOverlap))
                 # self.pbar.write('coherence structure:')
