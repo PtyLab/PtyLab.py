@@ -1,4 +1,4 @@
-# This file contains utilities required for monitors
+# This file contains utilities required for Monitors
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
@@ -194,6 +194,7 @@ def show3Dslider(A, colormap = 'diffraction'):
     """
     app = pg.mkQApp()
     imv = pg.ImageView(view=pg.PlotItem())
+    imv.setWindowTitle('Close to proceed')
     imv.setImage(A)
 
     # choose colormap from matplotlib colormaps

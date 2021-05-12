@@ -4,13 +4,13 @@ from fracPy.io import getExampleDataFolder
 
 
 matplotlib.use('qt5agg')
-from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
-from fracPy.Optimizable.Optimizable import Optimizable
-from fracPy.Optimizable.CalibrationFPM import IlluminationCalibration
-from fracPy.engines import ePIE, mPIE, qNewton, mqNewton, zPIE, e3PIE, pcPIE
+from fracPy.FixedData.DefaultExperimentalData import ExperimentalData
+from fracPy.Optimizables.Optimizable import Optimizable
+from fracPy.Optimizables.CalibrationFPM import IlluminationCalibration
+from fracPy.Engines import ePIE_reconstructor, mPIE_reconstructor, qNewton_reconstructor, mqNewton_reconstructor, zPIE_reconstructor, e3PIE_reconstructor, pcPIE_reconstructor
 from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray
-from fracPy.Params.Params import Params
-from fracPy.monitors.Monitor import Monitor as Monitor
+from fracPy.Params.ReconstructionParameters import Reconstruction_parameters
+from fracPy.Monitors.Monitor import Monitor as Monitor
 import logging
 logging.basicConfig(level=logging.INFO)
 from fracPy.utils.utils import ifft2c
@@ -58,7 +58,7 @@ monitor.objectPlotZoom = .01  # control object plot FoVW
 monitor.probePlotZoom = .01  # control probe plot FoV
 
 # %% Set param
-params = Params()
+params = Reconstruction_parameters()
 params.gpuSwitch = True
 params.positionOrder = 'NA'
 params.probePowerCorrectionSwitch = False
@@ -75,7 +75,7 @@ params.adaptiveDenoisingSwitch = True
 # engine.doReconstruction()
 
 # Run momentum accelerated reconstructor
-engine = mqNewton.mqNewton(optimizable, exampleData, params, monitor)
+engine = mqNewton_reconstructor.mqNewton(optimizable, exampleData, params, monitor)
 engine.numIterations = 50
 engine.betaProbe = 1
 engine.betaObject = 1

@@ -1,7 +1,7 @@
 from pathlib import Path
 import numpy as np
 from matplotlib import pyplot as plt
-from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
+from fracPy.FixedData.DefaultExperimentalData import ExperimentalData
 from fracPy.io import readExample
 
 
