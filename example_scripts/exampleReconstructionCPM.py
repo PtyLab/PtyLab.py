@@ -1,5 +1,5 @@
 import matplotlib
-matplotlib.use('tkagg')
+# matplotlib.use('tkagg')
 import fracPy
 from fracPy.io import getExampleDataFolder
 from fracPy import Engines
