@@ -8,6 +8,7 @@ from copy import deepcopy
 
 from sklearn.cluster import KMeans
 from scipy.ndimage import map_coordinates
+from skimage.filters import window
 import traceback
 
 import matplotlib.animation as animation
@@ -111,6 +112,10 @@ class IlluminationCalibration():
             contrast enhanced FFT(ptychogram).
 
         """
+        # windowing in real space will remove ringing artefacts in Fourier domain
+        # improves Fourier space contrast for calibration
+        ptychogram *= window('hann', ptychogram[0].shape)[None,...] 
+        # convert to Fourier domain
         FT_ptychogram =  np.abs(ifft2c(ptychogram)) 
         # get the mean for normalization
         normalization = np.mean(FT_ptychogram,0)
@@ -602,37 +607,38 @@ class IlluminationCalibration():
             positions post calibration.
         """
         self.initialize_error_search_space()
-
-        plt.figure(3)
-        
-        while True:
-            angles_x = np.sin(np.mgrid[0:360:.1]/180.*np.pi)
-            angles_y = np.cos(np.mgrid[0:360:.1]/180.*np.pi)
-            for idx in range(FT_ptychogram.shape[0]):
-                plt.clf()
-
-                plt.title('position calibration results, image {}'.format(idx))
-                image = FT_ptychogram[idx,:,:]
-                
-                initial_row = self.apertRadiusPixel_init * angles_x +\
-                    self.img_size/2 + initialPositions[idx,0] 
-                initial_col = self.apertRadiusPixel_init * angles_y +\
-                    self.img_size/2 + initialPositions[idx,1]
-        
-                final_row = self.apertRadiusPixel * angles_x +\
-                    self.img_size/2 + calibrated_positions[idx,0]
-                final_col = self.apertRadiusPixel * angles_y +\
-                    self.img_size/2 + calibrated_positions[idx,1]
-                
-                plt.imshow(image)
-                plt.scatter(initial_col, initial_row, label='initial guess',c='g',s=1)
-                plt.scatter(final_col, final_row, label='calibrated', c='r',s=1)
-                legend = plt.legend(labels=['initial guess', 'calibrated'], loc="upper right")
-                plt.pause(1)
-                
+        try:
+            plt.figure(3)
+            
+            while True:
+                angles_x = np.sin(np.mgrid[0:360:.1]/180.*np.pi)
+                angles_y = np.cos(np.mgrid[0:360:.1]/180.*np.pi)
+                for idx in range(FT_ptychogram.shape[0]):
+                    plt.clf()
+    
+                    plt.title('position calibration results, image {}'.format(idx))
+                    image = FT_ptychogram[idx,:,:]
+                    
+                    initial_row = self.apertRadiusPixel_init * angles_x +\
+                        self.img_size/2 + initialPositions[idx,0] 
+                    initial_col = self.apertRadiusPixel_init * angles_y +\
+                        self.img_size/2 + initialPositions[idx,1]
+            
+                    final_row = self.apertRadiusPixel * angles_x +\
+                        self.img_size/2 + calibrated_positions[idx,0]
+                    final_col = self.apertRadiusPixel * angles_y +\
+                        self.img_size/2 + calibrated_positions[idx,1]
+                    
+                    plt.imshow(image)
+                    plt.scatter(initial_col, initial_row, label='initial guess',c='g',s=1)
+                    plt.scatter(final_col, final_row, label='calibrated', c='r',s=1)
+                    legend = plt.legend(labels=['initial guess', 'calibrated'], loc="upper right")
+                    plt.pause(1)
+                    
+                    if not plt.fignum_exists(3): break
                 if not plt.fignum_exists(3): break
-            if not plt.fignum_exists(3): break
-        
+        except:
+            pass
         # plot the scattered positions
         # plt.figure(4)
         # x0=initialPositions[:,1]
@@ -756,24 +762,16 @@ class IlluminationCalibration():
 
     def updatePositions(self):
         """
-        Inside the optimizable the positions are computed "on-the-fly"
-        each time "optimizable.postions" are called (required for position optiization routines)
-        
-        We can override this by setting the optimizable switch: 
-        optimizable.fixedPositions = True
-    
-        Once this is done, the positions will be returned as 
-        optimizable.positions0 rathert than optimizable.positions
-        
+        Change the "encocder" positions representing real-space LED coordinates
+        depending on the calibration outcomes
         Returns
         -------
         None.
     
         """
-        # decide whether the positions will be recomputed each time they are called or whether they will be fixed
-        # without the switch, positions are computed from the encoder values
-        # with the switch calling optimizable.positions will return positions0
-        # positions0 and positions are pixel number, encoder is in meter,
-        # positions0 stores the original scan grid, positions is defined as property, automatically updated with dxo
-        self.optimizable.fixedPositions = True
-        self.optimizable.positions0 = self.positionsFitted.copy()
+        conv = -(1 / self.optimizable.wavelength) * self.optimizable.dxo * self.optimizable.Np
+        z = self.optimizable.zled
+        
+        kspace = self.positionsFitted - self.optimizable.No // 2 + self.optimizable.Np // 2 
+        self.experimentalData.encoder = np.sign(conv) *  kspace * z / (np.sqrt(conv**2-kspace[:,0]**2-kspace[:,1]**2))[...,None]
+        self.optimizable.positions0 = self.optimizable.positions.copy()

@@ -6,6 +6,7 @@ from .pSD_reconstructor import pSD
 from .mPIE_reconstructor import mPIE
 from .e3PIE_reconstructor import e3PIE
 from .mqNewton_reconstructor import mqNewton
+from .qNewton_reconstructor import qNewton
 from .aPIE import aPIE
 from .multiPIE_reconstructor import multiPIE
 from .zPIE_reconstructor import zPIE
