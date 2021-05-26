@@ -597,7 +597,7 @@ class BaseReconstructor(object):
                                                      self.experimentalData.W, axis=(-1, -2))
             else:
                 self.optimizable.errorAtPos = np.sum(np.abs(self.optimizable.detectorError), axis=(-1, -2))
-        self.optimizable.errorAtPos = asNumpyArray(self.optimizable.errorAtPos)/asNumpyArray(self.experimentalData.energyAtPos + 1)
+        self.optimizable.errorAtPos = asNumpyArray(self.optimizable.errorAtPos)/asNumpyArray(self.experimentalData.energyAtPos + 1e-20)
         eAverage = np.sum(self.optimizable.errorAtPos)
 
         # append to error vector (for plotting error as function of iteration)
@@ -663,11 +663,11 @@ class BaseReconstructor(object):
         else:
             self.optimizable.Imeasured = xp.array(self.experimentalData.ptychogram[positionIndex])
 
+        self.getRMSD(positionIndex)
+
         # adaptive denoising
         if self.params.adaptiveDenoisingSwitch:
             self.adaptiveDenoising()
-
-        self.getRMSD(positionIndex)
 
         # intensity projection constraints
         if self.params.intensityConstraint == 'fluctuation':
