@@ -889,10 +889,6 @@ class BaseReconstructor(object):
                                                  self.optimizable.No // 2 + self.optimizable.Np // 2) * \
                                                 self.optimizable.dxo
                                                 
-            # update positions
-            self.experimentalData.encoder = (self.optimizable.positions - self.adaptStep * self.D -
-                                             self.optimizable.No // 2 + self.optimizable.Np // 2) * \
-                                            self.optimizable.dxo
             # fix center of mass of positions
             self.experimentalData.encoder[:, 0] = self.experimentalData.encoder[:, 0] - \
                                                   np.mean(self.experimentalData.encoder[:, 0]) + self.meanEncoder00

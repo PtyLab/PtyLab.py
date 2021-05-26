@@ -28,10 +28,10 @@ optimizable.initialProbe = 'circ'
 optimizable.initialObject = 'upsampled'
 
 # %% FPM position calibration
-# calib.plot = True
-# calib.fit_mode ='Translation'
-# calibratedPositions, NA, calibMatrix = calib.runCalibration()
-# calib.updatePositions()
+calib.plot = False
+calib.fit_mode ='Translation'
+calibratedPositions, NA, calibMatrix = calib.runCalibration()
+calib.updatePositions()
 
 # %% Prepare reconstruction post-calibration
 optimizable.prepare_reconstruction()
@@ -49,8 +49,9 @@ params.positionOrder = 'NA'
 params.probePowerCorrectionSwitch = False
 params.comStabilizationSwitch = False
 params.probeBoundary = True
-params.adaptiveDenoisingSwitch = True
+# params.adaptiveDenoisingSwitch = True
 params.positionCorrectionSwitch = True
+# params.backgroundModeSwitch = True
 
 #%% Run the reconstructors
 # Run momentum accelerated reconstructor
