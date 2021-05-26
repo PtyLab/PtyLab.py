@@ -17,7 +17,9 @@ ptycho data reconstructor
 change data visualization and initialization options manually for now
 """
 
-fileName = 'lung_tindie_256x256_color_0.hdf5'  # simu.hdf5 or Lenspaper.hdf5
+# fileName = 'HeLa_tindie_256x256_color_0.hdf5'  # simu.hdf5 or Lenspaper.hdf5
+fileName = 'usaft_tindie_256x256_color_0.hdf5'  # simu.hdf5 or Lenspaper.hdf5
+# fileName = 'lung_441_256x256_color_0.hdf5'  # simu.hdf5 or Lenspaper.hdf5
 filePath = getExampleDataFolder() / fileName
 optimizable, exampleData, params, monitor, engine, calib = fracPy.easy_initialize(filePath, operationMode = 'FPM')
 
@@ -29,16 +31,17 @@ optimizable.initialObject = 'upsampled'
 
 # %% FPM position calibration
 calib.plot = False
+# calib.fit_mode ='SimilarityTransform'
+calib.calibrateRadius = True
 calib.fit_mode ='Translation'
-calibratedPositions, NA, calibMatrix = calib.runCalibration()
-calib.updatePositions()
+calib.runCalibration()
 
 # %% Prepare reconstruction post-calibration
 optimizable.prepare_reconstruction()
 
 # %% Set monitor properties
 monitor.figureUpdateFrequency = 1
-monitor.objectPlot = 'abs'  # complex abs angle
+monitor.objectPlot = 'complex'  # complex abs angle
 monitor.verboseLevel = 'high'  # high: plot two figures, low: plot only one figure
 monitor.objectPlotZoom = .01  # control object plot FoVW
 monitor.probePlotZoom = .01  # control probe plot FoV
@@ -49,13 +52,13 @@ params.positionOrder = 'NA'
 params.probePowerCorrectionSwitch = False
 params.comStabilizationSwitch = False
 params.probeBoundary = True
-# params.adaptiveDenoisingSwitch = True
-params.positionCorrectionSwitch = True
+params.adaptiveDenoisingSwitch = True
+# params.positionCorrectionSwitch = True
 # params.backgroundModeSwitch = True
 
 #%% Run the reconstructors
 # Run momentum accelerated reconstructor
-engine = Engines.qNewton(optimizable, exampleData, params, monitor)
+engine = Engines.mqNewton(optimizable, exampleData, params, monitor)
 engine.numIterations = 50
 engine.betaProbe = 1
 engine.betaObject = 1

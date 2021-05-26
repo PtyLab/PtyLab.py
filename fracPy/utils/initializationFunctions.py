@@ -15,11 +15,6 @@ def initialProbeOrObject(shape, type_of_init, data):
     Random noise is added to the arrays to enforce linear independence required
     for orthogonalization of modes
     
-    TODO: Currently there seems to be some ambiguity in the way FPM and CPM
-          entraPupilDiameters were defined in the simulation code (seem to be
-          inconsisten). Left the computations to work as they should for CPM
-          and for FPM the pupil/aperture will be loaded instead
-    
     :return:
     """
     if type(type_of_init) is np.ndarray: # it has already been implemented

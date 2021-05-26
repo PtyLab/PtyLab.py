@@ -21,12 +21,7 @@ class IlluminationCalibration():
         # These statements don't copy any data, they just keep a reference to the object
         self.optimizable = optimizable
         self.experimentalData = experimentalData
-        # the following arrays need to be copied in memory for processing
-        self.ptychogram = deepcopy(self.experimentalData.ptychogram)
-        self.initialPositions = deepcopy(self.optimizable.positions)
-        # UNSHFIT DUE TO EXAMPLEDATA SHIFTING BY No//2 and Np//2
-        self.initialPositions = self.initialPositions - self.optimizable.No//2 + self.optimizable.Np//2
-
+       
         # initialize search variables
         self.searchGridSize = round(int(optimizable.Np*0.1))
         self.gaussSigma = 3
@@ -653,71 +648,6 @@ class IlluminationCalibration():
         return None
     
     
-    def runCalibration(self):
-        """
-        Perform the calibration steps.
-        1. Convert image array to Fourier space and enhacne contrast.
-        2. Find brightfield indictes. Could be provided by the user or
-        K-means clustering algorithm is used for automation.
-        3. Calibrate NA/radius
-        4. Calibrate positions
-        
-        Returns
-        -------
-        positionsFitted : 2D array
-            positions after applying the correction matrix.
-        entrancePupilDiameter : float
-            updated aperture diameter.
-        calibMatrix : skimage transformation matrix
-            calibration matrix.
-
-        """
-        self.initialize_error_search_space()
-        # get the FFT(ptychogram) which will also be filtered to enhance
-        # contrast
-        FFT_ptychogram = self.convertToFourierSpace(self.ptychogram)
-        
-        if not hasattr(self.brightfieldIndices, '__len__'):
-            # find the brightfield indices
-            self.brightfieldIndices = self.findBrightfielIndices(self.ptychogram)
-            
-        # calibrate the aperture radius / NA
-        if self.calibrateRadius:
-            oldRadius, newRadius = self.findCalibratedRadius(self.ptychogram[self.brightfieldIndices],
-                                                            FFT_ptychogram[self.brightfieldIndices],
-                                                            self.initialPositions[self.brightfieldIndices])
-            print("Initial radius was {}px".format(np.round(oldRadius,2)))
-            print("Calibrated radius is {}px".format(np.round(newRadius,2)))
-            oldNA = np.round(oldRadius / self.dxp * self.wavelength / self.img_size,3)
-            self.newNA = np.round(newRadius / self.dxp * self.wavelength / self.img_size,3)
-            print("Initial NA was {}".format(oldNA))
-            print("Calibrated NA is {}".format(self.newNA))
-            
-        else:
-            self.newNA = self.apertRadiusPixel / self.dxp * self.wavelength / self.img_size
-            
-        # find the calibration matrix between the initial positions and the ones
-        # found based on circle fitting
-        self.calibMatrix, updatedPositions = self.findPositionCalibrationMatrix(self.ptychogram[self.brightfieldIndices],
-                                                                             FFT_ptychogram[self.brightfieldIndices,:,:],
-                                                                             self.initialPositions[self.brightfieldIndices,:])
-        # fit the positions
-        positionsFitted = matrix_transform(self.initialPositions, self.calibMatrix.params)
-        
-        # plot the results
-        if self.plot:
-            # self.plotCalibration(FFT_ptychogram, self.initialPositions, positionsFitted)
-            self.plotCalibration(FFT_ptychogram[self.brightfieldIndices], self.initialPositions[self.brightfieldIndices], positionsFitted[self.brightfieldIndices])
-
-        # update the entrancePupilDiameter
-        self.entrancePupilDiameter = self.apertRadiusPixel * self.dxp * 2
-
-        # lastly pre-process positions into the correct form defined in the exampleData class
-        self.positionsFitted = (positionsFitted + self.No//2 - self.Np//2).astype(int)
-
-        return self.positionsFitted, self.newNA, self.calibMatrix
- 
-        
     def fitCoordinates(self, src, dst, mode):
         """
         Parameters
@@ -769,9 +699,93 @@ class IlluminationCalibration():
         None.
     
         """
+        # convert translation from pixels to SI units and update the encoder
         conv = -(1 / self.optimizable.wavelength) * self.optimizable.dxo * self.optimizable.Np
         z = self.optimizable.zled
         
-        kspace = self.positionsFitted - self.optimizable.No // 2 + self.optimizable.Np // 2 
-        self.experimentalData.encoder = np.sign(conv) *  kspace * z / (np.sqrt(conv**2-kspace[:,0]**2-kspace[:,1]**2))[...,None]
+        # convert caibration matrix values into encoder units
+        positionCalibMatrix = self.calibMatrix.params.copy()
+        encoderCalibMatrix = self.calibMatrix.params.copy()
+        encoderCalibMatrix[0:2,2] = np.sign(conv) *  positionCalibMatrix[0:2,2] * z /\
+            (np.sqrt(conv**2-positionCalibMatrix[0,2]**2-positionCalibMatrix[1,2]**2))
+        self.experimentalData.encoder = matrix_transform(self.experimentalData.encoder, encoderCalibMatrix)
+
+        # self.experimentalData.encoder = np.sign(conv) *  self.positionsFitted * z / (np.sqrt(conv**2-self.positionsFitted[:,0]**2-self.positionsFitted[:,1]**2))[...,None]
         self.optimizable.positions0 = self.optimizable.positions.copy()
+        
+    def runCalibration(self):
+        """
+        Perform the calibration steps.
+        1. Convert image array to Fourier space and enhacne contrast.
+        2. Find brightfield indictes. Could be provided by the user or
+        K-means clustering algorithm is used for automation.
+        3. Calibrate NA/radius
+        4. Calibrate positions
+        
+        Returns
+        -------
+        positionsFitted : 2D array
+            positions after applying the correction matrix.
+        entrancePupilDiameter : float
+            updated aperture diameter.
+        calibMatrix : skimage transformation matrix
+            calibration matrix.
+
+        """
+        # the following arrays need to be copied in memory for processing
+        self.ptychogram = deepcopy(self.experimentalData.ptychogram)
+        self.initialPositions = deepcopy(self.optimizable.positions)
+        # UNSHFIT DUE TO EXAMPLEDATA SHIFTING BY No//2 and Np//2
+        self.initialPositions = self.initialPositions - self.optimizable.No//2 + self.optimizable.Np//2
+
+        self.initialize_error_search_space()
+        # get the FFT(ptychogram) which will also be filtered to enhance
+        # contrast
+        FFT_ptychogram = self.convertToFourierSpace(self.ptychogram)
+        
+        if not hasattr(self.brightfieldIndices, '__len__'):
+            # find the brightfield indices
+            self.brightfieldIndices = self.findBrightfielIndices(self.ptychogram)
+            
+        # calibrate the aperture radius / NA
+        if self.calibrateRadius:
+            oldRadius, newRadius = self.findCalibratedRadius(self.ptychogram[self.brightfieldIndices],
+                                                            FFT_ptychogram[self.brightfieldIndices],
+                                                            self.initialPositions[self.brightfieldIndices])
+            print("Initial radius was {}px".format(np.round(oldRadius,2)))
+            print("Calibrated radius is {}px".format(np.round(newRadius,2)))
+            oldNA = np.round(oldRadius / self.dxp * self.wavelength / self.img_size,3)
+            self.newNA = np.round(newRadius / self.dxp * self.wavelength / self.img_size,3)
+            print("Initial NA was {}".format(oldNA))
+            print("Calibrated NA is {}".format(self.newNA))
+            
+        else:
+            self.newNA = self.apertRadiusPixel / self.dxp * self.wavelength / self.img_size
+            self.apertRadiusPixel = newRadius
+            
+        # find the calibration matrix between the initial positions and the ones
+        # found based on circle fitting
+        self.calibMatrix, updatedPositions = self.findPositionCalibrationMatrix(self.ptychogram[self.brightfieldIndices],
+                                                                             FFT_ptychogram[self.brightfieldIndices,:,:],
+                                                                             self.initialPositions[self.brightfieldIndices,:])
+        # fit the positions
+        positionsFitted = matrix_transform(self.initialPositions, self.calibMatrix.params)
+        
+        # update the entrancePupilDiameter
+        self.optimizable.entrancePupilDiameter = self.apertRadiusPixel * self.dxp * 2
+
+        # lastly pre-process positions into the correct form defined in the exampleData class
+        self.positionsFitted = (positionsFitted).astype(int)
+        self.updatePositions()
+        
+        # plot the results
+        if self.plot:
+            # self.plotCalibration(FFT_ptychogram, self.initialPositions, positionsFitted)
+            self.plotCalibration(FFT_ptychogram[self.brightfieldIndices],\
+                                 self.initialPositions[self.brightfieldIndices],\
+                                 self.optimizable.positions[self.brightfieldIndices] - self.No//2 + self.Np//2)
+
+        
+        return self.calibMatrix
+ 
+        
