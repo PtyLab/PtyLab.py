@@ -1,6 +1,7 @@
 #from . import ePIE_reconstructor, mPIE_reconstructor, pSD_reconstructor
 # Engines available by default
 from .ePIE_reconstructor import ePIE
+from .pcPIE_reconstructor import pcPIE
 from .pSD_reconstructor import pSD
 from .mPIE_reconstructor import mPIE
 from .e3PIE_reconstructor import e3PIE

@@ -102,6 +102,9 @@ class mqNewton(BaseReconstructor):
                 self.objectMomentumUpdate(loop)
                 self.probeMomentumUpdate(loop)
 
+                if self.params.positionCorrectionSwitch:
+                    self.positionCorrection(objectPatch, positionIndex, sy, sx)
+                    
             # get error metric
             self.getErrorMetrics()
 

@@ -50,6 +50,7 @@ params.probePowerCorrectionSwitch = False
 params.comStabilizationSwitch = False
 params.probeBoundary = True
 params.adaptiveDenoisingSwitch = True
+params.positionCorrectionSwitch = True
 
 #%% Run the reconstructors
 # Run momentum accelerated reconstructor
