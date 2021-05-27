@@ -40,6 +40,7 @@ class qNewton(BaseReconstructor):
         self.betaObject = 1
         self.regObject = 1
         self.regProbe = 1
+        self.numIterations = 50
 
     def doReconstruction(self):
         self._prepareReconstruction()

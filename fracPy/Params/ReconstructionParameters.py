@@ -32,7 +32,7 @@ class Reconstruction_parameters(object):
         self.saveMemory = False
         self.probeUpdateStart = 1
         self.objectUpdateStart = 1
-        self.positionOrder = 'random'  # 'random' or 'sequential'
+        self.positionOrder = 'random'  # 'random' or 'sequential' or 'NA'
 
         ## Swtiches used in applyConstraints method:
         self.orthogonalizationSwitch = False
@@ -63,7 +63,7 @@ class Reconstruction_parameters(object):
         self.binaryProbeThreshold = 0.1  # binarize threshold
         self.binaryProbeAleph = 10e-2  # relaxation parameter for binary constraint
         self.backgroundModeSwitch = False  # background estimate
-        self.comStabilizationSwitch = True  # center of mass stabilization for probe
+        self.comStabilizationSwitch = False  # center of mass stabilization for probe
         self.PSDestimationSwitch = False
         self.objectContrastSwitch = False  # pushes object to zero outside ROI
         self.positionCorrectionSwitch = False  # position correction for encoder

@@ -639,8 +639,7 @@ class BaseReconstructor(object):
                                                      self.experimentalData.W, axis=(-1, -2))
             else:
                 self.optimizable.errorAtPos = np.sum(np.abs(self.optimizable.detectorError), axis=(-1, -2))
-        self.optimizable.errorAtPos = asNumpyArray(self.optimizable.errorAtPos) / asNumpyArray(
-            self.experimentalData.energyAtPos + 1)
+        self.optimizable.errorAtPos = asNumpyArray(self.optimizable.errorAtPos)/asNumpyArray(self.experimentalData.energyAtPos + 1e-20)
         eAverage = np.sum(self.optimizable.errorAtPos)
 
         # append to error vector (for plotting error as function of iteration)
@@ -706,11 +705,11 @@ class BaseReconstructor(object):
         else:
             self.optimizable.Imeasured = self.experimentalData.ptychogram[positionIndex]
 
+        self.getRMSD(positionIndex)
+
         # adaptive denoising
         if self.params.adaptiveDenoisingSwitch:
             self.adaptiveDenoising()
-
-        self.getRMSD(positionIndex)
 
         # intensity projection constraints
         if self.params.intensityConstraint == 'fluctuation':
@@ -884,17 +883,27 @@ class BaseReconstructor(object):
             # position gradients
             # shiftedImages = xp.zeros((self.rowShifts.shape + objectPatch.shape))
             cc = xp.zeros((len(self.rowShifts), 1))
+            
+            # use the real-space object (FFT for FPM)
+            if self.experimentalData.operationMode =='FPM':
+                O = fft2c(self.optimizable.object)
+                Opatch = fft2c(objectPatch)
+            elif self.experimentalData.operationMode =='CPM':
+                O = self.optimizable.object
+                Opatch = objectPatch
+                
+                
             for shifts in range(len(self.rowShifts)):
-                tempShift = xp.roll(objectPatch, self.rowShifts[shifts], axis=-2)
+                tempShift = xp.roll(Opatch, self.rowShifts[shifts], axis=-2)
                 # shiftedImages[shifts, ...] = xp.roll(tempShift, self.colShifts[shifts], axis=-1)
                 shiftedImages = xp.roll(tempShift, self.colShifts[shifts], axis=-1)
-                cc[shifts] = xp.squeeze(xp.sum(shiftedImages.conj() * self.optimizable.object[..., sy, sx],
+                cc[shifts] = xp.squeeze(xp.sum(shiftedImages.conj() * O[..., sy, sx],
                                                axis=(-2, -1)))
             # truncated cross - correlation
             # cc = xp.squeeze(xp.sum(shiftedImages.conj() * self.optimizable.object[..., sy, sx], axis=(-2, -1)))
             cc = abs(cc)
             betaGrad = 1000
-            normFactor = xp.sum(objectPatch.conj() * objectPatch, axis=(-2, -1)).real
+            normFactor = xp.sum(Opatch.conj() * Opatch, axis=(-2, -1)).real
             grad_x = betaGrad * xp.sum((cc.T - xp.mean(cc)) / normFactor * xp.array(self.colShifts))
             grad_y = betaGrad * xp.sum((cc.T - xp.mean(cc)) / normFactor * xp.array(self.rowShifts))
             r = 3
@@ -907,10 +916,19 @@ class BaseReconstructor(object):
 
     def positionCorrectionUpdate(self):
         if len(self.optimizable.error) > self.startAtIteration:
+            
             # update positions
-            self.experimentalData.encoder = (self.optimizable.positions - self.adaptStep * self.D -
-                                             self.optimizable.No // 2 + self.optimizable.Np // 2) * \
-                                            self.optimizable.dxo
+            if self.experimentalData.operationMode == 'FPM':
+                conv = -(1 / self.optimizable.wavelength) * self.optimizable.dxo * self.optimizable.Np
+                z = self.optimizable.zled
+                k = self.optimizable.positions - self.adaptStep * self.D - \
+                                                 self.optimizable.No // 2 + self.optimizable.Np // 2
+                self.experimentalData.encoder = np.sign(conv) *  k * z / (np.sqrt(conv**2-k[:,0]**2-k[:,1]**2))[...,None]
+            else:
+                self.experimentalData.encoder = (self.optimizable.positions - self.adaptStep * self.D -
+                                                 self.optimizable.No // 2 + self.optimizable.Np // 2) * \
+                                                self.optimizable.dxo
+                                                
             # fix center of mass of positions
             self.experimentalData.encoder[:, 0] = self.experimentalData.encoder[:, 0] - \
                                                   np.mean(self.experimentalData.encoder[:, 0]) + self.meanEncoder00
