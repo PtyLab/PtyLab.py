@@ -85,7 +85,7 @@ class ExperimentalData:
         # number of Frames
         self.numFrames = self.ptychogram.shape[0]
         # probe energy at each position
-        self.energyAtPos = np.sum(abs(self.ptychogram)**2, (-1, -2))
+        self.energyAtPos = np.sum(abs(self.ptychogram), (-1, -2))
         # maximum probe power
         self.maxProbePower = np.sqrt(np.max(np.sum(self.ptychogram, (-1, -2))))
 

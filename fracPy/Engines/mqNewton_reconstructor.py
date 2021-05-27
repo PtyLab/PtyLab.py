@@ -55,6 +55,7 @@ class mqNewton(BaseReconstructor):
         self.feedbackM = 0.3          # feedback
         self.frictionM = 0.7          # friction
         self.momentum_method = 'ADAM' # which optimizer to use for momentum updates
+        self.numIterations = 50
         
     def initializeAdaptiveMomentum(self):
         self.momentum_engine = getattr(mqNewton, self.momentum_method)

@@ -10,7 +10,6 @@ from fracPy.io import getExampleDataFolder
 from fracPy import Engines
 import logging
 logging.basicConfig(level=logging.INFO)
-import numpy as np
 
 """ 
 ptycho data reconstructor 
@@ -18,8 +17,7 @@ change data visualization and initialization options manually for now
 """
 
 # fileName = 'HeLa_tindie_256x256_color_0.hdf5'  # simu.hdf5 or Lenspaper.hdf5
-fileName = 'usaft_tindie_256x256_color_0.hdf5'  # simu.hdf5 or Lenspaper.hdf5
-# fileName = 'lung_441_256x256_color_0.hdf5'  # simu.hdf5 or Lenspaper.hdf5
+fileName = 'lung_441_256x256_color_0.hdf5'  # simu.hdf5 or Lenspaper.hdf5
 filePath = getExampleDataFolder() / fileName
 optimizable, exampleData, params, monitor, engine, calib = fracPy.easy_initialize(filePath, operationMode = 'FPM')
 

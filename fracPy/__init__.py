@@ -25,6 +25,7 @@ def _easy_initialize_CPM(filename, engine_function, operationMode):
     experimentalData.operationMode = operationMode
     monitor = Monitor()
     optimizable = Optimizable(experimentalData)
+    optimizable.prepare_reconstruction()
     params = Reconstruction_parameters()
     engine = engine_function(optimizable, experimentalData, params, monitor)
     return optimizable, experimentalData, params, monitor, engine
@@ -35,9 +36,12 @@ def _easy_initialize_FPM(filename, engine_function, operationMode):
     experimentalData.operationMode = operationMode
     monitor = Monitor()
     optimizable = Optimizable(experimentalData)
+    optimizable.prepare_reconstruction()
     calib = IlluminationCalibration(optimizable, experimentalData)
     params = Reconstruction_parameters()
     engine = engine_function(optimizable, experimentalData, params, monitor)
+    params.positionOrder = 'NA'
+    params.probeBoundary = True
     return optimizable, experimentalData, params, monitor, engine, calib
 
 

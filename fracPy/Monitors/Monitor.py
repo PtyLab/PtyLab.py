@@ -10,7 +10,7 @@ class Monitor(object):
         # settings for visualization
         self.figureUpdateFrequency = 1
         self.objectPlot = 'complex'
-        self.verboseLevel = 'high'
+        self.verboseLevel = 'low'
         self.objectPlotZoom = 1
         self.probePlotZoom = 1
         self.objectPlotContrast = 1

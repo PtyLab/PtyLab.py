@@ -635,16 +635,16 @@ class IlluminationCalibration():
         except:
             pass
         # plot the scattered positions
-        # plt.figure(4)
-        # x0=initialPositions[:,1]
-        # y0=initialPositions[:,0]
-        # x1=calibrated_positions[:,1]
-        # y1=calibrated_positions[:,0]
-        # plt.scatter(x0,y0, label='initial guess',c='g')
-        # plt.scatter(x1, y1, label='calibrated', c='r')
-        # plt.grid(True)
-        # plt.legend()
-        # plt.show()
+        plt.figure(4)
+        x0=initialPositions[:,1]
+        y0=initialPositions[:,0]
+        x1=calibrated_positions[:,1]
+        y1=calibrated_positions[:,0]
+        plt.scatter(x0,y0, label='initial guess',c='g')
+        plt.scatter(x1, y1, label='calibrated', c='r')
+        plt.grid(True)
+        plt.legend()
+        plt.show()
         return None
     
     
@@ -758,10 +758,9 @@ class IlluminationCalibration():
             self.newNA = np.round(newRadius / self.dxp * self.wavelength / self.img_size,3)
             print("Initial NA was {}".format(oldNA))
             print("Calibrated NA is {}".format(self.newNA))
-            
+            self.apertRadiusPixel = newRadius
         else:
             self.newNA = self.apertRadiusPixel / self.dxp * self.wavelength / self.img_size
-            self.apertRadiusPixel = newRadius
             
         # find the calibration matrix between the initial positions and the ones
         # found based on circle fitting
