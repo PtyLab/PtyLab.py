@@ -25,6 +25,7 @@ class Optimizable(object):
             'dxd',
             'dxp',
             'No',
+            'zled',
             'entrancePupilDiameter'
         ]
     
@@ -74,7 +75,7 @@ class Optimizable(object):
 
         # Upsampled object plane dimensions
         if self.No == None:
-            self.No = 2**11
+            self.No = self.Np*2**2
             # self.No = self.Np+np.max(self.positions0[:,0])-np.min(self.positions0[:,0])
 
             
@@ -102,12 +103,6 @@ class Optimizable(object):
         self.purityProbe = 1
         self.purityObject = 1
 
-        # decide whether the positions will be recomputed each time they are called or whether they will be fixed
-        # without the switch, positions are computed from the encoder values
-        # with the switch calling optimizable.positions will return positions0
-        # positions0 and positions are pixel number, encoder is in meter,
-        # positions0 stores the original scan grid, positions is defined as property, automatically updated with dxo
-        self.fixedPositions = False
         self.positions0 = self.positions.copy()
         
 
@@ -181,7 +176,7 @@ class Optimizable(object):
     @property
     def xd(self):
         """ Detector coordinates 1D """
-        return np.linspace(-self.Nd / 2, self.Nd / 2 - 1, np.int(self.Nd)) * self.dxd
+        return np.linspace(-self.Nd / 2, self.Nd / 2, np.int(self.Nd)) * self.dxd
 
     @property
     def Xd(self):
@@ -219,7 +214,7 @@ class Optimizable(object):
     def xp(self):
         """ Probe coordinates 1D """
         try:
-            return np.linspace(-self.Np / 2, self.Np / 2 - 1, np.int(self.Np)) * self.dxp
+            return np.linspace(-self.Np / 2, self.Np / 2, np.int(self.Np)) * self.dxp
         except AttributeError as e:
             raise AttributeError(e, 'probe pixel number "Np" and/or probe sampling "dxp" not defined yet')
 
@@ -253,7 +248,7 @@ class Optimizable(object):
     def xo(self):
         """ object coordinates 1D """
         try:
-            return np.linspace(-self.No / 2, self.No / 2 - 1, np.int(self.No)) * self.dxo
+            return np.linspace(-self.No / 2, self.No / 2, np.int(self.No)) * self.dxo
         except AttributeError as e:
             raise AttributeError(e, 'object pixel number "No" and/or pixel size "dxo" not defined yet')
 
@@ -284,18 +279,15 @@ class Optimizable(object):
         in the spectrogram is updates a patch which has pixel coordinates
         [3,4] in the high-resolution Fourier transform
         """
-        if self.fixedPositions:
-            return self.positions0
+        if self.data.operationMode == 'FPM':
+            conv = -(1 / self.wavelength) * self.dxo * self.Np
+            positions = np.round(
+                conv * self.data.encoder / np.sqrt(self.data.encoder[:, 0] ** 2 + self.data.encoder[:, 1] ** 2 + self.zled ** 2)[
+                    ..., None])
         else:
-            if self.data.operationMode == 'FPM':
-                conv = -(1 / self.wavelength) * self.dxo * self.Np
-                positions = np.round(
-                    conv * self.data.encoder / np.sqrt(self.data.encoder[:, 0] ** 2 + self.data.encoder[:, 1] ** 2 + self.zo ** 2)[
-                        ..., None])
-            else:
-                positions = np.round(self.data.encoder / self.dxo)  # encoder is in m, positions0 and positions are in pixels
-            positions = positions + self.No // 2 - self.Np // 2
-            return positions.astype(int)
+            positions = np.round(self.data.encoder / self.dxo)  # encoder is in m, positions0 and positions are in pixels
+        positions = positions + self.No // 2 - self.Np // 2
+        return positions.astype(int)
 
     # system property list
     @property

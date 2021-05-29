@@ -119,8 +119,8 @@ def modeTile(P, normalize = True):
     elif P.ndim == 4 and P.shape[0]>1:
         if normalize:
             maxs = np.max(P, axis=(-1, -2))
-            P = (P.T / maxs).T
-        P = P.reshape(P.shape[0]*P.shape[2],P.shape[1]*P.shape[3])
+            P = (P.T / maxs.T).T
+        P = np.swapaxes(P,1,2).reshape(P.shape[0]*P.shape[2],P.shape[1]*P.shape[3])
     else:
         P = np.squeeze(P)
     return P

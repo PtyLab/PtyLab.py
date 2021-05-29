@@ -26,6 +26,7 @@ optional_fields = [
     'dxp',                      # dxp, can be provided by the user, otherwise will be computed using dxp=dxd/magnification
     'No',                       # number of upsampled pixels
     'Nd',                       # probe/pupil plane size, will be set to Ptychogram size by default
+    'zled',                     # LED to sample distance
     'entrancePupilDiameter',    # entrance pupil diameter, defined in lens-based microscopes as the aperture diameter, reqquired for FPM
     'spectralDensity',          # CPM parameters: different wavelength
     'theta'                     # CPM parameters: reflection tilt angle

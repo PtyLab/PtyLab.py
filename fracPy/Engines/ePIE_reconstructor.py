@@ -39,6 +39,7 @@ class ePIE(BaseReconstructor):
         """
         self.betaProbe = 0.25
         self.betaObject = 0.25
+        self.numIterations = 50
 
 
     def doReconstruction(self):
