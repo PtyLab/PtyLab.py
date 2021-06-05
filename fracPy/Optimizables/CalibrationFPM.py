@@ -8,7 +8,10 @@ from copy import deepcopy
 
 from sklearn.cluster import KMeans
 from scipy.ndimage import map_coordinates
-from skimage.filters import window
+try:
+    from skimage.filters import window
+except:
+    print("Wrong skimage version installed")
 import traceback
 
 import matplotlib.animation as animation
