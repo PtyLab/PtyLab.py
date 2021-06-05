@@ -15,8 +15,17 @@ from fracPy.operators.operators import aspw, scaledASP
 from fracPy.Monitors.Monitor import Monitor
 from fracPy.utils.visualisation import hsvplot
 from matplotlib import pyplot as plt
-import cupy as cp
-from skimage.transform import rescale
+
+try:
+    import cupy as cp
+
+except ImportError:
+    print("Cupy not installed")
+
+try:
+    from skimage.transform import rescale
+except ImportError:
+    print("Skimage not installed")
 
 
 class BaseReconstructor(object):
