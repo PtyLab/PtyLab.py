@@ -68,6 +68,36 @@ class ExperimentalData:
         self._setData()
 
 
+    def set_orientation(self, orientation):
+        """
+        Sets the correct orientation. This function follows the ptypy convention.
+        """
+        if not isinstance(orientation, int):
+            raise TypeError("Orientation value is not valid.")
+        if orientation == 1:
+            # Invert column
+            self.ptychogram = np.fliplr(self.ptychogram)
+        elif orientation == 2:
+            # Invert rows
+            self.ptychogram = np.flipud(self.ptychogram)
+        elif orientation == 3:
+            # invert columns and rows
+            self.ptychogram = np.fliplr(self.ptychogram)
+            self.ptychogram = np.flipud(self.ptychogram)
+        elif orientation == 4:
+            # Transpose 
+            self.ptychogram = np.transpose(self.ptychogram, (0, 2, 1)) 
+        elif orientation == 5:
+            self.ptychogram = np.transpose(self.ptychogram, (0, 2, 1)) 
+            self.ptychogram = np.fliplr(self.ptychogram)
+        elif orientation == 6:
+            self.ptychogram = np.transpose(self.ptychogram, (0, 2, 1)) 
+            self.ptychogram = np.flipud(self.ptychogram)
+        elif orientation == 7:
+            self.ptychogram = np.transpose(self.ptychogram, (0, 2, 1)) 
+            self.ptychogram = np.fliplr(self.ptychogram)
+            self.ptychogram = np.flipud(self.ptychogram)
+        
     def _setData(self):
         # Set the detector coordinates (detector pixelsize dxd must be given from the hdf5 file.)
         if self.Nd == None:
