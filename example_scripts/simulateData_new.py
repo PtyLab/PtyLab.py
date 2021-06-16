@@ -1,6 +1,6 @@
 from fracPy.utils.utils import circ, gaussian2D, cart2pol
 from fracPy.utils.scanGrids import GenerateNonUniformFermat
-from fracPy.operators.operators import aspw
+from fracPy.Operators.Operators import aspw
 from fracPy.utils.visualisation import hsvplot, show3Dslider
 import h5py
 import matplotlib.pyplot as plt

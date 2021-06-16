@@ -130,7 +130,7 @@ plt.xlabel('(um))')
 plt.ylabel('(um))')
 plt.show()
 
-# set propagator
+# set propagatorType
 # propagatorType = 'Fraunhofer'
 
 # export data
@@ -141,6 +141,7 @@ if exportBool:
     hf = h5py.File(fileName+'.hdf5', 'w')
     hf.create_dataset('ptychogram', data=ptychogram, dtype='f')
     hf.create_dataset('encoder', data=encoder, dtype='f')
+    hf.create_dataset('binningFactor', data=(binningFactor,), dtype='i')
     hf.create_dataset('dxd', data=(dxd,), dtype='f')
     hf.create_dataset('Nd', data=(Nd,), dtype='i')
     hf.create_dataset('zo', data=(zo,), dtype='f')

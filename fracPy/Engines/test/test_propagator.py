@@ -2,8 +2,8 @@ import unittest
 from unittest import TestCase
 from numpy.testing import assert_almost_equal
 from fracPy.FixedData.DefaultExperimentalData import ExperimentalData
-from fracPy.Optimizables.Optimizable import Optimizable
-from fracPy.Engines import ePIE_reconstructor, mPIE_reconstructor, qNewton_reconstructor
+from fracPy.Optimizables.Reconstruction import Reconstruction
+from fracPy.Engines import ePIE, mPIE, qNewton
 from fracPy.Monitors.Monitor import Monitor as Monitor
 
 class TestPropagator(TestCase):
@@ -15,7 +15,7 @@ class TestPropagator(TestCase):
 
         # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
         # now create an object to hold everything we're eventually interested in
-        optimizable = Optimizable(exampleData)
+        optimizable = Reconstruction(exampleData)
         optimizable.npsm = 1  # Number of probe modes to reconstruct
         optimizable.nosm = 1  # Number of object modes to reconstruct
         optimizable.nlambda = 1  # Number of wavelength
@@ -26,11 +26,11 @@ class TestPropagator(TestCase):
         monitor = Monitor()
 
         # Compare mPIE to ePIE
-        # ePIE_engine = ePIE.ePIE_GPU(optimizable, exampleData, monitor)
-        ePIE_engine = ePIE_reconstructor.ePIE(optimizable, exampleData, monitor)
-        ePIE_engine.propagator = 'ASP'
+        # ePIE_engine = ePIE.ePIE_GPU(reconstruction, exampleData, monitor)
+        ePIE_engine = ePIE.ePIE(optimizable, exampleData, monitor)
+        ePIE_engine.propagatorType = 'ASP'
         ePIE_engine.numIterations = 1
-        ePIE_engine.doReconstruction()
+        ePIE_engine.reconstruct()
 
         A = optimizable.esw
         ePIE_engine.object2detector()

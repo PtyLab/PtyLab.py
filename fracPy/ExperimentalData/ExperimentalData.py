@@ -41,7 +41,6 @@ class ExperimentalData:
         """
         import os
         if not os.path.exists(filename) and str(filename).startswith('example:'):
-            # Todo @dbs660 Fix this so it works again
             self.filename = filename
             from fracPy.io.readExample import examplePath
             self.filename = examplePath(filename)  # readExample(filename, python_order=True)
@@ -68,7 +67,7 @@ class ExperimentalData:
         self._setData()
 
 
-    def set_orientation(self, orientation):
+    def setOrientation(self, orientation):
         """
         Sets the correct orientation. This function follows the ptypy convention.
         """

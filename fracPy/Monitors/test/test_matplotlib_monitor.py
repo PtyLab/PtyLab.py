@@ -1,14 +1,14 @@
 from unittest import TestCase
-from fracPy.Monitors.default_visualisation import DefaultMonitor
+from fracPy.Monitors.Plots import ObjectProbeErrorPlot
 import time
 import numpy as np
 import unittest
 
-from fracPy.Engines import BaseReconstructor
+from fracPy.Engines import BaseEngine
 
-from fracPy.Optimizables.Optimizable import Optimizable
+from fracPy.Optimizables.Reconstruction import Reconstruction
 from fracPy.FixedData.DefaultExperimentalData import ExperimentalData
-from fracPy.Engines.BaseReconstructor import BaseReconstructor
+from fracPy.Engines.BaseEngine import BaseEngine
 
 # To run the tests in this file, set this to TRUE
 VISUAL_TESTS = False
@@ -17,7 +17,7 @@ VISUAL_TESTS = False
 @unittest.skipUnless(VISUAL_TESTS, 'Visual tests are disabled by default. To turn them on, set VISUAL_TESTS to true')
 class TestMatplotlib_monitor(TestCase):
     def setUp(self):
-        self.monitor = DefaultMonitor()
+        self.monitor = ObjectProbeErrorPlot()
 
     def test_createFigure(self):
         pass
@@ -34,14 +34,14 @@ class TestMatplotlib_monitor(TestCase):
 @unittest.skipUnless(VISUAL_TESTS, 'Visual tests are disabled by default. To turn them on, set VISUAL_TESTS to true')
 class TestPlotFromBaseReconstructor(TestCase):
     def setUp(self):
-        # For almost all reconstructor properties we need both a data and an optimizable object.
+        # For almost all reconstructor properties we need both a data and an reconstruction object.
         self.experimentalData = ExperimentalData('example:simulationTiny')
-        self.optimizable = Optimizable(self.experimentalData)
+        self.optimizable = Reconstruction(self.experimentalData)
         self.optimizable.prepare_reconstruction()
-        self.BR = BaseReconstructor(self.optimizable, self.experimentalData)
+        self.BR = BaseEngine(self.optimizable, self.experimentalData)
 
     def test_showReconstruction(self):
-        self.BR.optimizable.prepare_reconstruction()
+        self.BR.reconstruction.prepare_reconstruction()
         self.BR.figureUpdateFrequency = 20
         self.BR.showReconstruction(0)
         for i in range(1000):

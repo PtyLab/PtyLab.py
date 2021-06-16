@@ -16,7 +16,7 @@ change data visualization and initialization options manually for now
 fileName = 'Lenspaper.hdf5'  # simu.hdf5 or Lenspaper.hdf5
 filePath = getExampleDataFolder() / fileName
 
-optimizable, exampleData, params, monitor, ePIE_engine = fracPy.easy_initialize(filePath)
+optimizable, exampleData, params, monitor, ePIE_engine = fracPy.easyInitialize(filePath)
 
 ## altternative
 # exampleData = ExperimentalData()
@@ -31,13 +31,13 @@ optimizable.npsm = 1 # Number of probe modes to reconstruct
 optimizable.nosm = 1 # Number of object modes to reconstruct
 optimizable.nlambda = 1 # len(exampleData.spectralDensity) # Number of wavelength
 optimizable.nslice = 1 # Number of object slice
-# optimizable.dxp = optimizable.dxd
+# reconstruction.dxp = reconstruction.dxd
 
 
 optimizable.initialProbe = 'circ'
 exampleData.entrancePupilDiameter = optimizable.Np / 3 * optimizable.dxp  # initial estimate of beam
 optimizable.initialObject = 'ones'
-# initialize probe and object and related params
+# initialize probe and object and related Params
 optimizable.prepare_reconstruction()
 
 # customize initial probe quadratic phase
@@ -50,15 +50,15 @@ optimizable.probe = optimizable.probe*np.exp(1.j*2*np.pi/optimizable.wavelength 
 monitor.figureUpdateFrequency = 1
 monitor.objectPlot = 'complex'  # complex abs angle
 monitor.verboseLevel = 'high'  # high: plot two figures, low: plot only one figure
-monitor.objectPlotZoom = 1.5   # control object plot FoV
-monitor.probePlotZoom = 0.5   # control probe plot FoV
+monitor.objectZoom = 1.5   # control object plot FoV
+monitor.probeZoom = 0.5   # control probe plot FoV
 
 # Run the reconstruction
 
-# params = Reconstruction_parameters()
+# Params = Params()
 ## main parameters
 params.positionOrder = 'random'  # 'sequential' or 'random'
-params.propagator = 'Fresnel'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
+params.propagatorType = 'Fresnel'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
 
 
 ## how do we want to reconstruct?
@@ -88,22 +88,22 @@ engine.beta2 = 0.5
 engine.betaProbe_m = 1
 engine.betaObject_m = 1
 engine.momentum_method = 'NADAM'
-engine.doReconstruction()
+engine.reconstruct()
 
 ## choose engine
 # ePIE
-# engine_ePIE = ePIE.ePIE(optimizable, exampleData, params,monitor)
+# engine_ePIE = ePIE.ePIE(reconstruction, exampleData, Params,monitor)
 # engine_ePIE.numIterations = 50
 # engine_ePIE.betaProbe = 0.25
 # engine_ePIE.betaObject = 0.25
-# engine_ePIE.doReconstruction()
+# engine_ePIE.reconstruct()
 
 # mPIE
 engine_mPIE = Engines.mPIE(optimizable, exampleData, params, monitor)
 engine_mPIE.numIterations = 5
 engine_mPIE.betaProbe = 0.25
 engine_mPIE.betaObject = 0.25
-engine_mPIE.doReconstruction()
+engine_mPIE.reconstruct()
 
 # zPIE
 engine_zPIE = Engines.zPIE(optimizable, exampleData, params, monitor)
@@ -111,20 +111,20 @@ engine_zPIE.numIterations = 5
 engine_zPIE.betaProbe = 0.35
 engine_zPIE.betaObject = 0.35
 engine_zPIE.zPIEgradientStepSize = 1000  # gradient step size for axial position correction (typical range [1, 100])
-engine_zPIE.doReconstruction()
+engine_zPIE.reconstruct()
 
 # do another round of mPIE
-engine_mPIE.doReconstruction()
+engine_mPIE.reconstruct()
 
 # e3PIE
-# engine_e3PIE = e3PIE.e3PIE(optimizable, exampleData, params,monitor)
+# engine_e3PIE = e3PIE.e3PIE(reconstruction, exampleData, Params,monitor)
 # engine_e3PIE.numIteration = 50
-# engine_e3PIE.doReconstruction
+# engine_e3PIE.reconstruct()
 
 # pcPIE
-# engine_pcPIE = pcPIE.pcPIE(optimizable, exampleData, params,monitor)
+# engine_pcPIE = pcPIE.pcPIE(reconstruction, exampleData, Params,monitor)
 # engine_pcPIE.numIteration = 50
-# engine_pcPIE.doReconstruction()
+# engine_pcPIE.reconstruct()
 
 # now save the data
-# optimizable.saveResults('reconstruction.hdf5')
+# reconstruction.saveResults('reconstruction.hdf5')

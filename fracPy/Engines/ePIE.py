@@ -9,10 +9,10 @@ except ImportError:
     cp = None
 
 # fracPy imports
-from fracPy.Optimizables.Optimizable import Optimizable
-from fracPy.Engines.BaseReconstructor import BaseReconstructor
-from fracPy.FixedData.DefaultExperimentalData import ExperimentalData
-from fracPy.Params.ReconstructionParameters import Reconstruction_parameters
+from fracPy.Optimizables.Reconstruction import Reconstruction
+from fracPy.Engines.BaseEngine import BaseEngine
+from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
+from fracPy.Params.Params import Params
 from fracPy.utils.gpuUtils import getArrayModule
 from fracPy.Monitors.Monitor import Monitor
 from fracPy.utils.utils import fft2c, ifft2c
@@ -21,15 +21,15 @@ import tqdm
 import sys
 
 
-class ePIE(BaseReconstructor):
+class ePIE(BaseEngine):
 
-    def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData, params: Reconstruction_parameters, monitor: Monitor):
+    def __init__(self, reconstruction: Reconstruction, experimentalData: ExperimentalData, params: Params, monitor: Monitor):
         # This contains reconstruction parameters that are specific to the reconstruction
         # but not necessarily to ePIE reconstruction
-        super().__init__(optimizable, experimentalData, params, monitor)
+        super().__init__(reconstruction, experimentalData, params, monitor)
         self.logger = logging.getLogger('ePIE')
         self.logger.info('Sucesfully created ePIE ePIE_engine')
-        self.logger.info('Wavelength attribute: %s', self.optimizable.wavelength)
+        self.logger.info('Wavelength attribute: %s', self.reconstruction.wavelength)
         self.initializeReconstructionParams()
 
     def initializeReconstructionParams(self):
@@ -42,7 +42,7 @@ class ePIE(BaseReconstructor):
         self.numIterations = 50
 
 
-    def doReconstruction(self):
+    def reconstruct(self):
         self._prepareReconstruction()
 
         # actual reconstruction ePIE_engine
@@ -52,26 +52,26 @@ class ePIE(BaseReconstructor):
             self.setPositionOrder()
             for positionLoop, positionIndex in enumerate(self.positionIndices):
                 # get object patch
-                row, col = self.optimizable.positions[positionIndex]
-                sy = slice(row, row + self.optimizable.Np)
-                sx = slice(col, col + self.optimizable.Np)
+                row, col = self.reconstruction.positions[positionIndex]
+                sy = slice(row, row + self.reconstruction.Np)
+                sx = slice(col, col + self.reconstruction.Np)
                 # note that object patch has size of probe array
-                objectPatch = self.optimizable.object[..., sy, sx].copy()
+                objectPatch = self.reconstruction.object[..., sy, sx].copy()
                 
                 # make exit surface wave
-                self.optimizable.esw = objectPatch * self.optimizable.probe
+                self.reconstruction.esw = objectPatch * self.reconstruction.probe
                 
                 # propagate to camera, intensityProjection, propagate back to object
                 self.intensityProjection(positionIndex)
 
                 # difference term
-                DELTA = self.optimizable.eswUpdate - self.optimizable.esw
+                DELTA = self.reconstruction.eswUpdate - self.reconstruction.esw
 
                 # object update
-                self.optimizable.object[..., sy, sx] = self.objectPatchUpdate(objectPatch, DELTA)
+                self.reconstruction.object[..., sy, sx] = self.objectPatchUpdate(objectPatch, DELTA)
 
                 # probe update
-                self.optimizable.probe = self.probeUpdate(objectPatch, DELTA)
+                self.reconstruction.probe = self.probeUpdate(objectPatch, DELTA)
 
             # get error metric
             self.getErrorMetrics()
@@ -98,7 +98,7 @@ class ePIE(BaseReconstructor):
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
 
-        frac = self.optimizable.probe.conj() / xp.max(xp.sum(xp.abs(self.optimizable.probe) ** 2, axis=(0,1,2,3)))
+        frac = self.reconstruction.probe.conj() / xp.max(xp.sum(xp.abs(self.reconstruction.probe) ** 2, axis=(0, 1, 2, 3)))
         return objectPatch + self.betaObject * xp.sum(frac * DELTA, axis=(0,2,3), keepdims=True)
 
        
@@ -112,7 +112,7 @@ class ePIE(BaseReconstructor):
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
         frac = objectPatch.conj() / xp.max(xp.sum(xp.abs(objectPatch) ** 2, axis=(0,1,2,3)))
-        r = self.optimizable.probe + self.betaProbe * xp.sum(frac * DELTA, axis=(0,1,3), keepdims=True)
+        r = self.reconstruction.probe + self.betaProbe * xp.sum(frac * DELTA, axis=(0, 1, 3), keepdims=True)
         return r
 
 

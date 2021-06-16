@@ -16,11 +16,11 @@ import traceback
 
 import matplotlib.animation as animation
 from fracPy.utils.utils import ifft2c, fft2c
-from fracPy.Optimizables.Optimizable import Optimizable
-from fracPy.FixedData.DefaultExperimentalData import ExperimentalData
+from fracPy.Optimizables.Reconstruction import Reconstruction
+from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 
 class IlluminationCalibration():
-    def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData):
+    def __init__(self, optimizable: Reconstruction, experimentalData: ExperimentalData):
         # These statements don't copy any data, they just keep a reference to the object
         self.optimizable = optimizable
         self.experimentalData = experimentalData
@@ -33,7 +33,7 @@ class IlluminationCalibration():
         self.brightfieldIndices = None
         self.fit_mode = 'SimilarityTransform'  
         
-        # compute system parameters to be calibrated from the loaded optimizable        
+        # compute system parameters to be calibrated from the loaded reconstruction
         self.dxp = optimizable.dxp
         self.No = optimizable.No
         self.Np = optimizable.Np
