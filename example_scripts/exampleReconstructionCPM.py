@@ -13,36 +13,36 @@ ptycho data reconstructor
 change data visualization and initialization options manually for now
 """
 
-fileName = 'Lenspaper.hdf5'  # simu.hdf5 or Lenspaper.hdf5
+fileName = 'simu.hdf5'  # simu.hdf5 or Lenspaper.hdf5
 filePath = getExampleDataFolder() / fileName
 
-optimizable, exampleData, params, monitor, ePIE_engine = fracPy.easy_initialize(filePath)
+experimentalData, reconstruction, params, monitor, ePIE_engine = fracPy.easyInitialize(filePath)
 
 ## altternative
-# exampleData = ExperimentalData()
-# exampleData.loadData(filePath)
-# exampleData.operationMode = 'CPM'
-exampleData.showPtychogram()
-exampleData.zo = exampleData.zo*0.9
+# experimentalData = ExperimentalData()
+# experimentalData.loadData(filePath)
+# experimentalData.operationMode = 'CPM'
+experimentalData.showPtychogram()
+experimentalData.zo = experimentalData.zo * 0.9
 
 # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
 # now create an object to hold everything we're eventually interested in
-optimizable.npsm = 1 # Number of probe modes to reconstruct
-optimizable.nosm = 1 # Number of object modes to reconstruct
-optimizable.nlambda = 1 # len(exampleData.spectralDensity) # Number of wavelength
-optimizable.nslice = 1 # Number of object slice
-# optimizable.dxp = optimizable.dxd
+reconstruction.npsm = 1 # Number of probe modes to reconstruct
+reconstruction.nosm = 1 # Number of object modes to reconstruct
+reconstruction.nlambda = 1 # len(experimentalData.spectralDensity) # Number of wavelength
+reconstruction.nslice = 1 # Number of object slice
+# reconstruction.dxp = reconstruction.dxd
 
 
-optimizable.initialProbe = 'circ'
-exampleData.entrancePupilDiameter = optimizable.Np / 3 * optimizable.dxp  # initial estimate of beam
-optimizable.initialObject = 'ones'
-# initialize probe and object and related params
-optimizable.prepare_reconstruction()
+reconstruction.initialProbe = 'circ'
+experimentalData.entrancePupilDiameter = reconstruction.Np / 3 * reconstruction.dxp  # initial estimate of beam
+reconstruction.initialObject = 'ones'
+# initialize probe and object and related Params
+reconstruction.initializeObjectProbe()
 
 # customize initial probe quadratic phase
-optimizable.probe = optimizable.probe*np.exp(1.j*2*np.pi/optimizable.wavelength *
-                                             (optimizable.Xp**2+optimizable.Yp**2)/(2*6e-3))
+reconstruction.probe = reconstruction.probe * np.exp(1.j * 2 * np.pi / reconstruction.wavelength *
+                                                     (reconstruction.Xp ** 2 + reconstruction.Yp ** 2) / (2 * 6e-3))
 
 # this will copy any attributes from experimental data that we might care to optimize
 # # Set monitor properties
@@ -50,15 +50,15 @@ optimizable.probe = optimizable.probe*np.exp(1.j*2*np.pi/optimizable.wavelength 
 monitor.figureUpdateFrequency = 1
 monitor.objectPlot = 'complex'  # complex abs angle
 monitor.verboseLevel = 'high'  # high: plot two figures, low: plot only one figure
-monitor.objectPlotZoom = 1.5   # control object plot FoV
-monitor.probePlotZoom = 0.5   # control probe plot FoV
+monitor.objectZoom = 1.5   # control object plot FoV
+monitor.probeZoom = 0.5   # control probe plot FoV
 
 # Run the reconstruction
 
-# params = Reconstruction_parameters()
+# Params = Params()
 ## main parameters
 params.positionOrder = 'random'  # 'sequential' or 'random'
-params.propagator = 'Fresnel'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
+params.propagatorType = 'Fresnel'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
 
 
 ## how do we want to reconstruct?
@@ -78,53 +78,49 @@ params.couplingSwitch = True
 params.couplingAleph = 1
 params.positionCorrectionSwitch = False
 
+## choose mqNewton engine
+mqNewton = Engines.mqNewton(reconstruction, experimentalData, params, monitor)
+mqNewton.numIterations = 5
+mqNewton.betaProbe = 1
+mqNewton.betaObject = 1
+mqNewton.beta1 = 0.5
+mqNewton.beta2 = 0.5
+mqNewton.betaProbe_m = 1
+mqNewton.betaObject_m = 1
+mqNewton.momentum_method = 'NADAM'
+mqNewton.reconstruct()
 
-engine = Engines.mqNewton(optimizable, exampleData, params, monitor)
-engine.numIterations = 5
-engine.betaProbe = 1
-engine.betaObject = 1
-engine.beta1 = 0.5
-engine.beta2 = 0.5
-engine.betaProbe_m = 1
-engine.betaObject_m = 1
-engine.momentum_method = 'NADAM'
-engine.doReconstruction()
 
-## choose engine
-# ePIE
-# engine_ePIE = ePIE.ePIE(optimizable, exampleData, params,monitor)
-# engine_ePIE.numIterations = 50
-# engine_ePIE.betaProbe = 0.25
-# engine_ePIE.betaObject = 0.25
-# engine_ePIE.doReconstruction()
+## choose ePIE engine
+ePIE = Engines.ePIE(reconstruction, experimentalData, params, monitor)
+ePIE.numIterations = 50
+ePIE.betaProbe = 0.25
+ePIE.betaObject = 0.25
+ePIE.reconstruct()
 
-# mPIE
-engine_mPIE = Engines.mPIE(optimizable, exampleData, params, monitor)
-engine_mPIE.numIterations = 5
-engine_mPIE.betaProbe = 0.25
-engine_mPIE.betaObject = 0.25
-engine_mPIE.doReconstruction()
+## choose mPIE engine
+mPIE = Engines.mPIE(reconstruction, experimentalData, params, monitor)
+mPIE.numIterations = 5
+mPIE.betaProbe = 0.25
+mPIE.betaObject = 0.25
+mPIE.reconstruct()
 
-# zPIE
-engine_zPIE = Engines.zPIE(optimizable, exampleData, params, monitor)
-engine_zPIE.numIterations = 5
-engine_zPIE.betaProbe = 0.35
-engine_zPIE.betaObject = 0.35
-engine_zPIE.zPIEgradientStepSize = 1000  # gradient step size for axial position correction (typical range [1, 100])
-engine_zPIE.doReconstruction()
+## choose zPIE engine
+zPIE = Engines.zPIE(reconstruction, experimentalData, params, monitor)
+zPIE.numIterations = 5
+zPIE.betaProbe = 0.35
+zPIE.betaObject = 0.35
+zPIE.zPIEgradientStepSize = 1000  # gradient step size for axial position correction (typical range [1, 100])
+zPIE.reconstruct()
 
 # do another round of mPIE
-engine_mPIE.doReconstruction()
+mPIE.reconstruct()
 
-# e3PIE
-# engine_e3PIE = e3PIE.e3PIE(optimizable, exampleData, params,monitor)
-# engine_e3PIE.numIteration = 50
-# engine_e3PIE.doReconstruction
 
-# pcPIE
-# engine_pcPIE = pcPIE.pcPIE(optimizable, exampleData, params,monitor)
-# engine_pcPIE.numIteration = 50
-# engine_pcPIE.doReconstruction()
+## switch to pcPIE
+pcPIE = Engines.pcPIE(reconstruction, experimentalData, params, monitor)
+pcPIE.numIteration = 50
+pcPIE.reconstruct()
 
 # now save the data
-# optimizable.saveResults('reconstruction.hdf5')
+# reconstruction.saveResults('reconstruction.hdf5')

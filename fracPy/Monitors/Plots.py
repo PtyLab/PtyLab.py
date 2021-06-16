@@ -3,10 +3,10 @@ import matplotlib as mpl
 from matplotlib import pyplot as plt
 import numpy as np
 from fracPy.utils import gpuUtils
-from fracPy.utils.visualisation import modeTile, complex_plot, complex_to_rgb
+from fracPy.utils.visualisation import modeTile, complexPlot, complex2rgb
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-class DefaultMonitor(object):
+class ObjectProbeErrorPlot(object):
 
     def __init__(self, figNum=1):
         """ Create a monitor.
@@ -51,7 +51,7 @@ class DefaultMonitor(object):
     def updateObject(self, object_estimate, optimizable, objectPlot, amplitudeScalingFactor=1, **kwargs):
         OE = modeTile(object_estimate, normalize=True)
         if objectPlot == 'complex':
-            OE = complex_to_rgb(OE, amplitudeScalingFactor=amplitudeScalingFactor)
+            OE = complex2rgb(OE, amplitudeScalingFactor=amplitudeScalingFactor)
 
         elif objectPlot == 'abs':
             OE = abs(OE)
@@ -60,7 +60,7 @@ class DefaultMonitor(object):
 
         if self.firstrun:
             if objectPlot == 'complex':
-                self.im_object = complex_plot(OE, ax=self.ax_object, **kwargs)
+                self.im_object = complexPlot(OE, ax=self.ax_object, **kwargs)
             else:
                 self.im_object = self.ax_object.imshow(OE, cmap='gray', interpolation=None)
                 divider = make_axes_locatable(self.ax_object)
@@ -77,10 +77,10 @@ class DefaultMonitor(object):
 
     def updateProbe(self, probe_estimate, optimizable, amplitudeScalingFactor=1, **kwargs):
 
-        PE = complex_to_rgb(modeTile(probe_estimate, normalize=True), amplitudeScalingFactor=amplitudeScalingFactor)
+        PE = complex2rgb(modeTile(probe_estimate, normalize=True), amplitudeScalingFactor=amplitudeScalingFactor)
 
         if self.firstrun:
-            self.im_probe = complex_plot(PE, ax=self.ax_probe, **kwargs)
+            self.im_probe = complexPlot(PE, ax=self.ax_probe, **kwargs)
         else:
             self.im_probe.set_data(PE)
             if optimizable.npsm > 1:
@@ -124,7 +124,7 @@ class DefaultMonitor(object):
 
 
 
-class DiffractionDataMonitor(object):
+class DiffractionDataPlot(object):
     def __init__(self, figNum=2):
         """ Create a monitor.
 

@@ -1,5 +1,5 @@
 import numpy as np
-from fracPy.FixedData.DefaultExperimentalData import ExperimentalData
+from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from copy import copy
 import logging
 import h5py
@@ -8,17 +8,17 @@ import h5py
 from fracPy.utils.initializationFunctions import initialProbeOrObject
 
 
-class Optimizable(object):
+class Reconstruction(object):
     """
-    This object will contain all the things that can be modified by a reconstruction engine.
+    This object will contain all the things that can be modified by a reconstruction mqNewton.
 
     In itself, it's little more than a data holder. It is initialized with an FixedData object.
 
     Some parameters which are "immutable" within the FixedData can be modified
     (e.g. zo modification by zPIE during the reconstruction routine). All of them
-    are defined in the listOfOptimizableProperties
+    are defined in the listOfReconstructionProperties
     """
-    listOfOptimizableProperties = [
+    listOfReconstructionProperties = [
             'wavelength',
             'zo',
             'spectralDensity',
@@ -30,21 +30,21 @@ class Optimizable(object):
         ]
     
     def __init__(self, data:ExperimentalData):
-        self.logger = logging.getLogger('Optimizables')
+        self.logger = logging.getLogger('Reconstruction')
         self.data = data
         self.copyAttributesFromExperiment(data)
         self.computeOptionalParameters(data)
-        self.initialize_settings()
+        self.initializeSettings()
 
     def copyAttributesFromExperiment(self, data:ExperimentalData):
         """
-        Copy all the attributes from the experiment that are in listOfOptimizableProperties
+        Copy all the attributes from the experiment that are in listOfReconstructionProperties
         :param data:
                 Experimental data to copy from
         :return:
         """
         self.logger.debug('Copying attributes from Experimental Data')
-        for key in self.listOfOptimizableProperties:
+        for key in self.listOfReconstructionProperties:
             self.logger.debug('Copying attribute %s', key)
             setattr(self, key, copy(np.array(getattr(data, key))))
        
@@ -60,7 +60,7 @@ class Optimizable(object):
         """
         self.logger.debug('Computing optional attributed from Experimental Data')
         
-        # Probe pixel size (depending on the propagator, if none given, assum Fraunhofer/Fresnel)
+        # Probe pixel size (depending on the propagatorType, if none given, assum Fraunhofer/Fresnel)
         if self.dxp == None:
             # CPM dxp
             if self.data.operationMode == 'CPM':
@@ -79,13 +79,13 @@ class Optimizable(object):
             # self.No = self.Np+np.max(self.positions0[:,0])-np.min(self.positions0[:,0])
 
             
-    def initialize_settings(self):
+    def initializeSettings(self):
         """
         Initialize the attributes that have to do with a reconstruction 
-        or experimentalData fields which will become "optimizable"
+        or experimentalData fields which will become "reconstruction"
 
         This method just sets the settings. It sets the what kind of initial guess should be used for initialObject
-        and initialProbe but it does not compute them yet. That will be done by calling prepare_reconstruction()
+        and initialProbe but it does not compute them yet. That will be done by calling initializeObjectProbe()
 
         :return:
         """
@@ -117,7 +117,7 @@ class Optimizable(object):
             self.initialObject = 'ones'
 
 
-    def prepare_reconstruction(self):
+    def initializeObjectProbe(self):
         
         # initialize object and probe
         self.initializeObject()
