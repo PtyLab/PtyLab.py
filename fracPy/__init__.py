@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Tuple
 
 def easyInitialize(filename: Path, engine: Engines.BaseEngine=Engines.ePIE, operationMode='CPM') ->\
-        Tuple[Reconstruction, ExperimentalData, Params, Monitor, Engines.BaseEngine]:
+        Tuple[ExperimentalData, Reconstruction, Params, Monitor, Engines.BaseEngine]:
     """ Do a 'standard' initialization, and return the items you need with some sensible defaults. """
     if operationMode == 'CPM':
         return _easyInitializeCPM(filename, engine, operationMode)

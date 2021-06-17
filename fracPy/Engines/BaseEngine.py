@@ -37,7 +37,7 @@ class BaseEngine(object):
 
     """
 
-    def __init__(self, reconstruction: Reconstruction, experimentalData: ExperimentalData, params: Params, monitor: Monitor):
+    def __init__(self, experimentalData: ExperimentalData, reconstruction: Reconstruction, params: Params, monitor: Monitor):
         # These statements don't copy any data, they just keep a reference to the object
         self.reconstruction = reconstruction
         self.experimentalData = experimentalData

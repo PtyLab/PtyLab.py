@@ -103,6 +103,8 @@ class ExperimentalData:
             self.Nd = self.ptychogram.shape[-1]
         if isinstance(self.spectralDensity, type(None)):
             self.spectralDensity = np.atleast_1d(self.wavelength)
+        if not hasattr(self, 'operationMode'):
+            self.operationMode = 'CPM'
 
         # Detector coordinates 1D
         self.xd = np.linspace(-self.Nd/2, self.Nd/2, np.int(self.Nd))*self.dxd
