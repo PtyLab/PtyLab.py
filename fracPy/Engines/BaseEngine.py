@@ -37,13 +37,13 @@ class BaseEngine(object):
 
     """
 
-    def __init__(self, experimentalData: ExperimentalData, reconstruction: Reconstruction, params: Params, monitor: Monitor):
+    def __init__(self, reconstruction: Reconstruction, experimentalData: ExperimentalData, params: Params, monitor: Monitor):
         # These statements don't copy any data, they just keep a reference to the object
         self.reconstruction = reconstruction
         self.experimentalData = experimentalData
         self.params = params
         self.monitor = monitor
-        self.monitor.optimizable = reconstruction
+        self.monitor.reconstruction = reconstruction
 
         # datalogger
         self.logger = logging.getLogger('BaseEngine')
@@ -281,7 +281,7 @@ class BaseEngine(object):
             self.intensityScaling = np.ones(self.experimentalData.numFrames)
 
         if self.params.intensityConstraint == 'interferometric':
-            self.reconstruction.reference = np.ones(self.experimentalData.probe[0, 0, 0, 0, ...].shape)
+            self.reconstruction.reference = np.ones(self.reconstruction.probe[0, 0, 0, 0, ...].shape)
 
         # check if both probePoprobePowerCorrectionSwitch and modulusEnforcedProbeSwitch are on.
         # Since this can cause a contradiction, it raises an error

@@ -29,7 +29,7 @@ class aPIE(BaseEngine):
     aPIE: angle correction PIE: ePIE combined with Luus-Jaakola algorithm (the latter for angle correction) + momentum
     """
 
-    def __init__(self, experimentalData: ExperimentalData, reconstruction: Reconstruction, params: Params, monitor: Monitor):
+    def __init__(self, reconstruction: Reconstruction, experimentalData: ExperimentalData, params: Params, monitor: Monitor):
         # This contains reconstruction parameters that are specific to the reconstruction
         # but not necessarily to aPIE reconstruction
         super().__init__(reconstruction, experimentalData, params, monitor)

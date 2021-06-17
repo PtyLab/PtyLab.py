@@ -15,7 +15,7 @@ class Monitor(object):
         self.probeZoom = 1
         self.objectPlotContrast = 1
         self.probePlotContrast = 1
-        self.optimizable = None
+        self.reconstruction = None
         self.cmapDiffraction = setColorMap()
 
 
@@ -35,12 +35,12 @@ class Monitor(object):
         :param object_estimate:
         :return:
         """
-        self.defaultMonitor.updateError(self.optimizable.error)
-        self.defaultMonitor.updateObject(object_estimate, self.optimizable, objectPlot=self.objectPlot,
-                                         pixelSize=self.optimizable.dxo, axisUnit='mm',
+        self.defaultMonitor.updateError(self.reconstruction.error)
+        self.defaultMonitor.updateObject(object_estimate, self.reconstruction, objectPlot=self.objectPlot,
+                                         pixelSize=self.reconstruction.dxo, axisUnit='mm',
                                          amplitudeScalingFactor=self.objectPlotContrast)
-        self.defaultMonitor.updateProbe(probe_estimate, self.optimizable,
-                                        pixelSize=self.optimizable.dxp, axisUnit='mm',
+        self.defaultMonitor.updateProbe(probe_estimate, self.reconstruction,
+                                        pixelSize=self.reconstruction.dxp, axisUnit='mm',
                                         amplitudeScalingFactor=self.probePlotContrast)
         self.defaultMonitor.drawNow()
 

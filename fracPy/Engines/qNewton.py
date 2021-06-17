@@ -21,7 +21,7 @@ import sys
 
 class qNewton(BaseEngine):
 
-    def __init__(self, experimentalData: ExperimentalData, reconstruction: Reconstruction, params: Params, monitor: Monitor):
+    def __init__(self, reconstruction: Reconstruction, experimentalData: ExperimentalData, params: Params, monitor: Monitor):
         # This contains reconstruction parameters that are specific to the reconstruction
         # but not necessarily to ePIE reconstruction
         super().__init__(reconstruction, experimentalData, params, monitor)
