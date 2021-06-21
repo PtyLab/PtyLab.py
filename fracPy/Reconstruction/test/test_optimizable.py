@@ -4,7 +4,7 @@ logging.basicConfig(level=logging.DEBUG)
 from numpy.testing import assert_almost_equal, assert_array_almost_equal
 
 from fracPy.FixedData.DefaultExperimentalData import ExperimentalData
-from fracPy.Optimizables.Reconstruction import Reconstruction
+from fracPy.Reconstruction.Reconstruction import Reconstruction
 
 class TestOptimizable(TestCase):
     def setUp(self):

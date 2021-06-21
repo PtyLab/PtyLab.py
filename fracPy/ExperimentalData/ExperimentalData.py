@@ -17,16 +17,53 @@ class ExperimentalData:
     It only holds attributes that are the same for every type of reconstruction.
     """
 
-    def __init__(self, filename=None):
-        self.logger = logging.getLogger('FixedData')
-        self.logger.debug('Initializing FixedData object')
+    def __init__(self, filename=None, operationMode='CPM'):
+        self.logger = logging.getLogger('ExperimentalData')
+        self.logger.debug('Initializing ExperimentalData object')
 
-        self.filename = filename
+        self.operationMode = operationMode        # operationMode: 'CPM' or 'FPM', default is CPM is not given
+        self._setFields()
         if filename is not None:
             self.loadData(filename)
 
+    def _setFields(self):
+        """
+        Set the required and optional fields for ptyLab to work.
+        ALL VALUES MUST BE IN METERS.
+        """
+        # These are the fields required for ptyLab to work (depending on the operationMode)
+        if self.operationMode == 'CPM':
+            self.requiredFields = [
+                'ptychogram',  # 3D image stack
+                'wavelength',  # illumination lambda
+                'encoder',  # diffracted field positions
+                'dxd',  # pixel size
+                'zo'  # sample to detector distance
+            ]
+            self.optionalFields = [
+                'entrancePupilDiameter',  # used in CPM as the probe diameter
+                'spectralDensity',  # CPM parameters: different wavelengths required for polychromatic ptychography
+                'theta'  # CPM parameters: reflection tilt angle, required for
+            ]
 
-    def loadData(self, filename=None, python_order=True):
+        elif self.operationMode == 'FPM':
+            self.requiredFields = [
+                'ptychogram',  # 3D image stack
+                'wavelength',  # illumination lambda
+                'encoder',  # diffracted field positions
+                'dxd',  # pixel size
+                'zo'  # sample to detector distance
+                'magnification',  # magnification, used for FPM computations of dxp
+                'zled',  # LED to sample distance
+                'entrancePupilDiameter',
+                # entrance pupil diameter, defined in lens-based microscopes as the aperture diameter, reqquired for FPM
+            ]
+            self.optionalFields = []
+        else:
+            raise ValueError('operationMode is not properly set, choose "CPM" or "FPM"')
+
+
+    def loadData(self, filename=None):
         """
         Load data specified in filename.
         :type filename: str or Path
@@ -48,20 +85,19 @@ class ExperimentalData:
             self.filename = filename
 
         # 1. check if the dataset contains what we need before loading
-        readHdf5.checkDataFields(self.filename)
-        # 2. load dictionary. Only the values specified by 'required_fields'
+        readHdf5.checkDataFields(self.filename, self.requiredFields)
+        # 2. load dictionary. Only the values specified by 'requiredFields'
         # in readHdf.py file were loaded
-        measurement_dict = readHdf5.loadInputData(self.filename)
-        # 3. 'required_fields' will be the attributes that must be set
-        attributes_to_set = measurement_dict.keys()
+        measurementDict = readHdf5.loadInputData(self.filename, self.requiredFields, self.optionalFields)
+        # 3. 'requiredFields' will be the attributes that must be set
+        attributesToSet = measurementDict.keys()
         # 4. set object attributes as the essential data fields
         # self.logger.setLevel(logging.DEBUG)
-        for a in attributes_to_set:
-
-            # make sure that property is not an  attribtue
+        for a in attributesToSet:
+            # make sure that property is not an attribtue
             attribute = str(a)
             if not isinstance(getattr(type(self), attribute, None), property):
-                setattr(self, attribute, measurement_dict[a])
+                setattr(self, attribute, measurementDict[a])
             self.logger.debug('Setting %s', a)
 
         self._setData()
@@ -98,14 +134,9 @@ class ExperimentalData:
             self.ptychogram = np.flipud(self.ptychogram)
         
     def _setData(self):
-        # Set the detector coordinates (detector pixelsize dxd must be given from the hdf5 file.)
-        if self.Nd == None:
-            self.Nd = self.ptychogram.shape[-1]
-        if isinstance(self.spectralDensity, type(None)):
-            self.spectralDensity = np.atleast_1d(self.wavelength)
-        if not hasattr(self, 'operationMode'):
-            self.operationMode = 'CPM'
 
+        # Set the detector coordinates
+        self.Nd = self.ptychogram.shape[-1]
         # Detector coordinates 1D
         self.xd = np.linspace(-self.Nd/2, self.Nd/2, np.int(self.Nd))*self.dxd
         # Detector coordinates 2D

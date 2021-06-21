@@ -16,7 +16,7 @@ import traceback
 
 import matplotlib.animation as animation
 from fracPy.utils.utils import ifft2c, fft2c
-from fracPy.Optimizables.Reconstruction import Reconstruction
+from fracPy.Reconstruction.Reconstruction import Reconstruction
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 
 class IlluminationCalibration():

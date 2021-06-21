@@ -6,7 +6,7 @@ import unittest
 
 from fracPy.Engines import BaseEngine
 
-from fracPy.Optimizables.Reconstruction import Reconstruction
+from fracPy.Reconstruction.Reconstruction import Reconstruction
 from fracPy.FixedData.DefaultExperimentalData import ExperimentalData
 from fracPy.Engines.BaseEngine import BaseEngine
 

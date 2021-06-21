@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from fracPy.Optimizables.Reconstruction import Reconstruction
+from fracPy.Reconstruction.Reconstruction import Reconstruction
 from fracPy.FixedData.DefaultExperimentalData import ExperimentalData
 from fracPy.Engines.ePIE import ePIE
 

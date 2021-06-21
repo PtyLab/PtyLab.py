@@ -158,6 +158,15 @@ def absplot(u, ax=None, pixelSize=1, axisUnit='pixel', amplitudeScalingFactor = 
     ax.set_ylabel(axisUnit)
     ax.set_xlabel(axisUnit)
 
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="5%", pad=0.1)
+
+    norm = mpl.colors.Normalize(vmin=0, vmax=amplitudeScalingFactor)
+    scalar_mappable = mpl.cm.ScalarMappable(norm=norm, cmap=cmap)
+    scalar_mappable.set_array([])
+    cbar = plt.colorbar(scalar_mappable, ax=ax, cax=cax, ticks=[0, amplitudeScalingFactor/2, amplitudeScalingFactor])
+    cbar.ax.set_yticklabels(['0', str(amplitudeScalingFactor/2), str(amplitudeScalingFactor)])
+
 
 
 def absmodeplot(P, ax=None ,normalize = True, pixelSize =1, axisUnit ='pixel', amplitudeScalingFactor = 1):

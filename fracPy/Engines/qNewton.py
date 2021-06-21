@@ -8,7 +8,7 @@ except ImportError:
     # Still define the name, we'll take care of it later but in this way it's still possible
     # to see that gPIE exists for example.
     cp = None
-from fracPy.Optimizables.Reconstruction import Reconstruction
+from fracPy.Reconstruction.Reconstruction import Reconstruction
 from fracPy.Engines.BaseEngine import BaseEngine
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Params.Params import Params

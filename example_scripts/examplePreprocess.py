@@ -91,14 +91,14 @@ Ld = Nd * dxd                         # effective size of detector
 xd = np.arange(-Nd//2, Nd//2) * dxd   # 1D coordinates in detector plane
 Xd, Yd = np.meshgrid(xd, xd)          # 2D coordinates in detector plane
 
-# object coordinates
-dxo = wavelength * zo / Ld          # Fraunhofer/ Fresnel
-# dxo = dxd                         # asp
-# dxo = 400e-9 * zo /Ld             # scaled asp, choose freely (be careful not to depart too much from Fraunhofer condition)
-No = 2**12
-Lo = No * dxo
-xo = np.arange(-No//2, No//2) * dxo
-Xo, Yo = np.meshgrid(xo, xo)
+# # object coordinates
+# dxo = wavelength * zo / Ld          # Fraunhofer/ Fresnel
+# # dxo = dxd                         # asp
+# # dxo = 400e-9 * zo /Ld             # scaled asp, choose freely (be careful not to depart too much from Fraunhofer condition)
+# No = 2**12
+# Lo = No * dxo
+# xo = np.arange(-No//2, No//2) * dxo
+# Xo, Yo = np.meshgrid(xo, xo)
 
 # probe coordinates
 # dxp = dxo

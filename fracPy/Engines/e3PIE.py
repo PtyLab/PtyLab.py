@@ -11,7 +11,7 @@ except ImportError:
     cp = None
 
 # fracPy imports
-from fracPy.Optimizables.Reconstruction import Reconstruction
+from fracPy.Reconstruction.Reconstruction import Reconstruction
 from fracPy.Engines.BaseEngine import BaseEngine
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Params.Params import Params

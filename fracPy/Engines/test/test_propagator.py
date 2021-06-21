@@ -2,7 +2,7 @@ import unittest
 from unittest import TestCase
 from numpy.testing import assert_almost_equal
 from fracPy.FixedData.DefaultExperimentalData import ExperimentalData
-from fracPy.Optimizables.Reconstruction import Reconstruction
+from fracPy.Reconstruction.Reconstruction import Reconstruction
 from fracPy.Engines import ePIE, mPIE, qNewton
 from fracPy.Monitors.Monitor import Monitor as Monitor
 

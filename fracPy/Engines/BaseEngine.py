@@ -8,7 +8,7 @@ import h5py
 from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray
 from fracPy.utils.initializationFunctions import initialProbeOrObject
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
-from fracPy.Optimizables.Reconstruction import Reconstruction
+from fracPy.Reconstruction.Reconstruction import Reconstruction
 from fracPy.Params.Params import Params
 from fracPy.utils.utils import ifft2c, fft2c, orthogonalizeModes, circ, posit
 from fracPy.Operators.Operators import aspw, scaledASP
