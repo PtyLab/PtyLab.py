@@ -19,7 +19,8 @@ from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray
 from fracPy.Monitors.Monitor import Monitor
 from fracPy.utils.utils import fft2c, ifft2c
 import logging
-
+import tqdm
+import sys
 
 class pcPIE(BaseEngine):
 
@@ -60,8 +61,9 @@ class pcPIE(BaseEngine):
         self._prepareReconstruction()
 
         # actual reconstruction ePIE_engine
-        import tqdm
-        for loop in tqdm.tqdm(range(self.numIterations)):
+
+        self.pbar = tqdm.trange(self.numIterations, desc='pcPIE', file=sys.stdout, leave=True)  # in order to change description to the tqdm progress bar
+        for loop in self.pbar:
             # set position order
             self.setPositionOrder()
 
