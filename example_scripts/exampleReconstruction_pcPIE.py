@@ -29,6 +29,7 @@ reconstruction = Reconstruction(exampleData)
 maxPosError = 10
 encoder0 = exampleData.encoder.copy()
 exampleData.encoder = encoder0 + maxPosError * reconstruction.dxo * (2 * np.random.rand(encoder0.shape[0], encoder0.shape[1]) - 1)
+reconstruction = Reconstruction(exampleData)
 import matplotlib.pyplot as plt
 figure, ax = plt.subplots(1, 1, num=112, squeeze=True, clear=True, figsize=(5, 5))
 ax.set_title('Original and perturbed scan grid positions')
@@ -51,7 +52,7 @@ reconstruction.nosm = 1 # Number of object modes to reconstruct
 reconstruction.nlambda = 1 # len(exampleData.spectralDensity) # Number of wavelength
 reconstruction.nslice = 1 # Number of object slice
 # reconstruction.dxp = reconstruction.dxd
-
+# reconstruction.theta = None
 
 reconstruction.initialProbe = 'circ'
 exampleData.entrancePupilDiameter = reconstruction.Np / 3 * reconstruction.dxp  # initial estimate of beam
@@ -135,3 +136,6 @@ line2, = plt.plot((reconstruction.positions[:, 1] - reconstruction.No // 2 + rec
 plt.legend(handles=[line1, line2])
 plt.tight_layout()
 plt.show(block=False)
+
+# now save the data
+reconstruction.saveResults('simulation_ePIE_comparison_pcPIE.hdf5')

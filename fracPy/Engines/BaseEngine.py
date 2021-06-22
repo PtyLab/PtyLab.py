@@ -847,13 +847,14 @@ class BaseEngine(object):
                     ax.set_xlabel('(um)')
                     ax.set_ylabel('(um)')
                     # ax.set_xscale('symlog')
-                    plt.plot(self.reconstruction.positions0[:, 1] * self.reconstruction.dxo * 1e6,
-                             self.reconstruction.positions0[:, 0] * self.reconstruction.dxo * 1e6, 'bo')
-                    plt.plot(self.reconstruction.positions[:, 1] * self.reconstruction.dxo * 1e6,
-                             self.reconstruction.positions[:, 0] * self.reconstruction.dxo * 1e6, 'yo')
+                    line1, = plt.plot((self.reconstruction.positions0[:, 1] - self.reconstruction.No // 2 + self.reconstruction.Np // 2)* self.reconstruction.dxo * 1e6,
+                                      (self.reconstruction.positions0[:, 0]- self.reconstruction.No // 2 + self.reconstruction.Np // 2) * self.reconstruction.dxo * 1e6, 'bo', label='before correction')
+                    line2, = plt.plot((self.reconstruction.positions[:, 1]- self.reconstruction.No // 2 + self.reconstruction.Np // 2) * self.reconstruction.dxo * 1e6,
+                                      (self.reconstruction.positions[:, 0]- self.reconstruction.No // 2 + self.reconstruction.Np // 2) * self.reconstruction.dxo * 1e6, 'yo', label='after correction')
                     # plt.xlabel('(um))')
                     # plt.ylabel('(um))')
                     # plt.show()
+                    plt.legend(handles=[line1, line2])
                     plt.tight_layout()
                     plt.show(block=False)
 
