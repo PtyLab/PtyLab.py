@@ -40,7 +40,7 @@ class pcPIE(BaseEngine):
         self.reconstruction.objectBuffer = self.reconstruction.object.copy()
         self.reconstruction.probeBuffer = self.reconstruction.probe.copy()
 
-        self.momentumAcceleration = True
+        self.params.momentumAcceleration = True
         
     def initializeReconstructionParams(self):
         """
@@ -91,32 +91,6 @@ class pcPIE(BaseEngine):
                 self.reconstruction.probe = self.probeUpdate(objectPatch, DELTA)
                 if self.params.positionCorrectionSwitch:
                     self.positionCorrection(objectPatch, positionIndex, sy, sx)
-                # position correction
-                # xp = getArrayModule(objectPatch)
-                # if len(self.reconstruction.error) > self.startAtIteration:
-                #     # position gradients
-                #     # shiftedImages = xp.zeros((self.rowShifts.shape + objectPatch.shape))
-                #     cc = xp.zeros((len(self.rowShifts), 1))
-                #     for shifts in range(len(self.rowShifts)):
-                #         tempShift = xp.roll(objectPatch, self.rowShifts[shifts], axis=-2)
-                #         # shiftedImages[shifts, ...] = xp.roll(tempShift, self.colShifts[shifts], axis=-1)
-                #         shiftedImages = xp.roll(tempShift, self.colShifts[shifts], axis=-1)
-                #         cc[shifts] = xp.squeeze(xp.sum(shiftedImages.conj() * self.reconstruction.object[..., sy, sx],
-                #                                        axis=(-2, -1)))
-                #     # truncated cross - correlation
-                #     # cc = xp.squeeze(xp.sum(shiftedImages.conj() * self.reconstruction.object[..., sy, sx], axis=(-2, -1)))
-                #     cc = abs(cc)
-                #     betaGrad = 1000
-                #     normFactor = xp.sum(objectPatch.conj() * objectPatch, axis=(-2, -1)).real
-                #     grad_x = betaGrad * xp.sum((cc.T - xp.mean(cc)) / normFactor * xp.array(self.colShifts))
-                #     grad_y = betaGrad * xp.sum((cc.T - xp.mean(cc)) / normFactor * xp.array(self.rowShifts))
-                #     r = 3
-                #     if abs(grad_x) > r:
-                #         grad_x = r * grad_x / abs(grad_x)
-                #     if abs(grad_y) > r:
-                #         grad_y = r * grad_y / abs(grad_y)
-                #     self.D[positionIndex, :] = self.daleth * gpuUtils.asNumpyArray([grad_y, grad_x]) + self.beth *\
-                #                                self.D[positionIndex, :]
 
 
                 # momentum updates
