@@ -1,5 +1,5 @@
 from unittest import TestCase
-from fracPy.Monitors.Plots import ObjectProbeErrorPlot
+from fracPy.Monitor.Plots import ObjectProbeErrorPlot
 import time
 import numpy as np
 import unittest

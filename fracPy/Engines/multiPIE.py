@@ -15,7 +15,7 @@ from fracPy.Engines.BaseEngine import BaseEngine
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Params.Params import Params
 from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray
-from fracPy.Monitors.Monitor import Monitor
+from fracPy.Monitor.Monitor import Monitor
 from fracPy.utils.utils import fft2c, ifft2c
 import logging
 import tqdm

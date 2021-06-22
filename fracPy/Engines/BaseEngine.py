@@ -1,4 +1,4 @@
-from fracPy.Monitors.Plots import ObjectProbeErrorPlot,DiffractionDataPlot
+from fracPy.Monitor.Plots import ObjectProbeErrorPlot,DiffractionDataPlot
 import numpy as np
 from scipy.signal import get_window
 import logging
@@ -12,7 +12,7 @@ from fracPy.Reconstruction.Reconstruction import Reconstruction
 from fracPy.Params.Params import Params
 from fracPy.utils.utils import ifft2c, fft2c, orthogonalizeModes, circ, posit
 from fracPy.Operators.Operators import aspw, scaledASP
-from fracPy.Monitors.Monitor import Monitor
+from fracPy.Monitor.Monitor import Monitor
 from fracPy.utils.visualisation import hsvplot
 from matplotlib import pyplot as plt
 

@@ -4,7 +4,7 @@ from numpy.testing import assert_almost_equal
 from fracPy.FixedData.DefaultExperimentalData import ExperimentalData
 from fracPy.Reconstruction.Reconstruction import Reconstruction
 from fracPy.Engines import ePIE, mPIE, qNewton
-from fracPy.Monitors.Monitor import Monitor as Monitor
+from fracPy.Monitor.Monitor import Monitor as Monitor
 
 class TestPropagator(TestCase):
 

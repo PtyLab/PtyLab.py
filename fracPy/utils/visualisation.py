@@ -1,4 +1,4 @@
-# This file contains utilities required for Monitors
+# This file contains utilities required for Monitor
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
