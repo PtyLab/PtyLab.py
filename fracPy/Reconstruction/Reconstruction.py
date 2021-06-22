@@ -53,7 +53,8 @@ class Reconstruction(object):
             listOfReconstructionProperties = self.listOfReconstructionPropertiesFPM
         for key in listOfReconstructionProperties:
             self.logger.debug('Copying attribute %s', key)
-            setattr(self, key, copy(np.array(getattr(data, key))))
+            # setattr(self, key, copy(np.array(getattr(data, key))))
+            setattr(self, key, copy(getattr(data, key)))
        
     def computeParameters(self):
         """
@@ -157,8 +158,9 @@ class Reconstruction(object):
             hf.create_dataset('zo', data=self.zo, dtype='f')
             hf.create_dataset('wavelength', data=self.wavelength, dtype='f')
             hf.create_dataset('dxp', data=self.dxp, dtype='f')
-            if not isinstance(self.theta, type(None)):
-                hf.create_dataset('theta', data=self.theta, dtype='f')
+            if hasattr(self, 'theta'):
+                if self.theta!=None:
+                    hf.create_dataset('theta', data=self.theta, dtype='f')
         elif type == 'probe':
             hf = h5py.File(fileName + '_probe.hdf5', 'w')
             hf.create_dataset('probe', data=self.probe, dtype='complex64')

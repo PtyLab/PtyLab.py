@@ -35,7 +35,7 @@ reconstruction.nslice = 1 # Number of object slice
 
 
 reconstruction.initialProbe = 'circ'
-experimentalData.entrancePupilDiameter = reconstruction.Np / 3 * reconstruction.dxp  # initial estimate of beam
+# experimentalData.entrancePupilDiameter = reconstruction.Np / 3 * reconstruction.dxp  # initial estimate of beam
 reconstruction.initialObject = 'ones'
 # initialize probe and object and related Params
 reconstruction.initializeObjectProbe()
@@ -90,37 +90,37 @@ mqNewton.betaObject_m = 1
 mqNewton.momentum_method = 'NADAM'
 mqNewton.reconstruct()
 
-
-## choose ePIE engine
-ePIE = Engines.ePIE(reconstruction, experimentalData, params, monitor)
-ePIE.numIterations = 50
-ePIE.betaProbe = 0.25
-ePIE.betaObject = 0.25
-ePIE.reconstruct()
-
-## choose mPIE engine
-mPIE = Engines.mPIE(reconstruction, experimentalData, params, monitor)
-mPIE.numIterations = 5
-mPIE.betaProbe = 0.25
-mPIE.betaObject = 0.25
-mPIE.reconstruct()
-
-## choose zPIE engine
-zPIE = Engines.zPIE(reconstruction, experimentalData, params, monitor)
-zPIE.numIterations = 5
-zPIE.betaProbe = 0.35
-zPIE.betaObject = 0.35
-zPIE.zPIEgradientStepSize = 1000  # gradient step size for axial position correction (typical range [1, 100])
-zPIE.reconstruct()
-
-# do another round of mPIE
-mPIE.reconstruct()
-
-
-## switch to pcPIE
-pcPIE = Engines.pcPIE(reconstruction, experimentalData, params, monitor)
-pcPIE.numIterations = 50
-pcPIE.reconstruct()
+#
+# ## choose ePIE engine
+# ePIE = Engines.ePIE(reconstruction, experimentalData, params, monitor)
+# ePIE.numIterations = 5
+# ePIE.betaProbe = 0.25
+# ePIE.betaObject = 0.25
+# ePIE.reconstruct()
+#
+# ## choose mPIE engine
+# mPIE = Engines.mPIE(reconstruction, experimentalData, params, monitor)
+# mPIE.numIterations = 5
+# mPIE.betaProbe = 0.25
+# mPIE.betaObject = 0.25
+# mPIE.reconstruct()
+#
+# ## choose zPIE engine
+# zPIE = Engines.zPIE(reconstruction, experimentalData, params, monitor)
+# zPIE.numIterations = 5
+# zPIE.betaProbe = 0.35
+# zPIE.betaObject = 0.35
+# zPIE.zPIEgradientStepSize = 1000  # gradient step size for axial position correction (typical range [1, 100])
+# zPIE.reconstruct()
+#
+# # do another round of mPIE
+# mPIE.reconstruct()
+#
+#
+# ## switch to pcPIE
+# pcPIE = Engines.pcPIE(reconstruction, experimentalData, params, monitor)
+# pcPIE.numIterations = 5
+# pcPIE.reconstruct()
 
 # now save the data
-# reconstruction.saveResults('reconstruction.hdf5')
+reconstruction.saveResults('reconstruction.hdf5')
