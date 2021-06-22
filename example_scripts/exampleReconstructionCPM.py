@@ -13,10 +13,10 @@ ptycho data reconstructor
 change data visualization and initialization options manually for now
 """
 
-fileName = 'simu.hdf5'  # simu.hdf5 or Lenspaper.hdf5
+fileName = 'Lenspaper.hdf5'  # simu.hdf5 or Lenspaper.hdf5
 filePath = getExampleDataFolder() / fileName
 
-experimentalData, reconstruction, params, monitor, ePIE_engine = fracPy.easyInitialize(filePath)
+experimentalData, reconstruction, params, monitor, ePIE_engine = fracPy.easyInitialize(filePath, operationMode='CPM')
 
 ## altternative
 # experimentalData = ExperimentalData()
@@ -119,7 +119,7 @@ mPIE.reconstruct()
 
 ## switch to pcPIE
 pcPIE = Engines.pcPIE(reconstruction, experimentalData, params, monitor)
-pcPIE.numIteration = 50
+pcPIE.numIterations = 50
 pcPIE.reconstruct()
 
 # now save the data

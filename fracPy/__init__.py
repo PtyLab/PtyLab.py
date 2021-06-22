@@ -20,8 +20,7 @@ def easyInitialize(filename: Path, engine: Engines.BaseEngine=Engines.ePIE, oper
 
 
 def _easyInitializeCPM(filename, engine_function, operationMode):
-    experimentalData = ExperimentalData(filename)
-    experimentalData.operationMode = operationMode
+    experimentalData = ExperimentalData(filename, operationMode)
     monitor = Monitor()
     reconstruction = Reconstruction(experimentalData)
     reconstruction.initializeObjectProbe()
@@ -31,8 +30,7 @@ def _easyInitializeCPM(filename, engine_function, operationMode):
 
 
 def _easyInitializeFPM(filename, engine_function, operationMode):
-    experimentalData = ExperimentalData(filename)
-    experimentalData.operationMode = operationMode
+    experimentalData = ExperimentalData(filename, operationMode)
     monitor = Monitor()
     reconstruction = Reconstruction(experimentalData)
     reconstruction.initializeObjectProbe()

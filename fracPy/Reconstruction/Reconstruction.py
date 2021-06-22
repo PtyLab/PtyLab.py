@@ -31,6 +31,7 @@ class Reconstruction(object):
             'zo',
             'dxd',
             'zled',
+            'dxp',
             'entrancePupilDiameter'
         ]
     
@@ -71,7 +72,8 @@ class Reconstruction(object):
 
         elif self.data.operationMode == 'FPM':
             # FPM dxp (different from CPM due to lens-based systems)
-            self.dxp = self.dxd / self.data.magnification
+            if isinstance(self.dxp, type(None)):
+                self.dxp = self.dxd / self.data.magnification
 
         # set object pixel numbers
         self.No = self.Np*2**2

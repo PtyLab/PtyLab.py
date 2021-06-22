@@ -51,14 +51,16 @@ class ExperimentalData:
                 'ptychogram',  # 3D image stack
                 'wavelength',  # illumination lambda
                 'encoder',  # diffracted field positions
-                'dxd',  # pixel size
-                'zo'  # sample to detector distance
-                'magnification',  # magnification, used for FPM computations of dxp
+                'dxd',  # detector pixel size
+                'zo',  # sample to detector distance
                 'zled',  # LED to sample distance
                 'entrancePupilDiameter',
                 # entrance pupil diameter, defined in lens-based microscopes as the aperture diameter, reqquired for FPM
             ]
-            self.optionalFields = []
+            self.optionalFields = [
+                'dxp',  # probe pixel size
+                'magnification',  # magnification, used for FPM computations of dxp
+            ]
         else:
             raise ValueError('operationMode is not properly set, choose "CPM" or "FPM"')
 
