@@ -157,7 +157,7 @@ class Reconstruction(object):
             hf.create_dataset('zo', data=self.zo, dtype='f')
             hf.create_dataset('wavelength', data=self.wavelength, dtype='f')
             hf.create_dataset('dxp', data=self.dxp, dtype='f')
-            if hasattr(self, 'theta'):
+            if not isinstance(self.theta, type(None)):
                 hf.create_dataset('theta', data=self.theta, dtype='f')
         elif type == 'probe':
             hf = h5py.File(fileName + '_probe.hdf5', 'w')
