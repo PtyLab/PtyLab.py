@@ -91,22 +91,6 @@ Ld = Nd * dxd                         # effective size of detector
 xd = np.arange(-Nd//2, Nd//2) * dxd   # 1D coordinates in detector plane
 Xd, Yd = np.meshgrid(xd, xd)          # 2D coordinates in detector plane
 
-# # object coordinates
-# dxo = wavelength * zo / Ld          # Fraunhofer/ Fresnel
-# # dxo = dxd                         # asp
-# # dxo = 400e-9 * zo /Ld             # scaled asp, choose freely (be careful not to depart too much from Fraunhofer condition)
-# No = 2**12
-# Lo = No * dxo
-# xo = np.arange(-No//2, No//2) * dxo
-# Xo, Yo = np.meshgrid(xo, xo)
-
-# probe coordinates
-# dxp = dxo
-# Np = Nd
-# Lp = Np * dxp
-# xp = np.arange(-Np//2, Np//2) * dxp
-# Xp, Yp = np.meshgrid(xp, xp)
-
 # get positions
 # get file name (this assumes there is only one text file in the raw data folder)
 positionFileName = glob.glob('*'+'.txt')[0]
@@ -115,13 +99,6 @@ positionFileName = glob.glob('*'+'.txt')[0]
 T = np.genfromtxt(positionFileName, delimiter=' ', skip_header=2)
 # convert to micrometer
 encoder = (T-T[0]) * 1e-6
-# encoder = (T-T[0]) * 1e-6 / magfinication
-# convert into pixels
-# position0 = np.round(encoder / dxo)
-# # center within object grid
-# position0 = position0 + No // 2 - Np // 2
-# # take only the frames needed (if numFrames smaller than the number of positions in the file)
-# position0 = position0[0:numFrames]
 
 # show positions
 plt.figure(figsize=(5, 5))
@@ -129,9 +106,6 @@ plt.plot(encoder[:, 1]* 1e6, encoder[:, 0]* 1e6, 'o-')
 plt.xlabel('(um))')
 plt.ylabel('(um))')
 plt.show()
-
-# set propagatorType
-# propagatorType = 'Fraunhofer'
 
 # export data
 exportBool = True

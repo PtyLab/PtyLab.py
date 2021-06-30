@@ -23,7 +23,7 @@ experimentalData, reconstruction, params, monitor, ePIE_engine = fracPy.easyInit
 # experimentalData.loadData(filePath)
 # experimentalData.operationMode = 'CPM'
 experimentalData.showPtychogram()
-experimentalData.zo = experimentalData.zo * 0.9
+# experimentalData.zo = experimentalData.zo * 0.9
 
 # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
 # now create an object to hold everything we're eventually interested in
@@ -50,7 +50,7 @@ reconstruction.probe = reconstruction.probe * np.exp(1.j * 2 * np.pi / reconstru
 monitor.figureUpdateFrequency = 1
 monitor.objectPlot = 'complex'  # complex abs angle
 monitor.verboseLevel = 'high'  # high: plot two figures, low: plot only one figure
-monitor.objectZoom = 1.5   # control object plot FoV
+monitor.objectZoom = 4   # control object plot FoV
 monitor.probeZoom = 0.5   # control probe plot FoV
 
 # Run the reconstruction
@@ -99,11 +99,11 @@ mqNewton.reconstruct()
 # ePIE.reconstruct()
 #
 # ## choose mPIE engine
-# mPIE = Engines.mPIE(reconstruction, experimentalData, params, monitor)
-# mPIE.numIterations = 5
-# mPIE.betaProbe = 0.25
-# mPIE.betaObject = 0.25
-# mPIE.reconstruct()
+mPIE = Engines.mPIE(reconstruction, experimentalData, params, monitor)
+mPIE.numIterations = 100
+mPIE.betaProbe = 0.25
+mPIE.betaObject = 0.25
+mPIE.reconstruct()
 #
 # ## choose zPIE engine
 # zPIE = Engines.zPIE(reconstruction, experimentalData, params, monitor)
@@ -123,4 +123,4 @@ mqNewton.reconstruct()
 # pcPIE.reconstruct()
 
 # now save the data
-reconstruction.saveResults('reconstruction.hdf5')
+# reconstruction.saveResults('reconstruction.hdf5')

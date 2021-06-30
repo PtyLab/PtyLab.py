@@ -745,9 +745,6 @@ class BaseEngine(object):
         elif self.params.intensityConstraint == 'standard' or self.params.intensityConstraint == 'interferometric':
             frac = xp.sqrt(self.reconstruction.Imeasured / (self.reconstruction.Iestimated + gimmel))
 
-
-        # elif self.Params.intensityConstraint == 'interferometric':
-        #     frac = xp.sqrt(self.reconstruction.Imeasured / (self.reconstruction.Iestimated + self.reconstruction.background + gimmel))
         else:
             raise ValueError('intensity constraint not properly specified!')
 
