@@ -218,8 +218,8 @@ def zernikeAberrations(Xp,Yp,D,z_coeff):
 def p2bin(im,binningFactor):
     """
     perform binning at a factor of power of 2, return binned image and the indices for before and after binning.
-    :params im: input image for binning
-    :params binningFactor: must be power of 2 in the current implementation
+    :Params im: input image for binning
+    :Params binningFactor: must be power of 2 in the current implementation
     :return:
     """
     M, N = im.shape
@@ -245,7 +245,7 @@ def p2bin(im,binningFactor):
 def bin2(X):
     """
     perform 2-by-2 binning.
-    :params X: input 2D image for binning
+    :Params X: input 2D image for binning
     return: Y: output 2D image after 2-by-2 binning
     """
     # simple 2-fold binning

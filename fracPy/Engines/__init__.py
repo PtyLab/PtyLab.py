@@ -1,20 +1,14 @@
 #from . import ePIE_reconstructor, mPIE_reconstructor, pSD_reconstructor
 # Engines available by default
-from .ePIE_reconstructor import ePIE
-from .pcPIE_reconstructor import pcPIE
-from .pSD_reconstructor import pSD
-from .mPIE_reconstructor import mPIE
-from .e3PIE_reconstructor import e3PIE
-from .mqNewton_reconstructor import mqNewton
-from .qNewton_reconstructor import qNewton
+from .ePIE import ePIE
+from .pcPIE import pcPIE
+from .mPIE import mPIE
+from .e3PIE import e3PIE
+from .mqNewton import mqNewton
+from .qNewton import qNewton
 from .aPIE import aPIE
-from .multiPIE_reconstructor import multiPIE
-from .zPIE_reconstructor import zPIE
-# for other Engines (like one you are developing but which is too specific) you can always import fracPy.Engines.<your_engine_filename>.<your_class>
-from .BaseReconstructor import BaseReconstructor
+from .multiPIE import multiPIE
+from .zPIE import zPIE
+# # for other Engines (like one you are developing but which is too specific) you can always import fracPy.Engines.<your_engine_filename>.<your_class>
+from .BaseEngine import BaseEngine
 
-
-engine_dict = {'SD': pSD_reconstructor.pSD,
-              'ePIE': ePIE_reconstructor.ePIE,
-              'mPIE': mPIE_reconstructor.mPIE,
-              }

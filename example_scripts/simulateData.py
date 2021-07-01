@@ -3,7 +3,7 @@
 import numpy as np
 from fracPy.utils.utils import circ, gaussian2D, cart2pol
 from fracPy.utils.scanGrids import GenerateNonUniformFermat
-from fracPy.operators.operators import aspw
+from fracPy.Operators.Operators import aspw
 from fracPy.utils.visualisation import hsvplot, show3Dslider
 import matplotlib.pylab as plt
 from scipy.signal import convolve2d
@@ -20,6 +20,7 @@ nlambda = 1
 npsm = 1
 nosm = 1
 nslice = 1
+binningFactor = 1
 
 # detector coordinates
 Nd = 2**7
@@ -183,7 +184,7 @@ if export_data:
     hf = h5py.File(fileName+'.hdf5', 'w')
     hf.create_dataset('ptychogram', data=ptychogram, dtype='f')
     hf.create_dataset('encoder', data=encoder, dtype='f')
-    # hf.create_dataset('positions', data=positions, dtype='f')
+    hf.create_dataset('binningFactor', data=binningFactor, dtype='i')
     hf.create_dataset('dxd', data=(dxd,), dtype='f')
     hf.create_dataset('Nd', data=(Nd,), dtype='i')
     hf.create_dataset('No', data=(No,), dtype='i')
