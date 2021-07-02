@@ -48,6 +48,7 @@ class aPIE(BaseEngine):
         self.betaObject = 0.25
         self.aPIEfriction = 0.7
         self.feedback = 0.5
+        self.numIterations = 50
 
         if not hasattr(self.reconstruction, 'thetaMomentum'):
             self.reconstruction.thetaMomentum = 0

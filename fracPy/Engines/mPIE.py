@@ -46,6 +46,7 @@ class mPIE(BaseEngine):
         self.alphaObject = 0.1    # object regularization
         self.feedbackM = 0.3          # feedback
         self.frictionM = 0.7          # friction
+        self.numIterations = 50
 
         # initialize momentum
         self.reconstruction.initializeObjectMomentum()
