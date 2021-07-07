@@ -8,34 +8,34 @@ except ImportError:
     # Still define the name, we'll take care of it later but in this way it's still possible
     # to see that gPIE exists for example.
     cp = None
-from fracPy.Optimizables.Optimizable import Optimizable
-from fracPy.Engines.BaseReconstructor import BaseReconstructor
-from fracPy.FixedData.DefaultExperimentalData import ExperimentalData
-from fracPy.Params.ReconstructionParameters import Reconstruction_parameters
-from fracPy.Monitors.Monitor import Monitor
+from fracPy.Reconstruction.Reconstruction import Reconstruction
+from fracPy.Engines.BaseEngine import BaseEngine
+from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
+from fracPy.Params.Params import Params
+from fracPy.Monitor.Monitor import Monitor
 from fracPy.utils.gpuUtils import getArrayModule
 from fracPy.utils.utils import fft2c, ifft2c
 import logging
 import tqdm
 import sys
 
-class mqNewton(BaseReconstructor):
+class mqNewton(BaseEngine):
 
-    def __init__(self, optimizable: Optimizable, experimentalData: ExperimentalData, params: Reconstruction_parameters, monitor: Monitor):
+    def __init__(self, reconstruction: Reconstruction, experimentalData: ExperimentalData, params: Params, monitor: Monitor):
         # This contains reconstruction parameters that are specific to the reconstruction
         # but not necessarily to ePIE reconstruction
-        super().__init__(optimizable, experimentalData, params, monitor)
+        super().__init__(reconstruction, experimentalData, params, monitor)
         self.logger = logging.getLogger('mqNewton')
-        self.logger.info('Sucesfully created momentum accelerated qNewton engine')
+        self.logger.info('Sucesfully created momentum accelerated qNewton mqNewton')
 
-        self.logger.info('Wavelength attribute: %s', self.optimizable.wavelength)
+        self.logger.info('Wavelength attribute: %s', self.reconstruction.wavelength)
         self.initializeReconstructionParams()
         # initialize momentum
-        self.optimizable.initializeObjectMomentum()
-        self.optimizable.initializeProbeMomentum()
+        self.reconstruction.initializeObjectMomentum()
+        self.reconstruction.initializeProbeMomentum()
         # set object and probe buffers
-        self.optimizable.objectBuffer = self.optimizable.object.copy()
-        self.optimizable.probeBuffer = self.optimizable.probe.copy()
+        self.reconstruction.objectBuffer = self.reconstruction.object.copy()
+        self.reconstruction.probeBuffer = self.reconstruction.probe.copy()
         self.params.momentumAcceleration = True
         
         
@@ -60,14 +60,14 @@ class mqNewton(BaseReconstructor):
     def initializeAdaptiveMomentum(self):
         self.momentum_engine = getattr(mqNewton, self.momentum_method)
         print("Momentum Engines implemented: momentum, ADAM, NADAM")
-        print("Momentum engine used: {}".format(self.momentum_method))
+        print("Momentum mqNewton used: {}".format(self.momentum_method))
         if self.momentum_method in ['ADAM', 'NADAM']:
             # 2nd order momentum terms
-            self.optimizable.objectMomentum_v = self.optimizable.objectMomentum.copy()
-            self.optimizable.probeMomentum_v = self.optimizable.probeMomentum.copy()
+            self.reconstruction.objectMomentum_v = self.reconstruction.objectMomentum.copy()
+            self.reconstruction.probeMomentum_v = self.reconstruction.probeMomentum.copy()
             
         
-    def doReconstruction(self):
+    def reconstruct(self):
         self._prepareReconstruction()
         self.initializeAdaptiveMomentum()
         
@@ -78,26 +78,26 @@ class mqNewton(BaseReconstructor):
             
             for positionLoop, positionIndex in enumerate(self.positionIndices):
                 # get object patch
-                row, col = self.optimizable.positions[positionIndex]
-                sy = slice(row, row + self.optimizable.Np)
-                sx = slice(col, col + self.optimizable.Np)
+                row, col = self.reconstruction.positions[positionIndex]
+                sy = slice(row, row + self.reconstruction.Np)
+                sx = slice(col, col + self.reconstruction.Np)
                 # note that object patch has size of probe array
-                objectPatch = self.optimizable.object[..., sy, sx].copy()
+                objectPatch = self.reconstruction.object[..., sy, sx].copy()
                 
                 # make exit surface wave
-                self.optimizable.esw = objectPatch * self.optimizable.probe
+                self.reconstruction.esw = objectPatch * self.reconstruction.probe
                 
                 # propagate to camera, intensityProjection, propagate back to object
                 self.intensityProjection(positionIndex)
 
                 # difference term
-                DELTA = self.optimizable.eswUpdate - self.optimizable.esw
+                DELTA = self.reconstruction.eswUpdate - self.reconstruction.esw
 
                 # object update
-                self.optimizable.object[..., sy, sx] = self.objectPatchUpdate(objectPatch, DELTA)
+                self.reconstruction.object[..., sy, sx] = self.objectPatchUpdate(objectPatch, DELTA)
 
                 # probe update
-                self.optimizable.probe = self.probeUpdate(objectPatch, DELTA)
+                self.reconstruction.probe = self.probeUpdate(objectPatch, DELTA)
                 
                 # momentum updates
                 self.objectMomentumUpdate(loop)
@@ -165,12 +165,12 @@ class mqNewton(BaseReconstructor):
         momentum update object, save updated objectMomentum and objectBuffer.
         :return:
         """
-        gradient = self.optimizable.objectBuffer - self.optimizable.object
-        update, self.optimizable.objectMomentum, self.optimizable.objectMomentum_v =\
-            self.momentum_engine(self, gradient, self.optimizable.objectMomentum, self.optimizable.objectMomentum_v, loop+1)
+        gradient = self.reconstruction.objectBuffer - self.reconstruction.object
+        update, self.reconstruction.objectMomentum, self.reconstruction.objectMomentum_v =\
+            self.momentum_engine(self, gradient, self.reconstruction.objectMomentum, self.reconstruction.objectMomentum_v, loop + 1)
             
-        self.optimizable.object -= self.betaObject_m * update
-        self.optimizable.objectBuffer = self.optimizable.object.copy()
+        self.reconstruction.object -= self.betaObject_m * update
+        self.reconstruction.objectBuffer = self.reconstruction.object.copy()
 
 
     def probeMomentumUpdate(self, loop):
@@ -178,24 +178,24 @@ class mqNewton(BaseReconstructor):
         momentum update probe, save updated probeMomentum and probeBuffer.
         :return:
         """
-        gradient = self.optimizable.probeBuffer - self.optimizable.probe
-        update, self.optimizable.probeMomentum, self.optimizable.probeMomentum_v =\
-            self.momentum_engine(self, gradient, self.optimizable.probeMomentum, self.optimizable.probeMomentum_v, loop+1)
+        gradient = self.reconstruction.probeBuffer - self.reconstruction.probe
+        update, self.reconstruction.probeMomentum, self.reconstruction.probeMomentum_v =\
+            self.momentum_engine(self, gradient, self.reconstruction.probeMomentum, self.reconstruction.probeMomentum_v, loop + 1)
             
-        self.optimizable.probe -= self.betaProbe_m * update
-        self.optimizable.probeBuffer = self.optimizable.probe.copy()
+        self.reconstruction.probe -= self.betaProbe_m * update
+        self.reconstruction.probeBuffer = self.reconstruction.probe.copy()
 
 
     def objectPatchUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
         xp = getArrayModule(objectPatch)
-        Pmax = xp.max(xp.sum(xp.abs(self.optimizable.probe), axis=(0, 1, 2, 3)))
-        frac = xp.abs(self.optimizable.probe)/Pmax * self.optimizable.probe.conj() / (xp.abs(self.optimizable.probe)**2 + self.regObject)
+        Pmax = xp.max(xp.sum(xp.abs(self.reconstruction.probe), axis=(0, 1, 2, 3)))
+        frac = xp.abs(self.reconstruction.probe) / Pmax * self.reconstruction.probe.conj() / (xp.abs(self.reconstruction.probe) ** 2 + self.regObject)
         return objectPatch + self.betaObject * xp.sum(frac * DELTA, axis=(0,2,3), keepdims=True)
 
        
     def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
         xp = getArrayModule(objectPatch)
-        Omax = xp.max(xp.sum(xp.abs(self.optimizable.object), axis=(0, 1, 2, 3)))
+        Omax = xp.max(xp.sum(xp.abs(self.reconstruction.object), axis=(0, 1, 2, 3)))
         frac = xp.abs(objectPatch)/Omax * objectPatch.conj() /  (xp.abs(objectPatch)**2 + self.regProbe)
-        r = self.optimizable.probe + self.betaProbe * xp.sum(frac * DELTA, axis=(0,1,3), keepdims=True)
+        r = self.reconstruction.probe + self.betaProbe * xp.sum(frac * DELTA, axis=(0, 1, 3), keepdims=True)
         return r

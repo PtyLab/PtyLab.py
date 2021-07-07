@@ -1,5 +1,5 @@
 import numpy as np
-from fracPy.FixedData.DefaultExperimentalData import ExperimentalData
+from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from copy import copy
 import logging
 import h5py
@@ -8,84 +8,87 @@ import h5py
 from fracPy.utils.initializationFunctions import initialProbeOrObject
 
 
-class Optimizable(object):
+class Reconstruction(object):
     """
-    This object will contain all the things that can be modified by a reconstruction engine.
+    This object will contain all the things that can be modified by a reconstruction.
 
-    In itself, it's little more than a data holder. It is initialized with an FixedData object.
+    In itself, it's little more than a data holder. It is initialized with an ExperimentalData object.
 
-    Some parameters which are "immutable" within the FixedData can be modified
+    Some parameters which are "immutable" within the ExperimentalData can be modified
     (e.g. zo modification by zPIE during the reconstruction routine). All of them
-    are defined in the listOfOptimizableProperties
+    are defined in the listOfReconstructionProperties
     """
-    listOfOptimizableProperties = [
+    listOfReconstructionPropertiesCPM = [
             'wavelength',
             'zo',
-            'spectralDensity',
             'dxd',
-            'dxp',
-            'No',
+            'theta',
+            'spectralDensity',
+            'entrancePupilDiameter'
+        ]
+    listOfReconstructionPropertiesFPM = [
+            'wavelength',
+            'zo',
+            'dxd',
             'zled',
+            'dxp',
             'entrancePupilDiameter'
         ]
     
     def __init__(self, data:ExperimentalData):
-        self.logger = logging.getLogger('Optimizables')
+        self.logger = logging.getLogger('Reconstruction')
         self.data = data
         self.copyAttributesFromExperiment(data)
-        self.computeOptionalParameters(data)
-        self.initialize_settings()
+        self.computeParameters()
+        self.initializeSettings()
 
     def copyAttributesFromExperiment(self, data:ExperimentalData):
         """
-        Copy all the attributes from the experiment that are in listOfOptimizableProperties
-        :param data:
-                Experimental data to copy from
-        :return:
+        Copy all the attributes from the experiment that are in listOfReconstructionProperties (CPM or FPM)
         """
         self.logger.debug('Copying attributes from Experimental Data')
-        for key in self.listOfOptimizableProperties:
+        if self.data.operationMode == 'CPM':
+            listOfReconstructionProperties = self.listOfReconstructionPropertiesCPM
+        elif self.data.operationMode == 'FPM':
+            listOfReconstructionProperties = self.listOfReconstructionPropertiesFPM
+        for key in listOfReconstructionProperties:
             self.logger.debug('Copying attribute %s', key)
-            setattr(self, key, copy(np.array(getattr(data, key))))
+            # setattr(self, key, copy(np.array(getattr(data, key))))
+            setattr(self, key, copy(getattr(data, key)))
        
-    def computeOptionalParameters(self, data:ExperimentalData):
+    def computeParameters(self):
         """
-        There is a list of optional parameters within the readHdf5 class
-        which can be loaded by the user or are set to None.
-        If they are set to None, some of them will be computed in this
-        function since they might be crucial for FPM but not CPM etc.
-        :param data:
-                Experimental data to copy from
-        :return:
+        compute parameters that can be altered by the user later.
         """
-        self.logger.debug('Computing optional attributed from Experimental Data')
-        
-        # Probe pixel size (depending on the propagator, if none given, assum Fraunhofer/Fresnel)
-        if self.dxp == None:
-            # CPM dxp
-            if self.data.operationMode == 'CPM':
-                self.dxp = self.wavelength * self.zo / self.Ld
-                
-            # FPM dxp (different from CPM due to lens-based systems)
-            elif self.data.operationMode == 'FPM':
-                if self.data.magnification != None:
-                    self.dxp = self.dxd / self.data.magnification
-                else:
-                    self.logger.error('Neither dxp or magnification was provided. Add one of the parameters to the .hdf5 file')
 
-        # Upsampled object plane dimensions
-        if self.No == None:
-            self.No = self.Np*2**2
-            # self.No = self.Np+np.max(self.positions0[:,0])-np.min(self.positions0[:,0])
+        if self.data.operationMode == 'CPM':
+            # CPM dxp (depending on the propagatorType, if none given, assum Fraunhofer/Fresnel)
+            self.dxp = self.wavelength * self.zo / self.Ld
+            # if entrancePupilDiameter is not provided in the hdf5 file, set it to be one third of the probe FoV.
+            if isinstance(self.entrancePupilDiameter, type(None)):
+                self.entrancePupilDiameter = (self.Lp/3).copy()
+            # if spectralDensity is not provided in the hdf5 file, set it to be a 1d array of the wavelength
+            if isinstance(self.spectralDensity, type(None)):
+                self.spectralDensity = np.atleast_1d(self.wavelength)
+
+        elif self.data.operationMode == 'FPM':
+            # FPM dxp (different from CPM due to lens-based systems)
+            if isinstance(self.dxp, type(None)):
+                self.dxp = self.dxd / self.data.magnification
+
+        # set object pixel numbers
+        self.No = self.Np*2**2
+        # self.No = self.Np+np.max(self.positions0[:,0])-np.min(self.positions0[:,0])
+
 
             
-    def initialize_settings(self):
+    def initializeSettings(self):
         """
         Initialize the attributes that have to do with a reconstruction 
-        or experimentalData fields which will become "optimizable"
+        or experimentalData fields which will become "reconstruction"
 
         This method just sets the settings. It sets the what kind of initial guess should be used for initialObject
-        and initialProbe but it does not compute them yet. That will be done by calling prepare_reconstruction()
+        and initialProbe but it does not compute them yet. That will be done by calling initializeObjectProbe()
 
         :return:
         """
@@ -117,7 +120,7 @@ class Optimizable(object):
             self.initialObject = 'ones'
 
 
-    def prepare_reconstruction(self):
+    def initializeObjectProbe(self):
         
         # initialize object and probe
         self.initializeObject()
@@ -138,9 +141,9 @@ class Optimizable(object):
         self.shape_P = (self.nlambda, 1, self.npsm, self.nslice, np.int(self.Np), np.int(self.Np))
         self.initialGuessProbe = initialProbeOrObject(self.shape_P, self.initialProbe, self).astype(np.complex64)
 
+    # initialize momentum, called in specific engines with momentum accelaration
     def initializeObjectMomentum(self):
         self.objectMomentum = np.zeros_like(self.initialGuessObject)
-        
     def initializeProbeMomentum(self):
         self.probeMomentum = np.zeros_like(self.initialGuessProbe)
 
@@ -156,7 +159,8 @@ class Optimizable(object):
             hf.create_dataset('wavelength', data=self.wavelength, dtype='f')
             hf.create_dataset('dxp', data=self.dxp, dtype='f')
             if hasattr(self, 'theta'):
-                hf.create_dataset('theta', data=self.theta, dtype='f')
+                if self.theta!=None:
+                    hf.create_dataset('theta', data=self.theta, dtype='f')
         elif type == 'probe':
             hf = h5py.File(fileName + '_probe.hdf5', 'w')
             hf.create_dataset('probe', data=self.probe, dtype='complex64')

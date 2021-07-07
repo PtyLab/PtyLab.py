@@ -1,4 +1,4 @@
-# This file contains utilities required for Monitors
+# This file contains utilities required for Monitor
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
@@ -8,21 +8,14 @@ from fracPy.utils.gpuUtils import asNumpyArray
 from matplotlib.colors import LinearSegmentedColormap
 import pyqtgraph as pg
 
-
-def CoherencePlot():
-    raise NotImplementedError
-
-def grs2rgb():
-    raise NotImplementedError
-
-def hsv_to_rgb(hsv: np.ndarray) -> np.ndarray:
+def hsv2rgb(hsv: np.ndarray) -> np.ndarray:
     """
     Convert a 3D hsv np.ndarray to rgb (5 times faster than colorsys).
     https://stackoverflow.com/questions/27041559/rgb-to-hsv-python-change-hue-continuously
     h,s should be a numpy arrays with values between 0.0 and 1.0
     v should be a numpy array with values between 0.0 and 255.0
     :param hsv: np.ndarray of shape (x,y,3)
-    :return: hsv_to_rgb returns an array of uints between 0 and 255.
+    :return: hsv2rgb returns an array of uints between 0 and 255.
     """
     rgb = np.empty_like(hsv)
     rgb[..., 3:] = hsv[..., 3:]
@@ -39,7 +32,7 @@ def hsv_to_rgb(hsv: np.ndarray) -> np.ndarray:
     rgb[..., 2] = np.select(conditions, [v, p, t, v, v, q], default=p)
     return rgb.astype('uint8')
 
-def complex_to_rgb(u, amplitudeScalingFactor=1):
+def complex2rgb(u, amplitudeScalingFactor=1):
     """
     Preparation function for a complex plot, converting a 2D complex array into an rgb array
     :param u: a 2D complex array
@@ -59,16 +52,16 @@ def complex_to_rgb(u, amplitudeScalingFactor=1):
     v = v / (np.max(v) + np.finfo(float).eps) * (2 ** 8-1)
 
     hsv = np.dstack([h, s, v])
-    rgb = hsv_to_rgb(hsv)
+    rgb = hsv2rgb(hsv)
     return rgb
 
 
 
-def complex_plot(rgb, ax=None, pixelSize=1, axisUnit = 'pixel'):
+def complexPlot(rgb, ax=None, pixelSize=1, axisUnit ='pixel'):
     """
     Plot a 2D complex plot (hue for phase, brightness for amplitude). Input array need to be prepared by using
-    the complex_to_rgb function.
-    :param rgb: a rgb array that is converted from a 2D complex np.ndarray by using complex_to_rgb
+    the complex2rgb function.
+    :param rgb: a rgb array that is converted from a 2D complex np.ndarray by using complex2rgb
     :param ax: Optional axis to plot in
     :param pixelSize: pixelSize in x and y, to display the physical dimension of the plot
     :param str axisUnit: Options: default 'pixel', 'm', 'cm', 'mm', 'um'
@@ -134,8 +127,8 @@ def hsvplot(u, ax = None, pixelSize = 1, axisUnit='pixel', amplitudeScalingFacto
     return: a complex plot
     """
     u = asNumpyArray(u)
-    rgb = complex_to_rgb(u, amplitudeScalingFactor=amplitudeScalingFactor)
-    complex_plot(rgb, ax, pixelSize, axisUnit)
+    rgb = complex2rgb(u, amplitudeScalingFactor=amplitudeScalingFactor)
+    complexPlot(rgb, ax, pixelSize, axisUnit)
 
 def hsvmodeplot(P, ax=None ,normalize = True, pixelSize =1, axisUnit ='pixel', amplitudeScalingFactor = 1):
     """
@@ -164,6 +157,15 @@ def absplot(u, ax=None, pixelSize=1, axisUnit='pixel', amplitudeScalingFactor = 
     im = ax.imshow(U, extent=extent, interpolation=None, cmap=cmap)
     ax.set_ylabel(axisUnit)
     ax.set_xlabel(axisUnit)
+
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="5%", pad=0.1)
+
+    norm = mpl.colors.Normalize(vmin=0, vmax=amplitudeScalingFactor)
+    scalar_mappable = mpl.cm.ScalarMappable(norm=norm, cmap=cmap)
+    scalar_mappable.set_array([])
+    cbar = plt.colorbar(scalar_mappable, ax=ax, cax=cax, ticks=[0, amplitudeScalingFactor/2, amplitudeScalingFactor])
+    cbar.ax.set_yticklabels(['0', str(amplitudeScalingFactor/2), str(amplitudeScalingFactor)])
 
 
 

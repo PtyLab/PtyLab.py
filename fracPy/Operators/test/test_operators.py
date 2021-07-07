@@ -1,5 +1,5 @@
 from unittest import TestCase
-from fracPy.operators.operators import aspw,scaledASP,scaledASPinv,fresnelPropagator
+from fracPy.Operators.Operators import aspw,scaledASP,scaledASPinv,fresnelPropagator
 import numpy as np
 from fracPy.utils.utils import circ
 from numpy.testing import assert_almost_equal

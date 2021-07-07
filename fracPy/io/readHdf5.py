@@ -7,31 +7,6 @@ import h5py
 
 logger = logging.getLogger('readHdf5')
 
-
-# These are the fields required for ptyLab to work
-# ALL VALUES MUST BE IN METERS
-required_fields = [
-    'ptychogram',       # 3D image stack 
-    'wavelength',       # illumination lambda
-    'encoder',          # diffracted field positions
-    'dxd',              # pixel size
-    'zo'                # sample to detector distance
-]
-
-# These fields are optional because they will either be computed later
-# from the "required_fields" or are required for FPM, but not CPM
-# if not provided by the user they will be set as None
-optional_fields = [
-    'magnification',            # magnification, used for FPM computations of dxp
-    'dxp',                      # dxp, can be provided by the user, otherwise will be computed using dxp=dxd/magnification
-    'No',                       # number of upsampled pixels
-    'Nd',                       # probe/pupil plane size, will be set to Ptychogram size by default
-    'zled',                     # LED to sample distance
-    'entrancePupilDiameter',    # entrance pupil diameter, defined in lens-based microscopes as the aperture diameter, reqquired for FPM
-    'spectralDensity',          # CPM parameters: different wavelength
-    'theta'                     # CPM parameters: reflection tilt angle
-    ]
-
 # These extensions can be loaded
 allowed_extensions = ['.h5', '.hdf5', '.mat']
 
@@ -41,7 +16,6 @@ def scalify(l):
     hdf5 file storing (especially when using matlab) can store integers as
     Numpy arrays of size [1,1]. Convert to scalar if that's the case
     """
-    # return l if len(l) > 1 else l[0] # <- TODO: doesn't work in all cases!
     l = l.squeeze()
     try:
         return l.item()
@@ -49,8 +23,7 @@ def scalify(l):
         return l
 
 
-
-def loadInputData(filename:Path):
+def loadInputData(filename:Path, requiredFields, optionalFields):
     """
     Load all values from an hdf5 file into a dictionary, but only with the required fields
     :param filename: the .hdf5 file that has to be loaded. If it's a .mat file it will attempt to load it
@@ -70,24 +43,18 @@ def loadInputData(filename:Path):
     # start h5 loading, but check data fields first (defined above)
     dataset = dict()
     try:
-        with tables.open_file(str(filename), mode='r') as hdf5_file:
-            # PyTables hierarchy : Table -> Group -> Node
-            # Go through all nodes hanging from the default
-            # for node in hdf5_file.walk_nodes("/", "Array"):
-            #     key = node.name
-            #     value = node.read()
-            #     dataset[key] = scalify(value)
-                
+        with tables.open_file(str(filename), mode='r') as hdf5File:
+
             # load the required fields
-            for key in required_fields: 
-                value = hdf5_file.root[key].read()
+            for key in requiredFields:
+                value = hdf5File.root[key].read()
                 dataset[key] = scalify(value)
            
             # load optional fields, otherwise set to None and compute later
-            for key in optional_fields:
+            for key in optionalFields:
                 # check if the optional field exists otherwise set to None
-                if key in hdf5_file.root:
-                    value = hdf5_file.root[key].read()
+                if key in hdf5File.root:
+                    value = hdf5File.root[key].read()
                     dataset[key] = scalify(value)
                 else:
                     dataset[key] = None
@@ -99,7 +66,7 @@ def loadInputData(filename:Path):
     return dataset
 
 
-def checkDataFields(filename):
+def checkDataFields(filename, requiredFileds):
     """
     Make sure that all the fields in a given .hdf5 file are supported and do some sanity checks.
 
@@ -113,11 +80,11 @@ def checkDataFields(filename):
         nodes = hdf5_file.list_nodes("/")
         # get the names of each node which will be the field names stored
         # within the hdf5 file
-        file_fields = [node.name for node in nodes]
+        fileFields = [node.name for node in nodes]
             
     # check if all the required fields are within the file
-    for k in required_fields:
-        if k not in file_fields:
+    for k in requiredFileds:
+        if k not in fileFields:
             raise KeyError('hdf5 file misses key %s' % k)
     
     return None
