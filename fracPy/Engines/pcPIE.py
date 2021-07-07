@@ -56,6 +56,7 @@ class pcPIE(BaseEngine):
         self.betaM = 0.3          # feedback
         self.stepM = 0.7          # friction
         # self.probeWindow = np.abs(self.reconstruction.probe)
+        self.numIterations = 50
 
     def reconstruct(self):
         self._prepareReconstruction()

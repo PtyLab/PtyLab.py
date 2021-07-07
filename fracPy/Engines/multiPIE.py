@@ -48,6 +48,7 @@ class multiPIE(BaseEngine):
         self.betaM = 0.3  # feedback
         self.stepM = 0.7  # friction
         # self.reconstruction.probeWindow = np.abs(self.reconstruction.probe)
+        self.numIterations = 50
 
         # initialize momentum
         self.reconstruction.initializeObjectMomentum()

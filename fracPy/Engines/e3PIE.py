@@ -42,6 +42,8 @@ class e3PIE(BaseEngine):
         """
         self.params.betaProbe = 0.25
         self.params.betaObject = 0.25
+        self.numIterations = 50
+
         # preallocate transfer function
         self.reconstruction.H = aspw(np.squeeze(self.reconstruction.probe[0, 0, 0, 0, ...]), self.reconstruction.dz,
                                      self.reconstruction.wavelength / self.reconstruction.refrIndex, self.reconstruction.Lp)[1]
