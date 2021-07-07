@@ -18,7 +18,7 @@ from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Params.Params import Params
 from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray
 from fracPy.Monitor.Monitor import Monitor
-from fracPy.Operators.Operators import aspw
+from fracPy.operators.Operators import aspw
 import logging
 import sys
 

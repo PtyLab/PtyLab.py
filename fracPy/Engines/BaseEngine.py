@@ -11,7 +11,7 @@ from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Reconstruction.Reconstruction import Reconstruction
 from fracPy.Params.Params import Params
 from fracPy.utils.utils import ifft2c, fft2c, orthogonalizeModes, circ, posit
-from fracPy.Operators.Operators import aspw, scaledASP
+from fracPy.operators.Operators import aspw, scaledASP
 from fracPy.Monitor.Monitor import Monitor
 from fracPy.utils.visualisation import hsvplot
 from matplotlib import pyplot as plt
