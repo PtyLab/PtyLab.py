@@ -1164,6 +1164,7 @@ class BaseEngine(object):
 
     def modulusEnforcedProbe(self):
         # propagate probe to detector
+        xp = getArrayModule(self.reconstruction.esw)
         self.reconstruction.esw = self.reconstruction.probe
         self.object2detector()
 

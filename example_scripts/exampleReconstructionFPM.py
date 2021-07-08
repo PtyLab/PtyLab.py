@@ -17,9 +17,9 @@ change data visualization and initialization options manually for now
 """
 
 # fileName = 'HeLa_tindie_256x256_color_0.hdf5'  # simu.hdf5 or Lenspaper.hdf5
-fileName = 'LungCarcinomaSmallFPM.hdf5'  # simu.hdf5 or Lenspaper.hdf5 lung_441_256x256_color_0
+fileName = 'lung_441_256x256_color_0.hdf5'  # simu.hdf5 or Lenspaper.hdf5
 filePath = getExampleDataFolder() / fileName
-exampleData, optimizable, params, monitor, engine, calib = fracPy.easyInitialize(filePath, operationMode='FPM')
+optimizable, exampleData, params, monitor, engine, calib = fracPy.easyInitialize(filePath, operationMode ='FPM')
 
 # %% Prepare everything for the reconstruction
 # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
