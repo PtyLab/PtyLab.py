@@ -5,7 +5,7 @@ import logging
 import warnings
 import h5py
 # fracPy imports
-from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray
+from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray, transfer_fields_to_gpu, transfer_fields_to_cpu
 from fracPy.utils.initializationFunctions import initialProbeOrObject
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Optimizables.Reconstruction import Reconstruction
@@ -346,59 +346,81 @@ class BaseEngine(object):
         Move the data to the GPU, called when the gpuSwitch is on.
         :return:
         """
-        # reconstruction parameters
-        self.reconstruction.probe = cp.array(self.reconstruction.probe, cp.complex64)
-        self.reconstruction.object = cp.array(self.reconstruction.object, cp.complex64)
-        self.reconstruction.detectorError = cp.array(self.reconstruction.detectorError, cp.float32)
 
-        if self.params.momentumAcceleration:
-            self.reconstruction.probeBuffer = cp.array(self.reconstruction.probeBuffer, cp.complex64)
-            self.reconstruction.objectBuffer = cp.array(self.reconstruction.objectBuffer, cp.complex64)
-            self.reconstruction.probeMomentum = cp.array(self.reconstruction.probeMomentum, cp.complex64)
-            self.reconstruction.objectMomentum = cp.array(self.reconstruction.objectMomentum, cp.complex64)
+        self.reconstruction._move_data_to_gpu()
+        self.experimentalData._move_data_to_gpu()
+
+        transfer_fields_to_gpu(self, ['probeWindow',], self.logger)# '.probeWindow = cp.array(self.probeWindow)
+
+        # reconstruction parameters
+        # self.reconstruction.probe = cp.array(self.reconstruction.probe, cp.complex64)
+        # self.reconstruction.object = cp.array(self.reconstruction.object, cp.complex64)
+        # self.reconstruction.detectorError = cp.array(self.reconstruction.detectorError, cp.float32)
+
+        # if self.params.momentumAcceleration:
+        #     self.reconstruction.probeBuffer = cp.array(self.reconstruction.probeBuffer, cp.complex64)
+        #     self.reconstruction.objectBuffer = cp.array(self.reconstruction.objectBuffer, cp.complex64)
+        #     self.reconstruction.probeMomentum = cp.array(self.reconstruction.probeMomentum, cp.complex64)
+        #     self.reconstruction.objectMomentum = cp.array(self.reconstruction.objectMomentum, cp.complex64)
 
         # for doing the coordinate transform and especially the otherwise slow interpolation of aPIE on the gpu
         if hasattr(self.params, 'aPIEflag'):
             if self.params.aPIEflag == True:
-                self.ptychogramUntransformed = cp.array(self.ptychogramUntransformed)
-                self.Uq = cp.array(self.Uq)
-                self.Vq = cp.array(self.Vq)
-                self.theta = cp.array(self.reconstruction.theta)
-                self.wavelength = cp.array(self.reconstruction.wavelength)
-                self.Xd = cp.array(self.Xd)
-                self.Yd = cp.array(self.Yd)
-                self.dxd = cp.array(self.dxd)
-                self.zo = cp.array(self.zo)
-                self.experimentalData.W = cp.array(self.experimentalData.W)
+                fields_to_transfer = [
+                    'ptychogramUntransformed',
+                'Uq',
+                'Vq',
+                'theta',
+                'wavelength',
+                'Xd',
+                'Yd'
+                'dxd',
+                'zo',
+                ]
+                self.theta = self.reconstruction.theta
+                self.wavelength = self.reconstruction.wavelength
+
+                transfer_fields_to_gpu(self, fields_to_transfer, self.logger)
+                # self.ptychogramUntransformed = cp.array(self.ptychogramUntransformed)
+                # self.Uq = cp.array(self.Uq)
+                # self.Vq = cp.array(self.Vq)
+                # self.theta = cp.array(self.reconstruction.theta)
+                # self.wavelength = cp.array(self.reconstruction.wavelength)
+                # self.Xd = cp.array(self.Xd)
+                # self.Yd = cp.array(self.Yd)
+                # self.dxd = cp.array(self.dxd)
+                # self.zo = cp.array(self.zo)
+                # self.experimentalData.W = cp.array(self.experimentalData.W)
 
         # non-reconstruction parameters
-        if hasattr(self.experimentalData, 'ptychogramDownsampled'):
-            self.experimentalData.ptychogramDownsampled = cp.array(self.experimentalData.ptychogramDownsampled,
-                                                                   cp.float32)
-        else:
-            self.experimentalData.ptychogram = cp.array(self.experimentalData.ptychogram, cp.float32)
+        # if hasattr(self.experimentalData, 'ptychogramDownsampled'):
+        #     self.experimentalData.ptychogramDownsampled = cp.array(self.experimentalData.ptychogramDownsampled,
+        #                                                            cp.float32)
+        # else:
+        #     self.experimentalData.ptychogram = cp.array(self.experimentalData.ptychogram, cp.float32)
 
         # propagators
-        if self.params.propagatorType == 'Fresnel':
-            self.reconstruction.quadraticPhase = cp.array(self.reconstruction.quadraticPhase)
-        elif self.params.propagatorType == 'ASP' or self.params.propagatorType == 'polychromeASP':
-            self.reconstruction.transferFunction = cp.array(self.reconstruction.transferFunction)
-        elif self.params.propagatorType == 'scaledASP' or self.params.propagatorType == 'scaledPolychromeASP':
-            self.reconstruction.Q1 = cp.array(self.reconstruction.Q1)
-            self.reconstruction.Q2 = cp.array(self.reconstruction.Q2)
-        elif self.params.propagatorType == 'twoStepPolychrome':
-            self.reconstruction.quadraticPhase = cp.array(self.reconstruction.quadraticPhase)
-            self.reconstruction.transferFunction = cp.array(self.reconstruction.transferFunction)
+        # if self.params.propagatorType == 'Fresnel':
+        #     self.reconstruction.quadraticPhase = cp.array(self.reconstruction.quadraticPhase)
+        # elif self.params.propagatorType == 'ASP' or self.params.propagatorType == 'polychromeASP':
+        #     self.reconstruction.transferFunction = cp.array(self.reconstruction.transferFunction)
+        # elif self.params.propagatorType == 'scaledASP' or self.params.propagatorType == 'scaledPolychromeASP':
+        #     self.reconstruction.Q1 = cp.array(self.reconstruction.Q1)
+        #     self.reconstruction.Q2 = cp.array(self.reconstruction.Q2)
+        # elif self.params.propagatorType == 'twoStepPolychrome':
+        #     self.reconstruction.quadraticPhase = cp.array(self.reconstruction.quadraticPhase)
+        #     self.reconstruction.transferFunction = cp.array(self.reconstruction.transferFunction)
 
         # other parameters
-        if self.params.backgroundModeSwitch:
-            self.reconstruction.background = cp.array(self.reconstruction.background)
-        if self.params.absorbingProbeBoundary or self.params.probeBoundary:
-            self.probeWindow = cp.array(self.probeWindow)
-        if self.params.modulusEnforcedProbeSwitch:
-            self.experimentalData.emptyBeam = cp.array(self.experimentalData.emptyBeam)
-        if self.params.intensityConstraint == 'interferometric':
-            self.reconstruction.reference = cp.array(self.reconstruction.reference)
+        # if self.params.backgroundModeSwitch:
+        #     self.reconstruction.background = cp.array(self.reconstruction.background)
+        # if self.params.absorbingProbeBoundary or self.params.probeBoundary:
+
+        # if self.params.modulusEnforcedProbeSwitch:
+        #     self.experimentalData.emptyBeam = cp.array(self.experimentalData.emptyBeam)
+        # if self.params.intensityConstraint == 'interferometric':
+        #     self.reconstruction.reference = cp.array(self.reconstruction.reference)
+
 
     def _move_data_to_cpu(self):
         """
@@ -406,48 +428,64 @@ class BaseEngine(object):
         :return:
         """
         # reconstruction parameters
-        self.reconstruction.probe = self.reconstruction.probe.get()
-        self.reconstruction.object = self.reconstruction.object.get()
+        from fracPy.utils.gpuUtils import asNumpyArray
 
-        if self.params.momentumAcceleration:
-            self.reconstruction.probeBuffer = self.reconstruction.probeBuffer.get()
-            self.reconstruction.objectBuffer = self.reconstruction.objectBuffer.get()
-            self.reconstruction.probeMomentum = self.reconstruction.probeMomentum.get()
-            self.reconstruction.objectMomentum = self.reconstruction.objectMomentum.get()
+        self.reconstruction._move_data_to_cpu()
+        self.experimentalData._move_data_to_cpu()
+        transfer_fields_to_cpu(self, ['probeWindow', ], self.logger)
+
+        # self.reconstruction.move_to_CPU()
+        # self.params.move_to_CPU()
+
+        # self.reconstruction.probe = asNumpyArray(self.reconstruction.probe)
+        # self.reconstruction.object = asNumpyArray(self.reconstruction.object)
+
+        # if self.params.momentumAcceleration:
+            # reconstruction_fields_to_transfer = ['probeBuffer', 'objectBuffer', 'probeMomentum',' objectMomentum']
+            # for field in reconstruction_fields_to_transfer:
+            #
+            #     setattr(self.reconstruction, field,)
+            # self.reconstruction.probeBuffer = self.reconstruction.probeBuffer.get()
+            # self.reconstruction.objectBuffer = self.reconstruction.objectBuffer.get()
+            # self.reconstruction.probeMomentum = self.reconstruction.probeMomentum.get()
+            # self.reconstruction.objectMomentum = self.reconstruction.objectMomentum.get()
 
             # for doing the coordinate transform and especially the otherwise slow interpolation of aPIE on the gpu
-        if hasattr(self.params, 'aPIEflag'):
-            if self.params.aPIEflag:
-                self.theta = self.theta.get()
+        # if hasattr(self.params, 'aPIEflag'):
+        #     if self.params.aPIEflag:
+        #         self.theta = self.theta.get()
+        #
+        fields_to_transfer = ['theta', 'probeWindow']
+        # self.probeWindow = self.probeWindow.get()
 
         # non-reconstruction parameters
-        if hasattr(self.experimentalData, 'ptychogramDownsampled'):
-            self.experimentalData.ptychogramDownsampled = self.experimentalData.ptychogramDownsampled.get()
-        else:
-            self.experimentalData.ptychogram = self.experimentalData.ptychogram.get()
-        self.reconstruction.detectorError = self.reconstruction.detectorError.get()
+        # if hasattr(self.experimentalData, 'ptychogramDownsampled'):
+        #     self.experimentalData.ptychogramDownsampled = self.experimentalData.ptychogramDownsampled.get()
+        # else:
+        #     self.experimentalData.ptychogram = self.experimentalData.ptychogram.get()
+        # self.reconstruction.detectorError = self.reconstruction.detectorError.get()
 
         # propagators
-        if self.params.propagatorType == 'Fresnel':
-            self.reconstruction.quadraticPhase = self.reconstruction.quadraticPhase.get()
-        elif self.params.propagatorType == 'ASP' or self.params.propagatorType == 'polychromeASP':
-            self.reconstruction.transferFunction = self.reconstruction.transferFunction.get()
-        elif self.params.propagatorType == 'scaledASP' or self.params.propagatorType == 'scaledPolychromeASP':
-            self.reconstruction.Q1 = self.reconstruction.Q1.get()
-            self.reconstruction.Q2 = self.reconstruction.Q2.get()
-        elif self.params.propagatorType == 'twoStepPolychrome':
-            self.reconstruction.quadraticPhase = self.reconstruction.quadraticPhase.get()
-            self.reconstruction.transferFunction = self.reconstruction.transferFunction.get()
+        # if self.params.propagatorType == 'Fresnel':
+            # self.reconstruction.quadraticPhase = self.reconstruction.quadraticPhase.get()
+        # elif self.params.propagatorType == 'ASP' or self.params.propagatorType == 'polychromeASP':
+        #     self.reconstruction.transferFunction = self.reconstruction.transferFunction.get()
+        # elif self.params.propagatorType == 'scaledASP' or self.params.propagatorType == 'scaledPolychromeASP':
+        #     self.reconstruction.Q1 = self.reconstruction.Q1.get()
+        #     self.reconstruction.Q2 = self.reconstruction.Q2.get()
+        # elif self.params.propagatorType == 'twoStepPolychrome':
+        #     self.reconstruction.quadraticPhase = self.reconstruction.quadraticPhase.get()
+        #     self.reconstruction.transferFunction = self.reconstruction.transferFunction.get()
 
         # other parameters
-        if self.params.backgroundModeSwitch:
-            self.reconstruction.background = self.reconstruction.background.get()
-        if self.params.absorbingProbeBoundary or self.params.probeBoundary:
-            self.probeWindow = self.probeWindow.get()
-        if self.params.modulusEnforcedProbeSwitch:
-            self.experimentalData.emptyBeam = self.experimentalData.emptyBeam.get()
-        if self.params.intensityConstraint == 'interferometric':
-            self.reconstruction.reference = self.reconstruction.reference.get()
+        # if self.params.backgroundModeSwitch:
+        #     # self.reconstruction.background = self.reconstruction.background.get()
+        # if self.params.absorbingProbeBoundary or self.params.probeBoundary:
+
+        # if self.params.modulusEnforcedProbeSwitch:
+        #     self.experimentalData.emptyBeam = self.experimentalData.emptyBeam.get()
+        # # if self.params.intensityConstraint == 'interferometric':
+        #     self.reconstruction.reference = self.reconstruction.reference.get()
 
     def _checkGPU(self):
         if not hasattr(self.params, 'gpuFlag'):
@@ -455,14 +493,17 @@ class BaseEngine(object):
 
         if self.params.gpuSwitch:
             if cp is None:
-                raise ImportError('Could not import cupy, turn gpuSwitch to false, perform CPU reconstruction')
+                raise ImportError('Could not import cupy, therefore no GPU reconstruction is possible. To reconstruct, set the params.gpuSwitch to False.')
             if not self.params.gpuFlag:
                 self.logger.info('switch to gpu')
 
                 # load data to gpu
                 self._move_data_to_gpu()
                 self.params.gpuFlag = 1
+            # always do this as it gets away with hard to debug errors
+            self._move_data_to_gpu()
         else:
+            self._move_data_to_cpu()
             if self.params.gpuFlag:
                 self.logger.info('switch to cpu')
                 self._move_data_to_cpu()

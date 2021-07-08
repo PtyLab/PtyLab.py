@@ -6,6 +6,7 @@ import h5py
 # logging.basicConfig(level=logging.DEBUG)
 
 from fracPy.utils.initializationFunctions import initialProbeOrObject
+from fracPy.utils.gpuUtils import transfer_fields_to_cpu, transfer_fields_to_gpu
 
 
 class Reconstruction(object):
@@ -28,13 +29,28 @@ class Reconstruction(object):
             'zled',
             'entrancePupilDiameter'
         ]
-    
+
     def __init__(self, data:ExperimentalData):
         self.logger = logging.getLogger('Reconstruction')
         self.data = data
         self.copyAttributesFromExperiment(data)
         self.computeOptionalParameters(data)
         self.initializeSettings()
+
+        # list of the fields that have to be transfered back and forth from the GPU
+        self.possible_GPU_fields = ['probe',
+                       'object',
+                       'probeBuffer',
+                       'objectBuffer',
+                       'probeMomentum',
+                       'objectMomentum',
+                       'detectorError',
+                       'quadraticPhase',
+                       'transferFunction',
+                       'Q1', 'Q2',
+                       'background',
+                                    'reference',
+                                    ]
 
     def copyAttributesFromExperiment(self, data:ExperimentalData):
         """
@@ -301,3 +317,15 @@ class Reconstruction(object):
         """expected Depth of field"""
         DoF = self.wavelength / self.NAd ** 2
         return DoF
+
+
+    def _move_data_to_cpu(self):
+        """
+        Move all the required fields to the CPU
+        :return:
+        """
+
+        transfer_fields_to_cpu(self, self.possible_GPU_fields, self.logger)
+
+    def _move_data_to_gpu(self):
+        transfer_fields_to_gpu(self, self.possible_GPU_fields, self.logger)

@@ -1,3 +1,4 @@
+from fracPy.utils.gpuUtils import transfer_fields_to_cpu, transfer_fields_to_gpu
 import numpy as np
 import pyqtgraph as pg
 import matplotlib.pyplot as plt
@@ -24,6 +25,20 @@ class ExperimentalData:
         self.filename = filename
         if filename is not None:
             self.loadData(filename)
+
+        # which fields have to be transferred if GPU operation is required?
+        # not all of them are always used, but the class will determine by itself which ones are
+        # required
+        self.fields_to_transfer = [
+            'emptyBeam',
+            'ptychogram',
+            'ptychogramDownsampled',
+            'W', # for aPIE
+        ]
+
+
+
+
 
 
     def loadData(self, filename=None, python_order=True):
@@ -128,3 +143,11 @@ class ExperimentalData:
         xp = getArrayModule(self.ptychogram)
         show3Dslider(xp.log10(xp.swapaxes(self.ptychogram, 1,2)+1))
         print('Maximum count in ptychogram is %d'%(np.max(self.ptychogram)))  #todo: make this the title
+
+    def _move_data_to_cpu(self):
+        """ Move all required data to the CPU """
+        transfer_fields_to_cpu(self, self.fields_to_transfer, self.logger)
+
+    def _move_data_to_gpu(self):
+        """ Move all required fata to the GPU"""
+        transfer_fields_to_gpu(self, self.fields_to_transfer, self.logger)

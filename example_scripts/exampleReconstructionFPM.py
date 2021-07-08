@@ -17,8 +17,10 @@ change data visualization and initialization options manually for now
 """
 
 # fileName = 'HeLa_tindie_256x256_color_0.hdf5'  # simu.hdf5 or Lenspaper.hdf5
-fileName = 'lung_441_256x256_color_0.hdf5'  # simu.hdf5 or Lenspaper.hdf5
+fileName = 'Lenspaper.hdf5'#lung_441_256x256_color_0.hdf5'  # simu.hdf5 or Lenspaper.hdf5
 filePath = getExampleDataFolder() / fileName
+print(filePath, filePath.exists())
+filePath = 'example:simulation_fpm'
 optimizable, exampleData, params, monitor, engine, calib = fracPy.easyInitialize(filePath, operationMode ='FPM')
 
 # %% Prepare everything for the reconstruction
