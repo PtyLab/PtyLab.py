@@ -1,7 +1,13 @@
 from unittest import TestCase
+import unittest
 import logging
+import numpy as np
 logging.basicConfig(level=logging.DEBUG)
 import fracPy
+try:
+    import cupy as cp
+except ImportError:
+    cp = None
 
 class TestBaseEngine(TestCase):
     def setUp(self) -> None:
@@ -19,13 +25,15 @@ class TestBaseEngine(TestCase):
         self.ePIE_engine._move_data_to_cpu()
         self.ePIE_engine._move_data_to_cpu()
         # test that things are actually on the CPU
-        print(type(self.ePIE_engine.reconstruction.object))
+        assert type(self.ePIE_engine.reconstruction.object) is np.ndarray
+        #print(type(self.ePIE_engine.reconstruction.object))
 
+    @unittest.skipIf(cp is None, 'no GPU available')
     def test__move_data_to_gpu(self):
         self.ePIE_engine.reconstruction.logger.setLevel(logging.DEBUG)
         self.ePIE_engine._move_data_to_gpu()
         self.ePIE_engine._move_data_to_gpu()
-        print(type(self.ePIE_engine.reconstruction.object))
+        assert type(self.ePIE_engine.reconstruction.object) is cp.ndarray
 
 
 
