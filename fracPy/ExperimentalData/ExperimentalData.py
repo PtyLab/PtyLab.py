@@ -17,6 +17,8 @@ class ExperimentalData:
     It only holds attributes that are the same for every type of reconstruction.
     """
 
+    current_orientation = 0
+
     def __init__(self, filename=None, operationMode='CPM'):
         self.logger = logging.getLogger('ExperimentalData')
         self.logger.debug('Initializing ExperimentalData object')
@@ -64,7 +66,6 @@ class ExperimentalData:
         else:
             raise ValueError('operationMode is not properly set, choose "CPM" or "FPM"')
 
-
     def loadData(self, filename=None):
         """
         Load data specified in filename.
@@ -104,13 +105,41 @@ class ExperimentalData:
 
         self._setData()
 
-
-    def setOrientation(self, orientation):
+    def setOrientation(self, orientation, relativ_to_raw=True):
         """
         Sets the correct orientation. This function follows the ptypy convention.
         """
+
         if not isinstance(orientation, int):
             raise TypeError("Orientation value is not valid.")
+
+        if relativ_to_raw:
+            if self.current_orientation == 1:
+                # Invert column
+                self.ptychogram = np.fliplr(self.ptychogram)
+            elif self.current_orientation == 2:
+                # Invert rows
+                self.ptychogram = np.flipud(self.ptychogram)
+            elif self.current_orientation == 3:
+                # invert columns and rows
+                self.ptychogram = np.fliplr(self.ptychogram)
+                self.ptychogram = np.flipud(self.ptychogram)
+            elif self.current_orientation == 4:
+                # Transpose
+                self.ptychogram = np.transpose(self.ptychogram, (0, 2, 1))
+            elif self.current_orientation == 5:
+                self.ptychogram = np.fliplr(self.ptychogram)
+                self.ptychogram = np.transpose(self.ptychogram, (0, 2, 1))
+            elif self.current_orientation == 6:
+                self.ptychogram = np.flipud(self.ptychogram)
+                self.ptychogram = np.transpose(self.ptychogram, (0, 2, 1))
+            elif self.current_orientation == 7:
+                self.ptychogram = np.flipud(self.ptychogram)
+                self.ptychogram = np.fliplr(self.ptychogram)
+                self.ptychogram = np.transpose(self.ptychogram, (0, 2, 1))
+
+            self.current_orientation = 0
+
         if orientation == 1:
             # Invert column
             self.ptychogram = np.fliplr(self.ptychogram)
@@ -134,6 +163,13 @@ class ExperimentalData:
             self.ptychogram = np.transpose(self.ptychogram, (0, 2, 1)) 
             self.ptychogram = np.fliplr(self.ptychogram)
             self.ptychogram = np.flipud(self.ptychogram)
+        elif orientation == 0:
+            # Do nothing
+            pass
+        else:
+            raise ValueError('Wrong orientation value')
+
+        self.current_orientation = orientation
         
     def _setData(self):
 
