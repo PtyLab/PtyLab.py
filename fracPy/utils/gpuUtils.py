@@ -1,4 +1,7 @@
 # This file contains utilities that enable the use of a GPU while allowing to run the toolbox without one
+import logging
+from typing import List
+
 import numpy as np
 
 
@@ -42,3 +45,50 @@ def asNumpyArray(ary) -> np.ndarray:
     else:
         return ary
 
+
+def asCupyArray(field: np.ndarray, dtype='auto'):
+    if dtype == 'auto':
+        if np.isrealobj(field):
+            dtype = np.float32
+        elif np.iscomplexobj(field):
+            dtype = np.complex64
+        else:
+            raise NotImplementedError(f'Dtype {field.dtype} is not supported.')
+    return cp.array(field, copy=False, dtype=dtype)
+
+
+def transfer_fields_to_gpu(self: object, fields: List[str], logger: logging.Logger, dtype='auto'):
+    """
+    Move any fields defined in fields to the CPU. Fields has to be a list of strings with field names
+    :param self:
+    :param fields:
+    :param logger:
+    :param dtype: data type. If 'auto', will be set to np.float32 for real-valued data and np.complex64 for complex
+    :return:
+    """
+    for field in fields:
+        if hasattr(self, field):  # This field is defined
+            # move it to the CPU
+            attribute = getattr(self, field)
+            setattr(self, field, asCupyArray(attribute))
+            self.logger.debug(f'Moved {field} to GPU')
+        else:
+            self.logger.debug(f'Skipped {field} as it is not defined')
+
+
+def transfer_fields_to_cpu(self: object, fields: List[str], logger: logging.Logger):
+    """
+    Move any fields defined in fields to the CPU. Fields has to be a list of strings with field names
+    :param self:
+    :param fields:
+    :param logger:
+    :return:
+    """
+    for field in fields:
+        if hasattr(self, field):  # This field is defined
+            # move it to the CPU
+            attribute = getattr(self, field)
+            setattr(self, field, asNumpyArray(attribute))
+            self.logger.debug(f'Moved {field} to CPU')
+        else:
+            self.logger.debug(f'Skipped {field} as it is not defined')
