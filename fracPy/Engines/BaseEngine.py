@@ -488,8 +488,6 @@ class BaseEngine(object):
         #     self.reconstruction.reference = self.reconstruction.reference.get()
 
     def _checkGPU(self):
-        if not hasattr(self.params, 'gpuFlag'):
-            self.params.gpuFlag = 0
 
         if self.params.gpuSwitch:
             if cp is None:

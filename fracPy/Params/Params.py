@@ -9,6 +9,9 @@ class Params(object):
 
     optimizer1 = optimizers.
     """
+    # To prevent adding attributes in an uncontrolled way, we freeze the attributes after init.
+    _isFrozen = False
+
     def __init__(self):
         # datalogger
         self.logger = logging.getLogger('Params')
@@ -27,6 +30,7 @@ class Params(object):
 
         ## Specific reconstruction settings that are the same for all Engines
         self.gpuSwitch = False
+        self.gpuFlag = 0
         # This only makes sense on a GPU, not there yet
         self.saveMemory = False
         self.probeUpdateStart = 1
@@ -68,7 +72,13 @@ class Params(object):
         self.positionCorrectionSwitch = False  # position correction for encoder
         self.adaptiveDenoisingSwitch = False  # estimated noise floor to be clipped from raw data
 
+        # To prevent adding attributes in an uncontrolled way
+        self._isFrozen = True
 
-
+    # rewrite the __setattr__ method to prevent adding attributes in an uncontrolled way
+    def __setattr__(self, key, value):
+        if self._isFrozen and not hasattr(self, key):
+            raise TypeError('Params does not have this attribute, check spelling!')
+        object.__setattr__(self, key, value)
 
 
