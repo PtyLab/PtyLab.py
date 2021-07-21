@@ -851,7 +851,7 @@ class BaseEngine(object):
                 object_estimate = np.squeeze(asNumpyArray(
                     self.reconstruction.object[..., self.monitor.objectROI[0], self.monitor.objectROI[1]]))
                 probe_estimate = np.squeeze(asNumpyArray(
-                    self.reconstruction.probe[0, ..., self.monitor.probeROI[0], self.monitor.probeROI[1]]))
+                    self.reconstruction.probe[..., self.monitor.probeROI[0], self.monitor.probeROI[1]]))
 
             self.monitor.updateObjectProbeErrorMonitor(object_estimate=object_estimate, probe_estimate=probe_estimate)
 
