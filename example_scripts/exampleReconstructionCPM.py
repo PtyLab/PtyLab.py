@@ -17,6 +17,12 @@ fileName = 'Lenspaper.hdf5'  # simu.hdf5 or Lenspaper.hdf5
 filePath = getExampleDataFolder() / fileName
 
 experimentalData, reconstruction, params, monitor, ePIE_engine = fracPy.easyInitialize(filePath, operationMode='CPM')
+# experimentalData.encoder = -np.fliplr(experimentalData.encoder)
+# experimentalData.ptychogram = experimentalData.ptychogram[...,::2,::2]
+# experimentalData.xd *= 2
+from fracPy import Reconstruction
+reconstruction: Reconstruction = Reconstruction(experimentalData)
+
 
 ## altternative
 # experimentalData = ExperimentalData()
@@ -31,6 +37,7 @@ reconstruction.npsm = 1 # Number of probe modes to reconstruct
 reconstruction.nosm = 1 # Number of object modes to reconstruct
 reconstruction.nlambda = 1 # len(experimentalData.spectralDensity) # Number of wavelength
 reconstruction.nslice = 1 # Number of object slice
+
 # reconstruction.dxp = reconstruction.dxd
 
 
@@ -41,8 +48,9 @@ reconstruction.initialObject = 'ones'
 reconstruction.initializeObjectProbe()
 
 # customize initial probe quadratic phase
-reconstruction.probe = reconstruction.probe * np.exp(1.j * 2 * np.pi / reconstruction.wavelength *
-                                                     (reconstruction.Xp ** 2 + reconstruction.Yp ** 2) / (2 * 6e-3))
+reconstruction.probe = -reconstruction.probe #* np.exp(1.j * 2 * np.pi / reconstruction.wavelength *
+                                           #          (reconstruction.Xp ** 2 + reconstruction.Yp ** 2) / (2 * 6e-3))
+
 
 # this will copy any attributes from experimental data that we might care to optimize
 # # Set monitor properties
@@ -50,7 +58,7 @@ reconstruction.probe = reconstruction.probe * np.exp(1.j * 2 * np.pi / reconstru
 monitor.figureUpdateFrequency = 1
 monitor.objectPlot = 'complex'  # complex abs angle
 monitor.verboseLevel = 'high'  # high: plot two figures, low: plot only one figure
-monitor.objectZoom = 4   # control object plot FoV
+monitor.objectZoom = 2   # control object plot FoV
 monitor.probeZoom = 0.5   # control probe plot FoV
 
 # Run the reconstruction
@@ -59,6 +67,14 @@ monitor.probeZoom = 0.5   # control probe plot FoV
 ## main parameters
 params.positionOrder = 'random'  # 'sequential' or 'random'
 params.propagatorType = 'Fresnel'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
+params.positionCorrectionSwitch = False
+
+params.objectSmoothenessSwitch = True
+params.objectSmoothnessAleph = 1e-2
+
+params.probeSmoothenessSwitch = True
+params.probeSmoothnessAleph = 1e-2
+
 
 
 ## how do we want to reconstruct?

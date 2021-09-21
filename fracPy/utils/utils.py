@@ -4,7 +4,8 @@ import scipy.stats as st
 
 from fracPy.utils.gpuUtils import getArrayModule
 
-def fft2c(array):
+
+def fft2c(field, fftshiftSwitch=False):
     """
     performs 2 - dimensional unitary Fourier transformation, where energy is reserved abs(g)**2==abs(fft2c(g))**2
     if g is two - dimensional, fft2c(g) yields the 2D DFT of g
@@ -12,10 +13,15 @@ def fft2c(array):
     :param array:
     :return:
     """
-    xp = getArrayModule(array)
-    return xp.fft.fftshift(xp.fft.fft2(xp.fft.ifftshift(array), norm='ortho'))
+    xp = getArrayModule(field)
 
-def ifft2c(array):
+    if fftshiftSwitch:
+        return xp.fft.fft2(field, norm='ortho')
+    else:
+        axes=(-2,-1)
+        return xp.fft.fftshift(xp.fft.fft2(xp.fft.ifftshift(field, axes=axes), norm='ortho'), axes=axes)
+
+def ifft2c(field, fftshiftSwitch=False):
     """
     performs 2 - dimensional inverse Fourier transformation, where energy is reserved abs(G)**2==abs(fft2c(g))**2
     if G is two - dimensional, fft2c(G) yields the 2D iDFT of G
@@ -23,8 +29,14 @@ def ifft2c(array):
     :param array:
     :return:
     """
-    xp = getArrayModule(array)
-    return xp.fft.fftshift(xp.fft.ifft2(xp.fft.ifftshift(array), norm='ortho'))
+    xp = getArrayModule(field)
+
+    if fftshiftSwitch:
+        return xp.fft.ifft2(field, norm='ortho')
+    else:
+        axes = (-2,-1)
+        return xp.fft.fftshift(
+            xp.fft.ifft2(xp.fft.ifftshift(field, axes=axes), norm='ortho'), axes=axes)
 
 
 def circ(x,y,D):

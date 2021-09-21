@@ -145,7 +145,8 @@ class ExperimentalData:
             self.ptychogram = np.transpose(self.ptychogram, (0, 2, 1)) 
             self.ptychogram = np.fliplr(self.ptychogram)
             self.ptychogram = np.flipud(self.ptychogram)
-        
+
+
     def _setData(self):
 
         # Set the detector coordinates
