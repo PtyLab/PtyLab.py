@@ -69,7 +69,8 @@ class Reconstruction(object):
             self.logger.debug('Copying attribute %s', key)
             # setattr(self, key, copy(np.array(getattr(data, key))))
             setattr(self, key, copy(getattr(data, key)))
-       
+
+
     def computeParameters(self):
         """
         compute parameters that can be altered by the user later.

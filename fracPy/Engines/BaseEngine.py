@@ -1,3 +1,4 @@
+from fracPy import Operators
 from fracPy.Monitor.Plots import ObjectProbeErrorPlot,DiffractionDataPlot
 import numpy as np
 from scipy.signal import get_window
@@ -15,7 +16,10 @@ from fracPy.Operators.Operators import aspw, scaledASP
 from fracPy.Monitor.Monitor import Monitor
 from fracPy.utils.visualisation import hsvplot
 from matplotlib import pyplot as plt
-
+#from fracPy.utils.utils import smooth_amplitude
+# Dirty hack to get running
+smooth_amplitude = lambda x, *args: x
+# from ..Operators.Operators import FT, IFT
 try:
     import cupy as cp
 
@@ -560,55 +564,28 @@ class BaseEngine(object):
     def _match_dtypes_real(self):
         raise NotImplementedError()
 
-    def object2detector(self):
+    def object2detector(self, esw=None):
         """
-        Implements object2detector.m
+        Implements object2detector.m. Modifies esw in-place
         :return:
         """
-        if self.params.propagatorType == 'Fraunhofer':
-            self.fft2s()
-        elif self.params.propagatorType == 'Fresnel':
-            self.reconstruction.esw = self.reconstruction.esw * self.reconstruction.quadraticPhase
-            self.fft2s()
-        elif self.params.propagatorType == 'ASP' or self.params.propagatorType == 'polychromeASP':
-            self.reconstruction.ESW = ifft2c(fft2c(self.reconstruction.esw) * self.reconstruction.transferFunction)
-        elif self.params.propagatorType == 'scaledASP' or self.params.propagatorType == 'scaledPolychromeASP':
-            self.reconstruction.ESW = ifft2c(fft2c(self.reconstruction.esw * self.reconstruction.Q1) * self.reconstruction.Q2)
-        elif self.params.propagatorType == 'twoStepPolychrome':
-            self.reconstruction.esw = ifft2c(fft2c(self.reconstruction.esw) * self.reconstruction.transferFunction) * \
-                                   self.reconstruction.quadraticPhase
-            self.fft2s()
-        else:
-            raise Exception('Propagator is not properly set, choose from Fraunhofer, Fresnel, ASP and scaledASP')
 
-    def detector2object(self):
+
+        self.reconstruction.ESW = Operators.Operators.object2detector(self.reconstruction.esw, self.params, self.reconstruction)
+
+    def detector2object(self, esw=None):
         """
         Propagate the ESW to the object plane (in-place).
 
         Matches: detector2object.m
         :return:
         """
-        if self.params.propagatorType == 'Fraunhofer':
-            self.ifft2s()
-        elif self.params.propagatorType == 'Fresnel':
-            self.ifft2s()
-            self.reconstruction.esw = self.reconstruction.esw * self.reconstruction.quadraticPhase.conj()
-            self.reconstruction.eswUpdate = self.reconstruction.eswUpdate * self.reconstruction.quadraticPhase.conj()
-        elif self.params.propagatorType == 'ASP' or self.params.propagatorType == 'polychromeASP':
-            self.reconstruction.eswUpdate = ifft2c(fft2c(self.reconstruction.ESW) * self.reconstruction.transferFunction.conj())
-        elif self.params.propagatorType == 'scaledASP' or self.params.propagatorType == 'scaledPolychromeASP':
-            self.reconstruction.eswUpdate = ifft2c(fft2c(self.reconstruction.ESW) * self.reconstruction.Q2.conj()) \
-                                         * self.reconstruction.Q1.conj()
-        elif self.params.propagatorType == 'twoStepPolychrome':
-            self.ifft2s()
-            self.reconstruction.esw = ifft2c(fft2c(self.reconstruction.esw *
-                                                self.reconstruction.quadraticPhase.conj()) *
-                                          self.reconstruction.transferFunction.conj())
-            self.reconstruction.eswUpdate = ifft2c(fft2c(self.reconstruction.eswUpdate *
-                                                      self.reconstruction.quadraticPhase.conj()) *
-                                                self.reconstruction.transferFunction.conj())
-        else:
-            raise Exception('Propagator is not properly set, choose from Fraunhofer, Fresnel, ASP and scaledASP')
+        esw, eswUpdate = Operators.Operators.detector2object(self.reconstruction.ESW, self.params, self.reconstruction)
+        # Dirk is not sure why this has to be changed at all but it sometimes is
+        self.reconstruction.esw = esw
+        # this is the new estimate which will be processed later
+        self.reconstruction.eswUpdate = eswUpdate
+
 
     def exportOjb(self, extension='.mat'):
         """
@@ -628,13 +605,13 @@ class BaseEngine(object):
         Computes the fourier transform of the exit surface wave.
         :return:
         """
-        # find out if this should be performed on the GPU
-        xp = getArrayModule(self.reconstruction.esw)
+        self.reconstruction.ESW = FT2(self.reconstruction.esw, self.params.fftshiftSwitch)
 
-        if self.params.fftshiftSwitch:
-            self.reconstruction.ESW = xp.fft.fft2(self.reconstruction.esw, norm='ortho')
-        else:
-            self.reconstruction.ESW = xp.fft.fftshift(xp.fft.fft2(xp.fft.ifftshift(self.reconstruction.esw), norm='ortho'))
+    def ifft2s(self):
+        """ Inverse FFT"""
+        # find out if this should be performed on the GPU
+        self.reconstruction.eswUpdate = IFT(self.reconstruction.ESW, self.params.fftshiftSwitch)
+
 
     def getBeamWidth(self):
         """
@@ -719,16 +696,7 @@ class BaseEngine(object):
         else:
             self.reconstruction.detectorError[positionIndex] = self.currentDetectorError
 
-    def ifft2s(self):
-        """ Inverse FFT"""
-        # find out if this should be performed on the GPU
-        xp = getArrayModule(self.reconstruction.esw)
 
-        if self.params.fftshiftSwitch:
-            self.reconstruction.eswUpdate = xp.fft.ifft2(self.reconstruction.ESW, norm='ortho')
-        else:
-            self.reconstruction.eswUpdate = xp.fft.fftshift(
-                xp.fft.ifft2(xp.fft.ifftshift(self.reconstruction.ESW), norm='ortho'))
 
     def intensityProjection(self, positionIndex):
         """ Compute the projected intensity.
@@ -897,7 +865,7 @@ class BaseEngine(object):
                     # plt.show()
                     plt.legend(handles=[line1, line2])
                     plt.tight_layout()
-                    plt.show(block=False)
+                    #plt.show(block=False)
 
                     figure2, ax2 = plt.subplots(1, 1, num=103, squeeze=True, clear=True, figsize=(5, 5))
                     ax2.set_title('Displacement')
@@ -907,9 +875,11 @@ class BaseEngine(object):
                              self.D[:, 0] * self.reconstruction.dxo * 1e6, 'o')
                     # ax.set_xscale('symlog')
                     plt.tight_layout()
-                    plt.show(block=False)
+                    #plt.show(block=False)
 
                     # elif np.mod(loop, self.monitor.figureUpdateFrequency) == 0:
+                    figure.show()
+                    figure2.show()
                     figure.canvas.draw()
                     figure.canvas.flush_events()
                     figure2.canvas.draw()
@@ -1030,10 +1000,14 @@ class BaseEngine(object):
 
         # Todo: objectSmoothenessSwitch,probeSmoothenessSwitch,
         if self.params.probeSmoothenessSwitch:
-            raise NotImplementedError()
+
+            self.reconstruction.probe = smooth_amplitude(self.reconstruction.probe, self.params.probeSmoothenessWidth,
+                                                         self.params.probeSmoothnessAleph)
+
 
         if self.params.objectSmoothenessSwitch:
-            raise NotImplementedError()
+            self.reconstruction.object = smooth_amplitude(self.reconstruction.object, self.params.objectSmoothenessWidth,
+                                                         self.params.objectSmoothnessAleph)
 
         if self.params.absObjectSwitch:
             self.reconstruction.object = (1 - self.params.absObjectBeta) * self.reconstruction.object + \

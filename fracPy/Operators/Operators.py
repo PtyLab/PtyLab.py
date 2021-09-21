@@ -1,6 +1,71 @@
 import numpy as np
 from fracPy.utils.utils import circ, fft2c, ifft2c
 from fracPy.utils.gpuUtils import getArrayModule
+from fracPy import Params, Reconstruction
+
+
+def detector2object(fields, params: Params, reconstruction: Reconstruction):
+    """
+            Implements object2detector.m. Returns a propagated version of the field.
+
+            If field is not given, reconstruction.esw is taken
+            :return: updated fields.
+            """
+
+    def _ifft2s(field):
+        reconstruction.eswUpdate = ifft2c(reconstruction.ESW, params.fftshiftSwitch)
+
+    #self.reconstruction.esw = Operators.Operators.object2detector(self.reconstruction.esw, self.params,
+    #                                                              self.reconstruction,
+    #                                                              )
+    # goes to self.reconstruction.ESW
+    if fields is None:
+        fields = reconstruction.ESW
+
+    if params.propagatorType == 'Fraunhofer':
+        return reconstruction.esw, ifft2c(fields, params.fftshiftSwitch)
+    elif params.propagatorType == 'Fresnel':
+        # update three things
+        eswUpdate = ifft2c(fields, params.fftshiftSwitch) * reconstruction.quadraticPhase.conj()
+        esw = reconstruction.esw * reconstruction.quadraticPhase.conj()
+        return esw, eswUpdate
+    elif params.propagatorType == 'ASP' or params.propagatorType == 'polychromeASP':
+        return  reconstruction.esw, ifft2c(fft2c(fields) * reconstruction.transferFunction.conj())
+    elif params.propagatorType == 'scaledASP' or params.propagatorType == 'scaledPolychromeASP':
+        return reconstruction.esw, ifft2c(
+            fft2c(fields) * reconstruction.Q2.conj()) * reconstruction.Q1.conj()
+    elif params.propagatorType == 'twoStepPolychrome':
+        eswUpdate = ifft2c(fields, params.fftshiftSwitch)
+        esw = ifft2c(fft2c(reconstruction.esw * reconstruction.quadraticPhase.conj())*
+            reconstruction.transferFunction.conj())
+        eswUpdate = ifft2c(fft2c(eswUpdate* reconstruction.quadraticPhase.conj()) *
+                           self.reconstruction.transferFunction.conj())
+        return esw, eswUpdate
+    else:
+        raise Exception('Propagator is not properly set, choose from Fraunhofer, Fresnel, ASP and scaledASP')
+
+
+def object2detector(fields, params: Params, reconstruction: Reconstruction):
+    """ Propagate a field from the object to the detector. Return the new object, do not update in-place.
+    """
+    if fields is None:
+        fields = self.reconstruction.esw
+    if params.propagatorType == 'Fraunhofer':
+        esw = fft2c(fields, params.fftshiftSwitch)
+        return esw
+
+    elif params.propagatorType == 'Fresnel':
+        fields *= reconstruction.quadraticPhase
+        return fft2c(fields, params.fftshiftSwitch)
+    elif params.propagatorType == 'ASP' or params.propagatorType == 'polychromeASP':
+        return ifft2c(fft2c(fields) * reconstruction.transferFunction)
+    elif params.propagatorType == 'scaledASP' or params.propagatorType == 'scaledPolychromeASP':
+        return  ifft2c(fft2c(fields * reconstruction.Q1) * reconstruction.Q2)
+    elif params.propagatorType == 'twoStepPolychrome':
+        X = ifft2c(fft2c(fields) * reconstruction.transferFunction) * reconstruction.quadraticPhase
+        return fft2c(X, self.params.fftshiftSwitch)
+    else:
+        raise Exception('Propagator is not properly set, choose from Fraunhofer, Fresnel, ASP and scaledASP')
 
 
 def aspw(u, z, wavelength, L):
@@ -138,21 +203,23 @@ def fresnelPropagator(u, z, wavelength, L):
     :param L: total size[m] of the source plane
     :return: propagated field
     """
+    xp = getArrayModule(u)
+
     k = 2 * np.pi /wavelength
     # source coordinates, assuming square grid
     N = u.shape[-1]
     dx = L / N  # source-plane pixel size
-    x = np.arange(-N // 2, N // 2) * dx
-    [Y, X] = np.meshgrid(x,x)
+    x = xp.arange(-N // 2, N // 2) * dx
+    [Y, X] = xp.meshgrid(x,x)
 
     # observation coordinates
     dq = wavelength *z / L  # observation-plane pixel size
-    q = np.arange(-N // 2, N // 2) * dq
-    [Qy, Qx] = np.meshgrid(q, q)
+    q = xp.arange(-N // 2, N // 2) * dq
+    [Qy, Qx] = xp.meshgrid(q, q)
 
     # quadratic phase terms
-    Q1 = np.exp(1j * k / (2 * z) * (X**2 + Y**2))  # quadratic phase inside the integral
-    Q2 = np.exp(1j * k / (2 * z) * (Qx**2 + Qy**2))
+    Q1 = xp.exp(1j * k / (2 * z) * (X**2 + Y**2))  # quadratic phase inside the integral
+    Q2 = xp.exp(1j * k / (2 * z) * (Qx**2 + Qy**2))
 
     # pre-factor
     A = 1/(1j*wavelength*z)

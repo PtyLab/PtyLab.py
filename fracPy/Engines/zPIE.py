@@ -60,7 +60,7 @@ class zPIE(BaseEngine):
 
         # preallocate grids
         if self.params.propagatorType == 'ASP':
-            n = self.reconstruction.Np.copy()
+            n = self.reconstruction.Np*1
         else:
             n = 2*self.reconstruction.Np
 
