@@ -1,3 +1,4 @@
+import napari
 import numpy as np
 from matplotlib import pyplot as plt
 try:
@@ -41,16 +42,58 @@ class ePIE(BaseEngine):
         self.betaObject = 0.25
         self.numIterations = 50
 
-
     def reconstruct(self):
-        self._prepareReconstruction()
 
+        import napari
+        from napari.qt.threading import  thread_worker
+
+
+        # viewer = napari.Viewer()
+        # viewer.add_image(abs(self.reconstruction.object), name='object')
+        # viewer.add_image(abs(self.reconstruction.probe), name='probe')
+
+        # def update_estimate(*inputs):
+        #     i, probe, objectPatch, objectsubset = inputs
+        #     viewer.layers['object'].data = abs(objectsubset)
+        #     viewer.layers['probe'].data = abs(probe)
+        #
+        # keep_waiting = True
+        # def return_function(*inputs):
+        #     keep_waiting = False
+
+        # rfun = thread_worker(self._reconstruct, connect={'yield': update_estimate,
+        #                                                  'return': return_function}, start_thread=True)
+        # while keep_waiting:
+        #     import pyqtgraph as pg
+        #     pg.QtGui.QApplication.processEvents()
+        #
+        #     #print('Waiting')
+        #     import time
+        #     time.sleep(.1)
+#        return [r for r in self._reconstruct()][-1]
+        recs = self._reconstruct()
+        while True:
+            x = next(recs)
+            print('iterating')
+
+
+
+
+
+
+
+
+    def _reconstruct(self):
+        # self._prepareReconstruction()
+        print('Starting reconstruction')
         # actual reconstruction ePIE_engine
         self.pbar = tqdm.trange(self.numIterations, desc='ePIE', file=sys.stdout, leave=True)
+        i = -1
         for loop in self.pbar:
             # set position order
             self.setPositionOrder()
             for positionLoop, positionIndex in enumerate(self.positionIndices):
+                i += 1
                 # get object patch
                 row, col = self.reconstruction.positions[positionIndex]
                 sy = slice(row, row + self.reconstruction.Np)
@@ -72,6 +115,8 @@ class ePIE(BaseEngine):
 
                 # probe update
                 self.reconstruction.probe = self.probeUpdate(objectPatch, DELTA)
+                # yield a few items so we can plot them
+                yield i, self.reconstruction.probe, objectPatch, self.reconstruction.object[..., sy, sx]
 
             # get error metric
             self.getErrorMetrics()
@@ -80,12 +125,14 @@ class ePIE(BaseEngine):
             self.applyConstraints(loop)
 
             # show reconstruction
-            self.showReconstruction(loop)
+            # self.showReconstruction(loop)
 
         if self.params.gpuFlag:
             self.logger.info('switch to cpu')
             self._move_data_to_cpu()
             self.params.gpuFlag = 0
+
+        return None
 
 
     def objectPatchUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):

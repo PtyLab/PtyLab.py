@@ -18,6 +18,9 @@ class Monitor(object):
         self.reconstruction = None
         self.cmapDiffraction = setColorMap()
 
+    def add_encoder_positions(self, positions):
+        self.defaultMonitor.add_encoder_positions(positions)
+
 
     def initializeMonitors(self):
         """
@@ -25,6 +28,7 @@ class Monitor(object):
         :return:
         """
         self.defaultMonitor = ObjectProbeErrorPlot()
+
         if self.verboseLevel == 'high':
             self.diffractionDataMonitor = DiffractionDataPlot()
 
@@ -35,13 +39,15 @@ class Monitor(object):
         :param object_estimate:
         :return:
         """
+
         self.defaultMonitor.updateError(self.reconstruction.error)
         self.defaultMonitor.updateObject(object_estimate, self.reconstruction, objectPlot=self.objectPlot,
                                          pixelSize=self.reconstruction.dxo, axisUnit='mm',
-                                         amplitudeScalingFactor=self.objectPlotContrast)
+                                         amplitudeScalingFactor=self.objectPlotContrast, zoom=self.objectZoom)
         self.defaultMonitor.updateProbe(probe_estimate, self.reconstruction,
                                         pixelSize=self.reconstruction.dxp, axisUnit='mm',
-                                        amplitudeScalingFactor=self.probePlotContrast)
+                                        amplitudeScalingFactor=self.probePlotContrast, zoom=self.probeZoom, zoom_object=self.objectZoom)
+
         self.defaultMonitor.drawNow()
 
     def updateDiffractionDataMonitor(self, Iestimated, Imeasured):
@@ -63,3 +69,4 @@ class DummyMonitor(object):
 
     def initializeVisualisation(self):
         pass
+

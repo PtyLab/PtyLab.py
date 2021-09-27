@@ -21,6 +21,7 @@ try:
 
 except ImportError:
     print("Cupy not installed")
+    cp = None
 
 try:
     from skimage.transform import rescale
@@ -175,7 +176,8 @@ class BaseEngine(object):
                                      [..., self.monitor.objectROI[0], self.monitor.objectROI[1]])
         probeEstimate = np.squeeze(self.reconstruction.probe
                                     [..., self.monitor.probeROI[0], self.monitor.probeROI[1]])
-        self.monitor.updateObjectProbeErrorMonitor(object_estimate=objectEstimate, probe_estimate=probeEstimate)
+        #self.monitor.updateObjectProbeErrorMonitor(object_estimate=objectEstimate, probe_estimate=probeEstimate)
+        self.monitor.updateObjectProbeErrorMonitor(self.reconstruction.object, self.reconstruction.probe)
 
     def _initializeQuadraticPhase(self):
         """

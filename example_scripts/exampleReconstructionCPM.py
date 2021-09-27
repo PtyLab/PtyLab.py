@@ -50,8 +50,8 @@ reconstruction.probe = reconstruction.probe * np.exp(1.j * 2 * np.pi / reconstru
 monitor.figureUpdateFrequency = 1
 monitor.objectPlot = 'complex'  # complex abs angle
 monitor.verboseLevel = 'high'  # high: plot two figures, low: plot only one figure
-monitor.objectZoom = 4   # control object plot FoV
-monitor.probeZoom = 0.5   # control probe plot FoV
+monitor.objectZoom = 2   # control object plot FoV
+monitor.probeZoom = 2   # control probe plot FoV
 
 # Run the reconstruction
 
@@ -62,7 +62,7 @@ params.propagatorType = 'Fresnel'  # Fraunhofer Fresnel ASP scaledASP polychrome
 
 
 ## how do we want to reconstruct?
-params.gpuSwitch = True
+params.gpuSwitch = False
 params.probePowerCorrectionSwitch = True
 params.modulusEnforcedProbeSwitch = False
 params.comStabilizationSwitch = True
@@ -88,15 +88,15 @@ mqNewton.beta2 = 0.5
 mqNewton.betaProbe_m = 1
 mqNewton.betaObject_m = 1
 mqNewton.momentum_method = 'NADAM'
-mqNewton.reconstruct()
+# mqNewton.reconstruct()
 
 #
 # ## choose ePIE engine
-# ePIE = Engines.ePIE(reconstruction, experimentalData, params, monitor)
-# ePIE.numIterations = 5
-# ePIE.betaProbe = 0.25
-# ePIE.betaObject = 0.25
-# ePIE.reconstruct()
+ePIE = Engines.mPIE(reconstruction, experimentalData, params, monitor)
+ePIE.numIterations = 5
+ePIE.betaProbe = 0.25
+ePIE.betaObject = 0.25
+ePIE.reconstruct()
 #
 # ## choose mPIE engine
 mPIE = Engines.mPIE(reconstruction, experimentalData, params, monitor)

@@ -39,6 +39,7 @@ class Reconstruction(object):
     def __init__(self, data:ExperimentalData):
         self.logger = logging.getLogger('Reconstruction')
         self.data = data
+        self.error = []
         self.copyAttributesFromExperiment(data)
         self.computeParameters()
         self.initializeSettings()
