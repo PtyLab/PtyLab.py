@@ -1,3 +1,4 @@
+import logging
 from collections import Callable
 from functools import lru_cache
 
@@ -12,8 +13,6 @@ from fracPy import Params, Reconstruction
 # at the expense of (GPU) memory.
 cache_size=10
 
-def clear_cache():
-    raise NotImplementedError()
 
 def propagate_fraunhofer(fields, params: Params, reconstruction: Reconstruction, z=None):
     return reconstruction.esw, fft2c(fields, params.fftshiftSwitch)
@@ -407,6 +406,27 @@ def fresnelPropagator(u, z, wavelength, L):
     # Fresnel-Kirchhoff integral
     u_out = A*Q2*fft2c(u*Q1)
     return u_out, dq, Q1, Q2
+
+
+def clear_cache(logger: logging.Logger=None):
+    """ Clear the cache of all cached functions in this module. Use if GPU memory is not available.
+
+    IF logger is available, print some information about the methods being cleared.
+
+    Returns nothing"""
+    list_of_methods = [
+        __make_quad_phase,
+        __make_transferfunction_ASP,
+        __make_transferfunction_scaledASP,
+        __make_cache_twoStepPolychrome,
+        __make_transferfunction_polychrome_ASP,
+        __make_transferfunction_scaledPolychromeASP
+    ]
+    for method in list_of_methods:
+        if logger is not None:
+            logger.debug(method.cache_info())
+            logger.info('clearing cache for %s', method)
+        method.cache_clear()
 
 
 
