@@ -9,6 +9,8 @@ from fracPy.utils.initializationFunctions import initialProbeOrObject
 from fracPy.utils.gpuUtils import transfer_fields_to_cpu, transfer_fields_to_gpu
 from fracPy import Params
 from fracPy.Operators.Operators import aspw, scaledASP, scaledASPinv
+
+
 class Reconstruction(object):
     """
     This object will contain all the things that can be modified by a reconstruction.
@@ -55,9 +57,6 @@ class Reconstruction(object):
                        'probeMomentum',
                        'objectMomentum',
                        'detectorError',
-                       # 'quadraticPhase',
-                       # 'transferFunction',
-                       # 'Q1', 'Q2',
                        'background',
                        'reference',
                                     ]
@@ -390,6 +389,7 @@ class Reconstruction(object):
 
     @property
     def quadraticPhase(self):
+        """ These functions are cached internally in Python and therefore no longer required. """
         raise NotImplementedError('Quadratic phase is no longer cached. ')
 
     @property
