@@ -22,8 +22,6 @@ def propagate_fraunhofer_inv(fields, params: Params, reconstruction: Reconstruct
 
 def propagate_fresnel(fields, params: Params, reconstruction: Reconstruction, z=None):
     # make the quad phase if it's not available yet
-    # print('Running Propagate Fresnel')
-    # asldckmasdlkmc
     if z is None:
         z = reconstruction.zo
     on_gpu = isGpuArray(fields)
@@ -123,8 +121,6 @@ def propagate_scaledASP_inv(fields, params: Params, reconstruction: Reconstructi
     return propagate_scaledASP(fields, params, reconstruction, inverse=True, z=z)
 
 
-
-
 def propagate_scaledPolychromeASP(fields, params: Params, reconstruction: Reconstruction, inverse=False, z=None):
     if z is None:
         z = reconstruction.zo
@@ -177,43 +173,11 @@ def detector2object(fields, params: Params, reconstruction: Reconstruction):
 
             If field is not given, reconstruction.esw is taken
             :return: esw, updated esw
-            """
-
-
-    #self.reconstruction.esw = Operators.Operators.object2detector(self.reconstruction.esw, self.params,
-    #                                                              self.reconstruction,
-    #                                                              )
-    # goes to self.reconstruction.ESW
+    """
     if fields is None:
         fields = reconstruction.ESW
     method: Callable[np.ndarray, Params, Reconstruction] = reverse_lookup_dictionary[params.propagatorType]
     return method(fields, params, reconstruction)
-
-
-    # if params.propagatorType == 'Fraunhofer':
-    #     return reconstruction.esw, ifft2c(fields, params.fftshiftSwitch)
-    # elif params.propagatorType == 'Fresnel':
-    #     esw, eswUpdate = _propagate_fresnel_inv(fields, params, reconstruction)
-        #
-        # # update three things
-        # eswUpdate = ifft2c(fields, params.fftshiftSwitch) * reconstruction.quadraticPhase.conj()
-        # esw = reconstruction.esw * reconstruction.quadraticPhase.conj()
-        # return esw, eswUpdate
-    # elif params.propagatorType == 'ASP' or params.propagatorType == 'polychromeASP':
-    #     return  reconstruction.esw, ifft2c(fft2c(fields) * reconstruction.transferFunction.conj())
-    # elif params.propagatorType == 'scaledASP' or params.propagatorType == 'scaledPolychromeASP':
-    #     return reconstruction.esw, ifft2c(
-    #         fft2c(fields) * reconstruction.Q2.conj()) * reconstruction.Q1.conj()
-    # elif params.propagatorType == 'twoStepPolychrome':
-    #     eswUpdate = ifft2c(fields, params.fftshiftSwitch)
-    #     esw = ifft2c(fft2c(reconstruction.esw * reconstruction.quadraticPhase.conj())*
-    #         reconstruction.transferFunction.conj())
-    #     eswUpdate = ifft2c(fft2c(eswUpdate* reconstruction.quadraticPhase.conj()) *
-    #                        self.reconstruction.transferFunction.conj())
-    #     return esw, eswUpdate
-    # else:
-    #     raise Exception('Propagator is not properly set, choose from Fraunhofer, Fresnel, ASP and scaledASP')
-
 
 def object2detector(fields, params: Params, reconstruction: Reconstruction):
     """ Propagate a field from the object to the detector. Return the new object, do not update in-place.
@@ -224,23 +188,6 @@ def object2detector(fields, params: Params, reconstruction: Reconstruction):
     if fields is None:
         fields = reconstruction.esw
     return method(fields, params, reconstruction)
-    # if params.propagatorType == 'Fraunhofer':
-    #     esw = fft2c(fields, params.fftshiftSwitch)
-    #     return esw
-    #
-    # elif params.propagatorType == 'Fresnel':
-    #     fields *= reconstruction.quadraticPhase
-    #     return fft2c(fields, params.fftshiftSwitch)
-    # elif params.propagatorType == 'ASP' or params.propagatorType == 'polychromeASP':
-    #     return ifft2c(fft2c(fields) * reconstruction.transferFunction)
-    # elif params.propagatorType == 'scaledASP' or params.propagatorType == 'scaledPolychromeASP':
-    #     return  ifft2c(fft2c(fields * reconstruction.Q1) * reconstruction.Q2)
-    # elif params.propagatorType == 'twoStepPolychrome':
-    #     X = ifft2c(fft2c(fields) * reconstruction.transferFunction) * reconstruction.quadraticPhase
-    #     return fft2c(X, self.params.fftshiftSwitch)
-    # else:
-    #     raise Exception('Propagator is not properly set, choose from Fraunhofer, Fresnel, ASP and scaledASP')
-    #
 
 def aspw(u, z, wavelength, L):
     """
@@ -452,8 +399,6 @@ def __make_quad_phase(zo, wavelength, Np, dxp, on_gpu):
 
     quadraticPhase = xp.exp(1.j * xp.pi / (wavelength * zo)
                                   * (Xp ** 2 + Yp ** 2))
-    # print(Xp.shape, Yp.shape, quadraticPhase.shape)
-    # alsdkcmasldkcm
     return quadraticPhase
 
 
