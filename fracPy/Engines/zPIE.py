@@ -96,7 +96,8 @@ class zPIE(BaseEngine):
             if loop == 1:
                 zNew = self.reconstruction.zo.copy()
             else:
-                d = 500
+                d = 50
+
                 dz = np.linspace(-d * self.DoF, d * self.DoF, 11)/10
 
                 merit = []
@@ -141,8 +142,8 @@ class zPIE(BaseEngine):
                 self.reconstruction.dxp = self.reconstruction.wavelength * self.reconstruction.zo \
                                           / self.reconstruction.Ld
                 # reset propagatorType
-                self.reconstruction.quadraticPhase = xp.array(np.exp(1.j * np.pi / (self.reconstruction.wavelength * self.reconstruction.zo)
-                                                                     * (self.reconstruction.Xp ** 2 + self.reconstruction.Yp ** 2)))
+                # self.reconstruction.quadraticPhase = xp.array(np.exp(1.j * np.pi / (self.reconstruction.wavelength * self.reconstruction.zo)
+                #                                                      * (self.reconstruction.Xp ** 2 + self.reconstruction.Yp ** 2)))
         ##################################################################################################################
 
 

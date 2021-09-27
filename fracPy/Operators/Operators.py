@@ -4,6 +4,7 @@ from functools import lru_cache
 
 import cupy as cp
 import numpy as np
+import numpy.testing
 
 from fracPy.utils.utils import circ, fft2c, ifft2c
 from fracPy.utils.gpuUtils import getArrayModule, isGpuArray
@@ -11,7 +12,7 @@ from fracPy import Params, Reconstruction
 
 # how many kernels are kept in memory for every type of propagator? Higher can be faster but comes
 # at the expense of (GPU) memory.
-cache_size=10
+cache_size=20
 
 
 def propagate_fraunhofer(fields, params: Params, reconstruction: Reconstruction, z=None):
@@ -200,25 +201,35 @@ def aspw(u, z, wavelength, L):
     :param L: total size of the field in meter
     :return: U_prop, Q  (field distribution after propagation and the bandlimited transfer function)
     """
-    xp = getArrayModule(u)
-    k = 2*np.pi/wavelength
     N = u.shape[-1]
-    X = np.arange(-N/2, N/2)/L
-    Fx, Fy = np.meshgrid(X, X)
-    f_max = L/(wavelength*np.sqrt(L**2+4*z**2))
+    phase_exp = __aspw_transfer_function(z, wavelength, N, L, on_gpu=isGpuArray(u))
+    U = fft2c(u)
+    u = ifft2c(U * phase_exp)
+    return u, phase_exp
+
+@lru_cache(cache_size)
+def __aspw_transfer_function(z, wavelength, N, L, on_gpu=False):
+    if on_gpu:
+        xp = cp
+    else:
+        xp = np
+    k = 2 * np.pi / wavelength
+    X = xp.arange(-N / 2, N / 2) / L
+    Fx, Fy = xp.meshgrid(X, X)
+    f_max = L / (wavelength * xp.sqrt(L ** 2 + 4 * z ** 2))
     # note: see the paper above if you are not sure what this bandlimit has to do here
     # W = rect(Fx/(2*f_max)) .* rect(Fy/(2*f_max));
-    W = xp.array(circ(Fx, Fy, 2*f_max))
+    W = xp.array(circ(Fx, Fy, 2 * f_max))
     # note: accounts for circular symmetry of transfer function and imposes bandlimit to avoid sampling issues
     exponent = 1 - (Fx * wavelength) ** 2 - (Fy * wavelength) ** 2
     # take out stuff that cannot exist
     mask = exponent > 0
     # put the out of range values to 0 so the square root can be taken
-    exponent = xp.clip(mask, 0, None)
-    H = xp.array(mask * np.exp(1.j * k * z * np.sqrt(exponent)))
-    U = fft2c(u)
-    u = ifft2c(U * H * W)
-    return u, H*W
+    exponent = xp.clip(mask, 0, xp.inf)
+    H = xp.array(mask * xp.exp(1.j * k * z * xp.sqrt(exponent)))
+    phase_exp = H * W
+    return phase_exp
+
 
 def scaledASP(u, z, wavelength, dx, dq, bandlimit = True, exactSolution = False):
     """
@@ -413,17 +424,28 @@ def __make_transferfunction_ASP(fftshiftSwitch, nosm, npsm, Np,
     dummy = np.ones((1, nosm, npsm,
                      1, Np, Np), dtype='complex64')
     _transferFunction = np.array(
-        [[[[aspw(dummy[nlambda, nosm, npsm, nslice, :, :],
-                 zo, wavelength,
-                 Lp)[1]
+        [[[[__aspw_transfer_function(
+                 zo, wavelength,Np,
+                 Lp)
             for nslice in range(1)]
            for npsm in range(npsm)]
           for nosm in range(nosm)]
          for nlambda in range(nlambda)], dtype=np.complex64)
+
     if on_gpu:
         return cp.array(_transferFunction)
     else:
         return _transferFunction
+
+def aspw_cached(u, z, wavelength, L):
+    """ Cached version of aspw. """
+    transferFunction = __aspw_transfer_function(z, wavelength, u.shape[-1], L, isGpuArray(u))
+    #__make_transferfunction_ASP(False, 1, 1, u.shape[-1],
+    #                                               z, wavelength, L, 1, isGpuArray(u))
+    #transferFunction = transferFunction[0,0,0,0]
+    U = fft2c(u)
+    u_prime = ifft2c(U*transferFunction)
+    return u_prime
 
 
 @lru_cache(cache_size)
@@ -435,10 +457,8 @@ def __make_transferfunction_polychrome_ASP(propagatorType, fftshiftSwitch, nosm,
         raise ValueError('ASP propagatorType works only with fftshiftSwitch = False!')
     dummy = np.ones((nlambda, nosm, npsm,
                      1, Np, Np), dtype='complex64')
-    transferFunction = np.array(
-        [[[[aspw(dummy[nlambda, nosm, npsm, nslice, :, :],
-                 zo, spectralDensity[nlambda],
-                 Lp)[1]
+    transferFunction = np.array([[[[
+        __aspw_transfer_function(zo, spectralDensity[nlambda], Np, Lp, gpuSwitch)
             for nslice in range(1)]
            for npsm in range(npsm)]
           for nosm in range(nosm)]
@@ -509,24 +529,24 @@ def __make_transferfunction_scaledPolychromeASP(fftshiftSwitch, nlambda, nosm, n
 def __make_cache_twoStepPolychrome(fftshiftSwitch,
                                    nlambda, nosm, npsm, Np, zo, spectralDensity_as_tuple, Lp,
                                    dxp, on_gpu):
+    if on_gpu:
+        xp = cp
+    else:
+        xp = np
     spectralDensity = np.array(spectralDensity_as_tuple)
     if fftshiftSwitch:
         raise ValueError('twoStepPolychrome propagatorType works only with fftshiftSwitch = False!')
-    dummy = np.ones((nlambda, nosm, npsm,
-                     1, Np, Np), dtype='complex64')
-
-    transferFunction = np.array(
-        [[[[aspw(u=dummy[nlambda, nosm, npsm, nslice, :, :],
+    transferFunction = xp.array(
+        [[[[__aspw_transfer_function(
                  z= zo * (1 - spectralDensity[0] / spectralDensity[nlambda]),
-                 wavelength=spectralDensity[nlambda],
-                 L=Lp)[1]
+                 wavelength=spectralDensity[nlambda], N=Np,
+                 L=Lp, on_gpu=on_gpu)
             for nslice in range(1)]
            for npsm in range(npsm)]
           for nosm in range(nosm)]
          for nlambda in range(nlambda)])
     if on_gpu:
         transferFunction = cp.array(transferFunction)
-
     quadraticPhase = __make_quad_phase(zo, spectralDensity[0], Np, dxp, on_gpu)
     return transferFunction, quadraticPhase
 
