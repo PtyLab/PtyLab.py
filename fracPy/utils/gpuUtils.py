@@ -28,7 +28,10 @@ def getArrayModule(*args, **kwargs):
 
 
 def isGpuArray(ary):
-    raise NotImplementedError()
+    if getArrayModule(ary) is np:
+        return False
+    else:
+        return True
 
 
 
@@ -70,7 +73,11 @@ def transfer_fields_to_gpu(self: object, fields: List[str], logger: logging.Logg
         if hasattr(self, field):  # This field is defined
             # move it to the CPU
             attribute = getattr(self, field)
-            setattr(self, field, asCupyArray(attribute))
+            try:
+                setattr(self, field, asCupyArray(attribute))
+            except AttributeError:
+                self.logger.error(f'Cannot set attribute {field}')
+                raise
             self.logger.debug(f'Moved {field} to GPU')
         else:
             self.logger.debug(f'Skipped {field} as it is not defined')

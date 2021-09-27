@@ -17,11 +17,17 @@ fileName = 'Lenspaper.hdf5'  # simu.hdf5 or Lenspaper.hdf5
 filePath = getExampleDataFolder() / fileName
 
 experimentalData, reconstruction, params, monitor, ePIE_engine = fracPy.easyInitialize(filePath, operationMode='CPM')
+params.fftshiftSwitch = False
+params.fftshiftFlag = False
+from fracPy.utils.alignment import show_alignment
+# params.propagatorType = 'Fraunhofer'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
+params.positionCorrectionSwitch = False
+# show_alignment(reconstruction, experimentalData, params, ePIE_engine)
 # experimentalData.encoder = -np.fliplr(experimentalData.encoder)
 # experimentalData.ptychogram = experimentalData.ptychogram[...,::2,::2]
 # experimentalData.xd *= 2
-from fracPy import Reconstruction
-reconstruction: Reconstruction = Reconstruction(experimentalData)
+# from fracPy import Reconstruction
+# reconstruction: Reconstruction = Reconstruction(experimentalData, params)
 
 
 ## altternative
@@ -48,8 +54,8 @@ reconstruction.initialObject = 'ones'
 reconstruction.initializeObjectProbe()
 
 # customize initial probe quadratic phase
-reconstruction.probe = -reconstruction.probe #* np.exp(1.j * 2 * np.pi / reconstruction.wavelength *
-                                           #          (reconstruction.Xp ** 2 + reconstruction.Yp ** 2) / (2 * 6e-3))
+# reconstruction.probe = np.exp(1.j * 2 * np.pi / reconstruction.wavelength *
+#                                                     (reconstruction.Xp ** 2 + reconstruction.Yp ** 2) / (2 ))[None,None, None,None]
 
 
 # this will copy any attributes from experimental data that we might care to optimize
@@ -66,8 +72,10 @@ monitor.probeZoom = 0.5   # control probe plot FoV
 # Params = Params()
 ## main parameters
 params.positionOrder = 'random'  # 'sequential' or 'random'
-params.propagatorType = 'Fresnel'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
-params.positionCorrectionSwitch = False
+params.propagatorType = 'scaledASP'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
+params.fftshiftSwitch = False
+params.fftshiftFlag = False
+params.positionCorrectionSwitch = True
 
 params.objectSmoothenessSwitch = True
 params.objectSmoothnessAleph = 1e-2
@@ -96,7 +104,7 @@ params.positionCorrectionSwitch = False
 
 ## choose mqNewton engine
 mqNewton = Engines.mqNewton(reconstruction, experimentalData, params, monitor)
-mqNewton.numIterations = 5
+mqNewton.numIterations = 15
 mqNewton.betaProbe = 1
 mqNewton.betaObject = 1
 mqNewton.beta1 = 0.5
@@ -119,24 +127,24 @@ mPIE = Engines.mPIE(reconstruction, experimentalData, params, monitor)
 mPIE.numIterations = 100
 mPIE.betaProbe = 0.25
 mPIE.betaObject = 0.25
-mPIE.reconstruct()
+# mPIE.reconstruct()
 #
 # ## choose zPIE engine
-# zPIE = Engines.zPIE(reconstruction, experimentalData, params, monitor)
-# zPIE.numIterations = 5
-# zPIE.betaProbe = 0.35
-# zPIE.betaObject = 0.35
-# zPIE.zPIEgradientStepSize = 1000  # gradient step size for axial position correction (typical range [1, 100])
-# zPIE.reconstruct()
+zPIE = Engines.zPIE(reconstruction, experimentalData, params, monitor)
+zPIE.numIterations = 50
+zPIE.betaProbe = 0.35
+zPIE.betaObject = 0.35
+zPIE.zPIEgradientStepSize = 1000  # gradient step size for axial position correction (typical range [1, 100])
+zPIE.reconstruct()
 #
 # # do another round of mPIE
-# mPIE.reconstruct()
+mPIE.reconstruct()
 #
 #
 # ## switch to pcPIE
-# pcPIE = Engines.pcPIE(reconstruction, experimentalData, params, monitor)
-# pcPIE.numIterations = 5
-# pcPIE.reconstruct()
+pcPIE = Engines.pcPIE(reconstruction, experimentalData, params, monitor)
+pcPIE.numIterations = 500
+pcPIE.reconstruct()
 
 # now save the data
 # reconstruction.saveResults('reconstruction.hdf5')

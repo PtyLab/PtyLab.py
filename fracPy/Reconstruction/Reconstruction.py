@@ -7,8 +7,8 @@ import h5py
 
 from fracPy.utils.initializationFunctions import initialProbeOrObject
 from fracPy.utils.gpuUtils import transfer_fields_to_cpu, transfer_fields_to_gpu
-
-
+from fracPy import Params
+from fracPy.Operators.Operators import aspw, scaledASP, scaledASPinv
 class Reconstruction(object):
     """
     This object will contain all the things that can be modified by a reconstruction.
@@ -34,9 +34,15 @@ class Reconstruction(object):
             'NA'
         ]
 
-    def __init__(self, data:ExperimentalData):
+    def __init__(self, data:ExperimentalData, params: Params):
+        self.wavelength = None
+        self.zo = None
+        self.dxd = None
+        self.theta = None
+
         self.logger = logging.getLogger('Reconstruction')
         self.data = data
+        self.params = params
         self.copyAttributesFromExperiment(data)
         self.computeParameters()
         self.initializeSettings()
@@ -49,9 +55,9 @@ class Reconstruction(object):
                        'probeMomentum',
                        'objectMomentum',
                        'detectorError',
-                       'quadraticPhase',
-                       'transferFunction',
-                       'Q1', 'Q2',
+                       # 'quadraticPhase',
+                       # 'transferFunction',
+                       # 'Q1', 'Q2',
                        'background',
                        'reference',
                                     ]
@@ -84,6 +90,8 @@ class Reconstruction(object):
                 self.entrancePupilDiameter = self.Lp/3
             # if spectralDensity is not provided in the hdf5 file, set it to be a 1d array of the wavelength
             if isinstance(self.spectralDensity, type(None)):
+                # this is a confusing name, it should be the wavelengths, not the intensity of the different
+                # wavelengths
                 self.spectralDensity = np.atleast_1d(self.wavelength)
 
         elif self.data.operationMode == 'FPM':
@@ -350,8 +358,48 @@ class Reconstruction(object):
         Move all the required fields to the CPU
         :return:
         """
-
         transfer_fields_to_cpu(self, self.possible_GPU_fields, self.logger)
 
     def _move_data_to_gpu(self):
         transfer_fields_to_gpu(self, self.possible_GPU_fields, self.logger)
+
+
+    def describe_reconstruction(self):
+        info = f"""
+        Experimental data:
+        - Number of ptychograms: {self.data.ptychogram.shape}
+        - Number of pixels ptychogram: {self.data.Nd}
+        - Ptychogram size: {self.data.Ld*1e3} mm
+        - Pixel pitch: {self.data.dxd*1e6} um
+        - Scan size: {1e3*(self.data.encoder.max(axis=0) - self.data.encoder.min(axis=0))} mm 
+        
+        Reconstruction:
+        - number of pixels: {self.No}
+        - Pixel pitch: {self.dxo*1e6} um
+        - Field of view: {self.Lo*1e3} mm
+        - Scan size in pixels: {self.positions.max(axis=0)- self.positions.min(axis=0)}
+        - Propagation distance: {self.zo*1e3} mm
+        
+        Derived parameters:
+        - NA detector: {self.NAd}
+        - DOF: {self.DoF*1e6} um
+        
+        """
+        self.logger.info(info)
+        return info
+
+    @property
+    def quadraticPhase(self):
+        raise NotImplementedError('Quadratic phase is no longer cached. ')
+
+    @property
+    def transferFunction(self):
+        raise NotImplementedError('Quad phase is not longer cached')
+
+    @property
+    def Q1(self):
+        raise NotImplementedError('Q1 is no longer available')
+
+    @property
+    def Q2(self):
+        raise NotImplementedError('Q2 is no longer available')

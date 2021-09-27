@@ -48,8 +48,25 @@ class zPIE(BaseEngine):
         self.focusObject = True
         self.zMomentun = 0
 
+    def show_defocus(self, viewer=None, scanrange_times_dof=1000, N_points=10):
+        z = np.linspace(-1,1,N_points) * scanrange_times_dof * self.reconstruction.DoF
 
-    def reconstruct(self):
+        from fracPy.Operators.Operators import aspw
+        reconstruction = self.reconstruction
+        defocii = np.abs(np.array(
+            [aspw(reconstruction.object, dz, reconstruction.wavelength, reconstruction.Lo)[0] for dz
+             in z])**2)
+
+
+        if viewer is None:
+            import napari
+            viewer = napari.Viewer()
+        viewer.add_image(defocii)
+
+
+    def reconstruct(self, experimentalData=None, reconstruction=None):
+        self.changeExperimentalData(experimentalData)
+        self.changeOptimizable(reconstruction)
         self._prepareReconstruction()
 
         ###################################### actual reconstruction zPIE_engine #######################################
@@ -79,8 +96,9 @@ class zPIE(BaseEngine):
             if loop == 1:
                 zNew = self.reconstruction.zo.copy()
             else:
-                d = 10
+                d = 500
                 dz = np.linspace(-d * self.DoF, d * self.DoF, 11)/10
+
                 merit = []
                 # todo, mixed states implementation, check if more need to be put on GPU to speed up
                 for k in np.arange(len(dz)):
@@ -105,6 +123,7 @@ class zPIE(BaseEngine):
                     merit.append(asNumpyArray(xp.sum(xp.sqrt(abs(gradx)**2+abs(grady)**2+aleph))))
 
                 feedback = np.sum(dz*merit)/np.sum(merit)    # at optimal z, feedback term becomes 0
+                print('Step size: ', feedback)
                 self.zMomentun = self.zPIEfriction*self.zMomentun+self.zPIEgradientStepSize*feedback
                 zNew = self.reconstruction.zo + self.zMomentun
 
