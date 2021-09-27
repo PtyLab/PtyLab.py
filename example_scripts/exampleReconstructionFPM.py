@@ -16,9 +16,8 @@ ptycho data reconstructor
 change data visualization and initialization options manually for now
 """
 
-fileName = 'LungCarcinomaFPM.hdf5'  # simu.hdf5 or Lenspaper.hdf5
-filePath = getExampleDataFolder() / fileName
-exampleData, reconstruction, params, monitor, engine, calib = fracPy.easyInitialize(filePath, operationMode='FPM')
+filePath = 'example:simulation_fpm'
+exampleData, reconstruction, params, monitor, engine, calib = fracPy.easyInitialize(filePath, operationMode ='FPM')
 
 # %% Prepare everything for the reconstruction
 # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
