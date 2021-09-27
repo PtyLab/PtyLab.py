@@ -373,6 +373,7 @@ def clear_cache(logger: logging.Logger=None):
 
     Returns nothing"""
     list_of_methods = [
+        __aspw_transfer_function,
         __make_quad_phase,
         __make_transferfunction_ASP,
         __make_transferfunction_scaledASP,
