@@ -29,6 +29,9 @@ def initialProbeOrObject(shape, type_of_init, data):
     if type_of_init == 'circ':
         try:
             pupil = circ(data.Xp, data.Yp, data.data.entrancePupilDiameter)
+            # soften the edges a bit
+            from scipy import ndimage
+            pupil = ndimage.gaussian_filter(pupil.astype(np.float64), 0.1*data.Xp.shape[-1])
             return np.ones(shape) * pupil + 0.001 * np.random.rand(*shape) * pupil
         
         except AttributeError as e:

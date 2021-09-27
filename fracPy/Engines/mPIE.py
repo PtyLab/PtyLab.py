@@ -57,7 +57,13 @@ class mPIE(BaseEngine):
 
         self.reconstruction.probeWindow = np.abs(self.reconstruction.probe)
 
-    def reconstruct(self):
+    def reconstruct(self, experimentalData=None, reconstruction=None):
+        """ Reconstruct object. If experimentalData is given, it replaces the current data. Idem for reconstruction. """
+
+        self.changeExperimentalData(experimentalData)
+        self.changeOptimizable(reconstruction)
+
+
         self._prepareReconstruction()
 
         # actual reconstruction MPIE_engine
@@ -82,6 +88,9 @@ class mPIE(BaseEngine):
 
                 # difference term
                 DELTA = self.reconstruction.eswUpdate - self.reconstruction.esw
+                # self.viewer.layers['update'].data[positionIndex] = abs(DELTA ** 2).get()
+                # import pyqtgraph as pg
+                # pg.QtGui.QGuiApplication.processEvents()
 
                 # object update
                 self.reconstruction.object[..., sy, sx] = self.objectPatchUpdate(objectPatch, DELTA)
@@ -148,6 +157,8 @@ class mPIE(BaseEngine):
                    self.reconstruction.probe.conj() / (self.alphaObject * Pmax + (1 - self.alphaObject) * absP2)
         else:
             frac = self.reconstruction.probe.conj() / (self.alphaObject * Pmax + (1 - self.alphaObject) * absP2)
+
+
         return objectPatch + self.betaObject * xp.sum(frac * DELTA, axis=2, keepdims=True)
 
        

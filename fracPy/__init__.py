@@ -21,10 +21,11 @@ def easyInitialize(filename: Path, engine: Engines.BaseEngine=Engines.ePIE, oper
 
 def _easyInitializeCPM(filename, engine_function, operationMode):
     experimentalData = ExperimentalData(filename, operationMode)
-    monitor = Monitor()
-    reconstruction = Reconstruction(experimentalData)
-    reconstruction.initializeObjectProbe()
     params = Params()
+    monitor = Monitor()
+    reconstruction = Reconstruction(experimentalData, params)
+    reconstruction.initializeObjectProbe()
+
     engine = engine_function(reconstruction, experimentalData, params, monitor)
     return experimentalData, reconstruction, params, monitor, engine
 
@@ -32,10 +33,11 @@ def _easyInitializeCPM(filename, engine_function, operationMode):
 def _easyInitializeFPM(filename, engine_function, operationMode):
     experimentalData = ExperimentalData(filename, operationMode)
     monitor = Monitor()
-    reconstruction = Reconstruction(experimentalData)
+    params = Params()
+    reconstruction = Reconstruction(experimentalData, params)
     reconstruction.initializeObjectProbe()
     calib = IlluminationCalibration(reconstruction, experimentalData)
-    params = Params()
+
     engine = engine_function(reconstruction, experimentalData, params, monitor)
     params.positionOrder = 'NA'
     params.probeBoundary = True

@@ -16,7 +16,7 @@ from fracPy.Operators.Operators import aspw, scaledASP
 from fracPy.Monitor.Monitor import Monitor
 from fracPy.utils.visualisation import hsvplot
 from matplotlib import pyplot as plt
-#from fracPy.utils.utils import smooth_amplitude
+# from fracPy.utils.utils import smooth_amplitude
 # Dirty hack to get running
 smooth_amplitude = lambda x, *args: x
 # from ..Operators.Operators import FT, IFT
@@ -60,7 +60,7 @@ class BaseEngine(object):
         # check miscellaneous quantities specific for certain Engines
         self._checkMISC()
         self._checkFFT()
-        self._initializeQuadraticPhase()
+        # self._initializeQuadraticPhase()
         self._initialProbePowerCorrection()
         self._probeWindow()
         self._initializeErrors()
@@ -100,6 +100,12 @@ class BaseEngine(object):
         self.reconstruction.dxd = self.reconstruction.dxd / self.params.CPSCupsamplingFactor
 
         self.logger.info('CPSCswitch is on, coordinates(dxd,dxp,dxo) have been updated')
+
+    def update_data(self, experimentalData, reconstruction=None):
+        """ Update the experimentalData if necessary"""
+        self.experimentalData = experimentalData
+        if reconstruction is not None:
+            self.reconstruction = reconstruction
 
     def _initializePCParameters(self):
         if self.params.positionCorrectionSwitch:
@@ -181,97 +187,8 @@ class BaseEngine(object):
                                     [..., self.monitor.probeROI[0], self.monitor.probeROI[1]])
         self.monitor.updateObjectProbeErrorMonitor(object_estimate=objectEstimate, probe_estimate=probeEstimate)
 
-    def _initializeQuadraticPhase(self):
-        """
-        # initialize quadraticPhase term or transferFunctions used in propagators
-        """
-        if self.params.propagatorType == 'Fresnel':
-            self.reconstruction.quadraticPhase = np.exp(1.j * np.pi / (self.reconstruction.wavelength * self.reconstruction.zo)
-                                                     * (self.reconstruction.Xp ** 2 + self.reconstruction.Yp ** 2))
-        elif self.params.propagatorType == 'ASP':
-            if self.params.fftshiftSwitch:
-                raise ValueError('ASP propagatorType works only with fftshiftSwitch = False!')
-            if self.reconstruction.nlambda > 1:
-                raise ValueError('For multi-wavelength, polychromeASP needs to be used instead of ASP')
 
-            dummy = np.ones((1, self.reconstruction.nosm, self.reconstruction.npsm,
-                             1, self.reconstruction.Np, self.reconstruction.Np), dtype='complex64')
-            self.reconstruction.transferFunction = np.array(
-                [[[[aspw(dummy[nlambda, nosm, npsm, nslice, :, :],
-                         self.reconstruction.zo, self.reconstruction.wavelength,
-                         self.reconstruction.Lp)[1]
-                    for nslice in range(1)]
-                   for npsm in range(self.reconstruction.npsm)]
-                  for nosm in range(self.reconstruction.nosm)]
-                 for nlambda in range(self.reconstruction.nlambda)])
 
-        elif self.params.propagatorType == 'polychromeASP':
-            dummy = np.ones((self.reconstruction.nlambda, self.reconstruction.nosm, self.reconstruction.npsm,
-                             1, self.reconstruction.Np, self.reconstruction.Np), dtype='complex64')
-            self.reconstruction.transferFunction = np.array(
-                [[[[aspw(dummy[nlambda, nosm, npsm, nslice, :, :],
-                         self.reconstruction.zo, self.reconstruction.spectralDensity[nlambda],
-                         self.reconstruction.Lp)[1]
-                    for nslice in range(1)]
-                   for npsm in range(self.reconstruction.npsm)]
-                  for nosm in range(self.reconstruction.nosm)]
-                 for nlambda in range(self.reconstruction.nlambda)])
-            if self.params.fftshiftSwitch:
-                raise ValueError('ASP propagatorType works only with fftshiftSwitch = False!')
-
-        elif self.params.propagatorType == 'scaledASP':
-            if self.params.fftshiftSwitch:
-                raise ValueError('scaledASP propagatorType works only with fftshiftSwitch = False!')
-            if self.reconstruction.nlambda > 1:
-                raise ValueError('For multi-wavelength, scaledPolychromeASP needs to be used instead of scaledASP')
-            dummy = np.ones((1, self.reconstruction.nosm, self.reconstruction.npsm,
-                             1, self.reconstruction.Np, self.reconstruction.Np), dtype='complex64')
-            self.reconstruction.Q1 = np.ones_like(dummy)
-            self.reconstruction.Q2 = np.ones_like(dummy)
-            for nosm in range(self.reconstruction.nosm):
-                for npsm in range(self.reconstruction.npsm):
-                    _, self.reconstruction.Q1[0, nosm, npsm, 0, ...], self.reconstruction.Q2[
-                        0, nosm, npsm, 0, ...] = scaledASP(
-                        dummy[0, nosm, npsm, 0, :, :], self.reconstruction.zo, self.reconstruction.wavelength,
-                        self.reconstruction.dxo, self.reconstruction.dxd)
-
-        # todo check if Q1 Q2 are bandlimited
-
-        elif self.params.propagatorType == 'scaledPolychromeASP':
-            if self.params.fftshiftSwitch:
-                raise ValueError('scaledPolychromeASP propagatorType works only with fftshiftSwitch = False!')
-            dummy = np.ones((self.reconstruction.nlambda, self.reconstruction.nosm, self.reconstruction.npsm,
-                             1, self.reconstruction.Np, self.reconstruction.Np), dtype='complex64')
-            self.reconstruction.Q1 = np.ones_like(dummy)
-            self.reconstruction.Q2 = np.ones_like(dummy)
-            for nlmabda in range(self.reconstruction.nlambda):
-                for nosm in range(self.reconstruction.nosm):
-                    for npsm in range(self.reconstruction.npsm):
-                        _, self.reconstruction.Q1[nlmabda, nosm, npsm, 0, ...], self.reconstruction.Q2[
-                            nlmabda, nosm, npsm, 0, ...] = scaledASP(
-                            dummy[nlmabda, nosm, npsm, 0, :, :], self.reconstruction.zo,
-                            self.reconstruction.spectralDensity[nlmabda], self.reconstruction.dxo,
-                            self.reconstruction.dxd)
-
-        elif self.params.propagatorType == 'twoStepPolychrome':
-            if self.params.fftshiftSwitch:
-                raise ValueError('twoStepPolychrome propagatorType works only with fftshiftSwitch = False!')
-            dummy = np.ones((self.reconstruction.nlambda, self.reconstruction.nosm, self.reconstruction.npsm,
-                             1, self.reconstruction.Np, self.reconstruction.Np), dtype='complex64')
-            # self.reconstruction.quadraticPhase = np.ones_like(dummy)
-            self.reconstruction.transferFunction = np.array(
-                [[[[aspw(dummy[nlambda, nosm, npsm, nslice, :, :],
-                         self.reconstruction.zo *
-                         (1 - self.reconstruction.spectralDensity[0] / self.reconstruction.spectralDensity[nlambda]),
-                         self.reconstruction.spectralDensity[nlambda],
-                         self.reconstruction.Lp)[1]
-                    for nslice in range(1)]
-                   for npsm in range(self.reconstruction.npsm)]
-                  for nosm in range(self.reconstruction.nosm)]
-                 for nlambda in range(self.reconstruction.nlambda)])
-            self.reconstruction.quadraticPhase = np.exp(
-                1.j * np.pi / (self.reconstruction.spectralDensity[0] * self.reconstruction.zo)
-                * (self.reconstruction.Xp ** 2 + self.reconstruction.Yp ** 2))
 
     def _checkMISC(self):
         """
@@ -540,10 +457,18 @@ class BaseEngine(object):
             raise ValueError('position order not properly set')
 
     def changeExperimentalData(self, experimentalData: ExperimentalData):
-        self.experimentalData = experimentalData
+
+        if experimentalData is not None:
+            if not isinstance(experimentalData, ExperimentalData):
+                raise TypeError('Experimental data should be of class ExperimentalData')
+            self.experimentalData = experimentalData
 
     def changeOptimizable(self, optimizable: Reconstruction):
-        self.reconstruction = optimizable
+
+        if optimizable is not None:
+            if not isinstance(optimizable, Reconstruction):
+                raise TypeError(f'Argument should be an subclass of Reconstruction, but it is {type(optimizable)}')
+            self.reconstruction = optimizable
 
     def convert2single(self):
         """
@@ -568,7 +493,7 @@ class BaseEngine(object):
         """
 
 
-        self.reconstruction.ESW = Operators.Operators.object2detector(self.reconstruction.esw, self.params, self.reconstruction)
+        self.esw, self.reconstruction.ESW = Operators.Operators.object2detector(self.reconstruction.esw, self.params, self.reconstruction)
 
     def detector2object(self, esw=None):
         """
@@ -578,7 +503,7 @@ class BaseEngine(object):
         :return:
         """
         esw, eswUpdate = Operators.Operators.detector2object(self.reconstruction.ESW, self.params, self.reconstruction)
-        # Dirk is not sure why this has to be changed at all but it sometimes is
+        # Dirk is not sure why this has to be changed at all but it sometimes is changed for some reason
         self.reconstruction.esw = esw
         # this is the new estimate which will be processed later
         self.reconstruction.eswUpdate = eswUpdate
@@ -714,6 +639,7 @@ class BaseEngine(object):
             xp.sum(xp.abs(self.reconstruction.ESW + self.reconstruction.reference) ** 2, axis=(0, 1, 2))[-1]
         else:
             self.reconstruction.Iestimated = xp.sum(xp.abs(self.reconstruction.ESW) ** 2, axis=(0, 1, 2))[-1]
+            self.logger.info(f'Estimated intensity: {self.reconstruction.Iestimated.sum()}, Measured: {self.experimentalData.ptychogram[positionIndex].sum()}')
         if self.params.backgroundModeSwitch:
             self.reconstruction.Iestimated += self.reconstruction.background
 

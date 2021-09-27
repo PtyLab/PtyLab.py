@@ -1,5 +1,9 @@
+import napari
+
+import numpy as np
 from .Plots import ObjectProbeErrorPlot, DiffractionDataPlot
-from fracPy.utils.visualisation import setColorMap
+from fracPy.utils.visualisation import setColorMap, complex2rgb
+
 
 class Monitor(object):
     """
@@ -25,6 +29,7 @@ class Monitor(object):
         :return:
         """
         self.defaultMonitor = ObjectProbeErrorPlot()
+
         if self.verboseLevel == 'high':
             self.diffractionDataMonitor = DiffractionDataPlot()
 
@@ -63,3 +68,60 @@ class DummyMonitor(object):
 
     def initializeVisualisation(self):
         pass
+
+    def initializeMonitors(self):
+        pass
+
+    def updateObjectProbeErrorMonitor(self, *args, **kwargs):
+        pass
+
+    def updateDiffractionDataMonitor(self, *args, **kwargs):
+        pass
+
+
+
+
+class NapariMonitor(DummyMonitor):
+
+    def initializeVisualisation(self):
+        self.viewer = napari.Viewer()
+        self.viewer.show()
+
+        self.viewer.add_image(name='object estimate', data = np.random.rand(100,100))
+        self.viewer.add_image(name='probe estimate', data = np.random.rand(100,100))
+
+        self.Iestimated = self.viewer.add_image(name='I estimated', data = np.random.rand(100,100))
+        self.Imeasured = self.viewer.add_image(name='I measured', data = np.random.rand(100,100))
+        self.rawdatamonitor = self.viewer.add_image(name='raw data (unset)', data=np.random.rand(100,100), visible=False)
+
+    def initializeMonitors(self):
+        self.initializeVisualisation()
+
+
+    def add_ptychogram(self, experimentalData):
+        self.rawdatamonitor.name = 'raw data'
+        self.rawdatamonitor.data = experimentalData.ptychogram
+        self.rawdatamonitor.visible = True
+
+
+    def update_probe_image(self, new_probe):
+        RGB_probe = complex2rgb(new_probe)
+        self.viewer.layers['probe_estimate'].data = RGB_probe
+
+    def update_object_image(self, object_estimate):
+        RGB_object = complex2rgb(object_estimate)
+        self.viewer.layers['object estimate'].data = RGB_object
+
+    def updatePlot(self, object_estimate, probe_estimate):
+        self.update_probe_image(probe_estimate)
+        self.update_object_image(object_estimate)
+
+    def updateDiffractionDataMonitor(self, Iestimated, Imeasured):
+        self.Iestimated.data = Iestimated
+        self.Imeasured.data = Imeasured
+
+
+
+
+
+
