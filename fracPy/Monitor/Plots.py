@@ -64,7 +64,12 @@ class ObjectProbeErrorPlot(object):
             OE = complex2rgb(OE, amplitudeScalingFactor=amplitudeScalingFactor)
 
         elif objectPlot == 'abs':
-            OE = OE / abs(OE.max())
+            # original
+            #OE = OE / abs(OE).max()
+            # better
+            AOE = abs(OE)
+            OE = OE / (AOE.mean() + np.std(AOE))
+            #OE = OE / abs(OE.max())
             OE = abs(OE)
         elif objectPlot == 'angle':
             OE = np.angle(OE)
@@ -73,7 +78,7 @@ class ObjectProbeErrorPlot(object):
             if objectPlot == 'complex':
                 self.im_object = complexPlot(OE, ax=self.ax_object, **kwargs)
             else:
-                self.im_object = self.ax_object.imshow(OE, cmap='gray', interpolation=None)
+                self.im_object = self.ax_object.imshow(OE, interpolation=None)
                 divider = make_axes_locatable(self.ax_object)
                 cax = divider.append_axes("right", size="5%", pad=0.1)
                 self.objectCbar = plt.colorbar(self.im_object, ax=self.ax_object, cax=cax)

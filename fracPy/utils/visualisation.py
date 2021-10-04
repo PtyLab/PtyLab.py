@@ -47,7 +47,12 @@ def complex2rgb(u, amplitudeScalingFactor=1):
     s = np.ones_like(h)
     # value (normalize brightness to 8-bit)
     v = np.abs(u)
-    if amplitudeScalingFactor!=1:
+    if amplitudeScalingFactor == '2sigma':
+        ASF = v.mean() + 2 * np.std(v)
+        ASF = ASF / v.max()
+    else:
+        ASF = amplitudeScalingFactor
+    if ASF!=1:
         v[v>amplitudeScalingFactor*np.max(v)] = amplitudeScalingFactor*np.max(v)
     v = v / (np.max(v) + np.finfo(float).eps) * (2 ** 8-1)
 

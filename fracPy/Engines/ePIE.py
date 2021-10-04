@@ -45,6 +45,7 @@ class ePIE(BaseEngine):
     def reconstruct(self, experimentalData: ExperimentalData = None):
         if experimentalData is not None:
             self.reconstruction.data = experimentalData
+            self.experimentalData = experimentalData
         self._prepareReconstruction()
 
         # actual reconstruction ePIE_engine

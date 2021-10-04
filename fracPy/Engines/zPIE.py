@@ -102,15 +102,15 @@ class zPIE(BaseEngine):
             else:
                 d = 50
 
-                dz = dz = np.linspace(-1,1, 21) * d * self.DoF
+                dz = np.linspace(-1,1, 21) * d * self.DoF
 
                 merit = []
                 # todo, mixed states implementation, check if more need to be put on GPU to speed up
                 for k in np.arange(len(dz)):
                     imProp = None
                     if self.focusObject:
-
-                        imProp, _ = aspw(u=xp.squeeze(self.reconstruction.object),
+                        roi = slice(self.reconstruction.No//2-n//2, self.reconstruction.No//2+n//2)
+                        imProp, _ = aspw(u=xp.squeeze(self.reconstruction.object[...,roi,roi]),
                         # imProp, _ = aspw(u=w * xp.squeeze(self.reconstruction.object[...,
                         #                                 (self.reconstruction.No // 2 - n // 2):(self.reconstruction.No // 2 + n // 2),
                         #                                 (self.reconstruction.No // 2 - n // 2):(self.reconstruction.No // 2 + n // 2)]),

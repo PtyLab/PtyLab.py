@@ -70,6 +70,7 @@ class mqNewton(BaseEngine):
     def reconstruct(self, experimentalData=None):
         if experimentalData is not None:
             self.experimentalData = experimentalData
+            self.reconstruction.data = experimentalData
         self._prepareReconstruction()
         self.initializeAdaptiveMomentum()
         
