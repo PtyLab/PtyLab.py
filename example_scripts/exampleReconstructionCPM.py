@@ -29,7 +29,7 @@ params.positionCorrectionSwitch = False
 # from fracPy import Reconstruction
 # reconstruction: Reconstruction = Reconstruction(experimentalData, params)
 
-
+experimentalData.setOrientation(4)
 ## altternative
 # experimentalData = ExperimentalData()
 # experimentalData.loadData(filePath)

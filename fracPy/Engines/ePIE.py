@@ -75,6 +75,7 @@ class ePIE(BaseEngine):
 
                 # probe update
                 self.reconstruction.probe = self.probeUpdate(objectPatch, DELTA)
+                yield loop, positionLoop
 
             # get error metric
             self.getErrorMetrics()
@@ -83,7 +84,7 @@ class ePIE(BaseEngine):
             self.applyConstraints(loop)
 
             # show reconstruction
-            self.showReconstruction(loop)
+            # self.showReconstruction(loop)
 
         if self.params.gpuFlag:
             self.logger.info('switch to cpu')
@@ -117,5 +118,7 @@ class ePIE(BaseEngine):
         frac = objectPatch.conj() / xp.max(xp.sum(xp.abs(objectPatch) ** 2, axis=(0,1,2,3)))
         r = self.reconstruction.probe + self.betaProbe * xp.sum(frac * DELTA, axis=(0, 1, 3), keepdims=True)
         return r
+
+
 
 
