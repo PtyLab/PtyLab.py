@@ -897,6 +897,12 @@ class BaseEngine(object):
         :param loop: loop number
         :return:
         """
+        # dirks additions, untested
+        if True:
+            # turns down areas that are not updated. Similar to an
+            #l2 regularizer
+            self.reconstruction.object *= 0.999
+
         # enforce empty beam constraint
         if self.params.modulusEnforcedProbeSwitch:
             self.modulusEnforcedProbe()

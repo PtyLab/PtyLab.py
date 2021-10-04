@@ -39,7 +39,7 @@ experimentalData.showPtychogram()
 
 # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
 # now create an object to hold everything we're eventually interested in
-reconstruction.npsm = 1 # Number of probe modes to reconstruct
+reconstruction.npsm = 4 # Number of probe modes to reconstruct
 reconstruction.nosm = 1 # Number of object modes to reconstruct
 reconstruction.nlambda = 1 # len(experimentalData.spectralDensity) # Number of wavelength
 reconstruction.nslice = 1 # Number of object slice
@@ -91,7 +91,8 @@ params.probePowerCorrectionSwitch = True
 params.modulusEnforcedProbeSwitch = False
 params.comStabilizationSwitch = True
 params.orthogonalizationSwitch = False
-params.orthogonalizationFrequency = 10
+params.orthogonalizationFrequency = 2
+
 params.fftshiftSwitch = False
 params.intensityConstraint = 'standard'  # standard fluctuation exponential poission
 params.absorbingProbeBoundary = False
@@ -104,7 +105,7 @@ params.positionCorrectionSwitch = False
 
 ## choose mqNewton engine
 mqNewton = Engines.mqNewton(reconstruction, experimentalData, params, monitor)
-mqNewton.numIterations = 15
+mqNewton.numIterations = 30
 mqNewton.betaProbe = 1
 mqNewton.betaObject = 1
 mqNewton.beta1 = 0.5
@@ -131,10 +132,11 @@ mPIE.betaObject = 0.25
 #
 # ## choose zPIE engine
 zPIE = Engines.zPIE(reconstruction, experimentalData, params, monitor)
+zPIE.focusObject = True
 zPIE.numIterations = 50
 zPIE.betaProbe = 0.35
 zPIE.betaObject = 0.35
-zPIE.zPIEgradientStepSize = 1000  # gradient step size for axial position correction (typical range [1, 100])
+zPIE.zPIEgradientStepSize = 1  # gradient step size for axial position correction (typical range [1, 100])
 zPIE.reconstruct()
 #
 # # do another round of mPIE
