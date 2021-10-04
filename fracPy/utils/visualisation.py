@@ -6,7 +6,10 @@ import math
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from fracPy.utils.gpuUtils import asNumpyArray
 from matplotlib.colors import LinearSegmentedColormap
-import pyqtgraph as pg
+try:
+    import pyqtgraph as pg
+except ModuleNotFoundError:
+    print('Pyqtgraph not available')
 
 def hsv2rgb(hsv: np.ndarray) -> np.ndarray:
     """

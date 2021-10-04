@@ -1,7 +1,7 @@
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Reconstruction.Reconstruction import Reconstruction
 from fracPy.Reconstruction.CalibrationFPM import IlluminationCalibration
-from fracPy.Monitor.Monitor import Monitor
+from fracPy.Monitor.Monitor import Monitor, DummyMonitor
 from fracPy.Params.Params import Params
 from fracPy import Engines
 from pathlib import Path
@@ -22,7 +22,8 @@ def easyInitialize(filename: Path, engine: Engines.BaseEngine=Engines.ePIE, oper
 def _easyInitializeCPM(filename, engine_function, operationMode):
     experimentalData = ExperimentalData(filename, operationMode)
     params = Params()
-    monitor = Monitor()
+    #monitor = Monitor()
+    monitor = DummyMonitor()
     reconstruction = Reconstruction(experimentalData, params)
     reconstruction.initializeObjectProbe()
 

@@ -66,7 +66,8 @@ class Monitor(object):
 
 class DummyMonitor(object):
     """ Monitor without any visualisation so it won't consume any time """
-
+    objectZoom=1
+    probeZoom=1
     def updatePlot(self, object_estimate, probe_estimate):
         pass
 
