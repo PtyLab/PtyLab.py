@@ -102,7 +102,12 @@ class Reconstruction(object):
 
         # set object pixel numbers
         self.No = self.Np*2**2
-        # self.No = self.Np+np.max(self.positions0[:,0])-np.min(self.positions0[:,0])
+        # we need space for the probe as well, on both sides that would be half the probe
+        range_pixels = np.max(np.max(self.positions, axis=0) - np.min(self.positions, axis=0)) + 2*self.Np
+        if range_pixels %2 == 1:
+            range_pixels += 1
+        self.No = np.max([self.Np, range_pixels])
+
 
 
             
@@ -155,10 +160,12 @@ class Reconstruction(object):
         self.probe = self.initialGuessProbe.copy()
 
 
-    def initializeObject(self):
+    def initializeObject(self, type_of_init=None):
+        if type_of_init is not None:
+            self.initialObject = type_of_init
         self.logger.info('Initial object set to %s', self.initialObject)
         self.shape_O = (self.nlambda, self.nosm, 1, self.nslice, np.int(self.No), np.int(self.No))
-        self.initialGuessObject = initialProbeOrObject(self.shape_O, self.initialObject, self).astype(np.complex64)
+        self.initialGuessObject = initialProbeOrObject(self.shape_O, self.initialObject, self, self.logger).astype(np.complex64)
 
     def initializeProbe(self):
         self.logger.info('Initial probe set to %s', self.initialProbe)

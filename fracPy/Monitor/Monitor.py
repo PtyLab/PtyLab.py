@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 import napari
 
 import numpy as np
@@ -21,6 +22,7 @@ class Monitor(object):
         self.probePlotContrast = 1
         self.reconstruction = None
         self.cmapDiffraction = setColorMap()
+        self.defaultMonitor = None
 
 
     def initializeMonitors(self):
@@ -28,7 +30,9 @@ class Monitor(object):
         Create the figure and axes etc.
         :return:
         """
-        self.defaultMonitor = ObjectProbeErrorPlot()
+        # only initialize if it hasn't been done
+        if self.defaultMonitor is None:
+            self.defaultMonitor = ObjectProbeErrorPlot()
 
         if self.verboseLevel == 'high':
             self.diffractionDataMonitor = DiffractionDataPlot()
@@ -41,6 +45,7 @@ class Monitor(object):
         :return:
         """
         self.defaultMonitor.updateError(self.reconstruction.error)
+        print(f'Object plot: {self.objectPlot}')
         self.defaultMonitor.updateObject(object_estimate, self.reconstruction, objectPlot=self.objectPlot,
                                          pixelSize=self.reconstruction.dxo, axisUnit='mm',
                                          amplitudeScalingFactor=self.objectPlotContrast)
@@ -53,8 +58,10 @@ class Monitor(object):
         """
         update the diffraction plots
         """
-        self.diffractionDataMonitor.updateIestimated(Iestimated, cmap=self.cmapDiffraction)
-        self.diffractionDataMonitor.updateImeasured(Imeasured, cmap=self.cmapDiffraction)
+        from matplotlib.colors import LogNorm
+        self.diffractionDataMonitor.update_view(Iestimated, Imeasured, cmap=self.cmapDiffraction)
+        # self.diffractionDataMonitor.updateIestimated(Iestimated, cmap=self.cmapDiffraction)
+        # self.diffractionDataMonitor.updateImeasured(Imeasured, cmap=self.cmapDiffraction)
         self.diffractionDataMonitor.drawNow()
 
 class DummyMonitor(object):

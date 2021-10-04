@@ -67,7 +67,9 @@ class mqNewton(BaseEngine):
             self.reconstruction.probeMomentum_v = self.reconstruction.probeMomentum.copy()
             
         
-    def reconstruct(self):
+    def reconstruct(self, experimentalData=None):
+        if experimentalData is not None:
+            self.experimentalData = experimentalData
         self._prepareReconstruction()
         self.initializeAdaptiveMomentum()
         
