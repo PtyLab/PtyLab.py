@@ -104,11 +104,17 @@ class Reconstruction(object):
             else:
                 # compute the pupil radius in the Fourier plane
                 self.entrancePupilDiameter = 2 * self.dxp**2 * self.Np * self.NA / self.wavelength
-                                
+
         # set object pixel numbers
-        # self.No = self.Np*2**2 # this computation is arbitrary and I noticed in some cases it can be too small, crashing the code!
-        self.No = np.round(self.Np+np.max(abs(self.positions))-np.min(abs(self.positions)))*2
-        print("Computing object size self.No to be {} pixels".format(self.No))
+        self.No = self.Np*2**2
+        # we need space for the probe as well, on both sides that would be half the probe
+        range_pixels = np.max(np.max(self.positions, axis=0) - np.min(self.positions, axis=0)) + 2*self.Np
+        if range_pixels %2 == 1:
+            range_pixels += 1
+        self.No = np.max([self.Np, range_pixels])
+
+
+
             
     def initializeSettings(self):
         """
@@ -159,10 +165,12 @@ class Reconstruction(object):
         self.probe = self.initialGuessProbe.copy()
 
 
-    def initializeObject(self):
+    def initializeObject(self, type_of_init=None):
+        if type_of_init is not None:
+            self.initialObject = type_of_init
         self.logger.info('Initial object set to %s', self.initialObject)
         self.shape_O = (self.nlambda, self.nosm, 1, self.nslice, np.int(self.No), np.int(self.No))
-        self.initialGuessObject = initialProbeOrObject(self.shape_O, self.initialObject, self).astype(np.complex64)
+        self.initialGuessObject = initialProbeOrObject(self.shape_O, self.initialObject, self, self.logger).astype(np.complex64)
 
     def initializeProbe(self):
         self.logger.info('Initial probe set to %s', self.initialProbe)
@@ -179,7 +187,7 @@ class Reconstruction(object):
 
     def saveResults(self, fileName='recent', type='all'):
         if type == 'all':
-            if self.data.operationMode == 'CPM':    
+            if self.data.operationMode == 'CPM':
                 hf = h5py.File(fileName + '_Reconstruction.hdf5', 'w')
                 hf.create_dataset('probe', data=self.probe, dtype='complex64')
                 hf.create_dataset('object', data=self.object, dtype='complex64')
@@ -190,7 +198,7 @@ class Reconstruction(object):
                 if hasattr(self, 'theta'):
                     if self.theta!=None:
                         hf.create_dataset('theta', data=self.theta, dtype='f')
-           
+
             if self.data.operationMode == 'FPM':
                 hf = h5py.File(fileName + '_Reconstruction.hdf5', 'w')
                 hf.create_dataset('probe', data=self.probe, dtype='complex64')
@@ -328,14 +336,14 @@ class Reconstruction(object):
                     ..., None])
         else:
             positions = np.round(self.data.encoder / self.dxo)  # encoder is in m, positions0 and positions are in pixels
-        
-        # we need positions to compute optimal object size self.No. 
+
+        # we need positions to compute optimal object size self.No.
         # For that we don't require the positions to be translated and can ignore this part
         try:
             positions = positions + self.No // 2 - self.Np // 2
         except:
             pass
-            
+
         return positions.astype(int)
 
     # system property list

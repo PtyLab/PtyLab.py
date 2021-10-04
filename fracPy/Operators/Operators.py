@@ -163,6 +163,23 @@ def propagate_polychromeASP(fields, params: Params, reconstruction: Reconstructi
     result = ifft2c(fft2c(fields) * transfer_function)
     return reconstruction.esw, result
 
+def propagate_identity(fields, params: Params, reconstruction:Reconstruction, inverse=False, z=None):
+    """
+    Identity propagator (aka, it does nothing)
+
+    Probably useful to figure out the required orientation.
+
+    :param fields:
+    :param params:
+    :param reconstruction:
+    :param inverse:
+    :param z:
+    :return:
+    """
+    transfer_function = __make_quad_phase(1e-3, 532e-9, reconstruction.Np, reconstruction.dxp, isGpuArray(fields))
+    transfer_function = transfer_function * 0 + 1
+    return reconstruction.esw, fields * transfer_function
+
 def propagate_polychromeASP_inv(fields, params, reconstruction, z=None):
     return  propagate_polychromeASP(fields, params, reconstruction, inverse=True, z=z)
 
@@ -190,7 +207,7 @@ def object2detector(fields, params: Params, reconstruction: Reconstruction):
         fields = reconstruction.esw
     return method(fields, params, reconstruction)
 
-def aspw(u, z, wavelength, L):
+def aspw(u, z, wavelength, L, bandlimit=True):
     """
     Angular spectrum plane wave propagation function.
     following: Matsushima et al., "Band-Limited Angular Spectrum Method for Numerical Simulation of Free-Space
@@ -202,21 +219,22 @@ def aspw(u, z, wavelength, L):
     :return: U_prop, Q  (field distribution after propagation and the bandlimited transfer function)
     """
     N = u.shape[-1]
-    phase_exp = __aspw_transfer_function(z, wavelength, N, L, on_gpu=isGpuArray(u))
+    phase_exp = __aspw_transfer_function(z, wavelength, N, L, on_gpu=isGpuArray(u), bandlimit=bandlimit)
     U = fft2c(u)
-    u = ifft2c(U * phase_exp)
-    return u, phase_exp
+    u_prop = ifft2c(U * phase_exp)
+    return u_prop, phase_exp
 
 @lru_cache(cache_size)
-def __aspw_transfer_function(z, wavelength, N, L, on_gpu=False):
+def __aspw_transfer_function(z, wavelength, N, L, on_gpu=False, bandlimit=True):
     if on_gpu:
         xp = cp
     else:
         xp = np
+    a_z = abs(z)
     k = 2 * np.pi / wavelength
     X = xp.arange(-N / 2, N / 2) / L
     Fx, Fy = xp.meshgrid(X, X)
-    f_max = L / (wavelength * xp.sqrt(L ** 2 + 4 * z ** 2))
+    f_max = L / (wavelength * xp.sqrt(L ** 2 + 4 * a_z ** 2))
     # note: see the paper above if you are not sure what this bandlimit has to do here
     # W = rect(Fx/(2*f_max)) .* rect(Fy/(2*f_max));
     W = xp.array(circ(Fx, Fy, 2 * f_max))
@@ -224,11 +242,22 @@ def __aspw_transfer_function(z, wavelength, N, L, on_gpu=False):
     exponent = 1 - (Fx * wavelength) ** 2 - (Fy * wavelength) ** 2
     # take out stuff that cannot exist
     mask = exponent > 0
+    if not bandlimit:
+        mask = 0*mask + 1
     # put the out of range values to 0 so the square root can be taken
-    exponent = xp.clip(mask, 0, xp.inf)
-    H = xp.array(mask * xp.exp(1.j * k * z * xp.sqrt(exponent)))
+    exponent = xp.clip(exponent, 0, xp.inf)
+    H = xp.array(mask * complexexp(k * a_z * xp.sqrt(exponent)))
+    if z < 0:
+        H = H.conj()
     phase_exp = H * W
     return phase_exp
+
+
+def complexexp(angle):
+    xp = getArrayModule(angle)
+    return xp.cos(angle) + 1j*xp.sin(angle)
+
+
 
 
 def scaledASP(u, z, wavelength, dx, dq, bandlimit = True, exactSolution = False):
@@ -559,6 +588,7 @@ forward_lookup_dictionary = {
         'scaledASP': propagate_scaledASP,
         'scaledPolychromeASP': propagate_scaledPolychromeASP,
         'twoStepPolychrome': propagate_twoStepPolychrome,
+        'identity': propagate_identity,
     }
 
 
@@ -570,5 +600,6 @@ reverse_lookup_dictionary = {
         'scaledASP': propagate_scaledASP_inv,
         'scaledPolychromeASP': propagate_scaledPolychromeASP_inv,
         'twoStepPolychrome': propagate_twoStepPolychrome_inv,
+        'identity': propagate_identity
     }
 

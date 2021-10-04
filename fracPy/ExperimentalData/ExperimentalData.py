@@ -170,8 +170,14 @@ class ExperimentalData:
         show ptychogram.
         """
         xp = getArrayModule(self.ptychogram)
-        show3Dslider(xp.log10(xp.swapaxes(self.ptychogram, 1,2)+1))
-        print('Maximum count in ptychogram is %d'%(np.max(self.ptychogram)))  #todo: make this the title
+        print(f'Min max ptychogram: {np.min(self.ptychogram)}, {self.ptychogram.max()}')
+        log_ptychogram = xp.log10(
+            xp.swapaxes(
+                np.clip(self.ptychogram.astype(np.float),0, None),
+                1,2)+1)
+        print(f'Min max ptychogram: {np.min(log_ptychogram)}, {log_ptychogram.max()}')
+        show3Dslider(log_ptychogram)
+
 
     def _move_data_to_cpu(self):
         """ Move all required data to the CPU """

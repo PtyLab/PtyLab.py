@@ -194,9 +194,11 @@ def show3Dslider(A, colormap = 'diffraction'):
     :param colormap: matplotlib colormap, default, customized colormap for plotting diffraction data
     return: a pyqtgraph plot
     """
+    print(A.min(), A.max())
     app = pg.mkQApp()
     imv = pg.ImageView(view=pg.PlotItem())
     imv.setWindowTitle('Close to proceed')
+
     imv.setImage(A)
 
     # choose colormap from matplotlib colormaps

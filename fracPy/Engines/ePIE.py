@@ -42,7 +42,9 @@ class ePIE(BaseEngine):
         self.numIterations = 50
 
 
-    def reconstruct(self):
+    def reconstruct(self, experimentalData: ExperimentalData = None):
+        if experimentalData is not None:
+            self.reconstruction.data = experimentalData
         self._prepareReconstruction()
 
         # actual reconstruction ePIE_engine

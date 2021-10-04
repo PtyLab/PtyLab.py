@@ -1,3 +1,4 @@
+import napari
 import numpy as np
 from matplotlib import pyplot as plt
 import tqdm
@@ -87,10 +88,13 @@ class zPIE(BaseEngine):
         X,Y = xp.meshgrid(xp.arange(-n//2, n//2), xp.arange(-n//2, n//2))
         w = xp.exp(-(xp.sqrt(X**2+Y**2) / self.reconstruction.Np) ** 4)
 
+
+
         self.pbar = tqdm.trange(self.numIterations, desc='zPIE', file=sys.stdout, leave=True)  # in order to change description to the tqdm progress bar
         for loop in self.pbar:
             # set position order
             self.setPositionOrder()
+            imProps = []
 
             # get positions
             if loop == 1:
@@ -98,32 +102,40 @@ class zPIE(BaseEngine):
             else:
                 d = 50
 
-                dz = np.linspace(-d * self.DoF, d * self.DoF, 11)/10
+                dz = dz = np.linspace(-1,1, 21) * d * self.DoF
 
                 merit = []
                 # todo, mixed states implementation, check if more need to be put on GPU to speed up
                 for k in np.arange(len(dz)):
+                    imProp = None
                     if self.focusObject:
-                        imProp, _ = aspw(w * xp.squeeze(self.reconstruction.object[...,
-                                                        (self.reconstruction.No // 2 - n // 2):(self.reconstruction.No // 2 + n // 2),
-                                                        (self.reconstruction.No // 2 - n // 2):(self.reconstruction.No // 2 + n // 2)]),
-                                         dz[k], self.reconstruction.wavelength, n * self.reconstruction.dxo)
+
+                        imProp, _ = aspw(u=xp.squeeze(self.reconstruction.object),
+                        # imProp, _ = aspw(u=w * xp.squeeze(self.reconstruction.object[...,
+                        #                                 (self.reconstruction.No // 2 - n // 2):(self.reconstruction.No // 2 + n // 2),
+                        #                                 (self.reconstruction.No // 2 - n // 2):(self.reconstruction.No // 2 + n // 2)]),
+                                         z=dz[k], wavelength=self.reconstruction.wavelength, L=self.reconstruction.Lo,
+                                         bandlimit=False)
                     else:
                         if self.reconstruction.nlambda==1:
-                            imProp, _ = aspw(xp.squeeze(self.reconstruction.probe[..., :, :]),
-                                             dz[k], self.reconstruction.wavelength, self.reconstruction.Lp)
+                            imProp, _ = aspw(u=xp.squeeze(self.reconstruction.probe[..., :, :]),
+                                             z=dz[k], wavelength=self.reconstruction.wavelength, L=self.reconstruction.Lp)
                         else:
                             nlambda = self.reconstruction.nlambda // 2
                             imProp, _ = aspw(xp.squeeze(self.reconstruction.probe[nlambda, ..., :, :]),
                                              dz[k], self.reconstruction.spectralDensity[nlambda], self.reconstruction.Lp)
-
+                    imProps.append(imProp.get())
                     # TV approach
                     aleph = 1e-2
-                    gradx = imProp-xp.roll(imProp, 1, axis=1)
-                    grady = imProp-xp.roll(imProp, 1, axis=0)
-                    merit.append(asNumpyArray(xp.sum(xp.sqrt(abs(gradx)**2+abs(grady)**2+aleph))))
+                    gradx = xp.roll(imProp, -1, axis=-1)-xp.roll(imProp, 1, axis=-1)
+                    grady = xp.roll(imProp, -1, axis=-2)-xp.roll(imProp, 1, axis=-2)
+                    merit.append(xp.sum(xp.sqrt(abs(gradx)**2+abs(grady)**2+aleph)))
 
+                merit = xp.array(merit)
+                if xp is not np:
+                    merit = merit.get()
                 feedback = np.sum(dz*merit)/np.sum(merit)    # at optimal z, feedback term becomes 0
+
                 print('Step size: ', feedback)
                 self.zMomentun = self.zPIEfriction*self.zMomentun+self.zPIEgradientStepSize*feedback
                 zNew = self.reconstruction.zo + self.zMomentun
@@ -179,12 +191,19 @@ class zPIE(BaseEngine):
 
             # show reconstruction
             if loop == 0:
-                figure, ax = plt.subplots(1, 1, num=666, squeeze=True, clear=True, figsize=(5, 5))
+                figure, axes = plt.subplots(1, 3, num=666, squeeze=True, clear=True, figsize=(5, 5))
+                ax = axes[0]
+                ax_score = axes[1]
                 ax.set_title('Estimated distance (object-camera)')
                 ax.set_xlabel('iteration')
                 ax.set_ylabel('estimated z (mm)')
                 ax.set_xscale('symlog')
-                line = plt.plot(0, zNew, 'o-')[0]
+
+                ax_score.set_title('TV score')
+                ax_score.set_xlabel('Distance [um]')
+                ax_score.set_ylabel('TV')
+                score_line, = ax_score.plot(dz*1e6, merit)
+                line, = ax.plot(0, zNew, 'o-')
                 plt.tight_layout()
                 plt.show(block=False)
 
@@ -194,6 +213,9 @@ class zPIE(BaseEngine):
 
                 line.set_xdata(idx)
                 line.set_ydata(np.array(self.reconstruction.zHistory)[idx] * 1e3)
+
+                score_line.set_ydata(merit)
+                ax_score.set_ylim(merit.min()-1, merit.max()+1)
                 ax.set_xlim(0, np.max(idx))
                 ax.set_ylim(np.min(self.reconstruction.zHistory) * 1e3, np.max(self.reconstruction.zHistory) * 1e3)
 

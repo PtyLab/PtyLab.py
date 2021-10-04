@@ -173,11 +173,14 @@ class BaseEngine(object):
                                                 min(self.reconstruction.No, xc + rx // 2))]
 
         if not hasattr(self.monitor, 'probeROI') or update:
-            r = np.int(self.reconstruction.entrancePupilDiameter / self.reconstruction.dxp / self.monitor.probeZoom)
-            self.monitor.probeROI = [slice(max(0, self.reconstruction.Np // 2 - r),
-                                               min(self.reconstruction.Np, self.reconstruction.Np // 2 + r)),
-                                         slice(max(0, self.reconstruction.Np // 2 - r),
-                                               min(self.reconstruction.Np, self.reconstruction.Np // 2 + r))]
+            if self.monitor.probeZoom == 'full':
+                self.monitor.probeROI = [slice(None, None), slice(None, None)]
+            else:
+                r = np.int(self.experimentalData.entrancePupilDiameter / self.reconstruction.dxp / self.monitor.probeZoom)
+                self.monitor.probeROI = [slice(max(0, self.reconstruction.Np // 2 - r),
+                                                   min(self.reconstruction.Np, self.reconstruction.Np // 2 + r)),
+                                             slice(max(0, self.reconstruction.Np // 2 - r),
+                                                   min(self.reconstruction.Np, self.reconstruction.Np // 2 + r))]
 
     def _showInitialGuesses(self):
         self.monitor.initializeMonitors()
@@ -639,7 +642,7 @@ class BaseEngine(object):
             xp.sum(xp.abs(self.reconstruction.ESW + self.reconstruction.reference) ** 2, axis=(0, 1, 2))[-1]
         else:
             self.reconstruction.Iestimated = xp.sum(xp.abs(self.reconstruction.ESW) ** 2, axis=(0, 1, 2))[-1]
-            self.logger.info(f'Estimated intensity: {self.reconstruction.Iestimated.sum()}, Measured: {self.experimentalData.ptychogram[positionIndex].sum()}')
+            self.logger.debug(f'Estimated intensity: {self.reconstruction.Iestimated.sum()}, Measured: {self.experimentalData.ptychogram[positionIndex].sum()}')
         if self.params.backgroundModeSwitch:
             self.reconstruction.Iestimated += self.reconstruction.background
 
@@ -855,7 +858,9 @@ class BaseEngine(object):
                 grad_x = r * grad_x / abs(grad_x)
             if abs(grad_y) > r:
                 grad_y = r * grad_y / abs(grad_y)
-            self.D[positionIndex, :] = self.daleth * asNumpyArray([grad_y, grad_x]) + self.beth * \
+            grad_y = asNumpyArray(grad_y)
+            grad_x = asNumpyArray(grad_x)
+            self.D[positionIndex, :] = self.daleth * np.array([grad_y, grad_x]) + self.beth * \
                                        self.D[positionIndex, :]
 
     def positionCorrectionUpdate(self):
@@ -920,6 +925,10 @@ class BaseEngine(object):
 
             self.reconstruction.probe = (1 - self.params.absorbingProbeBoundaryAleph) * self.reconstruction.probe + \
                                      self.params.absorbingProbeBoundaryAleph * self.reconstruction.probe * self.probeWindow
+
+            # experimental
+            self.reconstruction.probe = ifft2c(fft2c(self.reconstruction.probe)*self.probeWindow)
+
 
         # Todo: objectSmoothenessSwitch,probeSmoothenessSwitch,
         if self.params.probeSmoothenessSwitch:
@@ -1032,6 +1041,7 @@ class BaseEngine(object):
         Perform center of mass stabilization (center the probe)
         :return:
         """
+        self.logger.info('Doing probe com stabilization')
         xp = getArrayModule(self.reconstruction.probe)
         # calculate center of mass of the probe (for multislice cases, the probe for the last slice is used)
         P2 = xp.sum(abs(self.reconstruction.probe[:, :, :, -1, ...]) ** 2, axis=(0, 1, 2))
