@@ -102,6 +102,7 @@ class mPIE(BaseEngine):
                 if np.random.rand(1) > 0.95:
                     self.objectMomentumUpdate()
                     self.probeMomentumUpdate()
+                yield positionLoop, positionIndex
 
             # get error metric
             self.getErrorMetrics()
