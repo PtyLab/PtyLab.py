@@ -176,7 +176,7 @@ class BaseEngine(object):
             if self.monitor.probeZoom == 'full':
                 self.monitor.probeROI = [slice(None, None), slice(None, None)]
             else:
-                r = np.int(self.experimentalData.entrancePupilDiameter / self.reconstruction.dxp / self.monitor.probeZoom)
+                r = int(self.experimentalData.entrancePupilDiameter / self.reconstruction.dxp / self.monitor.probeZoom)
                 self.monitor.probeROI = [slice(max(0, self.reconstruction.Np // 2 - r),
                                                    min(self.reconstruction.Np, self.reconstruction.Np // 2 + r)),
                                              slice(max(0, self.reconstruction.Np // 2 - r),
@@ -1052,8 +1052,8 @@ class BaseEngine(object):
         # calculate center of mass of the probe (for multislice cases, the probe for the last slice is used)
         P2 = xp.sum(abs(self.reconstruction.probe[:, :, :, -1, ...]) ** 2, axis=(0, 1, 2))
         demon = xp.sum(P2) * self.reconstruction.dxp
-        xc = xp.int(xp.around(xp.sum(xp.array(self.reconstruction.Xp, xp.float32) * P2) / demon))
-        yc = xp.int(xp.around(xp.sum(xp.array(self.reconstruction.Yp, xp.float32) * P2) / demon))
+        xc = int(xp.around(xp.sum(xp.array(self.reconstruction.Xp, xp.float32) * P2) / demon))
+        yc = int(xp.around(xp.sum(xp.array(self.reconstruction.Yp, xp.float32) * P2) / demon))
         # shift only if necessary
         if xc ** 2 + yc ** 2 > 1:
             # shift probe

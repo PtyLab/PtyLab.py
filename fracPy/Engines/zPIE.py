@@ -130,6 +130,8 @@ class zPIE(BaseEngine):
                     gradx = xp.roll(imProp, -1, axis=-1)-xp.roll(imProp, 1, axis=-1)
                     grady = xp.roll(imProp, -1, axis=-2)-xp.roll(imProp, 1, axis=-2)
                     merit.append(xp.sum(xp.sqrt(abs(gradx)**2+abs(grady)**2+aleph)))
+                    # take a tiny break, we may overask the GPU
+                    yield 0, 0
 
                 merit = xp.array(merit)
                 if xp is not np:
@@ -139,6 +141,8 @@ class zPIE(BaseEngine):
                 print('Step size: ', feedback)
                 self.zMomentun = self.zPIEfriction*self.zMomentun+self.zPIEgradientStepSize*feedback
                 zNew = self.reconstruction.zo + self.zMomentun
+
+                # asdlkcmasldk
 
             self.reconstruction.zHistory.append(self.reconstruction.zo)
 
@@ -160,6 +164,7 @@ class zPIE(BaseEngine):
 
 
             for positionLoop, positionIndex in enumerate(self.positionIndices):
+                # print('Starting normal reconstruction loop')
                 ### patch1 ###
                 # get object patch
                 row, col = self.reconstruction.positions[positionIndex]
@@ -182,6 +187,7 @@ class zPIE(BaseEngine):
 
                 # probe update
                 self.reconstruction.probe = self.probeUpdate(objectPatch, DELTA)
+            yield positionLoop, positionIndex
 
             # get error metric
             self.getErrorMetrics()
@@ -190,38 +196,39 @@ class zPIE(BaseEngine):
             self.applyConstraints(loop)
 
             # show reconstruction
-            if loop == 0:
-                figure, axes = plt.subplots(1, 3, num=666, squeeze=True, clear=True, figsize=(5, 5))
-                ax = axes[0]
-                ax_score = axes[1]
-                ax.set_title('Estimated distance (object-camera)')
-                ax.set_xlabel('iteration')
-                ax.set_ylabel('estimated z (mm)')
-                ax.set_xscale('symlog')
+            if False:
+                if loop == 0:
+                    figure, axes = plt.subplots(1, 3, num=666, squeeze=True, clear=True, figsize=(5, 5))
+                    ax = axes[0]
+                    ax_score = axes[1]
+                    ax.set_title('Estimated distance (object-camera)')
+                    ax.set_xlabel('iteration')
+                    ax.set_ylabel('estimated z (mm)')
+                    ax.set_xscale('symlog')
 
-                ax_score.set_title('TV score')
-                ax_score.set_xlabel('Distance [um]')
-                ax_score.set_ylabel('TV')
-                score_line, = ax_score.plot(dz*1e6, merit)
-                line, = ax.plot(0, zNew, 'o-')
-                plt.tight_layout()
-                plt.show(block=False)
+                    ax_score.set_title('TV score')
+                    ax_score.set_xlabel('Distance [um]')
+                    ax_score.set_ylabel('TV')
+                    score_line, = ax_score.plot(dz*1e6, merit)
+                    line, = ax.plot(0, zNew, 'o-')
+                    plt.tight_layout()
+                    plt.show(block=False)
 
-            elif np.mod(loop, self.monitor.figureUpdateFrequency) == 0:
-                idx = np.linspace(0, np.log10(len(self.reconstruction.zHistory) - 1), np.minimum(len(self.reconstruction.zHistory), 100))
-                idx = np.rint(10**idx).astype('int')
+                elif np.mod(loop, self.monitor.figureUpdateFrequency) == 0:
+                    idx = np.linspace(0, np.log10(len(self.reconstruction.zHistory) - 1), np.minimum(len(self.reconstruction.zHistory), 100))
+                    idx = np.rint(10**idx).astype('int')
 
-                line.set_xdata(idx)
-                line.set_ydata(np.array(self.reconstruction.zHistory)[idx] * 1e3)
+                    line.set_xdata(idx)
+                    line.set_ydata(np.array(self.reconstruction.zHistory)[idx] * 1e3)
 
-                score_line.set_ydata(merit)
-                ax_score.set_ylim(merit.min()-1, merit.max()+1)
-                ax.set_xlim(0, np.max(idx))
-                ax.set_ylim(np.min(self.reconstruction.zHistory) * 1e3, np.max(self.reconstruction.zHistory) * 1e3)
+                    score_line.set_ydata(merit)
+                    ax_score.set_ylim(merit.min()-1, merit.max()+1)
+                    ax.set_xlim(0, np.max(idx))
+                    ax.set_ylim(np.min(self.reconstruction.zHistory) * 1e3, np.max(self.reconstruction.zHistory) * 1e3)
 
-                figure.canvas.draw()
-                figure.canvas.flush_events()
-            self.showReconstruction(loop)
+                    figure.canvas.draw()
+                    figure.canvas.flush_events()
+                self.showReconstruction(loop)
 
         if self.params.gpuFlag:
             self.logger.info('switch to cpu')

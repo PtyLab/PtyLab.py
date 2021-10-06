@@ -7,23 +7,26 @@ from fracPy import Engines
 from pathlib import Path
 from typing import Tuple
 
-def easyInitialize(filename: Path, engine: Engines.BaseEngine=Engines.ePIE, operationMode='CPM') ->\
+def easyInitialize(filename: Path, engine: Engines.BaseEngine=Engines.ePIE, operationMode='CPM',
+                   dummyMonitor=False) ->\
         Tuple[ExperimentalData, Reconstruction, Params, Monitor, Engines.BaseEngine]:
     """ Do a 'standard' initialization, and return the items you need with some sensible defaults. """
     if operationMode == 'CPM':
-        return _easyInitializeCPM(filename, engine, operationMode)
+        return _easyInitializeCPM(filename, engine, operationMode, dummyMonitor)
     if operationMode == 'FPM':
-        return _easyInitializeFPM(filename, engine, operationMode)
+        return _easyInitializeFPM(filename, engine, operationMode, dummyMonitor)
     else:
         raise NotImplementedError()
 
 
 
-def _easyInitializeCPM(filename, engine_function, operationMode):
+def _easyInitializeCPM(filename, engine_function, operationMode, dummy_monitor=False):
     experimentalData = ExperimentalData(filename, operationMode)
     params = Params()
-    #monitor = Monitor()
-    monitor = DummyMonitor()
+    if dummy_monitor:
+        monitor = DummyMonitor()
+    else:
+        monitor = Monitor()
     reconstruction = Reconstruction(experimentalData, params)
     reconstruction.initializeObjectProbe()
 
@@ -31,9 +34,13 @@ def _easyInitializeCPM(filename, engine_function, operationMode):
     return experimentalData, reconstruction, params, monitor, engine
 
 
-def _easyInitializeFPM(filename, engine_function, operationMode):
+def _easyInitializeFPM(filename, engine_function, operationMode, dummy_monitor=False):
     experimentalData = ExperimentalData(filename, operationMode)
-    monitor = Monitor()
+    if dummy_monitor:
+        monitor = DummyMonitor()
+    else:
+        monitor = Monitor()
+
     params = Params()
     reconstruction = Reconstruction(experimentalData, params)
     reconstruction.initializeObjectProbe()

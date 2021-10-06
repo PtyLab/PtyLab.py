@@ -264,7 +264,7 @@ class Reconstruction(object):
     def xp(self):
         """ Probe coordinates 1D """
         try:
-            return np.linspace(-self.Np / 2, self.Np / 2, np.int(self.Np)) * self.dxp
+            return np.linspace(-self.Np / 2, self.Np / 2, int(self.Np)) * self.dxp
         except AttributeError as e:
             raise AttributeError(e, 'probe pixel number "Np" and/or probe sampling "dxp" not defined yet')
 

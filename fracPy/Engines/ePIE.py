@@ -55,27 +55,29 @@ class ePIE(BaseEngine):
             self.setPositionOrder()
             for positionLoop, positionIndex in enumerate(self.positionIndices):
                 # get object patch
-                row, col = self.reconstruction.positions[positionIndex]
-                sy = slice(row, row + self.reconstruction.Np)
-                sx = slice(col, col + self.reconstruction.Np)
-                # note that object patch has size of probe array
-                objectPatch = self.reconstruction.object[..., sy, sx].copy()
-                
-                # make exit surface wave
-                self.reconstruction.esw = objectPatch * self.reconstruction.probe
-                
-                # propagate to camera, intensityProjection, propagate back to object
-                self.intensityProjection(positionIndex)
+                with cp.cuda.Stream(non_blocking=True) as stream:
+                    row, col = self.reconstruction.positions[positionIndex]
+                    sy = slice(row, row + self.reconstruction.Np)
+                    sx = slice(col, col + self.reconstruction.Np)
+                    # note that object patch has size of probe array
+                    objectPatch = self.reconstruction.object[..., sy, sx].copy()
 
-                # difference term
-                DELTA = self.reconstruction.eswUpdate - self.reconstruction.esw
+                    # make exit surface wave
+                    self.reconstruction.esw = objectPatch * self.reconstruction.probe
 
-                # object update
-                self.reconstruction.object[..., sy, sx] = self.objectPatchUpdate(objectPatch, DELTA)
+                    # propagate to camera, intensityProjection, propagate back to object
+                    self.intensityProjection(positionIndex)
 
-                # probe update
-                self.reconstruction.probe = self.probeUpdate(objectPatch, DELTA)
-                yield loop, positionLoop
+                    # difference term
+                    DELTA = self.reconstruction.eswUpdate - self.reconstruction.esw
+
+                    # object update
+                    self.reconstruction.object[..., sy, sx] = self.objectPatchUpdate(objectPatch, DELTA)
+
+                    # probe update
+                    self.reconstruction.probe = self.probeUpdate(objectPatch, DELTA)
+                    stream.synchronize()
+                    yield loop, positionLoop
 
             # get error metric
             self.getErrorMetrics()
