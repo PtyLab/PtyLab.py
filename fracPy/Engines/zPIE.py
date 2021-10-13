@@ -103,6 +103,7 @@ class zPIE(BaseEngine):
                 d = 50
 
                 dz = np.linspace(-1,1, 21) * d * self.DoF
+                self.dz = dz
 
                 merit = []
                 # todo, mixed states implementation, check if more need to be put on GPU to speed up
@@ -194,7 +195,13 @@ class zPIE(BaseEngine):
 
             # apply Constraints
             self.applyConstraints(loop)
+            # display it
 
+            self.merit = merit
+            self.zNew = zNew
+            self.reconstruction.merit = merit
+            self.reconstruction.dz = dz
+            self.reconstruction.make_alignment_plot(True)
             # show reconstruction
             if False:
                 if loop == 0:
@@ -261,4 +268,21 @@ class zPIE(BaseEngine):
         r = self.reconstruction.probe + self.betaProbe * xp.sum(frac * DELTA, axis=(0, 1, 3), keepdims=True)
         return r
 
-
+    # def display_focus_bokeh(self):
+    #     # first, make a document
+    #     from bokeh.plotting import figure, output_file, save
+    #     from bokeh.io import hplot
+    #     from pathlib import Path
+    #
+    #     folder = Path('plots/zPIE.html')
+    #     output_file(folder)
+    #     s1, s2 = self.reconstruction.make_alignment_plot(False)
+    #     s3 = figure(width=250, height=250, title='TV per focus')
+    #
+    #
+    #     s3.xaxix.axis_label = 'Distance [um]'
+    #     s3.yaxix.axis_label = 'TV'
+    #     s3.line(self.dz*1e6, self.merit, )
+    #     pass
+    #
+    #

@@ -101,16 +101,81 @@ class Reconstruction(object):
                 self.dxp = self.dxd / self.data.magnification
 
         # set object pixel numbers
-        self.No = self.Np*2**2
+        self.No = self.Np*2**2 # unimportant but leave it here as it's required for self.positions
         # we need space for the probe as well, on both sides that would be half the probe
-        range_pixels = np.max(np.max(self.positions, axis=0) - np.min(self.positions, axis=0)) + 2*self.Np
+        range_pixels = np.max(self.positions, axis=0) - np.min(self.positions, axis=0)
+        print(range_pixels)
+        range_pixels = np.max(range_pixels) + self.Np*2
         if range_pixels %2 == 1:
             range_pixels += 1
         self.No = np.max([self.Np, range_pixels])
 
+    def make_alignment_plot(self, saveit=False):
+        import time
+        t0 = time.time()
+        p_new = self.positions.T
+        p_old = self.positions0.T
+
+        from bokeh.plotting import figure, output_file, save
+        from bokeh.layouts import row
+
+        from pathlib import Path
+        if saveit:
+            output = Path('plots/alignment.html')
+            output.parent.mkdir(exist_ok=True)
+            # set output to static HTML file
+
+            output_file(filename=output, title="Static HTML file", mode='inline')
 
 
-            
+
+        # create a new plot with a specific size
+        p = figure(sizing_mode="stretch_width", max_width=500, height=500,
+                   title=f'alignment (updated {time.strftime("%Y%h%d, %H:%M:%S")})',
+                   )
+        p.match_aspect = True
+        square = p.square(p_old[0], p_old[1], fill_color='yellow', size=5, legend_label='original')
+        # add a circle renderer for the new points
+        circle = p.circle(p_new[0], p_new[1], fill_color="red", size=5, legend_label='new')
+
+        p.xaxis.axis_label= 'Position x [um]'
+        p.yaxis.axis_label = 'Position y [um]'
+
+        p2 = None
+        p3 = None
+
+        figsize=  500 # px
+
+        if hasattr(self, 'zHistory'): # display the plot of the defocus
+            p2 = figure(sizing_mode="stretch_width", max_width=figsize, height=figsize, title='focus history',
+                       )
+            p2.circle(np.arange(len(self.zHistory)), np.array(self.zHistory)*1e3)
+            p2.xaxis.axis_label = 'Iteration #'
+            p2.yaxis.axis_label = 'Position [mm]'
+            # p = vplot(p, p2)
+
+        if hasattr(self, 'merit'): # display the merit as well for defocii
+            p3 = figure(sizing_mode="stretch_width", max_width=figsize, height=figsize, title='merit TV',
+                       )
+            p3.circle(self.dz*1e3, np.array(self.merit),legend_label='original')
+            p3.square(-self.dz * 1e3, np.array(self.merit), legend_label='mirrored')
+            p3.xaxis.axis_label = 'Defocus [mm]'
+            p3.yaxis.axis_label = 'Score [a.u.]'
+            # p = vplot(p, p3)
+        # only add the plots that are available
+        p_list = filter(lambda x: x is not None, [p, p2, p3])
+        p = row(*p_list)
+
+
+
+
+        if saveit:
+            save(p, )
+        t1 = time.time()
+        print(f'Alignment display took {t1-t0} secs')
+        return p
+
+
     def initializeSettings(self):
         """
         Initialize the attributes that have to do with a reconstruction 
@@ -166,6 +231,8 @@ class Reconstruction(object):
         self.logger.info('Initial object set to %s', self.initialObject)
         self.shape_O = (self.nlambda, self.nosm, 1, self.nslice, np.int(self.No), np.int(self.No))
         self.initialGuessObject = initialProbeOrObject(self.shape_O, self.initialObject, self, self.logger).astype(np.complex64)
+
+        self.initialGuessObject *= 1e-2
 
     def initializeProbe(self):
         self.logger.info('Initial probe set to %s', self.initialProbe)
@@ -364,6 +431,7 @@ class Reconstruction(object):
         - Field of view: {self.Lo*1e3} mm
         - Scan size in pixels: {self.positions.max(axis=0)- self.positions.min(axis=0)}
         - Propagation distance: {self.zo*1e3} mm
+        - Probe FoV: {self.Lp*1e3} mm
         
         Derived parameters:
         - NA detector: {self.NAd}

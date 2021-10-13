@@ -54,7 +54,8 @@ class ExperimentalData:
             self.optionalFields = [
                 'entrancePupilDiameter',  # used in CPM as the probe diameter
                 'spectralDensity',  # CPM parameters: different wavelengths required for polychromatic ptychography
-                'theta'  # CPM parameters: reflection tilt angle, required for
+                'theta',  # CPM parameters: reflection tilt angle, required for
+                'emptyBeam' # image of the probe
             ]
 
         elif self.operationMode == 'FPM':

@@ -775,6 +775,7 @@ class BaseEngine(object):
 
             if self.params.positionCorrectionSwitch:
                 # show reconstruction
+                return
                 if (len(self.reconstruction.error) > self.startAtIteration):  # & (np.mod(loop,
                     # self.monitor.figureUpdateFrequency) == 0):
                     figure, ax = plt.subplots(1, 1, num=102, squeeze=True, clear=True, figsize=(5, 5))
