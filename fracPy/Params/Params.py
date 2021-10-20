@@ -15,6 +15,7 @@ class Params(object):
 
         # Default settings for switches, settings that involve how things are computed
         self.fftshiftSwitch = False
+        # this is an internal setting, tracking wether of not the fftshifts have been done. Do not change this yourself
         self.fftshiftFlag = False
         self.FourierMaskSwitch = False
         self.CPSCswitch = False

@@ -38,13 +38,14 @@ class Monitor(object):
             self.diffractionDataMonitor = DiffractionDataPlot()
 
 
-    def updateObjectProbeErrorMonitor(self, object_estimate, probe_estimate):
+    def updateObjectProbeErrorMonitor(self, error, object_estimate, probe_estimate, zo=None,
+                                      purity_probe=None, purity_object=None):
         """
         update the probe object plots
         :param object_estimate:
         :return:
         """
-        self.defaultMonitor.updateError(self.reconstruction.error)
+        self.defaultMonitor.updateError(error)#self.reconstruction.error)
         print(f'Object plot: {self.objectPlot}')
         self.defaultMonitor.updateObject(object_estimate, self.reconstruction, objectPlot=self.objectPlot,
                                          pixelSize=self.reconstruction.dxo, axisUnit='mm',
@@ -52,6 +53,7 @@ class Monitor(object):
         self.defaultMonitor.updateProbe(probe_estimate, self.reconstruction,
                                         pixelSize=self.reconstruction.dxp, axisUnit='mm',
                                         amplitudeScalingFactor=self.probePlotContrast)
+        self.defaultMonitor.update_z(zo)
         self.defaultMonitor.drawNow()
 
     def updateDiffractionDataMonitor(self, Iestimated, Imeasured):

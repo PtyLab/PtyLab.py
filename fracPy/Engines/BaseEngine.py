@@ -188,7 +188,13 @@ class BaseEngine(object):
                                      [..., self.monitor.objectROI[0], self.monitor.objectROI[1]])
         probeEstimate = np.squeeze(self.reconstruction.probe
                                     [..., self.monitor.probeROI[0], self.monitor.probeROI[1]])
-        self.monitor.updateObjectProbeErrorMonitor(object_estimate=objectEstimate, probe_estimate=probeEstimate)
+        self.monitor.updateObjectProbeErrorMonitor(error=self.reconstruction.error,
+                                                   object_estimate=objectEstimate, probe_estimate=probeEstimate,
+                                                   zo=self.reconstruction.zo,
+                                                   purity_probe=self.reconstruction.purityProbe,
+                                                   purity_object=self.reconstruction.purityObject)
+
+        # self.monitor.updateObjectProbeErrorMonitor()
 
 
 
@@ -241,14 +247,16 @@ class BaseEngine(object):
                 if hasattr(self.experimentalData, 'ptychogramDownsampled'):
                     self.experimentalData.ptychogramDownsampled = np.fft.ifftshift(
                         self.experimentalData.ptychogramDownsampled, axes=(-1, -2))
-                if self.experimentalData.W is not None:
-                    self.experimentalData.W = np.fft.ifftshift(self.experimentalData.W, axes=(-1, -2))
+                if hasattr(self.experimentalData, 'w'):
+                    if self.experimentalData.W is not None:
+                        self.experimentalData.W = np.fft.ifftshift(self.experimentalData.W, axes=(-1, -2))
                 if self.experimentalData.emptyBeam is not None:
                     self.experimentalData.emptyBeam = np.fft.ifftshift(
                         self.experimentalData.emptyBeam, axes=(-1, -2))
-                if self.experimentalData.PSD is not None:
-                    self.experimentalData.PSD = np.fft.ifftshift(
-                        self.experimentalData.PSD, axes=(-1, -2))
+                if hasattr(self.experimentalData, 'PSD'):
+                    if self.experimentalData.PSD is not None:
+                        self.experimentalData.PSD = np.fft.ifftshift(
+                            self.experimentalData.PSD, axes=(-1, -2))
                 self.params.fftshiftFlag = 1
         else:
             if self.params.fftshiftFlag == 1:
@@ -512,6 +520,7 @@ class BaseEngine(object):
         self.reconstruction.eswUpdate = eswUpdate
 
 
+
     def exportOjb(self, extension='.mat'):
         """
         Export the object.
@@ -629,6 +638,9 @@ class BaseEngine(object):
         """
         # figure out whether or not to use the GPU
         xp = getArrayModule(self.reconstruction.esw)
+
+
+
 
         # zero division mitigator
         gimmel = 1e-10
@@ -751,8 +763,16 @@ class BaseEngine(object):
                     self.reconstruction.object[..., self.monitor.objectROI[0], self.monitor.objectROI[1]]))
                 probe_estimate = np.squeeze(asNumpyArray(
                     self.reconstruction.probe[0, ..., self.monitor.probeROI[0], self.monitor.probeROI[1]]))
+            print('Object purity estimate')
+            print(self.reconstruction.purityObject)
+            self.monitor.updateObjectProbeErrorMonitor(error=self.reconstruction.error,
+                                                       object_estimate=object_estimate, probe_estimate=probe_estimate,
+                                                       zo=self.reconstruction.zo,
+                                                       purity_probe=self.reconstruction.purityProbe,
+                                                       purity_object=self.reconstruction.purityObject)
 
-            self.monitor.updateObjectProbeErrorMonitor(object_estimate=object_estimate, probe_estimate=probe_estimate)
+
+
 
             if self.monitor.verboseLevel == 'high':
                 if self.params.fftshiftSwitch:
@@ -772,6 +792,8 @@ class BaseEngine(object):
                 self.pbar.write('estimated linear overlap: %.1f %%' % (100 * self.reconstruction.linearOverlap))
                 self.pbar.write('estimated area overlap: %.1f %%' % (100 * self.reconstruction.areaOverlap))
                 # self.pbar.write('coherence structure:')
+
+
 
             if self.params.positionCorrectionSwitch:
                 # show reconstruction
@@ -899,7 +921,7 @@ class BaseEngine(object):
         :return:
         """
         # dirks additions, untested
-        if True:
+        if False:
             # turns down areas that are not updated. Similar to an
             #l2 regularizer
             self.reconstruction.object *= 0.999
@@ -934,7 +956,7 @@ class BaseEngine(object):
                                      self.params.absorbingProbeBoundaryAleph * self.reconstruction.probe * self.probeWindow
 
             # experimental
-            self.reconstruction.probe = ifft2c(fft2c(self.reconstruction.probe)*self.probeWindow)
+            # self.reconstruction.probe = ifft2c(fft2c(self.reconstruction.probe)*self.probeWindow)
 
 
         # Todo: objectSmoothenessSwitch,probeSmoothenessSwitch,

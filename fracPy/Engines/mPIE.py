@@ -33,6 +33,29 @@ class mPIE(BaseEngine):
         # initialize mPIE Params
         self.initializeReconstructionParams()
         self.params.momentumAcceleration = True
+        self.name = 'mPIE'
+
+    @property
+    def keepPatches(self):
+        """ Wether or not to keep track of the individual object update patches.
+
+        This strongly increases the amount of memory required, only use when absolutely required.
+
+        """
+        return hasattr(self, 'patches')
+
+    @keepPatches.setter
+    def keepPatches(self, keep_them):
+
+        if keep_them:
+            self.logger.info('Keeping patches!')
+            self.patches = np.zeros((self.experimentalData.ptychogram.shape[0], *self.reconstruction.shape_O),
+                                    np.complex64)
+        else:
+            self.logger.info('Not keeping patches')
+            if hasattr(self, 'patches'):
+                del self.patches
+
         
     def initializeReconstructionParams(self):
         """
@@ -56,6 +79,8 @@ class mPIE(BaseEngine):
         self.reconstruction.probeBuffer = self.reconstruction.probe.copy()
 
         self.reconstruction.probeWindow = np.abs(self.reconstruction.probe)
+
+
 
     def reconstruct(self, experimentalData=None, reconstruction=None):
         """ Reconstruct object. If experimentalData is given, it replaces the current data. Idem for reconstruction. """
@@ -93,7 +118,12 @@ class mPIE(BaseEngine):
                 # pg.QtGui.QGuiApplication.processEvents()
 
                 # object update
-                self.reconstruction.object[..., sy, sx] = self.objectPatchUpdate(objectPatch, DELTA)
+                object_patch = self.objectPatchUpdate(objectPatch, DELTA)
+
+                if self.keepPatches:
+                    self.patches[positionIndex,..., sy, sx] = asNumpyArray(abs(object_patch)**2)
+                else:
+                    self.reconstruction.object[..., sy, sx] = object_patch
 
                 # probe update
                 self.reconstruction.probe = self.probeUpdate(objectPatch, DELTA)
@@ -106,9 +136,11 @@ class mPIE(BaseEngine):
 
             # get error metric
             self.getErrorMetrics()
+            yield 1,1
 
             # apply Constraints
             self.applyConstraints(loop)
+            yield 1, 1
 
             # show reconstruction
             self.showReconstruction(loop)

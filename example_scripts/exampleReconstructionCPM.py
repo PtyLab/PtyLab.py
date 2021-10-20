@@ -15,8 +15,12 @@ change data visualization and initialization options manually for now
 
 fileName = 'Lenspaper.hdf5'  # simu.hdf5 or Lenspaper.hdf5
 filePath = getExampleDataFolder() / fileName
+filePath = r'C:\Users\dbs660\PycharmProjects\ptycho_data_analysis\scripts\test.hdf5'
+from fracPy.Monitor.TensorboardMonitor import TensorboardMonitor
 
 experimentalData, reconstruction, params, monitor, ePIE_engine = fracPy.easyInitialize(filePath, operationMode='CPM')
+monitor = TensorboardMonitor()
+
 params.fftshiftSwitch = False
 params.fftshiftFlag = False
 from fracPy.utils.alignment import show_alignment
@@ -28,8 +32,6 @@ params.positionCorrectionSwitch = False
 # experimentalData.xd *= 2
 # from fracPy import Reconstruction
 # reconstruction: Reconstruction = Reconstruction(experimentalData, params)
-
-experimentalData.setOrientation(4)
 ## altternative
 # experimentalData = ExperimentalData()
 # experimentalData.loadData(filePath)
@@ -37,9 +39,10 @@ experimentalData.setOrientation(4)
 experimentalData.showPtychogram()
 # experimentalData.zo = experimentalData.zo * 0.9
 
+
 # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
 # now create an object to hold everything we're eventually interested in
-reconstruction.npsm = 4 # Number of probe modes to reconstruct
+reconstruction.npsm = 2 # Number of probe modes to reconstruct
 reconstruction.nosm = 1 # Number of object modes to reconstruct
 reconstruction.nlambda = 1 # len(experimentalData.spectralDensity) # Number of wavelength
 reconstruction.nslice = 1 # Number of object slice
@@ -72,8 +75,8 @@ monitor.probeZoom = 0.5   # control probe plot FoV
 # Params = Params()
 ## main parameters
 params.positionOrder = 'random'  # 'sequential' or 'random'
-params.propagatorType = 'scaledASP'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
-params.fftshiftSwitch = False
+params.propagatorType = 'Fresnel'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
+params.fftshiftSwitch = True
 params.fftshiftFlag = False
 params.positionCorrectionSwitch = True
 
@@ -90,10 +93,10 @@ params.gpuSwitch = True
 params.probePowerCorrectionSwitch = True
 params.modulusEnforcedProbeSwitch = False
 params.comStabilizationSwitch = True
-params.orthogonalizationSwitch = False
-params.orthogonalizationFrequency = 2
+params.orthogonalizationSwitch = True
+params.orthogonalizationFrequency = 5
 
-params.fftshiftSwitch = False
+# params.fftshiftSwitch = True
 params.intensityConstraint = 'standard'  # standard fluctuation exponential poission
 params.absorbingProbeBoundary = False
 params.objectContrastSwitch = False
@@ -105,7 +108,7 @@ params.positionCorrectionSwitch = False
 
 ## choose mqNewton engine
 mqNewton = Engines.mqNewton(reconstruction, experimentalData, params, monitor)
-mqNewton.numIterations = 30
+mqNewton.numIterations = 20
 mqNewton.betaProbe = 1
 mqNewton.betaObject = 1
 mqNewton.beta1 = 0.5
@@ -123,13 +126,13 @@ mqNewton.reconstruct()
 # ePIE.betaObject = 0.25
 # ePIE.reconstruct()
 #
-# ## choose mPIE engine
-mPIE = Engines.mPIE(reconstruction, experimentalData, params, monitor)
-mPIE.numIterations = 100
-mPIE.betaProbe = 0.25
-mPIE.betaObject = 0.25
-# mPIE.reconstruct()
-#
+# # ## choose mPIE engine
+# mPIE = Engines.mPIE(reconstruction, experimentalData, params, monitor)
+# mPIE.numIterations = 100
+# mPIE.betaProbe = 0.25
+# mPIE.betaObject = 0.25
+# # mPIE.reconstruct()
+# #
 # ## choose zPIE engine
 zPIE = Engines.zPIE(reconstruction, experimentalData, params, monitor)
 zPIE.focusObject = True
@@ -140,12 +143,12 @@ zPIE.zPIEgradientStepSize = 1  # gradient step size for axial position correctio
 zPIE.reconstruct()
 #
 # # do another round of mPIE
-mPIE.reconstruct()
+# mPIE.reconstruct()
 #
 #
 # ## switch to pcPIE
 pcPIE = Engines.pcPIE(reconstruction, experimentalData, params, monitor)
-pcPIE.numIterations = 500
+pcPIE.numIterations = 50
 pcPIE.reconstruct()
 
 # now save the data
