@@ -194,7 +194,7 @@ def detector2object(fields, params: Params, reconstruction: Reconstruction):
     """
     if fields is None:
         fields = reconstruction.ESW
-    method: Callable[np.ndarray, Params, Reconstruction] = reverse_lookup_dictionary[params.propagatorType]
+    method: Callable[np.ndarray, Params, Reconstruction] = reverse_lookup_dictionary[params.propagatorType.lower()]
     return method(fields, params, reconstruction)
 
 def object2detector(fields, params: Params, reconstruction: Reconstruction):
@@ -202,7 +202,7 @@ def object2detector(fields, params: Params, reconstruction: Reconstruction):
     """
 
 
-    method: Callable[np.ndarray, Params, Reconstruction] = forward_lookup_dictionary[params.propagatorType]
+    method: Callable[np.ndarray, Params, Reconstruction] = forward_lookup_dictionary[params.propagatorType.lower()]
     if fields is None:
         fields = reconstruction.esw
     return method(fields, params, reconstruction)
@@ -293,7 +293,7 @@ def scaledASP(u, z, wavelength, dx, dq, bandlimit = True, exactSolution = False)
     Q2 = np.exp(-1.j * np.pi**2 * 2 * z / m / k * fsq)
 
     if bandlimit:
-        if m is not 1:
+        if m != 1:
             r1sq_max = wavelength*z/(2*dx*(1-m))
             Wr = np.array(circ(X1, Y1, 2 * r1sq_max))
             Q1 = Q1*Wr
@@ -435,7 +435,7 @@ def __make_quad_phase(zo, wavelength, Np, dxp, on_gpu):
     else:
         xp = np
 
-    x_p = xp.linspace(-Np/2, Np/2, np.int(Np))*dxp
+    x_p = xp.linspace(-Np/2, Np/2, int(Np))*dxp
     Xp, Yp = np.meshgrid(x_p, x_p)
 
     quadraticPhase = xp.exp(1.j * xp.pi / (wavelength * zo)
@@ -581,25 +581,25 @@ def __make_cache_twoStepPolychrome(fftshiftSwitch,
     return transferFunction, quadraticPhase
 
 forward_lookup_dictionary = {
-        'Fraunhofer': propagate_fraunhofer,
-        'Fresnel': propagate_fresnel,
-        'ASP': propagate_ASP,
-        'polychromeASP': propagate_polychromeASP,
-        'scaledASP': propagate_scaledASP,
-        'scaledPolychromeASP': propagate_scaledPolychromeASP,
-        'twoStepPolychrome': propagate_twoStepPolychrome,
+        'fraunhofer': propagate_fraunhofer,
+        'fresnel': propagate_fresnel,
+        'asp': propagate_ASP,
+        'polychromeasp': propagate_polychromeASP,
+        'scaledasp': propagate_scaledASP,
+        'scaledpolychromeasp': propagate_scaledPolychromeASP,
+        'twosteppolychrome': propagate_twoStepPolychrome,
         'identity': propagate_identity,
     }
 
 
 reverse_lookup_dictionary = {
-        'Fraunhofer': propagate_fraunhofer_inv,
-        'Fresnel': propagate_fresnel_inv,
-        'ASP': propagate_ASP_inv,
-        'polychromeASP': propagate_polychromeASP_inv,
-        'scaledASP': propagate_scaledASP_inv,
-        'scaledPolychromeASP': propagate_scaledPolychromeASP_inv,
-        'twoStepPolychrome': propagate_twoStepPolychrome_inv,
+        'fraunhofer': propagate_fraunhofer_inv,
+        'fresnel': propagate_fresnel_inv,
+        'asp': propagate_ASP_inv,
+        'polychromeasp': propagate_polychromeASP_inv,
+        'scaledasp': propagate_scaledASP_inv,
+        'scaledpolychromeasp': propagate_scaledPolychromeASP_inv,
+        'twosteppolychrome': propagate_twoStepPolychrome_inv,
         'identity': propagate_identity
     }
 

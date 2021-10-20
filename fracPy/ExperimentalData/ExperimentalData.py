@@ -146,6 +146,9 @@ class ExperimentalData:
             self.ptychogram = np.fliplr(self.ptychogram)
             self.ptychogram = np.flipud(self.ptychogram)
 
+        else:
+            raise ValueError(f'Orientation {orientation} is not implemented')
+
 
     def _setData(self):
 

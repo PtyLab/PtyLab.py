@@ -34,6 +34,7 @@ class zPIE(BaseEngine):
         self.logger.info('Sucesfully created zPIE zPIE_engine')
         self.logger.info('Wavelength attribute: %s', self.reconstruction.wavelength)
         self.initializeReconstructionParams()
+        self.name = 'zPIE'
 
     def initializeReconstructionParams(self):
         """
@@ -102,7 +103,7 @@ class zPIE(BaseEngine):
             else:
                 d = 50
 
-                dz = np.linspace(-1,1, 21) * d * self.DoF
+                dz = np.linspace(-1,1, 11) * d * self.DoF
                 self.dz = dz
 
                 merit = []
@@ -115,7 +116,7 @@ class zPIE(BaseEngine):
                         # imProp, _ = aspw(u=w * xp.squeeze(self.reconstruction.object[...,
                         #                                 (self.reconstruction.No // 2 - n // 2):(self.reconstruction.No // 2 + n // 2),
                         #                                 (self.reconstruction.No // 2 - n // 2):(self.reconstruction.No // 2 + n // 2)]),
-                                         z=dz[k], wavelength=self.reconstruction.wavelength, L=self.reconstruction.Lo,
+                                         z=dz[k], wavelength=self.reconstruction.wavelength, L=self.reconstruction.dxo*n,
                                          bandlimit=False)
                     else:
                         if self.reconstruction.nlambda==1:
@@ -132,9 +133,13 @@ class zPIE(BaseEngine):
                     grady = xp.roll(imProp, -1, axis=-2)-xp.roll(imProp, 1, axis=-2)
                     merit.append(xp.sum(xp.sqrt(abs(gradx)**2+abs(grady)**2+aleph)))
                     # take a tiny break, we may overask the GPU
-                    yield 0, 0
+                    # yield 0, 0
 
                 merit = xp.array(merit)
+                if not hasattr(self.reconstruction, 'TV_history'):
+                    self.reconstruction.TV_history = []
+
+                self.reconstruction.TV_history.append(float(merit[len(merit)//2].get()))
                 if xp is not np:
                     merit = merit.get()
                 feedback = np.sum(dz*merit)/np.sum(merit)    # at optimal z, feedback term becomes 0
@@ -188,7 +193,7 @@ class zPIE(BaseEngine):
 
                 # probe update
                 self.reconstruction.probe = self.probeUpdate(objectPatch, DELTA)
-            yield positionLoop, positionIndex
+            # yield positionLoop, positionIndex
 
             # get error metric
             self.getErrorMetrics()
@@ -196,11 +201,13 @@ class zPIE(BaseEngine):
             # apply Constraints
             self.applyConstraints(loop)
             # display it
+            # self.showReconstruction(loop)
 
             self.merit = merit
             self.zNew = zNew
             self.reconstruction.merit = merit
             self.reconstruction.dz = dz
+
             self.reconstruction.make_alignment_plot(True)
             # show reconstruction
             if False:
@@ -235,7 +242,7 @@ class zPIE(BaseEngine):
 
                     figure.canvas.draw()
                     figure.canvas.flush_events()
-                self.showReconstruction(loop)
+            self.showReconstruction(loop)
 
         if self.params.gpuFlag:
             self.logger.info('switch to cpu')

@@ -148,6 +148,7 @@ class Reconstruction(object):
 
         p2 = None
         p3 = None
+        p4 = None
 
         figsize=  500 # px
 
@@ -163,12 +164,19 @@ class Reconstruction(object):
             p3 = figure(sizing_mode="stretch_width", max_width=figsize, height=figsize, title='merit TV',
                        )
             p3.circle(self.dz*1e3, np.array(self.merit),legend_label='original')
-            p3.square(-self.dz * 1e3, np.array(self.merit), legend_label='mirrored')
+            p3.square(-self.dz * 1e3, np.array(self.merit), legend_label='mirrored', color='red')
             p3.xaxis.axis_label = 'Defocus [mm]'
             p3.yaxis.axis_label = 'Score [a.u.]'
             # p = vplot(p, p3)
+        if hasattr(self, 'TV_history'):
+            if len(self.TV_history) >= 1:
+                p4 = figure(sizing_mode="stretch_width", max_width=figsize, height=figsize, title='TV history',
+                           )
+                p4.square(np.arange(len(self.TV_history)), self.TV_history)
+                p4.xaxis.axis_label = 'Iteration'
+                p4.yaxis.axis_label = 'TV score'
         # only add the plots that are available
-        p_list = filter(lambda x: x is not None, [p, p2, p3])
+        p_list = filter(lambda x: x is not None, [p, p2, p4, p3])
         p = row(*p_list)
 
 
@@ -237,11 +245,13 @@ class Reconstruction(object):
         self.shape_O = (self.nlambda, self.nosm, 1, self.nslice, np.int(self.No), np.int(self.No))
         self.initialGuessObject = initialProbeOrObject(self.shape_O, self.initialObject, self, self.logger).astype(np.complex64)
 
-        self.initialGuessObject *= 1e-2
+        # self.initialGuessObject *= 1e-2
 
-    def initializeProbe(self):
+    def initializeProbe(self, force=False):
         self.logger.info('Initial probe set to %s', self.initialProbe)
         self.shape_P = (self.nlambda, 1, self.npsm, self.nslice, np.int(self.Np), np.int(self.Np))
+        if force:
+            self.initialProbe = 'circ'
         self.initialGuessProbe = initialProbeOrObject(self.shape_P, self.initialProbe, self).astype(np.complex64)
 
     # initialize momentum, called in specific engines with momentum accelaration
