@@ -36,8 +36,8 @@ def initialProbeOrObject(shape, type_of_init, data, logger: logging.Logger=None)
             pupil = circ(data.Xp, data.Yp, data.data.entrancePupilDiameter)
             # soften the edges a bit
             from scipy import ndimage
-            pupil = ndimage.gaussian_filter(pupil.astype(np.float64), 0.1*data.Xp.shape[-1])
-            return np.ones(shape) * pupil + 0.1 * np.random.rand(*shape)
+            pupil = ndimage.gaussian_filter(pupil.astype(np.float64), 0.05*data.Xp.shape[-1])
+            return np.ones(shape, dtype=np.complex64) * pupil + 0.001 * np.random.rand(*shape)
         
         except AttributeError as e:
             raise AttributeError(e, 'probe/aperture/entrancePupilDiameter was not defined')
