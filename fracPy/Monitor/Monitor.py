@@ -91,6 +91,9 @@ class DummyMonitor(object):
     def updateDiffractionDataMonitor(self, *args, **kwargs):
         pass
 
+    def writeEngineName(self, *args, **kwargs):
+        pass
+
 
 
 
@@ -132,6 +135,15 @@ class NapariMonitor(DummyMonitor):
     def updateDiffractionDataMonitor(self, Iestimated, Imeasured):
         self.Iestimated.data = Iestimated
         self.Imeasured.data = Imeasured
+
+    def update_positions(self, *args, **kwargs):
+        """
+        Update the positions. USeful for position correction.
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        pass
 
 
 

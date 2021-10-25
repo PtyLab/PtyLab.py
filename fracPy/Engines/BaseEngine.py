@@ -6,7 +6,8 @@ import logging
 import warnings
 import h5py
 # fracPy imports
-from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray, transfer_fields_to_gpu, transfer_fields_to_cpu
+from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray, transfer_fields_to_gpu, transfer_fields_to_cpu, \
+    isGpuArray
 from fracPy.utils.initializationFunctions import initialProbeOrObject
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Reconstruction.Reconstruction import Reconstruction
@@ -18,7 +19,9 @@ from fracPy.utils.visualisation import hsvplot
 from matplotlib import pyplot as plt
 # from fracPy.utils.utils import smooth_amplitude
 # Dirty hack to get running
-smooth_amplitude = lambda x, *args: x
+from cupyx.scipy.ndimage import gaussian_filter as gaussian_filter_gpu
+from scipy.ndimage import gaussian_filter as gaussian_filter
+# smooth_amplitude = lambda x, *args: x
 # from ..Operators.Operators import FT, IFT
 try:
     import cupy as cp
@@ -30,6 +33,20 @@ try:
     from skimage.transform import rescale
 except ImportError:
     print("Skimage not installed")
+
+def smooth_amplitude(field, width, aleph):
+    xp = getArrayModule(field)
+    smooth_fun = isGpuArray(field) and gaussian_filter_gpu or gaussian_filter
+    field_amp = abs(field)
+    field_phase = xp.angle(field)
+    widths = np.zeros(field.ndim)
+    widths[-2:] = width
+    smoothed_field_amp = smooth_fun(field_amp, widths)
+    new_amp = field_amp * (1-aleph) + aleph * smoothed_field_amp
+    return new_amp * xp.exp(1j*field_phase)
+
+
+
 
 
 class BaseEngine(object):
@@ -771,6 +788,11 @@ class BaseEngine(object):
                                                        purity_probe=self.reconstruction.purityProbe,
                                                        purity_object=self.reconstruction.purityObject)
 
+            self.monitor.writeEngineName(repr(type(self)))
+            self.monitor.update_positions(self.reconstruction.positions,
+                                          self.reconstruction.positions0,
+                                          self.reconstruction.zo / self.experimentalData.zo)
+
 
 
 
@@ -921,10 +943,11 @@ class BaseEngine(object):
         :return:
         """
         # dirks additions, untested
-        if False:
+        if True:
             # turns down areas that are not updated. Similar to an
             #l2 regularizer
-            self.reconstruction.object *= 0.999
+            self.reconstruction.object *= 0.99
+            self.reconstruction.probe *= 0.999
 
         # enforce empty beam constraint
         if self.params.modulusEnforcedProbeSwitch:
@@ -955,8 +978,8 @@ class BaseEngine(object):
             self.reconstruction.probe = (1 - self.params.absorbingProbeBoundaryAleph) * self.reconstruction.probe + \
                                      self.params.absorbingProbeBoundaryAleph * self.reconstruction.probe * self.probeWindow
 
-            # experimental
-            # self.reconstruction.probe = ifft2c(fft2c(self.reconstruction.probe)*self.probeWindow)
+            # experimental: also apply in fourier space
+            self.reconstruction.probe = ifft2c(fft2c(self.reconstruction.probe)*self.probeWindow)
 
 
         # Todo: objectSmoothenessSwitch,probeSmoothenessSwitch,

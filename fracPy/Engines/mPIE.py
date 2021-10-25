@@ -136,15 +136,15 @@ class mPIE(BaseEngine):
                 if np.random.rand(1) > 0.95:
                     self.objectMomentumUpdate()
                     self.probeMomentumUpdate()
-                yield positionLoop, positionIndex
+                # yield positionLoop, positionIndex
 
             # get error metric
             self.getErrorMetrics()
-            yield 1,1
+            # yield 1,1
 
             # apply Constraints
             self.applyConstraints(loop)
-            yield 1, 1
+            # yield 1, 1
 
             # show reconstruction
             self.showReconstruction(loop)
