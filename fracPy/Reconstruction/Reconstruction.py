@@ -262,7 +262,14 @@ class Reconstruction(object):
 
 
 
-    def saveResults(self, fileName='recent', type='all'):
+    def saveResults(self, fileName='recent', type='all', squeeze=False):
+        allowed_save_types = ['all', 'object', 'probe']
+        if type not in allowed_save_types:
+            raise NotImplementedError(f'Only {allowed_save_types} are allowed keywords for type')
+        if not squeeze:
+            squeezefun = lambda x:x
+        else:
+            squeezefun = np.squeeze
         if type == 'all':
             if self.data.operationMode == 'CPM':
                 hf = h5py.File(fileName + '_Reconstruction.hdf5', 'w')
@@ -285,13 +292,11 @@ class Reconstruction(object):
                 hf.create_dataset('wavelength', data=self.wavelength, dtype='f')
                 hf.create_dataset('dxp', data=self.dxp, dtype='f')
         elif type == 'probe':
-            hf = h5py.File(fileName + '_probe.hdf5', 'w')
-            hf.create_dataset('probe', data=self.probe, dtype='complex64')
+            with h5py.File(fileName + '_probe.hdf5', 'w') as hf:
+                hf.create_dataset('probe', data=squeezefun(self.probe), dtype='complex64')
         elif type == 'object':
-            hf = h5py.File(fileName + '_object.hdf5', 'w')
-            hf.create_dataset('object', data=self.object, dtype='complex64')
-
-        hf.close()
+            with h5py.File(fileName + '_object.hdf5', 'w') as hf:
+                hf.create_dataset('object', data=squeezefun(self.object), dtype='complex64')
         print('The reconstruction results (%s) have been saved' % type)
 
     # detector coordinates
