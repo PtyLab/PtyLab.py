@@ -126,7 +126,7 @@ def hsvplot(u, ax = None, pixelSize = 1, axisUnit='pixel', amplitudeScalingFacto
     :param axisUnit, default 'pixel', options: 'm', 'cm', 'mm', 'um'
     return: a complex plot
     """
-    u = asNumpyArray(u)
+    u = np.squeeze(asNumpyArray(u))
     rgb = complex2rgb(u, amplitudeScalingFactor=amplitudeScalingFactor)
     complexPlot(rgb, ax, pixelSize, axisUnit)
 
@@ -139,7 +139,7 @@ def hsvmodeplot(P, ax=None ,normalize = True, pixelSize =1, axisUnit ='pixel', a
     :return: a tiled complex plot
     """
 
-    Q = modeTile(asNumpyArray(P), normalize=normalize)
+    Q = modeTile(np.squeeze(asNumpyArray(P)), normalize=normalize)
     hsvplot(Q, ax=ax, pixelSize=pixelSize, axisUnit=axisUnit, amplitudeScalingFactor=amplitudeScalingFactor)
 
 
