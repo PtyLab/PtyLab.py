@@ -151,7 +151,7 @@ class ExperimentalData:
         # Set the detector coordinates
         self.Nd = self.ptychogram.shape[-1]
         # Detector coordinates 1D
-        self.xd = np.linspace(-self.Nd/2, self.Nd/2, np.int(self.Nd))*self.dxd
+        self.xd = np.linspace(-self.Nd/2, self.Nd/2, int(self.Nd))*self.dxd
         # Detector coordinates 2D
         self.Xd, self.Yd = np.meshgrid(self.xd, self.xd)
         # Detector size in SI units

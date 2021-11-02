@@ -1199,3 +1199,5 @@ class BaseEngine(object):
         Ameasured[Ameasured < 0] = 0
         self.reconstruction.Imeasured = Ameasured ** 2
 
+    def reconstruct(self):
+        raise NotImplementedError('Implement the reconstruction method in the subclasses yourself.')

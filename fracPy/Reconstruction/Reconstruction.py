@@ -71,6 +71,20 @@ class Reconstruction(object):
             self.logger.debug('Copying attribute %s', key)
             # setattr(self, key, copy(np.array(getattr(data, key))))
             setattr(self, key, copy(getattr(data, key)))
+
+    @property
+    def dxp(self):
+        if self.data.operationMode == 'CPM':
+            # CPM dxp (depending on the propagatorType, if none given, assum Fraunhofer/Fresnel)
+            dxp = self.wavelength * self.zo / self.Ld
+        elif self.data.operationMode == 'FPM':
+            if isinstance(self.dxp, type(None)):
+                # self.dxp = self.dxd / self.data.magnification
+                dxp = self.dxd / self.data.magnification
+            else:
+                # This is probably an error
+                return None
+        return dxp
        
     def computeParameters(self):
         """
@@ -78,8 +92,7 @@ class Reconstruction(object):
         """
 
         if self.data.operationMode == 'CPM':
-            # CPM dxp (depending on the propagatorType, if none given, assum Fraunhofer/Fresnel)
-            self.dxp = self.wavelength * self.zo / self.Ld
+
             # if entrancePupilDiameter is not provided in the hdf5 file, set it to be one third of the probe FoV.
             if isinstance(self.entrancePupilDiameter, type(None)):
                 self.entrancePupilDiameter = (self.Lp/3).copy()
@@ -88,15 +101,13 @@ class Reconstruction(object):
                 self.spectralDensity = np.atleast_1d(self.wavelength)
 
         elif self.data.operationMode == 'FPM':
+            pass
             # FPM dxp (different from CPM due to lens-based systems)
-            if isinstance(self.dxp, type(None)):
-                self.dxp = self.dxd / self.data.magnification
+            #
 
         # set object pixel numbers
         self.No = self.Np*2**2
         # self.No = self.Np+np.max(self.positions0[:,0])-np.min(self.positions0[:,0])
-
-
             
     def initializeSettings(self):
         """
@@ -149,12 +160,12 @@ class Reconstruction(object):
 
     def initializeObject(self):
         self.logger.info('Initial object set to %s', self.initialObject)
-        self.shape_O = (self.nlambda, self.nosm, 1, self.nslice, np.int(self.No), np.int(self.No))
+        self.shape_O = (self.nlambda, self.nosm, 1, self.nslice, int(self.No), int(self.No))
         self.initialGuessObject = initialProbeOrObject(self.shape_O, self.initialObject, self).astype(np.complex64)
 
     def initializeProbe(self):
         self.logger.info('Initial probe set to %s', self.initialProbe)
-        self.shape_P = (self.nlambda, 1, self.npsm, self.nslice, np.int(self.Np), np.int(self.Np))
+        self.shape_P = (self.nlambda, 1, self.npsm, self.nslice, int(self.Np), int(self.Np))
         self.initialGuessProbe = initialProbeOrObject(self.shape_P, self.initialProbe, self).astype(np.complex64)
 
     # initialize momentum, called in specific engines with momentum accelaration
@@ -196,7 +207,7 @@ class Reconstruction(object):
     @property
     def xd(self):
         """ Detector coordinates 1D """
-        return np.linspace(-self.Nd / 2, self.Nd / 2, np.int(self.Nd)) * self.dxd
+        return np.linspace(-self.Nd / 2, self.Nd / 2, int(self.Nd)) * self.dxd
 
     @property
     def Xd(self):
@@ -234,7 +245,7 @@ class Reconstruction(object):
     def xp(self):
         """ Probe coordinates 1D """
         try:
-            return np.linspace(-self.Np / 2, self.Np / 2, np.int(self.Np)) * self.dxp
+            return np.linspace(-self.Np / 2, self.Np / 2, int(self.Np)) * self.dxp
         except AttributeError as e:
             raise AttributeError(e, 'probe pixel number "Np" and/or probe sampling "dxp" not defined yet')
 
@@ -268,7 +279,7 @@ class Reconstruction(object):
     def xo(self):
         """ object coordinates 1D """
         try:
-            return np.linspace(-self.No / 2, self.No / 2, np.int(self.No)) * self.dxo
+            return np.linspace(-self.No / 2, self.No / 2, int(self.No)) * self.dxo
         except AttributeError as e:
             raise AttributeError(e, 'object pixel number "No" and/or pixel size "dxo" not defined yet')
 
@@ -305,8 +316,11 @@ class Reconstruction(object):
                 conv * self.data.encoder / np.sqrt(self.data.encoder[:, 0] ** 2 + self.data.encoder[:, 1] ** 2 + self.zled ** 2)[
                     ..., None])
         else:
+            print('Calling self.positions')
             positions = np.round(self.data.encoder / self.dxo)  # encoder is in m, positions0 and positions are in pixels
         positions = positions + self.No // 2 - self.Np // 2
+        if np.any(positions < 0):
+            raise ValueError('The positions are out of range. Most likely this is due to a change in z. Consider increasing reconstruction.No')
         return positions.astype(int)
 
     # system property list
