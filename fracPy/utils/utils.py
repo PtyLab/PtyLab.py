@@ -253,4 +253,57 @@ def bin2(X):
     Y = np.sum(X.reshape(2,m//2,2,n//2), axis=(0,2))
     return Y
 
+def pad_or_shrink_image(image, new_size, axes=(-2,-1)):
+    """
+    Pad or shrink an image based on the new size.
+    new_size has to be a scalar for now, and all dimensions within
+    axes are padded or cropped to the specified size.
 
+    Wether padding or shrinking is required is determined by the size of image.shape[axes[-1]]
+    This function is relatively stupid, it presumes that you want to
+    pad an array or shrink it, but not both in different axes.
+
+    So this works:
+    pad_or_shrink_image(np.zeros((512,512)), 513)
+
+    But this doesn't:
+    pad_or_shrink_image(np.zeros((51,512)), 516)
+    as it would have to pad in one direction and shrink in the other.
+    """
+
+    if image.shape[axes[-1]] > new_size:
+        return shrink_image(image, new_size, axes)
+    else:
+        return pad_image(image, new_size, axes)
+
+def pad_image(image, new_size, axes=(-2,-1)):
+    xp = getArrayModule(image)
+    padwidths = [[0,0]] * image.ndim
+
+    for a in axes:
+        if image.shape[a] > new_size:
+            raise ValueError(f'Error for axis {a}. Current shape ({image.shape[a]}) < new size ({new_size})')
+        n_pad = new_size - image.shape[a]
+        pad_before = n_pad // 2
+        pad_after = n_pad - pad_before
+        padwidths[a] = [pad_before, pad_after]
+    return xp.pad(image, padwidths)
+
+def shrink_image(image, new_size, axes=(-2,-1)):
+    slices = [slice(None,None)] * image.ndim
+    if isinstance(new_size, list):
+        raise ValueError('New size must be an integer > 0')
+    if new_size < 1:
+        raise ValueError('Size should be > 0.')
+    for a in axes:
+        if new_size > image.shape[a]:
+            raise IndexError(f'new_size > image.shape for axis {a}. '
+                         f'Shape of image: {image.shape}. Req. new size: {new_size}')
+
+    for a in axes:
+        center_index = image.shape[a]//2
+        start = center_index - new_size//2
+        stop = start + new_size
+        slices[a] = slice(start, stop)
+
+    return image[tuple(slices)]

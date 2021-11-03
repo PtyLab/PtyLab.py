@@ -105,15 +105,32 @@ class ExperimentalData:
         # 3. 'requiredFields' will be the attributes that must be set
         attributesToSet = measurementDict.keys()
         # 4. set object attributes as the essential data fields
-        # self.logger.setLevel(logging.DEBUG)
+        self.logger.setLevel(logging.DEBUG)
         for a in attributesToSet:
             # make sure that property is not an attribtue
             attribute = str(a)
+            # one exception is the encoder, which is handled by a property.
+            # As the setattr takes precedence over anything else, we should deal with it in a different way.
+            if attribute == 'encoder':
+                self.encoder = measurementDict[a]
+                self.logger.debug('Setting %s as property', a)
+            # now, this will not be run as encoder is available
             if not isinstance(getattr(type(self), attribute, None), property):
                 setattr(self, attribute, measurementDict[a])
-            self.logger.debug('Setting %s', a)
+                self.logger.debug('Setting %s as attribute', a)
 
         self._setData()
+
+
+    @property
+    def encoder(self):
+        return self._encoder
+
+    @encoder.setter
+    def encoder(self, new_positions):
+        print('Setting encoder')
+        self._encoder = new_positions
+        self.encoder_range = np.max(np.max(new_positions, axis=0) -np.min(new_positions, axis=0))
 
 
     def setOrientation(self, orientation):

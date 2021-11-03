@@ -1,3 +1,9 @@
+try:
+    from cupyx.scipy.fft import next_fast_len
+except ImportError:
+    from scipy.fft import next_fast_len
+
+from fracPy.utils.utils import pad_image, shrink_image, pad_or_shrink_image
 import numpy as np
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from copy import copy
@@ -38,7 +44,18 @@ class Reconstruction(object):
 
     def __init__(self, data:ExperimentalData):
         self.logger = logging.getLogger('Reconstruction')
-        self.data = data
+        # if this is true, automatically update the number of pixels of the object so it fits.
+        # This is for instance useful when the distance is not known yet and therefore also the number
+        # of pixels can be larger or smaller.
+        self.auto_scale_object_size = False
+        # make the object smaller when maximum number of pixels required is less than
+        # auto_scale_object_lower_limit times the position range
+        self.auto_scale_object_lower_limit = 0.3
+        # make the object larger when the max number of pixels required is less than
+        # auto_scale_object_upper_limit times the position range
+        self.auto_scale_object_upper_limit = 0.9
+
+        self.data: ExperimentalData = data
         self.copyAttributesFromExperiment(data)
         self.computeParameters()
         self.initializeSettings()
@@ -57,6 +74,41 @@ class Reconstruction(object):
                        'background',
                                     'reference',
                                     ]
+
+    def pad_or_shrink_object(self, new_size=None):
+        """Automatically pad or shrink the object. Only performed when
+        ``self.auto_scale_object_size == True``.
+
+        """
+        if new_size is None:
+            if not self.auto_scale_object_size:
+                return
+
+            max_range_pixels  = self.data.encoder_range / self.dxo  # encoder is in m, positions0 and positions are in pixels
+            new_size_pixels = int(
+                max_range_pixels / (np.mean([self.auto_scale_object_upper_limit, self.auto_scale_object_lower_limit])))
+            # find the closest fastest power. This is useful for instance in zPIE, where it pays off
+            # to have a fast size
+            new_size_pixels = next_fast_len(new_size_pixels)
+            # should any action be performed?
+            force = (max_range_pixels > self.auto_scale_object_upper_limit * self.No) or \
+                    (max_range_pixels < self.auto_scale_object_lower_limit * self.No)
+
+        else:
+            new_size_pixels = new_size
+            force = True
+
+        if force:
+            self.logger.info(f'Resizing object to {new_size_pixels}.')
+            self.object = pad_or_shrink_image(self.object, new_size_pixels)
+
+
+
+
+
+
+
+
 
     def copyAttributesFromExperiment(self, data:ExperimentalData):
         """
@@ -106,8 +158,22 @@ class Reconstruction(object):
             #
 
         # set object pixel numbers
-        self.No = self.Np*2**2
+        # self.No = self.Np*2**2
         # self.No = self.Np+np.max(self.positions0[:,0])-np.min(self.positions0[:,0])
+
+    @property
+    def No(self):
+        try:
+            return self.object.shape[-1]
+        except AttributeError:
+            print('Object not available yet, just returning something')
+            return self.Np*2**2
+
+
+    @No.setter
+    def No(self, new_value):
+        # set the size of the object
+        self.pad_or_shrink_object(new_value)
             
     def initializeSettings(self):
         """
@@ -261,8 +327,6 @@ class Reconstruction(object):
         Xp, Yp = np.meshgrid(self.xp, self.xp)
         return Yp
 
-
-
     # Object coordinates
     @property
     def dxo(self):
@@ -316,9 +380,9 @@ class Reconstruction(object):
                 conv * self.data.encoder / np.sqrt(self.data.encoder[:, 0] ** 2 + self.data.encoder[:, 1] ** 2 + self.zled ** 2)[
                     ..., None])
         else:
-            print('Calling self.positions')
             positions = np.round(self.data.encoder / self.dxo)  # encoder is in m, positions0 and positions are in pixels
         positions = positions + self.No // 2 - self.Np // 2
+
         if np.any(positions < 0):
             raise ValueError('The positions are out of range. Most likely this is due to a change in z. Consider increasing reconstruction.No')
         return positions.astype(int)
