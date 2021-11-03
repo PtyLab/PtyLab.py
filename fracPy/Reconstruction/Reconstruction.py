@@ -9,6 +9,7 @@ from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from copy import copy
 import logging
 import h5py
+
 # logging.basicConfig(level=logging.DEBUG)
 
 from fracPy.utils.initializationFunctions import initialProbeOrObject
@@ -25,25 +26,26 @@ class Reconstruction(object):
     (e.g. zo modification by zPIE during the reconstruction routine). All of them
     are defined in the listOfReconstructionProperties
     """
-    listOfReconstructionPropertiesCPM = [
-            'wavelength',
-            'zo',
-            'dxd',
-            'theta',
-            'spectralDensity',
-            'entrancePupilDiameter'
-        ]
-    listOfReconstructionPropertiesFPM = [
-            'wavelength',
-            'zo',
-            'dxd',
-            'zled',
-            'dxp',
-            'entrancePupilDiameter'
-        ]
 
-    def __init__(self, data:ExperimentalData):
-        self.logger = logging.getLogger('Reconstruction')
+    listOfReconstructionPropertiesCPM = [
+        "wavelength",
+        "zo",
+        "dxd",
+        "theta",
+        "spectralDensity",
+        "entrancePupilDiameter",
+    ]
+    listOfReconstructionPropertiesFPM = [
+        "wavelength",
+        "zo",
+        "dxd",
+        "zled",
+        "dxp",
+        "entrancePupilDiameter",
+    ]
+
+    def __init__(self, data: ExperimentalData):
+        self.logger = logging.getLogger("Reconstruction")
         # if this is true, automatically update the number of pixels of the object so it fits.
         # This is for instance useful when the distance is not known yet and therefore also the number
         # of pixels can be larger or smaller.
@@ -61,75 +63,83 @@ class Reconstruction(object):
         self.initializeSettings()
 
         # list of the fields that have to be transfered back and forth from the GPU
-        self.possible_GPU_fields = ['probe',
-                       'object',
-                       'probeBuffer',
-                       'objectBuffer',
-                       'probeMomentum',
-                       'objectMomentum',
-                       'detectorError',
-                       'quadraticPhase',
-                       'transferFunction',
-                       'Q1', 'Q2',
-                       'background',
-                                    'reference',
-                                    ]
+        self.possible_GPU_fields = [
+            "probe",
+            "object",
+            "probeBuffer",
+            "objectBuffer",
+            "probeMomentum",
+            "objectMomentum",
+            "detectorError",
+            "quadraticPhase",
+            "transferFunction",
+            "Q1",
+            "Q2",
+            "background",
+            "reference",
+        ]
 
     def pad_or_shrink_object(self, new_size=None):
         """Automatically pad or shrink the object. Only performed when
         ``self.auto_scale_object_size == True``.
 
-        """
-        if new_size is None:
-            if not self.auto_scale_object_size:
-                return
+        New size can also be set to 'auto' and it will automatically figure out a decent estimate
+        to begin with (for the size)
 
-            max_range_pixels  = self.data.encoder_range / self.dxo  # encoder is in m, positions0 and positions are in pixels
+        """
+        if not self.auto_scale_object_size and new_size is None:
+            return
+        if new_size is None or new_size == 'auto':
+            max_range_pixels = (
+                self.data.encoder_range / self.dxo
+            )  # encoder is in m, positions0 and positions are in pixels
             new_size_pixels = int(
-                max_range_pixels / (np.mean([self.auto_scale_object_upper_limit, self.auto_scale_object_lower_limit])))
+                max_range_pixels
+                / (
+                    np.mean(
+                        [
+                            self.auto_scale_object_upper_limit,
+                            self.auto_scale_object_lower_limit,
+                        ]
+                    )
+                )
+            )
             # find the closest fastest power. This is useful for instance in zPIE, where it pays off
             # to have a fast size
             new_size_pixels = next_fast_len(new_size_pixels)
             # should any action be performed?
-            force = (max_range_pixels > self.auto_scale_object_upper_limit * self.No) or \
-                    (max_range_pixels < self.auto_scale_object_lower_limit * self.No)
+            force = (
+                max_range_pixels > self.auto_scale_object_upper_limit * self.No
+            ) or (max_range_pixels < self.auto_scale_object_lower_limit * self.No)
 
         else:
             new_size_pixels = new_size
             force = True
 
         if force:
-            self.logger.info(f'Resizing object to {new_size_pixels}.')
+            self.logger.info(f"Resizing object to {new_size_pixels}.")
             self.object = pad_or_shrink_image(self.object, new_size_pixels)
 
-
-
-
-
-
-
-
-
-    def copyAttributesFromExperiment(self, data:ExperimentalData):
+    def copyAttributesFromExperiment(self, data: ExperimentalData):
         """
         Copy all the attributes from the experiment that are in listOfReconstructionProperties (CPM or FPM)
         """
-        self.logger.debug('Copying attributes from Experimental Data')
-        if self.data.operationMode == 'CPM':
+        self.logger.debug("Copying attributes from Experimental Data")
+        if self.data.operationMode == "CPM":
             listOfReconstructionProperties = self.listOfReconstructionPropertiesCPM
-        elif self.data.operationMode == 'FPM':
+        elif self.data.operationMode == "FPM":
             listOfReconstructionProperties = self.listOfReconstructionPropertiesFPM
         for key in listOfReconstructionProperties:
-            self.logger.debug('Copying attribute %s', key)
+            self.logger.debug("Copying attribute %s", key)
             # setattr(self, key, copy(np.array(getattr(data, key))))
             setattr(self, key, copy(getattr(data, key)))
 
     @property
     def dxp(self):
-        if self.data.operationMode == 'CPM':
+        if self.data.operationMode == "CPM":
             # CPM dxp (depending on the propagatorType, if none given, assum Fraunhofer/Fresnel)
             dxp = self.wavelength * self.zo / self.Ld
-        elif self.data.operationMode == 'FPM':
+        elif self.data.operationMode == "FPM":
             if isinstance(self.dxp, type(None)):
                 # self.dxp = self.dxd / self.data.magnification
                 dxp = self.dxd / self.data.magnification
@@ -137,27 +147,27 @@ class Reconstruction(object):
                 # This is probably an error
                 return None
         return dxp
-       
+
     def computeParameters(self):
         """
         compute parameters that can be altered by the user later.
         """
 
-        if self.data.operationMode == 'CPM':
+        if self.data.operationMode == "CPM":
 
             # if entrancePupilDiameter is not provided in the hdf5 file, set it to be one third of the probe FoV.
             if isinstance(self.entrancePupilDiameter, type(None)):
-                self.entrancePupilDiameter = (self.Lp/3).copy()
+                self.entrancePupilDiameter = (self.Lp / 3).copy()
             # if spectralDensity is not provided in the hdf5 file, set it to be a 1d array of the wavelength
             if isinstance(self.spectralDensity, type(None)):
                 self.spectralDensity = np.atleast_1d(self.wavelength)
 
-        elif self.data.operationMode == 'FPM':
+        elif self.data.operationMode == "FPM":
             pass
             # FPM dxp (different from CPM due to lens-based systems)
             #
 
-        # set object pixel numbers
+        # set object pixel numbers - this is taken care of now by the @property
         # self.No = self.Np*2**2
         # self.No = self.Np+np.max(self.positions0[:,0])-np.min(self.positions0[:,0])
 
@@ -166,15 +176,14 @@ class Reconstruction(object):
         try:
             return self.object.shape[-1]
         except AttributeError:
-            print('Object not available yet, just returning something')
-            return self.Np*2**2
-
+            print("Object not available yet, just returning something")
+            return self.Np * 2 ** 2
 
     @No.setter
     def No(self, new_value):
         # set the size of the object
         self.pad_or_shrink_object(new_value)
-            
+
     def initializeSettings(self):
         """
         Initialize the attributes that have to do with a reconstruction 
@@ -200,75 +209,88 @@ class Reconstruction(object):
         self.purityObject = 1
 
         self.positions0 = self.positions.copy()
-        
 
-        if self.data.operationMode == 'FPM':
-            self.initialObject = 'upsampled'
-            self.initialProbe = 'circ'
-        elif self.data.operationMode == 'CPM':
-            self.initialProbe = 'circ'
-            self.initialObject = 'ones'
+        if self.data.operationMode == "FPM":
+            self.initialObject = "upsampled"
+            self.initialProbe = "circ"
+        elif self.data.operationMode == "CPM":
+            self.initialProbe = "circ"
+            self.initialObject = "ones"
         else:
-            self.initialProbe = 'circ'
-            self.initialObject = 'ones'
-
+            self.initialProbe = "circ"
+            self.initialObject = "ones"
 
     def initializeObjectProbe(self):
-        
+
         # initialize object and probe
         self.initializeObject()
         self.initializeProbe()
-        
+
         # set object and probe objects
         self.object = self.initialGuessObject.copy()
         self.probe = self.initialGuessProbe.copy()
 
-
     def initializeObject(self):
-        self.logger.info('Initial object set to %s', self.initialObject)
-        self.shape_O = (self.nlambda, self.nosm, 1, self.nslice, int(self.No), int(self.No))
-        self.initialGuessObject = initialProbeOrObject(self.shape_O, self.initialObject, self).astype(np.complex64)
+        self.logger.info("Initial object set to %s", self.initialObject)
+        self.shape_O = (
+            self.nlambda,
+            self.nosm,
+            1,
+            self.nslice,
+            int(self.No),
+            int(self.No),
+        )
+        self.initialGuessObject = initialProbeOrObject(
+            self.shape_O, self.initialObject, self
+        ).astype(np.complex64)
 
     def initializeProbe(self):
-        self.logger.info('Initial probe set to %s', self.initialProbe)
-        self.shape_P = (self.nlambda, 1, self.npsm, self.nslice, int(self.Np), int(self.Np))
-        self.initialGuessProbe = initialProbeOrObject(self.shape_P, self.initialProbe, self).astype(np.complex64)
+        self.logger.info("Initial probe set to %s", self.initialProbe)
+        self.shape_P = (
+            self.nlambda,
+            1,
+            self.npsm,
+            self.nslice,
+            int(self.Np),
+            int(self.Np),
+        )
+        self.initialGuessProbe = initialProbeOrObject(
+            self.shape_P, self.initialProbe, self
+        ).astype(np.complex64)
 
     # initialize momentum, called in specific engines with momentum accelaration
     def initializeObjectMomentum(self):
         self.objectMomentum = np.zeros_like(self.initialGuessObject)
+
     def initializeProbeMomentum(self):
         self.probeMomentum = np.zeros_like(self.initialGuessProbe)
 
-
-
-    def saveResults(self, fileName='recent', type='all'):
-        if type == 'all':
-            hf = h5py.File(fileName + '_Reconstruction.hdf5', 'w')
-            hf.create_dataset('probe', data=self.probe, dtype='complex64')
-            hf.create_dataset('object', data=self.object, dtype='complex64')
-            hf.create_dataset('error', data=self.error, dtype='f')
-            hf.create_dataset('zo', data=self.zo, dtype='f')
-            hf.create_dataset('wavelength', data=self.wavelength, dtype='f')
-            hf.create_dataset('dxp', data=self.dxp, dtype='f')
-            if hasattr(self, 'theta'):
-                if self.theta!=None:
-                    hf.create_dataset('theta', data=self.theta, dtype='f')
-        elif type == 'probe':
-            hf = h5py.File(fileName + '_probe.hdf5', 'w')
-            hf.create_dataset('probe', data=self.probe, dtype='complex64')
-        elif type == 'object':
-            hf = h5py.File(fileName + '_object.hdf5', 'w')
-            hf.create_dataset('object', data=self.object, dtype='complex64')
+    def saveResults(self, fileName="recent", type="all"):
+        if type == "all":
+            hf = h5py.File(fileName + "_Reconstruction.hdf5", "w")
+            hf.create_dataset("probe", data=self.probe, dtype="complex64")
+            hf.create_dataset("object", data=self.object, dtype="complex64")
+            hf.create_dataset("error", data=self.error, dtype="f")
+            hf.create_dataset("zo", data=self.zo, dtype="f")
+            hf.create_dataset("wavelength", data=self.wavelength, dtype="f")
+            hf.create_dataset("dxp", data=self.dxp, dtype="f")
+            if hasattr(self, "theta"):
+                if self.theta != None:
+                    hf.create_dataset("theta", data=self.theta, dtype="f")
+        elif type == "probe":
+            hf = h5py.File(fileName + "_probe.hdf5", "w")
+            hf.create_dataset("probe", data=self.probe, dtype="complex64")
+        elif type == "object":
+            hf = h5py.File(fileName + "_object.hdf5", "w")
+            hf.create_dataset("object", data=self.object, dtype="complex64")
 
         hf.close()
-        print('The reconstruction results (%s) have been saved' % type)
+        print("The reconstruction results (%s) have been saved" % type)
 
     # detector coordinates
     @property
     def Nd(self):
         return self.data.ptychogram.shape[1]
-
 
     @property
     def xd(self):
@@ -292,8 +314,6 @@ class Reconstruction(object):
         """ Detector size in SI units. """
         return self.Nd * self.dxd
 
-
-
     # probe coordinates
     @property
     def Np(self):
@@ -313,7 +333,9 @@ class Reconstruction(object):
         try:
             return np.linspace(-self.Np / 2, self.Np / 2, int(self.Np)) * self.dxp
         except AttributeError as e:
-            raise AttributeError(e, 'probe pixel number "Np" and/or probe sampling "dxp" not defined yet')
+            raise AttributeError(
+                e, 'probe pixel number "Np" and/or probe sampling "dxp" not defined yet'
+            )
 
     @property
     def Xp(self):
@@ -345,7 +367,9 @@ class Reconstruction(object):
         try:
             return np.linspace(-self.No / 2, self.No / 2, int(self.No)) * self.dxo
         except AttributeError as e:
-            raise AttributeError(e, 'object pixel number "No" and/or pixel size "dxo" not defined yet')
+            raise AttributeError(
+                e, 'object pixel number "No" and/or pixel size "dxo" not defined yet'
+            )
 
     @property
     def Xo(self):
@@ -374,17 +398,27 @@ class Reconstruction(object):
         in the spectrogram is updates a patch which has pixel coordinates
         [3,4] in the high-resolution Fourier transform
         """
-        if self.data.operationMode == 'FPM':
+        if self.data.operationMode == "FPM":
             conv = -(1 / self.wavelength) * self.dxo * self.Np
             positions = np.round(
-                conv * self.data.encoder / np.sqrt(self.data.encoder[:, 0] ** 2 + self.data.encoder[:, 1] ** 2 + self.zled ** 2)[
-                    ..., None])
+                conv
+                * self.data.encoder
+                / np.sqrt(
+                    self.data.encoder[:, 0] ** 2
+                    + self.data.encoder[:, 1] ** 2
+                    + self.zled ** 2
+                )[..., None]
+            )
         else:
-            positions = np.round(self.data.encoder / self.dxo)  # encoder is in m, positions0 and positions are in pixels
+            positions = np.round(
+                self.data.encoder / self.dxo
+            )  # encoder is in m, positions0 and positions are in pixels
         positions = positions + self.No // 2 - self.Np // 2
 
         if np.any(positions < 0):
-            raise ValueError('The positions are out of range. Most likely this is due to a change in z. Consider increasing reconstruction.No')
+            raise ValueError(
+                "The positions are out of range. Most likely this is due to a change in z. Consider increasing reconstruction.No"
+            )
         return positions.astype(int)
 
     # system property list
@@ -399,7 +433,6 @@ class Reconstruction(object):
         """expected Depth of field"""
         DoF = self.wavelength / self.NAd ** 2
         return DoF
-
 
     def _move_data_to_cpu(self):
         """
