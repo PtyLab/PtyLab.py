@@ -119,8 +119,9 @@ class zPIE(BaseEngine):
 
             # re-sample is automatically done by using @property
             if self.params.propagatorType != 'ASP':
-                self.reconstruction.dxp = self.reconstruction.wavelength * self.reconstruction.zo \
-                                          / self.reconstruction.Ld
+                # no longer required as we calculate this on the fly
+                # self.reconstruction.dxp = self.reconstruction.wavelength * self.reconstruction.zo \
+                #                           / self.reconstruction.Ld
                 # reset propagatorType
                 self.reconstruction.quadraticPhase = xp.array(np.exp(1.j * np.pi / (self.reconstruction.wavelength * self.reconstruction.zo)
                                                                      * (self.reconstruction.Xp ** 2 + self.reconstruction.Yp ** 2)))

@@ -39,10 +39,10 @@ class BaseEngine(object):
 
     def __init__(self, reconstruction: Reconstruction, experimentalData: ExperimentalData, params: Params, monitor: Monitor):
         # These statements don't copy any data, they just keep a reference to the object
-        self.reconstruction = reconstruction
+        self.reconstruction: Reconstruction = reconstruction
         self.experimentalData = experimentalData
         self.params = params
-        self.monitor = monitor
+        self.monitor: Monitor = monitor
         self.monitor.reconstruction = reconstruction
 
         # datalogger
@@ -152,29 +152,26 @@ class BaseEngine(object):
         Set object/probe ROI for monitoring
         """
         if not hasattr(self.monitor, 'objectROI') or update:
-            rx, ry = ((np.max(self.reconstruction.positions, axis=0) - np.min(self.reconstruction.positions, axis=0) \
-                       + self.reconstruction.Np) / self.monitor.objectZoom).astype(int)
-            xc, yc = ((np.max(self.reconstruction.positions, axis=0) + np.min(self.reconstruction.positions, axis=0) \
-                       + self.reconstruction.Np) / 2).astype(int)
+            self.monitor._setObjectROI(self.reconstruction.position_range, self.reconstruction.position_center,
+                                       self.reconstruction.No, self.reconstruction.Np)
 
-            self.monitor.objectROI = [slice(max(0, yc - ry // 2),
-                                                min(self.reconstruction.No, yc + ry // 2)),
-                                          slice(max(0, xc - rx // 2),
-                                                min(self.reconstruction.No, xc + rx // 2))]
 
         if not hasattr(self.monitor, 'probeROI') or update:
-            r = np.int(self.experimentalData.entrancePupilDiameter / self.reconstruction.dxp / self.monitor.probeZoom)
-            self.monitor.probeROI = [slice(max(0, self.reconstruction.Np // 2 - r),
-                                               min(self.reconstruction.Np, self.reconstruction.Np // 2 + r)),
-                                         slice(max(0, self.reconstruction.Np // 2 - r),
-                                               min(self.reconstruction.Np, self.reconstruction.Np // 2 + r))]
+            self.monitor._setProbeROI(self.experimentalData.entrancePupilDiameter, self.reconstruction.dxp,
+                                      self.reconstruction.Np)
+            #
+            # self.monitor.probeROI = [slice(max(0, self.reconstruction.Np // 2 - r),
+            #                                    min(self.reconstruction.Np, self.reconstruction.Np // 2 + r)),
+            #                              slice(max(0, self.reconstruction.Np // 2 - r),
+            #                                    min(self.reconstruction.Np, self.reconstruction.Np // 2 + r)) ]
 
     def _showInitialGuesses(self):
         self.monitor.initializeMonitors()
+
         objectEstimate = np.squeeze(self.reconstruction.object
-                                     [..., self.monitor.objectROI[0], self.monitor.objectROI[1]])
+                                     [..., self.monitor.objectROI[-2], self.monitor.objectROI[-1]])
         probeEstimate = np.squeeze(self.reconstruction.probe
-                                    [..., self.monitor.probeROI[0], self.monitor.probeROI[1]])
+                                    [..., self.monitor.probeROI[-2], self.monitor.probeROI[-1]])
         self.monitor.updateObjectProbeErrorMonitor(object_estimate=objectEstimate, probe_estimate=probeEstimate)
 
     def _initializeQuadraticPhase(self):

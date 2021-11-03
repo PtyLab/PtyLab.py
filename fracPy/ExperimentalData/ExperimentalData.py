@@ -130,6 +130,8 @@ class ExperimentalData:
     def encoder(self, new_positions):
         print('Setting encoder')
         self._encoder = new_positions
+        # minimum and maximum of the positions
+        self.encoder_minmax = np.vstack([np.min(new_positions, axis=0), np.max(new_positions, axis=0)])
         self.encoder_range = np.max(np.max(new_positions, axis=0) -np.min(new_positions, axis=0))
 
 

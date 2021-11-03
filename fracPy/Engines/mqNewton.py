@@ -78,11 +78,9 @@ class mqNewton(BaseEngine):
             
             for positionLoop, positionIndex in enumerate(self.positionIndices):
                 # get object patch
-                row, col = self.reconstruction.positions[positionIndex]
-                sy = slice(row, row + self.reconstruction.Np)
-                sx = slice(col, col + self.reconstruction.Np)
-                # note that object patch has size of probe array
-                objectPatch = self.reconstruction.object[..., sy, sx].copy()
+                objectPatch, sy, sx = self.reconstruction.extract_object_patch(positionIndex)
+
+
                 
                 # make exit surface wave
                 self.reconstruction.esw = objectPatch * self.reconstruction.probe

@@ -57,6 +57,8 @@ class Reconstruction(object):
         # auto_scale_object_upper_limit times the position range
         self.auto_scale_object_upper_limit = 0.9
 
+        self._zo: float = None
+
         self.data: ExperimentalData = data
         self.copyAttributesFromExperiment(data)
         self.computeParameters()
@@ -87,14 +89,18 @@ class Reconstruction(object):
         to begin with (for the size)
 
         """
+
         if not self.auto_scale_object_size and new_size is None:
             return
-        if new_size is None or new_size == 'auto':
-            max_range_pixels = (
-                self.data.encoder_range / self.dxo
-            )  # encoder is in m, positions0 and positions are in pixels
+
+        if new_size is None or new_size == "auto":
+            # find out what the size is that we actually need
+            minmax_pixel = (
+                self.data.encoder_minmax / self.dxo
+            )
+            minimum_size = np.max(np.subtract(minmax_pixel[1], minmax_pixel[0]))
             new_size_pixels = int(
-                max_range_pixels
+                minimum_size
                 / (
                     np.mean(
                         [
@@ -104,21 +110,22 @@ class Reconstruction(object):
                     )
                 )
             )
-            # find the closest fastest power. This is useful for instance in zPIE, where it pays off
+            # find the closest fast size. This is useful for instance in zPIE, where it pays off
             # to have a fast size
             new_size_pixels = next_fast_len(new_size_pixels)
             # should any action be performed?
-            force = (
-                max_range_pixels > self.auto_scale_object_upper_limit * self.No
-            ) or (max_range_pixels < self.auto_scale_object_lower_limit * self.No)
-
+            # we only reshape if
+            # - the new shape would be > max_size * No
+            # - the new shape would be < min_size * No
+            # ( This also takes into account the case where new_size_pixels > No)
+            if not (
+                new_size_pixels > self.auto_scale_object_upper_limit * self.No
+            ) or (new_size_pixels < self.auto_scale_object_lower_limit * self.No):
+                return
         else:
             new_size_pixels = new_size
-            force = True
-
-        if force:
-            self.logger.info(f"Resizing object to {new_size_pixels}.")
-            self.object = pad_or_shrink_image(self.object, new_size_pixels)
+        self.logger.info(f"Resizing object to {new_size_pixels}.")
+        self.object = pad_or_shrink_image(self.object, new_size_pixels)
 
     def copyAttributesFromExperiment(self, data: ExperimentalData):
         """
@@ -132,7 +139,10 @@ class Reconstruction(object):
         for key in listOfReconstructionProperties:
             self.logger.debug("Copying attribute %s", key)
             # setattr(self, key, copy(np.array(getattr(data, key))))
-            setattr(self, key, copy(getattr(data, key)))
+            field = copy(getattr(data, key))
+            if key == "zo":  # This is a managed attribute
+                key = "_" + key
+            setattr(self, key, field)
 
     @property
     def dxp(self):
@@ -170,6 +180,15 @@ class Reconstruction(object):
         # set object pixel numbers - this is taken care of now by the @property
         # self.No = self.Np*2**2
         # self.No = self.Np+np.max(self.positions0[:,0])-np.min(self.positions0[:,0])
+
+    @property
+    def zo(self):
+        return self._zo
+
+    @zo.setter
+    def zo(self, new_value):
+        self._zo = new_value
+        self.pad_or_shrink_object()
 
     @property
     def No(self):
@@ -384,6 +403,15 @@ class Reconstruction(object):
         return Yo
 
     # scan positions in pixel
+
+    def get_slices(self, positionIndex):
+        row, col = self.positions[positionIndex]
+        sy = slice(row, row + self.Np)
+        sx = slice(col, col + self.Np)
+        if self.sy.start < 0 or self.sx.start < 0:
+            raise ValueError(f'Slices are not set correctly. Got {sy}, {sx}.')
+        return sy, sx
+
     @property
     def positions(self):
         """estimated positions in pixel numbers(real space for CPM, Fourier space for FPM)
@@ -415,10 +443,11 @@ class Reconstruction(object):
             )  # encoder is in m, positions0 and positions are in pixels
         positions = positions + self.No // 2 - self.Np // 2
 
-        if np.any(positions < 0):
-            raise ValueError(
-                "The positions are out of range. Most likely this is due to a change in z. Consider increasing reconstruction.No"
-            )
+        if np.any(positions < 0) and self.auto_scale_object_size:
+            self.logger.info("The positions are out of range. Most likely this is due to a change in z. Increasing the Np")
+            self.pad_or_shrink_object()
+            self.logger.info(f"New object size: {self.No}")
+            return self.positions.astype(int)
         return positions.astype(int)
 
     # system property list
@@ -434,6 +463,14 @@ class Reconstruction(object):
         DoF = self.wavelength / self.NAd ** 2
         return DoF
 
+    @property
+    def position_range(self):
+        return np.array([self.data.encoder.max(axis=0), self.data.encoder.min(axis=0)]) / self.dxo
+
+    @property
+    def position_center(self):
+        return self.data.encoder.mean(0) /self.dxo
+
     def _move_data_to_cpu(self):
         """
         Move all the required fields to the CPU
@@ -444,3 +481,16 @@ class Reconstruction(object):
 
     def _move_data_to_gpu(self):
         transfer_fields_to_gpu(self, self.possible_GPU_fields, self.logger)
+
+    def extract_object_patch(self, positionIndex):
+        row, col = self.positions[positionIndex]
+        sy = slice(row, row + self.Np)
+        sx = slice(col, col + self.Np)
+        if sy.start < 0 or sx.start < 0 or sx.stop > self.No or sy.stop > self.No:
+            if self.auto_scale_object_size:
+                self.pad_or_shrink_object()
+                return self.extract_object_patch(positionIndex)
+            raise ValueError('The number of pixels in the object is too small.')
+
+        objectPatch = self.object[..., sy, sx].copy()
+        return objectPatch, sy, sx
