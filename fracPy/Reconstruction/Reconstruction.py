@@ -4,9 +4,9 @@ from copy import copy
 import logging
 import h5py
 # logging.basicConfig(level=logging.DEBUG)
-
+from fracPy.Regularizers import TV_at, TV
 from fracPy.utils.initializationFunctions import initialProbeOrObject
-from fracPy.utils.gpuUtils import transfer_fields_to_cpu, transfer_fields_to_gpu
+from fracPy.utils.gpuUtils import transfer_fields_to_cpu, transfer_fields_to_gpu, getArrayModule
 from fracPy import Params
 from fracPy.Operators.Operators import aspw, scaledASP, scaledASPinv
 
@@ -39,10 +39,19 @@ class Reconstruction(object):
         ]
 
     def __init__(self, data:ExperimentalData, params: Params):
+
+
+
         self.wavelength = None
         self.zo = None
         self.dxd = None
         self.theta = None
+
+        # autofocus behaviour
+        self.zMomentum = 0
+        self.zPIEfriction = 0.7
+        self.zPIE_gradient_step_size = 0.1
+
 
         self.logger = logging.getLogger('Reconstruction')
         self.data = data
@@ -60,8 +69,10 @@ class Reconstruction(object):
                        'objectMomentum',
                        'detectorError',
                        'background',
-                                    'reference',
-                                    ]
+                       'purityProbe',
+                        'purityObject',
+                        'reference',
+                        ]
 
     def copyAttributesFromExperiment(self, data:ExperimentalData):
         """
@@ -186,7 +197,7 @@ class Reconstruction(object):
 
     def initializeSettings(self):
         """
-        Initialize the attributes that have to do with a reconstruction 
+        Initialize the attributes that have to do with a reconstruction
         or experimentalData fields which will become "reconstruction"
 
         This method just sets the settings. It sets the what kind of initial guess should be used for initialObject
@@ -209,7 +220,7 @@ class Reconstruction(object):
         self.purityObject = 1
 
         self.positions0 = self.positions.copy()
-        
+
 
         if self.data.operationMode == 'FPM':
             self.initialObject = 'upsampled'
@@ -223,11 +234,11 @@ class Reconstruction(object):
 
 
     def initializeObjectProbe(self):
-        
+
         # initialize object and probe
         self.initializeObject()
         self.initializeProbe()
-        
+
         # set object and probe objects
         self.object = self.initialGuessObject.copy()
         self.probe = self.initialGuessProbe.copy()
@@ -273,6 +284,8 @@ class Reconstruction(object):
                 hf.create_dataset('zo', data=self.zo, dtype='f')
                 hf.create_dataset('wavelength', data=self.wavelength, dtype='f')
                 hf.create_dataset('dxp', data=self.dxp, dtype='f')
+                hf.create_dataset('purityProbe', data=self.purityProbe, dtype='f')
+                hf.create_dataset('purityObject', data=self.purityObject, dtype='f')
                 if hasattr(self, 'theta'):
                     if self.theta!=None:
                         hf.create_dataset('theta', data=self.theta, dtype='f')
@@ -472,3 +485,28 @@ class Reconstruction(object):
     @property
     def Q2(self):
         raise NotImplementedError('Q2 is no longer available')
+
+    def TV_autofocus(self, params: Params):
+        print('##'*50)
+        print('Doing autofocus')
+        print('##' * 50)
+        if not params.TV_autofocus:
+            return
+        if params.l2reg:
+            self.logger.warning('Both TV_autofocus and L2reg are turned on. This usually leads to poor performance. Consider disabling l2reg if the probe collapses to focal points')
+
+        d = 11
+        xp = getArrayModule(self.object)
+        dz = np.linspace(-1, 1, 11) * d * self.DoF
+        merit = TV_at(self.object, dz, self.dxo, self.wavelength, self.params.TV_autofocus_roi)
+        # from here on we are looking at 11 data points, work on CPU
+        # as it's much more convenient and faster
+        feedback = np.sum(dz * merit) / np.sum(merit)
+        self.zMomentum *= self.zPIEfriction
+        self.zMomentum += self.zPIE_gradient_step_size * feedback
+        self.zo += self.zMomentum
+
+    @property
+    def TV(self):
+        """ Return the TV of the object """
+        return TV(self.object, 1e-2)

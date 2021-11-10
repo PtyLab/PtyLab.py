@@ -1,21 +1,15 @@
 from fracPy import Operators
-from fracPy.Monitor.Plots import ObjectProbeErrorPlot,DiffractionDataPlot
 import numpy as np
-from scipy.signal import get_window
 import logging
 import warnings
-import h5py
 # fracPy imports
 from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray, transfer_fields_to_gpu, transfer_fields_to_cpu, \
     isGpuArray
-from fracPy.utils.initializationFunctions import initialProbeOrObject
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Reconstruction.Reconstruction import Reconstruction
 from fracPy.Params.Params import Params
-from fracPy.utils.utils import ifft2c, fft2c, orthogonalizeModes, circ, posit
-from fracPy.Operators.Operators import aspw, scaledASP
+from fracPy.utils.utils import ifft2c, fft2c, orthogonalizeModes, circ
 from fracPy.Monitor.Monitor import Monitor
-from fracPy.utils.visualisation import hsvplot
 from matplotlib import pyplot as plt
 # from fracPy.utils.utils import smooth_amplitude
 # Dirty hack to get running
@@ -46,9 +40,6 @@ def smooth_amplitude(field, width, aleph):
     return new_amp * xp.exp(1j*field_phase)
 
 
-
-
-
 class BaseEngine(object):
     """
     Common properties that are common for all reconstruction Engines are defined here.
@@ -60,7 +51,7 @@ class BaseEngine(object):
 
     def __init__(self, reconstruction: Reconstruction, experimentalData: ExperimentalData, params: Params, monitor: Monitor):
         # These statements don't copy any data, they just keep a reference to the object
-        self.reconstruction = reconstruction
+        self.reconstruction: Reconstruction = reconstruction
         self.experimentalData = experimentalData
         self.params = params
         self.monitor = monitor
@@ -377,7 +368,6 @@ class BaseEngine(object):
         :return:
         """
         # reconstruction parameters
-        from fracPy.utils.gpuUtils import asNumpyArray
 
         self.reconstruction._move_data_to_cpu()
         self.experimentalData._move_data_to_cpu()
@@ -780,8 +770,6 @@ class BaseEngine(object):
                     self.reconstruction.object[..., self.monitor.objectROI[0], self.monitor.objectROI[1]]))
                 probe_estimate = np.squeeze(asNumpyArray(
                     self.reconstruction.probe[0, ..., self.monitor.probeROI[0], self.monitor.probeROI[1]]))
-            print('Object purity estimate')
-            print(self.reconstruction.purityObject)
             self.monitor.updateObjectProbeErrorMonitor(error=self.reconstruction.error,
                                                        object_estimate=object_estimate, probe_estimate=probe_estimate,
                                                        zo=self.reconstruction.zo,
@@ -789,9 +777,10 @@ class BaseEngine(object):
                                                        purity_object=self.reconstruction.purityObject)
 
             self.monitor.writeEngineName(repr(type(self)))
+
             self.monitor.update_positions(self.reconstruction.positions,
                                           self.reconstruction.positions0,
-                                          self.reconstruction.zo / self.experimentalData.zo)
+                                          1/self.experimentalData.zo * self.reconstruction.zo)
 
 
 
@@ -943,11 +932,11 @@ class BaseEngine(object):
         :return:
         """
         # dirks additions, untested
-        if True:
-            # turns down areas that are not updated. Similar to an
+        if self.params.l2reg:
+        #     turns down areas that are not updated. Similar to an
             #l2 regularizer
-            self.reconstruction.object *= 0.99
-            self.reconstruction.probe *= 0.999
+            self.reconstruction.object *= (1-self.params.l2reg_object_aleph)
+            self.reconstruction.probe *= (1-self.params.l2reg_probe_aleph)
 
         # enforce empty beam constraint
         if self.params.modulusEnforcedProbeSwitch:
@@ -1030,6 +1019,10 @@ class BaseEngine(object):
 
         if self.params.positionCorrectionSwitch:
             self.positionCorrectionUpdate()
+
+        if self.params.TV_autofocus:
+            self.reconstruction.TV_autofocus(self.params)
+
 
     def orthogonalization(self):
         """
@@ -1160,4 +1153,21 @@ class BaseEngine(object):
         Ameasured = Ameasured - noise
         Ameasured[Ameasured < 0] = 0
         self.reconstruction.Imeasured = Ameasured ** 2
+
+
+
+    def z_update(self, stepsize=0.01, roi_bounds=[0.3, 0.7], d=10):
+        """
+        Update Z based on TV
+        :param stepsize:
+        :return:
+        """
+        self.reconstruction.TV_autofocus()
+
+
+
+
+
+
+
 

@@ -69,6 +69,16 @@ class Params(object):
         self.positionCorrectionSwitch = False  # position correction for encoder
         self.adaptiveDenoisingSwitch = False  # estimated noise floor to be clipped from raw data
 
+        self.l2reg = False # l2 regularisation
+        self.l2reg_probe_aleph = 0.01 # strength of the regularizer
+        self.l2reg_object_aleph = 0.001
+
+        # autofocusing
+        self.TV_autofocus = True
+        self.TV_autofocus_stepsize = 5
+        self.TV_autofocus_aleph = 0.01
+        self.TV_autofocus_roi = [0.3, 0.7]
+
 
 
 
