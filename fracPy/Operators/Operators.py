@@ -207,20 +207,25 @@ def object2detector(fields, params: Params, reconstruction: Reconstruction):
         fields = reconstruction.esw
     return method(fields, params, reconstruction)
 
-def aspw(u, z, wavelength, L, bandlimit=True):
+def aspw(u, z, wavelength, L, bandlimit=True, is_FT=True):
     """
     Angular spectrum plane wave propagation function.
     following: Matsushima et al., "Band-Limited Angular Spectrum Method for Numerical Simulation of Free-Space
     Propagation in Far and Near Fields", Optics Express, 2009
+    :param is_FT:
     :param u: a 2D field distribution at z = 0 (u is assumed to be square, i.e. N x N)
     :param z: propagation distance
     :param wavelength: propagation wavelength in meter
     :param L: total size of the field in meter
+    :param is_FT: If u has already been transformed.
     :return: U_prop, Q  (field distribution after propagation and the bandlimited transfer function)
     """
     N = u.shape[-1]
     phase_exp = __aspw_transfer_function(z, wavelength, N, L, on_gpu=isGpuArray(u), bandlimit=bandlimit)
-    U = fft2c(u)
+    if is_FT:
+        U = u
+    else:
+        U = fft2c(u)
     u_prop = ifft2c(U * phase_exp)
     return u_prop, phase_exp
 
