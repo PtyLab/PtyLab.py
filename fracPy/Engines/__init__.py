@@ -9,6 +9,8 @@ from .qNewton import qNewton
 from .aPIE import aPIE
 from .multiPIE import multiPIE
 from .zPIE import zPIE
+from .OPR import OPR
+from .OPR_new import OPR_new
 # # for other Engines (like one you are developing but which is too specific) you can always import fracPy.Engines.<your_engine_filename>.<your_class>
 from .BaseEngine import BaseEngine
 

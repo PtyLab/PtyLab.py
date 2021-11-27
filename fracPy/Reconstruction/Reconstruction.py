@@ -19,6 +19,9 @@ class Reconstruction(object):
     (e.g. zo modification by zPIE during the reconstruction routine). All of them
     are defined in the listOfReconstructionProperties
     """
+
+    _Nd = None
+
     listOfReconstructionPropertiesCPM = [
             'wavelength',
             'zo',
@@ -55,7 +58,8 @@ class Reconstruction(object):
                        'transferFunction',
                        'Q1', 'Q2',
                        'background',
-                                    'reference',
+                       'reference',
+                       'ref_mask',
                                     ]
 
     def copyAttributesFromExperiment(self, data:ExperimentalData):
@@ -135,7 +139,6 @@ class Reconstruction(object):
             self.initialProbe = 'circ'
             self.initialObject = 'ones'
 
-
     def initializeObjectProbe(self):
         
         # initialize object and probe
@@ -146,24 +149,40 @@ class Reconstruction(object):
         self.object = self.initialGuessObject.copy()
         self.probe = self.initialGuessProbe.copy()
 
-
     def initializeObject(self):
         self.logger.info('Initial object set to %s', self.initialObject)
         self.shape_O = (self.nlambda, self.nosm, 1, self.nslice, np.int(self.No), np.int(self.No))
-        self.initialGuessObject = initialProbeOrObject(self.shape_O, self.initialObject, self).astype(np.complex64)
+        if self.initialObject == 'recon':
+            # Load the Object from an existing reconstruction
+            self.initialGuessObject = self.loadResults(self.initialProbe_filename, datatype='object')
+        else:
+            self.initialGuessObject = initialProbeOrObject(self.shape_O, self.initialObject, self).astype(np.complex64)
+    
+    @staticmethod
+    def loadResults(fileName, datatype='probe'):
+        '''
+        Loads data from a ptylab reconstruction file.
+        '''
+        with h5py.File(fileName) as archive:
+            data = np.copy(np.array(archive[datatype]))
+        return data
 
     def initializeProbe(self):
         self.logger.info('Initial probe set to %s', self.initialProbe)
+        self.logger.info('Entrance pupil diameter set to %s', self.entrancePupilDiameter)
         self.shape_P = (self.nlambda, 1, self.npsm, self.nslice, np.int(self.Np), np.int(self.Np))
-        self.initialGuessProbe = initialProbeOrObject(self.shape_P, self.initialProbe, self).astype(np.complex64)
+        # self.initialGuessProbe = initialProbeOrObject(self.shape_P, self.initialProbe, self).astype(np.complex64)
+        if self.initialProbe == 'recon':
+            # Load the probe from an existing reconstruction
+            self.initialGuessProbe = self.loadResults(self.initialProbe_filename, datatype='probe')
+        else:
+            self.initialGuessProbe = initialProbeOrObject(self.shape_P, self.initialProbe, self).astype(np.complex64)
 
     # initialize momentum, called in specific engines with momentum accelaration
     def initializeObjectMomentum(self):
         self.objectMomentum = np.zeros_like(self.initialGuessObject)
     def initializeProbeMomentum(self):
         self.probeMomentum = np.zeros_like(self.initialGuessProbe)
-
-
 
     def saveResults(self, fileName='recent', type='all'):
         if type == 'all':
@@ -183,6 +202,12 @@ class Reconstruction(object):
         elif type == 'object':
             hf = h5py.File(fileName + '_object.hdf5', 'w')
             hf.create_dataset('object', data=self.object, dtype='complex64')
+        elif type == 'OPR_data':
+            hf = h5py.File(fileName + '_OPR_data.hdf5', 'w')
+            hf.create_dataset('OPR_data', data=self.modes.get(), dtype='complex64')
+        elif type == 'probe_stack':
+            hf = h5py.File(fileName + '_probe_stack.hdf5', 'w')
+            hf.create_dataset('probe_stack', data=self.probe_stack.get(), dtype='complex64')
 
         hf.close()
         print('The reconstruction results (%s) have been saved' % type)
@@ -190,8 +215,17 @@ class Reconstruction(object):
     # detector coordinates
     @property
     def Nd(self):
+        '''
+        if self._Nd is None:
+            self._Nd = self.data.ptychogram.shape[1]
+        return self._Nd 
+        '''
         return self.data.ptychogram.shape[1]
-
+    ''' 
+    @Nd.setter
+    def Nd(self, n):
+        self._Nd = n 
+    '''
 
     @property
     def xd(self):

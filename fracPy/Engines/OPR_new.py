@@ -21,7 +21,7 @@ import tqdm
 import sys
 
 
-class ePIE(BaseEngine):
+class OPR_new(BaseEngine):
 
     def __init__(self, reconstruction: Reconstruction, experimentalData: ExperimentalData, params: Params, monitor: Monitor):
         # This contains reconstruction parameters that are specific to the reconstruction
@@ -41,13 +41,36 @@ class ePIE(BaseEngine):
         self.betaObject = 0.25
         self.numIterations = 50
 
-
     def reconstruct(self):
         self._prepareReconstruction()
 
+        # OPR parameters
+        self.OPR_modes = np.array([0, 1, 2, 3])
+        Nmodes = self.OPR_modes.shape[0]
+        Np = self.reconstruction.Np
+        Nframes = self.experimentalData.numFrames
+        mode_slice = slice(np.min(self.OPR_modes), np.max(self.OPR_modes) + 1) 
+        n_subspace = 4 
+        import copy
+        
+        '''
+        # this version works 
+        self.reconstruction.probe_stack = cp.repeat(self.reconstruction.probe[0, 0, 0, 0, :, :, cp.newaxis], Nframes, axis=2).reshape(1, 1, Nmodes, 1, Np, Np, Nframes) 
+        '''
+
+        self.reconstruction.probe_stack = cp.zeros((1, 1, Nmodes, 1, Np, Np, Nframes), dtype=cp.complex64)
+        for i in self.OPR_modes:
+            test = cp.repeat(self.reconstruction.probe[0, 0, i, 0, :, :, cp.newaxis], Nframes, axis=2)
+            self.reconstruction.probe_stack[0, 0, i, 0, :, :, :] = copy.deepcopy(test) 
+        print('shapes')
+        print(mode_slice) 
+        print(self.reconstruction.probe_stack.shape)
+        print(self.reconstruction.probe.shape)
+
         # actual reconstruction ePIE_engine
-        self.pbar = tqdm.trange(self.numIterations, desc='ePIE', file=sys.stdout, leave=True)
+        self.pbar = tqdm.trange(self.numIterations, desc='OPR_new', file=sys.stdout, leave=True)
         for loop in self.pbar:
+            self.it = loop
             # set position order
             self.setPositionOrder()
             for positionLoop, positionIndex in enumerate(self.positionIndices):
@@ -57,9 +80,12 @@ class ePIE(BaseEngine):
                 sx = slice(col, col + self.reconstruction.Np)
                 # note that object patch has size of probe array
                 objectPatch = self.reconstruction.object[..., sy, sx].copy()
-                
+
+                # Get dim reduced probe
+                self.reconstruction.probe[:, :, mode_slice, :, :, :] = self.reconstruction.probe_stack[..., positionIndex]
+
                 # make exit surface wave
-                self.reconstruction.esw = objectPatch * self.reconstruction.probe
+                self.reconstruction.esw = objectPatch * self.reconstruction.probe 
                 
                 # propagate to camera, intensityProjection, propagate back to object
                 self.intensityProjection(positionIndex)
@@ -69,16 +95,30 @@ class ePIE(BaseEngine):
 
                 # object update
                 self.reconstruction.object[..., sy, sx] = self.objectPatchUpdate(objectPatch, DELTA)
-
+                
                 # probe update
-                # self.reconstruction.probe = self.probeUpdate(objectPatch, DELTA)
-                self.probeUpdate_new(objectPatch, DELTA)
+                self.reconstruction.probe = self.probeUpdate(objectPatch, DELTA)
+
+                # save first, dominant probe mode
+                self.reconstruction.probe_stack[..., positionIndex] = cp.copy(self.reconstruction.probe[:, :, mode_slice, :, :, :]) 
 
             # get error metric
             self.getErrorMetrics()
 
+            self.orthogonalizeIncoherentModes()
+
+            OPR_constraint = True
+            if OPR_constraint:
+               self.reconstruction.probe_stack = self.orthogonalizeProbeStack(self.reconstruction.probe_stack, n_subspace)
+
             # apply Constraints
             self.applyConstraints(loop)
+
+            ''' 
+            OPR_constraint = True
+            if OPR_constraint:
+               self.reconstruction.probe_stack = self.orthogonalizeProbeStack(self.reconstruction.probe_stack, 3)
+            '''
 
             # show reconstruction
             self.showReconstruction(loop)
@@ -88,6 +128,46 @@ class ePIE(BaseEngine):
             self._move_data_to_cpu()
             self.params.gpuFlag = 0
 
+    def orthogonalizeIncoherentModes(self):
+        nFrames = self.experimentalData.numFrames 
+        n = self.reconstruction.Np
+        nModes = self.reconstruction.probe.shape[2]
+        for pos in range(nFrames):
+            probe = self.reconstruction.probe_stack[0, 0, :, 0, :, :, pos]
+            probe = probe.reshape(nModes, n*n)
+            U, s, Vh = cp.linalg.svd(probe, full_matrices=False)
+            modes = cp.dot(cp.diag(s), Vh).reshape(nModes, n, n)
+            self.reconstruction.probe_stack[0, 0, :, 0, :, :, pos] = modes
+
+    def orthogonalizeProbeStack(self, probe_stack, n_dim):
+        plot_cycle = 10
+        plot = False 
+        n = self.reconstruction.Np
+        nFrames = self.experimentalData.numFrames
+
+        for i in self.OPR_modes:
+            # temp = cp.copy(probe_stack[:, :, i, :, :, :].reshape(n * n, nFrames)) 
+            U, s, Vh = cp.linalg.svd(probe_stack[:, :, i, :, :, :].reshape(n * n, nFrames), full_matrices=False)
+            s[n_dim:] = 0
+            probe_stack[:, :, i, :, :, :] = cp.dot(U, cp.dot(cp.diag(s), Vh)).reshape(n, n, nFrames) 
+        
+        if self.it == 0 and plot:
+            plt.ion()
+            self.fig = plt.figure('content')
+            self.fig_2 = plt.figure('second modes')
+            self.ax = self.fig.add_subplot(111)
+            self.ax_2 = self.fig_2.add_subplot(121)
+            self.ax_3 = self.fig_2.add_subplot(122)
+      
+        if self.it % plot_cycle == 0 and plot:
+            self.reconstruction.modes = U.reshape(n, n, nFrames)
+            content = cp.dot(cp.diag(s), Vh)
+            self.ax.imshow(np.log10(np.abs(content.get())[0:3, :]), aspect='auto')
+            self.ax_2.imshow(np.log10(np.abs(self.reconstruction.modes[:, :, 1].get())))
+            self.ax_3.imshow(np.log10(np.abs(self.reconstruction.modes[:, :, 2].get())))
+            self.fig.canvas.draw() 
+
+        return probe_stack 
 
     def objectPatchUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
         """
