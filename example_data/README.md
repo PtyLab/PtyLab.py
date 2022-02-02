@@ -32,23 +32,17 @@ A tiny simulation of a binary object (try if you can reconstruct :)), the file c
 
 
 ## Fourier ptychography data
-**`lung_441leds_fpm.hdf5`**
-Real Fourier ptychography dataset of a lung carcinoma sample.
-*  ptychogram: 128\*128\*441, single  
-*  probe: 128*128, complex single, helps reconstruction with known probe
-*  xd: detector pixel size in meter, single  
-*  dxd: sample pixel size in meter, single  
-*  Nd: number of detector pixels (both in x,y), single  
+**`LungCarcinomaFPM.hdf5`**
+** `USAFTargetFPM.hdf5`**
+Real Fourier ptychography dataset of a lung carcinoma sample and the USAF resolution test target.
+*  ptychogram: 81\*128\*128, single  
+*  dxd: detector pixel size in meter, single  
 *  wavelength: in meter, single  
-*  positions: 441*2 scan positions in pixels, single  
-*  encoder: 441*2 scan positions on the led grid in meter, single  
-*  aperture_diameter: physical aperture size in meters, single
+*  encoder: 81 scan positions on the led grid in meter, single  
+*  zled: distance from the LED array to the sample, single
+*  magnification: magnification of the optical system, single
+Optional params:
 *  NA: numerical aperture, single
-*  focal_length: focal length of the lens, single
-*  led_dist_to_sample: distance from the LED array to the sample, single
-*  u: distance from the sample to the lens, single
-*  zo = v: distance from the lens to the detector, single
-
 
 # Loading
 
