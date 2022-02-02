@@ -31,7 +31,7 @@ class Reconstruction(object):
             'wavelength',
             'dxd',
             'zled',
-            'entrancePupilDiameter'
+            'NA'
         ]
 
     def __init__(self, data:ExperimentalData):
@@ -88,9 +88,15 @@ class Reconstruction(object):
         elif self.data.operationMode == 'FPM':
             # FPM dxp (different from CPM due to lens-based systems)
             self.dxp = self.dxd / self.data.magnification
-            # if entrancePupilDiameter is not provided in the hdf5 file, set it to be half of the Fourier space FoV.
-            if isinstance(self.entrancePupilDiameter, type(None)):
+            # if NA is not provided in the hdf5 file, set Fourier pupil entrance diameter it to be half of the Fourier space FoV.
+            # then estimate the NA from the pupil diameter in the Fourier plane
+            if isinstance(self.NA, type(None)):
                 self.entrancePupilDiameter = self.Lp/2
+                self.NA = self.entrancePupilDiameter * self.wavelength / (2 * self.dxp**2 * self.Np)
+            else:
+                # compute the pupil radius in the Fourier plane
+                self.entrancePupilDiameter = 2 * self.dxp**2 * self.Np * self.NA / self.wavelength
+                                
         # set object pixel numbers
         # self.No = self.Np*2**2 # this computation is arbitrary and I noticed in some cases it can be too small, crashing the code!
         self.No = np.round(self.Np+np.max(abs(self.positions))-np.min(abs(self.positions)))*2

@@ -68,7 +68,8 @@ class ExperimentalData:
             ]
             self.optionalFields = [
                 # entrance pupil diameter, defined in lens-based microscopes as the aperture diameter, reqquired for FPM
-                'entrancePupilDiameter'
+                # 'entrancePupilDiameter'
+                'NA', # numerical aperture of the microscope
             ]
         else:
             raise ValueError('operationMode is not properly set, choose "CPM" or "FPM"')

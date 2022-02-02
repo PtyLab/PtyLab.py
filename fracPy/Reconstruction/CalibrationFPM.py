@@ -39,9 +39,9 @@ class IlluminationCalibration():
         self.Np = reconstructor.Np
         self.wavelength = reconstructor.wavelength
         self.img_size = reconstructor.Np
-        # inverse calculation of the NA since we don't have the values provided by the user at the moment
-        self.num_apert = reconstructor.entrancePupilDiameter/2 * reconstructor.wavelength / (reconstructor.dxp**2 * reconstructor.Np)
-        self.apertRadiusPixel = self.dxp * self.img_size * self.num_apert / self.wavelength
+        # # inverse calculation of the NA since we don't have the values provided by the user at the moment
+        # self.reconstructor.NA = reconstructor.entrancePupilDiameter/2 * reconstructor.wavelength / (reconstructor.dxp**2 * reconstructor.Np)
+        self.apertRadiusPixel = self.dxp * self.img_size * self.reconstructor.NA / self.wavelength
         self.apertRadiusPixel_init = self.apertRadiusPixel
 
         lens_range = np.linspace(-self.img_size/2, self.img_size/2, self.img_size) 
@@ -758,12 +758,12 @@ class IlluminationCalibration():
             print("Initial radius was {}px".format(np.round(oldRadius,2)))
             print("Calibrated radius is {}px".format(np.round(newRadius,2)))
             oldNA = np.round(oldRadius / self.dxp * self.wavelength / self.img_size,3)
-            self.newNA = np.round(newRadius / self.dxp * self.wavelength / self.img_size,3)
+            self.reconstructor.NA = np.round(newRadius / self.dxp * self.wavelength / self.img_size,3)
             print("Initial NA was {}".format(oldNA))
-            print("Calibrated NA is {}".format(self.newNA))
+            print("Calibrated NA is {}".format(self.reconstructor.NA))
             self.apertRadiusPixel = newRadius
         else:
-            self.newNA = self.apertRadiusPixel / self.dxp * self.wavelength / self.img_size
+            self.reconstructor.NA = self.apertRadiusPixel / self.dxp * self.wavelength / self.img_size
             
         # find the calibration matrix between the initial positions and the ones
         # found based on circle fitting
