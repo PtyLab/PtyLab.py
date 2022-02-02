@@ -33,7 +33,7 @@ A tiny simulation of a binary object (try if you can reconstruct :)), the file c
 
 ## Fourier ptychography data
 **`LungCarcinomaFPM.hdf5`**
-** `USAFTargetFPM.hdf5`**
+**`USAFTargetFPM.hdf5`**
 Real Fourier ptychography dataset of a lung carcinoma sample and the USAF resolution test target.
 *  ptychogram: 81\*128\*128, single  
 *  dxd: detector pixel size in meter, single  
