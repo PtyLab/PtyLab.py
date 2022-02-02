@@ -145,7 +145,7 @@ class BaseEngine(object):
 
         if self.params.probeBoundary:
             self.probeWindow = circ(self.reconstruction.Xp, self.reconstruction.Yp,
-                                    self.experimentalData.entrancePupilDiameter + self.experimentalData.entrancePupilDiameter * 0.2)
+                                    self.reconstruction.entrancePupilDiameter + self.reconstruction.entrancePupilDiameter * 0.2)
 
     def _setObjectProbeROI(self, update=False):
         """
@@ -163,7 +163,7 @@ class BaseEngine(object):
                                                 min(self.reconstruction.No, xc + rx // 2))]
 
         if not hasattr(self.monitor, 'probeROI') or update:
-            r = np.int(self.experimentalData.entrancePupilDiameter / self.reconstruction.dxp / self.monitor.probeZoom)
+            r = np.int(self.reconstruction.entrancePupilDiameter / self.reconstruction.dxp / self.monitor.probeZoom)
             self.monitor.probeROI = [slice(max(0, self.reconstruction.Np // 2 - r),
                                                min(self.reconstruction.Np, self.reconstruction.Np // 2 + r)),
                                          slice(max(0, self.reconstruction.Np // 2 - r),
@@ -181,6 +181,9 @@ class BaseEngine(object):
         """
         # initialize quadraticPhase term or transferFunctions used in propagators
         """
+        if self.experimentalData.operationMode == 'FPM' and  self.params.propagatorType != 'Fraunhofer':
+            raise ValueError('Only the Fraunhofer propagator works for FPM')
+            
         if self.params.propagatorType == 'Fresnel':
             self.reconstruction.quadraticPhase = np.exp(1.j * np.pi / (self.reconstruction.wavelength * self.reconstruction.zo)
                                                      * (self.reconstruction.Xp ** 2 + self.reconstruction.Yp ** 2))

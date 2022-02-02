@@ -29,10 +29,8 @@ class Reconstruction(object):
         ]
     listOfReconstructionPropertiesFPM = [
             'wavelength',
-            'zo',
             'dxd',
             'zled',
-            'dxp',
             'entrancePupilDiameter'
         ]
 
@@ -55,7 +53,7 @@ class Reconstruction(object):
                        'transferFunction',
                        'Q1', 'Q2',
                        'background',
-                                    'reference',
+                       'reference',
                                     ]
 
     def copyAttributesFromExperiment(self, data:ExperimentalData):
@@ -82,21 +80,21 @@ class Reconstruction(object):
             self.dxp = self.wavelength * self.zo / self.Ld
             # if entrancePupilDiameter is not provided in the hdf5 file, set it to be one third of the probe FoV.
             if isinstance(self.entrancePupilDiameter, type(None)):
-                self.entrancePupilDiameter = (self.Lp/3).copy()
+                self.entrancePupilDiameter = self.Lp/3
             # if spectralDensity is not provided in the hdf5 file, set it to be a 1d array of the wavelength
             if isinstance(self.spectralDensity, type(None)):
                 self.spectralDensity = np.atleast_1d(self.wavelength)
 
         elif self.data.operationMode == 'FPM':
             # FPM dxp (different from CPM due to lens-based systems)
-            if isinstance(self.dxp, type(None)):
-                self.dxp = self.dxd / self.data.magnification
-
+            self.dxp = self.dxd / self.data.magnification
+            # if entrancePupilDiameter is not provided in the hdf5 file, set it to be half of the Fourier space FoV.
+            if isinstance(self.entrancePupilDiameter, type(None)):
+                self.entrancePupilDiameter = self.Lp/2
         # set object pixel numbers
-        self.No = self.Np*2**2
-        # self.No = self.Np+np.max(self.positions0[:,0])-np.min(self.positions0[:,0])
-
-
+        # self.No = self.Np*2**2 # this computation is arbitrary and I noticed in some cases it can be too small, crashing the code!
+        self.No = np.round(self.Np+np.max(abs(self.positions))-np.min(abs(self.positions)))*2
+        print("Computing object size self.No to be {} pixels".format(self.No))
             
     def initializeSettings(self):
         """
@@ -167,16 +165,26 @@ class Reconstruction(object):
 
     def saveResults(self, fileName='recent', type='all'):
         if type == 'all':
-            hf = h5py.File(fileName + '_Reconstruction.hdf5', 'w')
-            hf.create_dataset('probe', data=self.probe, dtype='complex64')
-            hf.create_dataset('object', data=self.object, dtype='complex64')
-            hf.create_dataset('error', data=self.error, dtype='f')
-            hf.create_dataset('zo', data=self.zo, dtype='f')
-            hf.create_dataset('wavelength', data=self.wavelength, dtype='f')
-            hf.create_dataset('dxp', data=self.dxp, dtype='f')
-            if hasattr(self, 'theta'):
-                if self.theta!=None:
-                    hf.create_dataset('theta', data=self.theta, dtype='f')
+            if self.data.operationMode == 'CPM':    
+                hf = h5py.File(fileName + '_Reconstruction.hdf5', 'w')
+                hf.create_dataset('probe', data=self.probe, dtype='complex64')
+                hf.create_dataset('object', data=self.object, dtype='complex64')
+                hf.create_dataset('error', data=self.error, dtype='f')
+                hf.create_dataset('zo', data=self.zo, dtype='f')
+                hf.create_dataset('wavelength', data=self.wavelength, dtype='f')
+                hf.create_dataset('dxp', data=self.dxp, dtype='f')
+                if hasattr(self, 'theta'):
+                    if self.theta!=None:
+                        hf.create_dataset('theta', data=self.theta, dtype='f')
+           
+            if self.data.operationMode == 'FPM':
+                hf = h5py.File(fileName + '_Reconstruction.hdf5', 'w')
+                hf.create_dataset('probe', data=self.probe, dtype='complex64')
+                hf.create_dataset('object', data=self.object, dtype='complex64')
+                hf.create_dataset('error', data=self.error, dtype='f')
+                hf.create_dataset('zled', data=self.zled, dtype='f')
+                hf.create_dataset('wavelength', data=self.wavelength, dtype='f')
+                hf.create_dataset('dxp', data=self.dxp, dtype='f')
         elif type == 'probe':
             hf = h5py.File(fileName + '_probe.hdf5', 'w')
             hf.create_dataset('probe', data=self.probe, dtype='complex64')
@@ -306,7 +314,14 @@ class Reconstruction(object):
                     ..., None])
         else:
             positions = np.round(self.data.encoder / self.dxo)  # encoder is in m, positions0 and positions are in pixels
-        positions = positions + self.No // 2 - self.Np // 2
+        
+        # we need positions to compute optimal object size self.No. 
+        # For that we don't require the positions to be translated and can ignore this part
+        try:
+            positions = positions + self.No // 2 - self.Np // 2
+        except:
+            pass
+            
         return positions.astype(int)
 
     # system property list

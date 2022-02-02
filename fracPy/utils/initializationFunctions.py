@@ -28,7 +28,7 @@ def initialProbeOrObject(shape, type_of_init, data):
     
     if type_of_init == 'circ':
         try:
-            pupil = circ(data.Xp, data.Yp, data.data.entrancePupilDiameter)
+            pupil = circ(data.Xp, data.Yp, data.entrancePupilDiameter)
             return np.ones(shape) * pupil + 0.001 * np.random.rand(*shape) * pupil
         
         except AttributeError as e:
