@@ -41,7 +41,6 @@ Real Fourier ptychography dataset of a lung carcinoma sample and the USAF resolu
 *  encoder: 81 scan positions on the led grid in meter, single  
 *  zled: distance from the LED array to the sample, single
 *  magnification: magnification of the optical system, single
-Optional params:
 *  NA: numerical aperture, single
 
 # Loading
