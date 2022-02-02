@@ -16,16 +16,15 @@ ptycho data reconstructor
 change data visualization and initialization options manually for now
 """
 
-# fileName = 'HeLa_tindie_256x256_color_0.hdf5'  # simu.hdf5 or Lenspaper.hdf5
-fileName = 'lung_441_256x256_color_0.hdf5'  # simu.hdf5 or Lenspaper.hdf5
+fileName = 'LungCarcinomaFPM.hdf5'  # simu.hdf5 or Lenspaper.hdf5
 filePath = getExampleDataFolder() / fileName
-optimizable, exampleData, params, monitor, engine, calib = fracPy.easyInitialize(filePath, operationMode ='FPM')
+exampleData, reconstruction, params, monitor, engine, calib = fracPy.easyInitialize(filePath, operationMode='FPM')
 
 # %% Prepare everything for the reconstruction
 # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
 # now create an object to hold everything we're eventually interested in
-optimizable.initialProbe = 'circ'
-optimizable.initialObject = 'upsampled'
+reconstruction.initialProbe = 'circ'
+reconstruction.initialObject = 'upsampled'
 
 # %% FPM position calibration
 calib.plot = False
@@ -35,7 +34,7 @@ calib.fit_mode ='Translation'
 calib.runCalibration()
 
 # %% Prepare reconstruction post-calibration
-optimizable.initializeObjectProbe()
+reconstruction.initializeObjectProbe()
 
 # %% Set monitor properties
 monitor.figureUpdateFrequency = 1
@@ -56,7 +55,7 @@ params.adaptiveDenoisingSwitch = True
 
 #%% Run the reconstructors
 # Run momentum accelerated reconstructor
-engine = Engines.mqNewton(optimizable, exampleData, params, monitor)
+engine = Engines.mqNewton(reconstruction, exampleData, params, monitor)
 engine.numIterations = 50
 engine.betaProbe = 1
 engine.betaObject = 1
