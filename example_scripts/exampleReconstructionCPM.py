@@ -35,7 +35,7 @@ reconstruction.nslice = 1 # Number of object slice
 
 
 reconstruction.initialProbe = 'circ'
-# experimentalData.entrancePupilDiameter = reconstruction.Np / 3 * reconstruction.dxp  # initial estimate of beam
+# reconstruction.entrancePupilDiameter = reconstruction.Np / 3 * reconstruction.dxp  # initial estimate of beam
 reconstruction.initialObject = 'ones'
 # initialize probe and object and related Params
 reconstruction.initializeObjectProbe()

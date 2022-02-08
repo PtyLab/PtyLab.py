@@ -66,7 +66,7 @@ def loadInputData(filename:Path, requiredFields, optionalFields):
     return dataset
 
 
-def checkDataFields(filename, requiredFileds):
+def checkDataFields(filename, requiredFields):
     """
     Make sure that all the fields in a given .hdf5 file are supported and do some sanity checks.
 
@@ -83,7 +83,7 @@ def checkDataFields(filename, requiredFileds):
         fileFields = [node.name for node in nodes]
             
     # check if all the required fields are within the file
-    for k in requiredFileds:
+    for k in requiredFields:
         if k not in fileFields:
             raise KeyError('hdf5 file misses key %s' % k)
     

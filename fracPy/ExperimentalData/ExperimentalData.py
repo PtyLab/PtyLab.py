@@ -63,14 +63,13 @@ class ExperimentalData:
                 'wavelength',  # illumination lambda
                 'encoder',  # diffracted field positions
                 'dxd',  # detector pixel size
-                'zo',  # sample to detector distance
                 'zled',  # LED to sample distance
-                'entrancePupilDiameter',
-                # entrance pupil diameter, defined in lens-based microscopes as the aperture diameter, reqquired for FPM
+                'magnification',  # magnification, used for FPM computations of dxp
             ]
             self.optionalFields = [
-                'dxp',  # probe pixel size
-                'magnification',  # magnification, used for FPM computations of dxp
+                # entrance pupil diameter, defined in lens-based microscopes as the aperture diameter, reqquired for FPM
+                # 'entrancePupilDiameter'
+                'NA', # numerical aperture of the microscope
             ]
         else:
             raise ValueError('operationMode is not properly set, choose "CPM" or "FPM"')

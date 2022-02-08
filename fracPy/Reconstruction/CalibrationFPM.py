@@ -20,13 +20,13 @@ from fracPy.Reconstruction.Reconstruction import Reconstruction
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 
 class IlluminationCalibration():
-    def __init__(self, optimizable: Reconstruction, experimentalData: ExperimentalData):
+    def __init__(self, reconstructor: Reconstruction, experimentalData: ExperimentalData):
         # These statements don't copy any data, they just keep a reference to the object
-        self.optimizable = optimizable
+        self.reconstructor = reconstructor
         self.experimentalData = experimentalData
        
         # initialize search variables
-        self.searchGridSize = round(int(optimizable.Np*0.1))
+        self.searchGridSize = round(int(reconstructor.Np*0.1))
         self.gaussSigma = 3
         self.plot = False
         self.calibrateRadius = False
@@ -34,14 +34,14 @@ class IlluminationCalibration():
         self.fit_mode = 'SimilarityTransform'  
         
         # compute system parameters to be calibrated from the loaded reconstruction
-        self.dxp = optimizable.dxp
-        self.No = optimizable.No
-        self.Np = optimizable.Np
-        self.wavelength = optimizable.wavelength
-        self.img_size = optimizable.Np
-        # inverse calculation of the NA since we don't have the values provided by the user at the moment
-        self.num_apert = experimentalData.entrancePupilDiameter/2 * optimizable.wavelength / (optimizable.dxp**2 * optimizable.Np)
-        self.apertRadiusPixel = self.dxp * self.img_size * self.num_apert / self.wavelength
+        self.dxp = reconstructor.dxp
+        self.No = reconstructor.No
+        self.Np = reconstructor.Np
+        self.wavelength = reconstructor.wavelength
+        self.img_size = reconstructor.Np
+        # # inverse calculation of the NA since we don't have the values provided by the user at the moment
+        # self.reconstructor.NA = reconstructor.entrancePupilDiameter/2 * reconstructor.wavelength / (reconstructor.dxp**2 * reconstructor.Np)
+        self.apertRadiusPixel = self.dxp * self.img_size * self.reconstructor.NA / self.wavelength
         self.apertRadiusPixel_init = self.apertRadiusPixel
 
         lens_range = np.linspace(-self.img_size/2, self.img_size/2, self.img_size) 
@@ -703,8 +703,8 @@ class IlluminationCalibration():
     
         """
         # convert translation from pixels to SI units and update the encoder
-        conv = -(1 / self.optimizable.wavelength) * self.optimizable.dxo * self.optimizable.Np
-        z = self.optimizable.zled
+        conv = -(1 / self.reconstructor.wavelength) * self.reconstructor.dxo * self.reconstructor.Np
+        z = self.reconstructor.zled
         
         # convert caibration matrix values into encoder units
         positionCalibMatrix = self.calibMatrix.params.copy()
@@ -714,7 +714,7 @@ class IlluminationCalibration():
         self.experimentalData.encoder = matrix_transform(self.experimentalData.encoder, encoderCalibMatrix)
 
         # self.experimentalData.encoder = np.sign(conv) *  self.positionsFitted * z / (np.sqrt(conv**2-self.positionsFitted[:,0]**2-self.positionsFitted[:,1]**2))[...,None]
-        self.optimizable.positions0 = self.optimizable.positions.copy()
+        self.reconstructor.positions0 = self.reconstructor.positions.copy()
         
     def runCalibration(self):
         """
@@ -737,9 +737,9 @@ class IlluminationCalibration():
         """
         # the following arrays need to be copied in memory for processing
         self.ptychogram = deepcopy(self.experimentalData.ptychogram)
-        self.initialPositions = deepcopy(self.optimizable.positions)
+        self.initialPositions = deepcopy(self.reconstructor.positions)
         # UNSHFIT DUE TO EXAMPLEDATA SHIFTING BY No//2 and Np//2
-        self.initialPositions = self.initialPositions - self.optimizable.No//2 + self.optimizable.Np//2
+        self.initialPositions = self.initialPositions - self.reconstructor.No//2 + self.reconstructor.Np//2
 
         self.initialize_error_search_space()
         # get the FFT(ptychogram) which will also be filtered to enhance
@@ -758,12 +758,12 @@ class IlluminationCalibration():
             print("Initial radius was {}px".format(np.round(oldRadius,2)))
             print("Calibrated radius is {}px".format(np.round(newRadius,2)))
             oldNA = np.round(oldRadius / self.dxp * self.wavelength / self.img_size,3)
-            self.newNA = np.round(newRadius / self.dxp * self.wavelength / self.img_size,3)
+            self.reconstructor.NA = np.round(newRadius / self.dxp * self.wavelength / self.img_size,3)
             print("Initial NA was {}".format(oldNA))
-            print("Calibrated NA is {}".format(self.newNA))
+            print("Calibrated NA is {}".format(self.reconstructor.NA))
             self.apertRadiusPixel = newRadius
         else:
-            self.newNA = self.apertRadiusPixel / self.dxp * self.wavelength / self.img_size
+            self.reconstructor.NA = self.apertRadiusPixel / self.dxp * self.wavelength / self.img_size
             
         # find the calibration matrix between the initial positions and the ones
         # found based on circle fitting
@@ -774,7 +774,7 @@ class IlluminationCalibration():
         positionsFitted = matrix_transform(self.initialPositions, self.calibMatrix.params)
         
         # update the entrancePupilDiameter
-        self.optimizable.entrancePupilDiameter = self.apertRadiusPixel * self.dxp * 2
+        self.reconstructor.entrancePupilDiameter = self.apertRadiusPixel * self.dxp * 2
 
         # lastly pre-process positions into the correct form defined in the experimentalData class
         self.positionsFitted = (positionsFitted).astype(int)
@@ -785,7 +785,7 @@ class IlluminationCalibration():
             # self.plotCalibration(FFT_ptychogram, self.initialPositions, positionsFitted)
             self.plotCalibration(FFT_ptychogram[self.brightfieldIndices],\
                                  self.initialPositions[self.brightfieldIndices],\
-                                 self.optimizable.positions[self.brightfieldIndices] - self.No//2 + self.Np//2)
+                                 self.reconstructor.positions[self.brightfieldIndices] - self.No//2 + self.Np//2)
 
         
         return self.calibMatrix
