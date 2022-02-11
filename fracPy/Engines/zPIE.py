@@ -101,7 +101,7 @@ class zPIE(BaseEngine):
             if loop == 1:
                 zNew = self.reconstruction.zo.copy()
             else:
-                d = 50
+                d = 10
 
                 dz = np.linspace(-1,1, 11) * d * self.DoF
                 self.dz = dz
@@ -112,20 +112,17 @@ class zPIE(BaseEngine):
                     imProp = None
                     if self.focusObject:
                         roi = slice(self.reconstruction.No//2-n//2, self.reconstruction.No//2+n//2)
-                        imProp, _ = aspw(u=xp.squeeze(self.reconstruction.object[...,roi,roi]),
-                        # imProp, _ = aspw(u=w * xp.squeeze(self.reconstruction.object[...,
-                        #                                 (self.reconstruction.No // 2 - n // 2):(self.reconstruction.No // 2 + n // 2),
-                        #                                 (self.reconstruction.No // 2 - n // 2):(self.reconstruction.No // 2 + n // 2)]),
-                                         z=dz[k], wavelength=self.reconstruction.wavelength, L=self.reconstruction.dxo*n,
+                        imProp, _ = aspw(u=xp.squeeze(self.reconstruction.object[..., roi, roi]), z=dz[k],
+                                         wavelength=self.reconstruction.wavelength, L=self.reconstruction.dxo * n,
                                          bandlimit=False)
                     else:
                         if self.reconstruction.nlambda==1:
-                            imProp, _ = aspw(u=xp.squeeze(self.reconstruction.probe[..., :, :]),
-                                             z=dz[k], wavelength=self.reconstruction.wavelength, L=self.reconstruction.Lp)
+                            imProp, _ = aspw(u=xp.squeeze(self.reconstruction.probe[..., :, :]), z=dz[k],
+                                             wavelength=self.reconstruction.wavelength, L=self.reconstruction.Lp)
                         else:
                             nlambda = self.reconstruction.nlambda // 2
-                            imProp, _ = aspw(xp.squeeze(self.reconstruction.probe[nlambda, ..., :, :]),
-                                             dz[k], self.reconstruction.spectralDensity[nlambda], self.reconstruction.Lp)
+                            imProp, _ = aspw(xp.squeeze(self.reconstruction.probe[nlambda, ..., :, :]), dz[k],
+                                             self.reconstruction.spectralDensity[nlambda], self.reconstruction.Lp)
                     imProps.append(imProp.get())
                     # TV approach
                     aleph = 1e-2

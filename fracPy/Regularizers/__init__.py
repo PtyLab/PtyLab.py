@@ -6,7 +6,8 @@ from fracPy.utils.gpuUtils import getArrayModule, isGpuArray, asNumpyArray
 from fracPy.utils.utils import fft2c
 
 
-def TV_at(object_estimate, dz, dx, wavelength, ss=slice(None, None))-> np.ndarray:
+def TV_at(object_estimate, dz, dx, wavelength, ss=slice(None, None),
+          intensity_only=False, return_propagated=False)-> np.ndarray:
     """
     Return the total variation of an object on all possible distances.
 
@@ -20,16 +21,31 @@ def TV_at(object_estimate, dz, dx, wavelength, ss=slice(None, None))-> np.ndarra
     if isinstance(ss, list):
         N = object_estimate.shape[-1]
         ss = slice(int(ss[0]*N), int(ss[1]*N))
-        print(ss)
+        # print(ss)
     xp = getArrayModule(object_estimate)
     if isGpuArray(dz):
         dz = dz.get()
     OE_ff = fft2c(object_estimate)
-    return np.array([TV(
-        aspw(xp.squeeze(OE_ff), z=float(z),
+    if intensity_only:
+        op = lambda x: abs(x)
+    else:
+        op = lambda x:x
+
+    scores = []
+    OEs = []
+    for z in dz:
+        OE = op(aspw(xp.squeeze(OE_ff), z=float(z),
                    wavelength=float(wavelength),
                    L=dx*object_estimate.shape[-1],
-                   bandlimit=False, is_FT=True)[0][...,ss,ss]) for z in dz])
+                   bandlimit=False, is_FT=True)[0][...,ss,ss])
+
+        score = TV(OE)
+        OEs.append(asNumpyArray(OE))
+        scores.append(score)
+    if return_propagated:
+        return np.array(scores), np.array(OEs)
+    else:
+        return np.array(scores)
 
 
 def TV(field, aleph=1e-2):
