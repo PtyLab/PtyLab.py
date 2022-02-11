@@ -22,6 +22,11 @@ class ObjectProbeErrorPlot(object):
         self.figNum = figNum
         self._createFigure()
 
+    def update_z(self, *args, **kwargs):
+        """ Update the sample-detector distance. Does nothing at the moment. """
+        pass
+
+
 
     def _createFigure(self) -> None:
         """

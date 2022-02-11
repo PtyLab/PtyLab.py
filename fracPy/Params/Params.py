@@ -11,6 +11,8 @@ class Params(object):
     """
     def __init__(self):
         # datalogger
+
+
         self.logger = logging.getLogger('Params')
 
         # Default settings for switches, settings that involve how things are computed
@@ -75,9 +77,14 @@ class Params(object):
 
         # autofocusing
         self.TV_autofocus = True
+        self.TV_autofocus_intensityonly = False
         self.TV_autofocus_stepsize = 5
         self.TV_autofocus_aleph = 0.01
-        self.TV_autofocus_roi = [0.3, 0.7]
+        self.TV_autofocus_roi = [0.4, 0.6]
+        self.TV_autofocus_range_dof = 11
+        self.TV_autofocus_friction = 0.7
+        # only run every run_every iterations
+        self.TV_autofocus_run_every = 3
 
 
 

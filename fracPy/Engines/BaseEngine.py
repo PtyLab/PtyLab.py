@@ -5,6 +5,7 @@ import warnings
 # fracPy imports
 from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray, transfer_fields_to_gpu, transfer_fields_to_cpu, \
     isGpuArray
+
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Reconstruction.Reconstruction import Reconstruction
 from fracPy.Params.Params import Params
@@ -778,9 +779,11 @@ class BaseEngine(object):
 
             self.monitor.writeEngineName(repr(type(self)))
 
-            self.monitor.update_positions(self.reconstruction.positions,
-                                          self.reconstruction.positions0,
+            self.monitor.update_positions(self.experimentalData.encoder,
+                                          self.experimentalData.encoder0,
                                           1/self.experimentalData.zo * self.reconstruction.zo)
+
+
 
 
 
@@ -1021,7 +1024,8 @@ class BaseEngine(object):
             self.positionCorrectionUpdate()
 
         if self.params.TV_autofocus:
-            self.reconstruction.TV_autofocus(self.params)
+            merit, AOI_image = self.reconstruction.TV_autofocus(self.params, loop=loop)
+            self.monitor.update_TV(merit, AOI_image)
 
 
     def orthogonalization(self):

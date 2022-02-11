@@ -1,3 +1,5 @@
+
+import time
 import numpy as np
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from copy import copy
@@ -6,9 +8,9 @@ import h5py
 # logging.basicConfig(level=logging.DEBUG)
 from fracPy.Regularizers import TV_at, TV
 from fracPy.utils.initializationFunctions import initialProbeOrObject
-from fracPy.utils.gpuUtils import transfer_fields_to_cpu, transfer_fields_to_gpu, getArrayModule
+from fracPy.utils.gpuUtils import transfer_fields_to_cpu, transfer_fields_to_gpu, getArrayModule, isGpuArray
 from fracPy import Params
-from fracPy.Operators.Operators import aspw, scaledASP, scaledASPinv
+
 
 
 class Reconstruction(object):
@@ -40,15 +42,11 @@ class Reconstruction(object):
 
 
 
+        self.zMomentum = 0
         self.wavelength = None
         self.zo = None
         self.dxd = None
         self.theta = None
-
-        # autofocus behaviour
-        self.zMomentum = 0
-        self.zPIEfriction = 0.7
-        self.zPIE_gradient_step_size = 0.1
 
 
         self.logger = logging.getLogger('Reconstruction')
@@ -225,6 +223,7 @@ class Reconstruction(object):
         self.purityObject = 1
 
         self.positions0 = self.positions.copy()
+
 
 
         if self.data.operationMode == 'FPM':
@@ -508,27 +507,60 @@ class Reconstruction(object):
     def Q2(self):
         raise NotImplementedError('Q2 is no longer available')
 
-    def TV_autofocus(self, params: Params):
-        print('##'*50)
-        print('Doing autofocus')
-        print('##' * 50)
+
+    def TV_autofocus(self, params: Params, loop):
+
+        """ Perform an autofocusing step based on optimizing the total variation.
+
+        If not required, returns none. Otherwise, returns the value of the TV at the current z0. """
+        start_time = time.time()
+
         if not params.TV_autofocus:
-            return
+            return None, None
+        if loop is not None:
+            if loop % params.TV_autofocus_run_every != 0:
+                return None, None
+
         if params.l2reg:
             self.logger.warning('Both TV_autofocus and L2reg are turned on. This usually leads to poor performance. Consider disabling l2reg if the probe collapses to focal points')
 
-        d = 11
-        xp = getArrayModule(self.object)
+        d = params.TV_autofocus_range_dof
         dz = np.linspace(-1, 1, 11) * d * self.DoF
-        merit = TV_at(self.object, dz, self.dxo, self.wavelength, self.params.TV_autofocus_roi)
+
+        merit, OEs = TV_at(self.object, dz, self.dxo, self.wavelength, self.params.TV_autofocus_roi,
+                      intensity_only=self.params.TV_autofocus_intensityonly,
+                           return_propagated=True)
         # from here on we are looking at 11 data points, work on CPU
         # as it's much more convenient and faster
         feedback = np.sum(dz * merit) / np.sum(merit)
-        self.zMomentum *= self.zPIEfriction
-        self.zMomentum += self.zPIE_gradient_step_size * feedback
+        self.zMomentum *= params.TV_autofocus_friction
+        self.zMomentum += params.TV_autofocus_stepsize * feedback
         self.zo += self.zMomentum
+        end_time = time.time()
+        self.logger.info(f'TV autofocus took {end_time-start_time} seconds')
+        # calculate the change to the probe (only works if we are using Fresnel propagation at the moment)
+        if False: #self.params.propagatorType == 'Fresnel':
+            # the forward model is fft2c(esw * propagator_esw). In this case,
+            # if we change the propagator, a part of the probe will be off.
+            # As in general it can be quite hard to reconstruct that accurately,
+            # correct the step. The aim is that as long as the object is transparent,
+            # the expected intensity on the camera would not change
+
+            xp = getArrayModule(self.probe)
+            rr = xp.array(self.xp**2 + self.Yp**2)
+            diff_phase = -xp.pi / (self.wavelength * self.zo) * rr
+            diff_phase += xp.pi / (self.wavelength * (self.zo-self.zMomentum)) * rr
+            diff_phase = xp.exp(1j*diff_phase)
+            self.probe *= diff_phase
+
+        return merit[5], OEs[5]
+
+    def reset_TV_autofocus(self):
+        """ Reset the settings of TV autofocus. Can be useful to reset the memory effect if the steps are getting really large. """
+        self.zMomentum = 0
 
     @property
     def TV(self):
         """ Return the TV of the object """
         return TV(self.object, 1e-2)
+

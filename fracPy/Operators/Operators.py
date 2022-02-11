@@ -4,15 +4,15 @@ from functools import lru_cache
 
 import cupy as cp
 import numpy as np
-import numpy.testing
 
+from fracPy.Operators._propagation_kernels import __make_quad_phase
 from fracPy.utils.utils import circ, fft2c, ifft2c
 from fracPy.utils.gpuUtils import getArrayModule, isGpuArray
 from fracPy import Params, Reconstruction
 
 # how many kernels are kept in memory for every type of propagator? Higher can be faster but comes
 # at the expense of (GPU) memory.
-cache_size=20
+cache_size=50
 
 
 def propagate_fraunhofer(fields, params: Params, reconstruction: Reconstruction, z=None):
@@ -420,32 +420,6 @@ def clear_cache(logger: logging.Logger=None):
             logger.debug(method.cache_info())
             logger.info('clearing cache for %s', method)
         method.cache_clear()
-
-
-
-@lru_cache(maxsize=cache_size)
-def __make_quad_phase(zo, wavelength, Np, dxp, on_gpu):
-    """
-    Make a quadratic phase profile corresponding to distance zo at wavelength wl. The result is cached and can be
-    called again with almost no time lost.
-    :param wavelength:  wavelength in meters
-    :param zo:
-    :param Np:
-    :param dxp:
-    :param on_gpu:
-    :return:
-    """
-    if on_gpu:
-        xp = cp
-    else:
-        xp = np
-
-    x_p = xp.linspace(-Np/2, Np/2, int(Np))*dxp
-    Xp, Yp = np.meshgrid(x_p, x_p)
-
-    quadraticPhase = xp.exp(1.j * xp.pi / (wavelength * zo)
-                                  * (Xp ** 2 + Yp ** 2))
-    return quadraticPhase
 
 
 @lru_cache(cache_size)

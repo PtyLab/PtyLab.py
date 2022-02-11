@@ -5,7 +5,7 @@ import scipy.stats as st
 from fracPy.utils.gpuUtils import getArrayModule
 
 
-def fft2c(field, fftshiftSwitch=False):
+def fft2c(field, fftshiftSwitch=False, *args, **kwargs):
     """
     performs 2 - dimensional unitary Fourier transformation, where energy is reserved abs(g)**2==abs(fft2c(g))**2
     if g is two - dimensional, fft2c(g) yields the 2D DFT of g

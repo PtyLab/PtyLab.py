@@ -50,13 +50,13 @@ pinhole = circ(Xp, Yp, Lp/2)
 pinhole = convolve2d(pinhole, gaussian2D(5, 1).astype(np.float32), mode='same')
 
 # propagate to lens
-probe = aspw(pinhole, 2*f, wavelength, Lp)[0]
+probe = aspw(pinhole, 2 * f, wavelength, Lp)[0]
 
 # multiply with quadratic phase and aperture
 aperture = circ(Xp, Yp, 3*Lp/4)
 aperture = convolve2d(aperture, gaussian2D(5, 3).astype(np.float32), mode='same')
 probe = probe * np.exp(-1.j*2*np.pi/wavelength*(Xp**2+Yp**2)/(2*f)) * aperture
-probe = aspw(probe, 2*f, wavelength, Lp)[0]
+probe = aspw(probe, 2 * f, wavelength, Lp)[0]
 
 
 plt.figure(figsize=(5,5), num=1)
