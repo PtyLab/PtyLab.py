@@ -23,9 +23,10 @@ class Reconstruction(object):
     (e.g. zo modification by zPIE during the reconstruction routine). All of them
     are defined in the listOfReconstructionProperties
     """
+    # Note: zo, the sample-detector distance, is always read.
     listOfReconstructionPropertiesCPM = [
             'wavelength',
-            'zo',
+            # 'zo',
             'dxd',
             'theta',
             'spectralDensity',
@@ -33,6 +34,7 @@ class Reconstruction(object):
         ]
     listOfReconstructionPropertiesFPM = [
             'wavelength',
+            # 'zo',
             'dxd',
             'zled',
             'NA'
@@ -44,7 +46,7 @@ class Reconstruction(object):
 
         self.zMomentum = 0
         self.wavelength = None
-        self.zo = None
+        self._zo = None
         self.dxd = None
         self.theta = None
 
@@ -80,10 +82,27 @@ class Reconstruction(object):
         elif self.data.operationMode == 'FPM':
             listOfReconstructionProperties = self.listOfReconstructionPropertiesFPM
         for key in listOfReconstructionProperties:
-            self.logger.debug('Copying attribute %s', key)
+            self.logger.error('Copying attribute %s', key)
             # setattr(self, key, copy(np.array(getattr(data, key))))
             setattr(self, key, copy(getattr(data, key)))
 
+        # set the distance, this has to be last
+        self.zo = getattr(data, 'zo')
+
+    @property
+    def zo(self):
+        """Distance from sample to detector. Also updates all derived qualities. """
+
+        return self._zo
+
+    @zo.setter
+    def zo(self, new_value):
+        self.logger.info('Changing sample-detector distance')
+        self._zo = new_value
+        if self.data.operationMode == 'CPM':
+            self.dxp = self.wavelength * self._zo / self.Ld
+        elif self.data.operationMode == 'FPM':
+            self.dxp = self.dxd / self.data.magnification
 
     def computeParameters(self):
         """
@@ -92,7 +111,7 @@ class Reconstruction(object):
 
         if self.data.operationMode == 'CPM':
             # CPM dxp (depending on the propagatorType, if none given, assum Fraunhofer/Fresnel)
-            self.dxp = self.wavelength * self.zo / self.Ld
+            # self.dxp = self.wavelength * self._zo / self.Ld
             # if entrancePupilDiameter is not provided in the hdf5 file, set it to be one third of the probe FoV.
             if isinstance(self.entrancePupilDiameter, type(None)):
                 self.entrancePupilDiameter = self.Lp/3
@@ -118,7 +137,7 @@ class Reconstruction(object):
         self.No = self.Np*2**2 # unimportant but leave it here as it's required for self.positions
         # we need space for the probe as well, on both sides that would be half the probe
         range_pixels = np.max(self.positions, axis=0) - np.min(self.positions, axis=0)
-        print(range_pixels)
+        # print(range_pixels)
         range_pixels = np.max(range_pixels) + self.Np*2
         if range_pixels %2 == 1:
             range_pixels += 1
@@ -286,7 +305,7 @@ class Reconstruction(object):
                 hf.create_dataset('probe', data=self.probe, dtype='complex64')
                 hf.create_dataset('object', data=self.object, dtype='complex64')
                 hf.create_dataset('error', data=self.error, dtype='f')
-                hf.create_dataset('zo', data=self.zo, dtype='f')
+                hf.create_dataset('zo', data=self._zo, dtype='f')
                 hf.create_dataset('wavelength', data=self.wavelength, dtype='f')
                 hf.create_dataset('dxp', data=self.dxp, dtype='f')
                 hf.create_dataset('purityProbe', data=self.purityProbe, dtype='f')
@@ -444,7 +463,7 @@ class Reconstruction(object):
     @property
     def NAd(self):
         """ Detection NA"""
-        NAd = self.Ld / (2 * self.zo)
+        NAd = self.Ld / (2 * self._zo)
         return NAd
 
     @property
@@ -479,7 +498,7 @@ class Reconstruction(object):
         - Pixel pitch: {self.dxo*1e6} um
         - Field of view: {self.Lo*1e3} mm
         - Scan size in pixels: {self.positions.max(axis=0)- self.positions.min(axis=0)}
-        - Propagation distance: {self.zo*1e3} mm
+        - Propagation distance: {self._zo * 1e3} mm
         - Probe FoV: {self.Lp*1e3} mm
         
         Derived parameters:
@@ -535,7 +554,7 @@ class Reconstruction(object):
         feedback = np.sum(dz * merit) / np.sum(merit)
         self.zMomentum *= params.TV_autofocus_friction
         self.zMomentum += params.TV_autofocus_stepsize * feedback
-        self.zo += self.zMomentum
+        self._zo += self.zMomentum
         end_time = time.time()
         self.logger.info(f'TV autofocus took {end_time-start_time} seconds')
         # calculate the change to the probe (only works if we are using Fresnel propagation at the moment)
@@ -548,8 +567,8 @@ class Reconstruction(object):
 
             xp = getArrayModule(self.probe)
             rr = xp.array(self.xp**2 + self.Yp**2)
-            diff_phase = -xp.pi / (self.wavelength * self.zo) * rr
-            diff_phase += xp.pi / (self.wavelength * (self.zo-self.zMomentum)) * rr
+            diff_phase = -xp.pi / (self.wavelength * self._zo) * rr
+            diff_phase += xp.pi / (self.wavelength * (self._zo - self.zMomentum)) * rr
             diff_phase = xp.exp(1j*diff_phase)
             self.probe *= diff_phase
 

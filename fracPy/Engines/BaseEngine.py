@@ -510,18 +510,21 @@ class BaseEngine(object):
         Implements object2detector.m. Modifies esw in-place
         :return:
         """
+        if esw is None:
+            # todo: check this, it seems weird to store it in self.esw
+            esw = self.reconstruction.esw
+        self.esw, self.reconstruction.ESW = Operators.Operators.object2detector(esw, self.params, self.reconstruction)
 
-
-        self.esw, self.reconstruction.ESW = Operators.Operators.object2detector(self.reconstruction.esw, self.params, self.reconstruction)
-
-    def detector2object(self, esw=None):
+    def detector2object(self, ESW=None):
         """
         Propagate the ESW to the object plane (in-place).
 
         Matches: detector2object.m
         :return:
         """
-        esw, eswUpdate = Operators.Operators.detector2object(self.reconstruction.ESW, self.params, self.reconstruction)
+        if ESW is None:
+            ESW = self.reconstruction.ESW
+        esw, eswUpdate = Operators.Operators.detector2object(ESW, self.params, self.reconstruction)
         # Dirk is not sure why this has to be changed at all but it sometimes is changed for some reason
         self.reconstruction.esw = esw
         # this is the new estimate which will be processed later
@@ -646,10 +649,6 @@ class BaseEngine(object):
         """
         # figure out whether or not to use the GPU
         xp = getArrayModule(self.reconstruction.esw)
-
-
-
-
         # zero division mitigator
         gimmel = 1e-10
 

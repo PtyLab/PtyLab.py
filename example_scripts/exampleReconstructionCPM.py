@@ -28,7 +28,7 @@ experimentalData, reconstruction, params, monitor, ePIE_engine = fracPy.easyInit
 reconstruction.No *= 1.2
 reconstruction.No = int(reconstruction.No)
 
-experimentalData.encoder0 -=
+# experimentalData.encoder0 -=
 # print(reconstruction.No)
 # experimentalData.zo = 20e-3
 # reconstruction.zo = experimentalData.zo
