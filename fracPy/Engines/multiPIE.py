@@ -15,6 +15,7 @@ from fracPy.Engines.BaseEngine import BaseEngine
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
 from fracPy.Params.Params import Params
 from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray
+from fracPy.utils.visualisation import hsvmodeplot
 from fracPy.Monitor.Monitor import Monitor
 from fracPy.utils.utils import fft2c, ifft2c
 import logging
@@ -59,6 +60,9 @@ class multiPIE(BaseEngine):
 
     def reconstruct(self):
         self._prepareReconstruction()
+        # set object and probe buffers
+        self.reconstruction.objectBuffer = self.reconstruction.object.copy()
+        self.reconstruction.probeBuffer = self.reconstruction.probe.copy()
 
         self.pbar = tqdm.trange(self.numIterations, desc='multiPIE', file=sys.stdout, leave=True)
 
@@ -94,6 +98,7 @@ class multiPIE(BaseEngine):
                     self.objectMomentumUpdate()
                     self.probeMomentumUpdate()
 
+
             # get error metric
             self.getErrorMetrics()
 
@@ -103,6 +108,9 @@ class multiPIE(BaseEngine):
             # show reconstruction
             self.showReconstruction(loop)
 
+            # calculate spectral weight
+            self.reconstruction.spectralWeight = np.sum(abs(self.reconstruction.object)**2, axis=(1, 2, 3, 4, 5))
+            self.reconstruction.spectralWeight /= np.max(self.reconstruction.spectralWeight)
             # todo clearMemory implementation
 
         if self.params.gpuFlag:
@@ -137,16 +145,7 @@ class multiPIE(BaseEngine):
         :param DELTA:
         :return:
         """
-        # find out which array module to use, numpy or cupy (or other...)
-        # xp = getArrayModule(objectPatch)
-        # absP2 = xp.abs(self.reconstruction.probe[0]) ** 2
-        # Pmax = xp.max(xp.sum(absP2, axis=(0, 1, 2)), axis=(-1, -2))
-        # if self.experimentalData.operationMode == 'FPM':
-        #     frac = abs(self.reconstruction.probe) / Pmax * \
-        #            self.reconstruction.probe[0].conj() / (self.alphaObject * Pmax + (1 - self.alphaObject) * absP2)
-        # else:
-        #     frac = self.reconstruction.probe[0].conj() / (self.alphaObject * Pmax + (1 - self.alphaObject) * absP2)
-        # return objectPatch + self.betaObject * frac * DELTA
+
         xp = getArrayModule(objectPatch)
         absP2 = xp.abs(self.reconstruction.probe) ** 2
         Pmax = xp.max(xp.sum(absP2, axis=(0, 1, 2, 3)), axis=(-1, -2))
@@ -155,7 +154,11 @@ class multiPIE(BaseEngine):
                    self.reconstruction.probe.conj() / (self.alphaObject * Pmax + (1 - self.alphaObject) * absP2)
         else:
             frac = self.reconstruction.probe.conj() / (self.alphaObject * Pmax + (1 - self.alphaObject) * absP2)
-        return objectPatch + self.betaObject * xp.sum(frac * DELTA, axis=2, keepdims=True)
+        if self.reconstruction.nlambdaObject>=self.reconstruction.nlambdaProbe:
+            r = objectPatch + self.betaObject * xp.sum(frac * DELTA, axis=2, keepdims=True)
+        else:
+            r = objectPatch + self.betaObject * xp.sum(frac * DELTA, axis=(0, 2), keepdims=True)
+        return r
 
     def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
         """
@@ -169,7 +172,10 @@ class multiPIE(BaseEngine):
         absO2 = xp.abs(objectPatch) ** 2
         Omax = xp.max(xp.sum(absO2, axis=(0, 1, 2, 3)), axis=(-1, -2))
         frac = objectPatch.conj() / (self.alphaProbe * Omax + (1 - self.alphaProbe) * absO2)
-        r = self.reconstruction.probe + self.betaProbe * xp.sum(frac * DELTA, axis=(0, 1), keepdims=True)
+        if self.reconstruction.nlambdaProbe>=self.reconstruction.nlambdaObject:
+            r = self.reconstruction.probe + self.betaProbe * xp.sum(frac * DELTA, axis=1, keepdims=True)
+        else:
+            r = self.reconstruction.probe + self.betaProbe * xp.sum(frac * DELTA, axis=(0, 1), keepdims=True)
         return r
 
 

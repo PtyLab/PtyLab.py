@@ -117,7 +117,8 @@ class Reconstruction(object):
         # 2. mixed state object - nosm
         # 3. mixed state probe - npsm
         # 4. multislice object (thick) - nslice
-        self.nlambda = 1
+        self.nlambdaProbe = 1
+        self.nlambdaObject = 1
         self.nosm = 1
         self.npsm = 1
         self.nslice = 1
@@ -153,12 +154,12 @@ class Reconstruction(object):
 
     def initializeObject(self):
         self.logger.info('Initial object set to %s', self.initialObject)
-        self.shape_O = (self.nlambda, self.nosm, 1, self.nslice, np.int(self.No), np.int(self.No))
+        self.shape_O = (self.nlambdaObject, self.nosm, 1, self.nslice, np.int(self.No), np.int(self.No))
         self.initialGuessObject = initialProbeOrObject(self.shape_O, self.initialObject, self).astype(np.complex64)
 
     def initializeProbe(self):
         self.logger.info('Initial probe set to %s', self.initialProbe)
-        self.shape_P = (self.nlambda, 1, self.npsm, self.nslice, np.int(self.Np), np.int(self.Np))
+        self.shape_P = (self.nlambdaProbe, 1, self.npsm, self.nslice, np.int(self.Np), np.int(self.Np))
         self.initialGuessProbe = initialProbeOrObject(self.shape_P, self.initialProbe, self).astype(np.complex64)
 
     # initialize momentum, called in specific engines with momentum accelaration
@@ -343,6 +344,10 @@ class Reconstruction(object):
         DoF = self.wavelength / self.NAd ** 2
         return DoF
 
+    @property
+    def nlambda(self):
+        nlambda = max(self.nlambdaProbe, self.nlambdaObject)
+        return nlambda
 
     def _move_data_to_cpu(self):
         """

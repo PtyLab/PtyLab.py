@@ -1049,10 +1049,10 @@ class BaseEngine(object):
             self.reconstruction.object = 0.995 * self.reconstruction.object + 0.005 * \
                                       np.mean(abs(self.reconstruction.object[..., self.monitor.objectROI[0],
                                                                           self.monitor.objectROI[1]]))
-        if self.params.couplingSwitch and self.reconstruction.nlambda > 1:
+        if self.params.couplingSwitch and self.reconstruction.nlambdaProbe > 1:
             self.reconstruction.probe[0] = (1 - self.params.couplingAleph) * self.reconstruction.probe[0] + \
                                         self.params.couplingAleph * self.reconstruction.probe[1]
-            for lambdaLoop in np.arange(1, self.reconstruction.nlambda - 1):
+            for lambdaLoop in np.arange(1, self.reconstruction.nlambdaProbe - 1):
                 self.reconstruction.probe[lambdaLoop] = (1 - self.params.couplingAleph) * self.reconstruction.probe[
                     lambdaLoop] + \
                                                      self.params.couplingAleph * (
@@ -1081,7 +1081,7 @@ class BaseEngine(object):
         xp = getArrayModule(self.reconstruction.probe)
         if self.reconstruction.npsm > 1:
             # orthogonalize the probe for each wavelength and each slice
-            for id_l in range(self.reconstruction.nlambda):
+            for id_l in range(self.reconstruction.nlambdaProbe):
                 for id_s in range(self.reconstruction.nslice):
                     self.reconstruction.probe[id_l, 0, :, id_s, :, :], self.normalizedEigenvaluesProbe, self.MSPVprobe = \
                         orthogonalizeModes(self.reconstruction.probe[id_l, 0, :, id_s, :, :], method='snapShots')
@@ -1107,7 +1107,7 @@ class BaseEngine(object):
 
         elif self.reconstruction.nosm > 1:
             # orthogonalize the object for each wavelength and each slice
-            for id_l in range(self.reconstruction.nlambda):
+            for id_l in range(self.reconstruction.nlambdaObject):
                 for id_s in range(self.reconstruction.nslice):
                     self.reconstruction.object[id_l, :, 0, id_s, :, :], self.normalizedEigenvaluesObject, self.MSPVobject = \
                         orthogonalizeModes(self.reconstruction.object[id_l, :, 0, id_s, :, :], method='snapShots')
