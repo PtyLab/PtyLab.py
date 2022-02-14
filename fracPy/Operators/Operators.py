@@ -12,7 +12,7 @@ from fracPy import Params, Reconstruction
 
 # how many kernels are kept in memory for every type of propagator? Higher can be faster but comes
 # at the expense of (GPU) memory.
-cache_size=50
+cache_size=10
 
 
 def propagate_fraunhofer(fields, params: Params, reconstruction: Reconstruction, z=None):
