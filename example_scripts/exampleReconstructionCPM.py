@@ -22,14 +22,15 @@ experimentalData, reconstruction, params, monitor, ePIE_engine = fracPy.easyInit
 # experimentalData = ExperimentalData()
 # experimentalData.loadData(filePath)
 # experimentalData.operationMode = 'CPM'
-experimentalData.showPtychogram()
+# experimentalData.showPtychogram()
 # experimentalData.zo = experimentalData.zo * 0.9
 
 # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
 # now create an object to hold everything we're eventually interested in
 reconstruction.npsm = 1 # Number of probe modes to reconstruct
 reconstruction.nosm = 1 # Number of object modes to reconstruct
-reconstruction.nlambda = 1 # len(experimentalData.spectralDensity) # Number of wavelength
+reconstruction.nlambdaObject = 1  # Number of wavelength for the object
+reconstruction.nlambdaProbe = 1 # Number of wavelength for the probe
 reconstruction.nslice = 1 # Number of object slice
 # reconstruction.dxp = reconstruction.dxd
 
@@ -79,31 +80,36 @@ params.couplingAleph = 1
 params.positionCorrectionSwitch = False
 
 ## choose mqNewton engine
-mqNewton = Engines.mqNewton(reconstruction, experimentalData, params, monitor)
-mqNewton.numIterations = 5
-mqNewton.betaProbe = 1
-mqNewton.betaObject = 1
-mqNewton.beta1 = 0.5
-mqNewton.beta2 = 0.5
-mqNewton.betaProbe_m = 1
-mqNewton.betaObject_m = 1
-mqNewton.momentum_method = 'NADAM'
-mqNewton.reconstruct()
+# mqNewton = Engines.mqNewton(reconstruction, experimentalData, params, monitor)
+# mqNewton.numIterations = 5
+# mqNewton.betaProbe = 1
+# mqNewton.betaObject = 1
+# mqNewton.beta1 = 0.5
+# mqNewton.beta2 = 0.5
+# mqNewton.betaProbe_m = 1
+# mqNewton.betaObject_m = 1
+# mqNewton.momentum_method = 'NADAM'
+# mqNewton.reconstruct()
 
 #
-# ## choose ePIE engine
+## choose ePIE engine
 # ePIE = Engines.ePIE(reconstruction, experimentalData, params, monitor)
-# ePIE.numIterations = 5
+# ePIE.numIterations = 55
 # ePIE.betaProbe = 0.25
 # ePIE.betaObject = 0.25
 # ePIE.reconstruct()
 #
 # ## choose mPIE engine
-mPIE = Engines.mPIE(reconstruction, experimentalData, params, monitor)
-mPIE.numIterations = 100
-mPIE.betaProbe = 0.25
-mPIE.betaObject = 0.25
-mPIE.reconstruct()
+# mPIE = Engines.mPIE(reconstruction, experimentalData, params, monitor)
+# mPIE.numIterations = 100
+# mPIE.betaProbe = 0.25
+# mPIE.betaObject = 0.25
+# mPIE.reconstruct()
+
+# ## choose mPIE engine
+as_ePIE = Engines.as_ePIE(reconstruction, experimentalData, params, monitor)
+as_ePIE.numIterations = 55
+as_ePIE.reconstruct()
 #
 # ## choose zPIE engine
 # zPIE = Engines.zPIE(reconstruction, experimentalData, params, monitor)
@@ -123,4 +129,4 @@ mPIE.reconstruct()
 # pcPIE.reconstruct()
 
 # now save the data
-# reconstruction.saveResults('reconstruction.hdf5')
+reconstruction.saveResults('reconstruction.hdf5')
