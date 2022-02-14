@@ -1,5 +1,5 @@
 import numpy as np
-from typing import List
+from typing import List, Union, Tuple
 
 from fracPy.Operators.Operators import aspw
 from fracPy.utils.gpuUtils import getArrayModule, isGpuArray, asNumpyArray
@@ -7,7 +7,8 @@ from fracPy.utils.utils import fft2c
 
 
 def TV_at(object_estimate, dz, dx, wavelength, ss=slice(None, None),
-          intensity_only=False, return_propagated=False)-> np.ndarray:
+          intensity_only=False, return_propagated=False, average_by_power=True)-> Union[
+    Tuple[np.ndarray, np.ndarray], np.ndarray]:
     """
     Return the total variation of an object on all possible distances.
 
@@ -16,6 +17,7 @@ def TV_at(object_estimate, dz, dx, wavelength, ss=slice(None, None),
     :param dx:
     :param wavelength:
     :param ss: Subset. Either slice object or list of two ints.
+    :param average_by_power: Wether or not to normalize the intensity in the area in which we measure.
     :return:
     """
     if isinstance(ss, list):
@@ -27,7 +29,7 @@ def TV_at(object_estimate, dz, dx, wavelength, ss=slice(None, None),
         dz = dz.get()
     OE_ff = fft2c(object_estimate)
     if intensity_only:
-        op = lambda x: abs(x)
+        op = lambda x: abs(x).real**2
     else:
         op = lambda x:x
 
@@ -38,6 +40,10 @@ def TV_at(object_estimate, dz, dx, wavelength, ss=slice(None, None),
                    wavelength=float(wavelength),
                    L=dx*object_estimate.shape[-1],
                    bandlimit=False, is_FT=True)[0][...,ss,ss])
+        if average_by_power and not intensity_only:
+            OE = OE / abs(OE**2).mean()
+        elif average_by_power and intensity_only:
+            OE = OE / OE.mean()
 
         score = TV(OE)
         OEs.append(asNumpyArray(OE))

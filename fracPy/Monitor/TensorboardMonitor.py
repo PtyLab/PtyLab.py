@@ -120,7 +120,8 @@ class TensorboardMonitor(AbstractMonitor):
             self.__safe_upload_scalar('TV object', TV_value, self.i, 'Total Variation of the object')
         if AOI_image is not None:
             # print(AOI_image)
-            self.__safe_upload_image('TV autofocus AOI', complex2rgb_vectorized(AOI_image), self.i, 1, 'AOI used by TV')
+
+            self.__smart_upload_image_couldbecomplex('TV autofocus AOI', AOI_image, self.i, 1, 'AOI used by TV')
 
 
 
@@ -311,6 +312,25 @@ class TensorboardMonitor(AbstractMonitor):
             ff_probe = complex2rgb_vectorized(ff_probe)
             self.__safe_upload_image("FF " + tag, ff_probe, self.i, self.max_npsm)
         return probe_estimate_rgb
+
+    def __smart_upload_image_couldbecomplex(self, name, data, step, max_outputs=3, description=None):
+        """
+        Safely upload an image that could be complex. If it is, cast it to colour before uploading.
+
+        """
+        data = asNumpyArray(data)
+        if np.iscomplexobj(data):
+            print('Got complex datatype')
+            data = complex2rgb_vectorized(data)
+        else:
+            print('Got real datatype')
+            # auto scale
+            data = data / data.max() * 255
+            data = data.astype(np.uint8)
+            # convert to black-white
+
+
+        self.__safe_upload_image(name, data, step, max_outputs, description)
 
 
     def __safe_upload_image(self, name, data, step, max_outputs=3, description=None):

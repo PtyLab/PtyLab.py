@@ -440,7 +440,7 @@ class Reconstruction(object):
     @property
     def NAd(self):
         """ Detection NA"""
-        NAd = self.Ld / (2 * self._zo)
+        NAd = self.Ld / (2 * self.zo)
         return NAd
 
     @property
@@ -475,7 +475,7 @@ class Reconstruction(object):
         - Pixel pitch: {self.dxo*1e6} um
         - Field of view: {self.Lo*1e3} mm
         - Scan size in pixels: {self.positions.max(axis=0)- self.positions.min(axis=0)}
-        - Propagation distance: {self._zo * 1e3} mm
+        - Propagation distance: {self.zo * 1e3} mm
         - Probe FoV: {self.Lp*1e3} mm
         
         Derived parameters:
@@ -531,7 +531,7 @@ class Reconstruction(object):
         feedback = np.sum(dz * merit) / np.sum(merit)
         self.zMomentum *= params.TV_autofocus_friction
         self.zMomentum += params.TV_autofocus_stepsize * feedback
-        self._zo += self.zMomentum
+        self.zo += self.zMomentum
         end_time = time.time()
         self.logger.info(f'TV autofocus took {end_time-start_time} seconds')
         # calculate the change to the probe (only works if we are using Fresnel propagation at the moment)
