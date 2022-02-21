@@ -74,6 +74,12 @@ class AbstractMonitor(object):
         """ Update the position information."""
         pass
 
+    def update_encoder(self, corrected_positions, original_positions):
+        """ Update the image of the encoder positions. """
+        pass
+
+
+
     def updateObjectProbeErrorMonitor(
         self,
         error: float,

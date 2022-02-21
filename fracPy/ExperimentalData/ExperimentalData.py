@@ -115,8 +115,6 @@ class ExperimentalData:
             self.logger.debug('Setting %s', a)
 
         self._setData()
-        # copy encoder to encoder0 for comparison
-        self.encoder0 = self.encoder.copy()
 
 
     def setOrientation(self, orientation):
