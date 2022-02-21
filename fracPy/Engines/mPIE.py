@@ -127,6 +127,9 @@ class mPIE(BaseEngine):
 
                 # probe update
                 self.reconstruction.probe = self.probeUpdate(objectPatch, DELTA)
+                if self.params.positionCorrectionSwitch:
+                    self.positionCorrection(objectPatch, positionIndex, sy, sx)
+
 
                 # momentum updates
                 if np.random.rand(1) > 0.95:

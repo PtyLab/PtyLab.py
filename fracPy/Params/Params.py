@@ -86,7 +86,7 @@ class Params(object):
         # only run every run_every iterations
         self.TV_autofocus_run_every = 3
 
-
-
+        # map a change in positions to a change in z. Experimental, do not use
+        self.map_position_to_z_change = True
 
 

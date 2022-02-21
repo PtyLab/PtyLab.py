@@ -12,6 +12,17 @@ from fracPy.utils.gpuUtils import transfer_fields_to_cpu, transfer_fields_to_gpu
 from fracPy import Params
 
 
+def calculate_pixel_positions(encoder_corrected, dxo, No, Np, asint):
+    """
+    Calculate the pixel positions.
+    """
+    positions = np.round(encoder_corrected / dxo)  # encoder is in m, positions0 and positions are in pixels
+    positions = positions + No // 2 - Np // 2
+    if asint:
+        positions = positions.astype(int)
+    return positions
+
+
 
 class Reconstruction(object):
     """
@@ -50,6 +61,8 @@ class Reconstruction(object):
         self._zo = None
         self.dxd = None
         self.theta = None
+        # positions including possible misalignment correction
+        self.encoder_corrected = None
 
 
         self.logger = logging.getLogger('Reconstruction')
@@ -90,15 +103,22 @@ class Reconstruction(object):
         # set the distance, this has to be last
         self.zo = getattr(data, 'zo')
 
+        # set the original positions
+        if self.encoder_corrected is None:
+            self.encoder_corrected = data.encoder.copy()
+
+    def reset_positioncorrection(self):
+        """ Reset the position corrections. """
+        self.encoder_corrected = self.data.encoder.copy()
+
     @property
     def zo(self):
         """Distance from sample to detector. Also updates all derived qualities. """
-
         return self._zo
 
     @zo.setter
     def zo(self, new_value):
-        self.logger.info('Changing sample-detector distance')
+        self.logger.info(f'Changing sample-detector distance to {new_value}')
         self._zo = new_value
         if self.data.operationMode == 'CPM':
             self.dxp = self.wavelength * self._zo / self.Ld
@@ -283,9 +303,25 @@ class Reconstruction(object):
     def initializeProbeMomentum(self):
         self.probeMomentum = np.zeros_like(self.initialGuessProbe)
 
+    def load(self, filename):
+        """Load the results given by saveResults. """
+        with h5py.File(filename, 'r') as archive:
+
+            self.probe = np.array(archive['probe'])
+            self.object = np.array(archive['object'])
+            self.error = np.array(archive['error'])
+            self.wavelength = np.array(archive['wavelength'])
+            self.dxp = np.array(archive['dxp'])
+            self.purityProbe = np.array(archive['purityProbe'])
+            self.purityObject = np.array(archive['purityObject'])
+            self.zo = np.array(archive['zo'])
+            if 'theta' in archive.keys():
+                self.theta = np.array(archive['theta'])
+
 
 
     def saveResults(self, fileName='recent', type='all', squeeze=False):
+
         allowed_save_types = ['all', 'object', 'probe']
         if type not in allowed_save_types:
             raise NotImplementedError(f'Only {allowed_save_types} are allowed keywords for type')
@@ -429,12 +465,11 @@ class Reconstruction(object):
         if self.data.operationMode == 'FPM':
             conv = -(1 / self.wavelength) * self.dxo * self.Np
             positions = np.round(
-                conv * self.data.encoder / np.sqrt(self.data.encoder[:, 0] ** 2 + self.data.encoder[:, 1] ** 2 + self.zled ** 2)[
+                conv * self.encoder_corrected / np.sqrt(self.encoder_corrected[:, 0] ** 2 + self.encoder[:, 1] ** 2 + self.zled ** 2)[
                     ..., None])
         else:
-            positions = np.round(self.data.encoder / self.dxo)  # encoder is in m, positions0 and positions are in pixels
-        positions = positions + self.No // 2 - self.Np // 2
-        return positions.astype(int)
+            return calculate_pixel_positions(self.encoder_corrected, self.dxo, self.No, self.Np, asint=True)
+
 
     # system property list
     @property

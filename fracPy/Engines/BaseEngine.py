@@ -1,3 +1,4 @@
+from fracPy.Reconstruction.Reconstruction import calculate_pixel_positions
 from fracPy import Operators
 import numpy as np
 import logging
@@ -197,6 +198,7 @@ class BaseEngine(object):
                                      [..., self.monitor.objectROI[0], self.monitor.objectROI[1]])
         probeEstimate = np.squeeze(self.reconstruction.probe
                                     [..., self.monitor.probeROI[0], self.monitor.probeROI[1]])
+
         self.monitor.updateObjectProbeErrorMonitor(error=self.reconstruction.error,
                                                    object_estimate=objectEstimate, probe_estimate=probeEstimate,
                                                    zo=self.reconstruction.zo,
@@ -778,9 +780,9 @@ class BaseEngine(object):
 
             self.monitor.writeEngineName(repr(type(self)))
 
-            self.monitor.update_positions(self.experimentalData.encoder,
-                                          self.experimentalData.encoder0,
-                                          1/self.experimentalData.zo * self.reconstruction.zo)
+            self.monitor.update_encoder(self.reconstruction.encoder_corrected,
+                                          self.experimentalData.encoder,
+                                          1.0)
 
 
 
@@ -863,6 +865,7 @@ class BaseEngine(object):
         """
         xp = getArrayModule(objectPatch)
         if len(self.reconstruction.error) > self.startAtIteration:
+            self.logger.debug('Calculating position correction')
             # position gradients
             # shiftedImages = xp.zeros((self.rowShifts.shape + objectPatch.shape))
             cc = xp.zeros((len(self.rowShifts), 1))
@@ -882,6 +885,7 @@ class BaseEngine(object):
                 shiftedImages = xp.roll(tempShift, self.colShifts[shifts], axis=-1)
                 cc[shifts] = xp.squeeze(xp.sum(shiftedImages.conj() * O[..., sy, sx],
                                                axis=(-2, -1)))
+                del tempShift, shiftedImages
             # truncated cross - correlation
             # cc = xp.squeeze(xp.sum(shiftedImages.conj() * self.reconstruction.object[..., sy, sx], axis=(-2, -1)))
             cc = abs(cc)
@@ -899,33 +903,102 @@ class BaseEngine(object):
             self.D[positionIndex, :] = self.daleth * np.array([grad_y, grad_x]) + self.beth * \
                                        self.D[positionIndex, :]
 
+    def position_update_to_change_in_z(self, loop):
+        """
+        Update the z based on the position updates.
+        """
+        import jax
+        from jax.experimental import optimizers
+
+        if not hasattr(self, 'optlib'):
+            self.i_z_optimizer = 0
+            # from itertools import count
+            # count
+            op_init, op_update, op_get = optimizers.adam(3e-3)
+            state = op_init(self.reconstruction.zo)
+            self.optlib = {'op_update': op_update,
+                           'op_get': op_get,
+                           'state': state}
+        else:
+            state = self.optlib['state']
+            op_get = self.optlib['op_get']
+            op_update = self.optlib['op_update']
+
+        X0 = self.reconstruction.encoder_corrected
+        Y0 = self.experimentalData.encoder
+        msqdisplacement = np.linalg.norm(1e6*X0 - 1e6*Y0)
+
+        # center both
+        X0 = X0 - X0.mean(axis=0, keepdims=True)
+        Y0 = Y0 - Y0.mean(axis=0, keepdims=True)
+
+        # now, find the scaling with respect to the original one
+        factor = np.std(X0) / np.std(Y0)
+
+        # update z
+        new_z = self.reconstruction.zo / factor
+        step =  (new_z - self.reconstruction.zo)
+        self.logger.info(f'Naive estimate of new z: {new_z:.3f}, stepsize {step:.3f}')
+        step = 5*step
+        # check if the thing should be updated.
+        if abs(step) < 1e-4: # if it's too small, just truncate it,
+            # it may be that the distance changed due to some other update.
+            # Take that into account as if we don't the steps will be super large.
+            self.i_z_optimizer += 1
+            step = self.reconstruction.zo - op_get(state)
+            self.optlib['state'] = op_update(self.i_z_optimizer, -step, state)
+
+            self.logger.info('Skipping update as step is too small')
+            # as we're only updating it for sake of good measure, we don't have to update anything else.
+            return
+        # now, as we're actually updating, we can increase the step
+        self.i_z_optimizer += 1
+        self.optlib['state'] = op_update(self.i_z_optimizer, -step, state)
+        # get the new value
+        z_new = float(jax.device_get(op_get(self.optlib['state'])))
+
+        self.logger.info(f'Loop: {loop} step: {step}')
+        self.logger.info(f'old z: {self.reconstruction.zo:.3f}\n new z calculated: {z_new:.3f}\n diff: {self.reconstruction.zo - z_new}\n')
+        # scale the coordinates accordingly
+        factor = self.reconstruction.zo / z_new
+        self.reconstruction.zo = z_new
+        new_encoder = self.reconstruction.encoder_corrected.copy()
+        new_encoder -= new_encoder.mean(axis=0, keepdims=True)
+        new_encoder /= factor # this should be the correct one!
+
+
+        new_encoder += self.experimentalData.encoder.mean(axis=0, keepdims=True)
+
+        msqdisplacement_a = np.linalg.norm(
+            1e6 * new_encoder - self.experimentalData.encoder * 1e6)
+
+        self.reconstruction.encoder_corrected = new_encoder
+        self.logger.info(f'Mean square displacement: before: {msqdisplacement:.3f} after: {msqdisplacement_a:.3f}')
+
     def positionCorrectionUpdate(self):
+        # fit the scaling out, to put in the z
         if len(self.reconstruction.error) > self.startAtIteration:
-            
+            self.logger.info('Updating positions')
+
             # update positions
             if self.experimentalData.operationMode == 'FPM':
                 conv = -(1 / self.reconstruction.wavelength) * self.reconstruction.dxo * self.reconstruction.Np
                 z = self.reconstruction.zled
                 k = self.reconstruction.positions - self.adaptStep * self.D - \
                                                  self.reconstruction.No // 2 + self.reconstruction.Np // 2
-                self.experimentalData.encoder = np.sign(conv) *  k * z / (np.sqrt(conv**2-k[:,0]**2-k[:,1]**2))[...,None]
+                self.reconstruction.encoder_corrected = np.sign(conv) *  k * z / (np.sqrt(conv**2-k[:,0]**2-k[:,1]**2))[...,None]
             else:
-                self.experimentalData.encoder = (self.reconstruction.positions - self.adaptStep * self.D -
-                                                 self.reconstruction.No // 2 + self.reconstruction.Np // 2) * \
-                                                self.reconstruction.dxo
-                                                
-            # fix center of mass of positions
-            self.experimentalData.encoder[:, 0] = self.experimentalData.encoder[:, 0] - \
-                                                  np.mean(self.experimentalData.encoder[:, 0]) + self.meanEncoder00
-            self.experimentalData.encoder[:, 1] = self.experimentalData.encoder[:, 1] - \
-                                                  np.mean(self.experimentalData.encoder[:, 1]) + self.meanEncoder01
 
-            # self.reconstruction.positions[:,0] = self.reconstruction.positions[:,0] - \
-            #         np.round(np.mean(self.reconstruction.positions[:,0]) -
-            #                   np.mean(self.reconstruction.positions0[:,0]) )
-            # self.reconstruction.positions[:, 1] = self.reconstruction.positions[:, 1] - \
-            #                                         np.around(np.mean(self.reconstruction.positions[:, 1]) -
-            #                                                   np.mean(self.reconstruction.positions0[:, 1]))
+
+
+                new_encoder = self.reconstruction.encoder_corrected - self.adaptStep * self.D * self.reconstruction.dxo
+                new_encoder = new_encoder - new_encoder.mean(axis=0, keepdims=True)
+                new_encoder = new_encoder + self.experimentalData.encoder.mean(axis=0, keepdims=True)
+
+                self.reconstruction.encoder_corrected = new_encoder
+
+
+
 
     def applyConstraints(self, loop):
         """
@@ -1020,7 +1093,11 @@ class BaseEngine(object):
                                      self.params.binaryProbeAleph * probeThresholded
 
         if self.params.positionCorrectionSwitch:
+
             self.positionCorrectionUpdate()
+
+        if self.params.map_position_to_z_change and (loop % 5 == 1) and self.params.positionCorrectionSwitch:
+            self.position_update_to_change_in_z(loop)
 
         if self.params.TV_autofocus:
             merit, AOI_image = self.reconstruction.TV_autofocus(self.params, loop=loop)

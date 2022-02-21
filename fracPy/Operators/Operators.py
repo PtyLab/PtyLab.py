@@ -12,7 +12,7 @@ from fracPy import Params, Reconstruction
 
 # how many kernels are kept in memory for every type of propagator? Higher can be faster but comes
 # at the expense of (GPU) memory.
-cache_size=10
+cache_size=5
 
 
 def propagate_fraunhofer(fields, params: Params, reconstruction: Reconstruction, z=None):
@@ -221,7 +221,8 @@ def aspw(u, z, wavelength, L, bandlimit=True, is_FT=True):
     :return: U_prop, Q  (field distribution after propagation and the bandlimited transfer function)
     """
     N = u.shape[-1]
-    phase_exp = __aspw_transfer_function(z, wavelength, N, L, on_gpu=isGpuArray(u), bandlimit=bandlimit)
+    phase_exp = __aspw_transfer_function(float(z), float(wavelength),
+                                         int(N), float(L), on_gpu=isGpuArray(u), bandlimit=bandlimit)
     if is_FT:
         U = u
     else:
