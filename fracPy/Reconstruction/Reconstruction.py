@@ -10,7 +10,7 @@ from fracPy.Regularizers import TV_at, TV
 from fracPy.utils.initializationFunctions import initialProbeOrObject
 from fracPy.utils.gpuUtils import transfer_fields_to_cpu, transfer_fields_to_gpu, getArrayModule, isGpuArray
 from fracPy import Params
-
+from fracPy.utils.gpuUtils import asNumpyArray
 
 def calculate_pixel_positions(encoder_corrected, dxo, No, Np, asint):
     """
@@ -574,7 +574,20 @@ class Reconstruction(object):
         d = params.TV_autofocus_range_dof
         dz = np.linspace(-1, 1, 11) * d * self.DoF
 
-        merit, OEs = TV_at(self.object, dz, self.dxo, self.wavelength, self.params.TV_autofocus_roi,
+        ss = params.TV_autofocus_roi
+        if isinstance(ss, list):
+            # semi-smart way to set up an AOI.
+            # if the coordinates are a list, expand the list for y and x
+            ss = np.array(ss)
+            if ss.ndim == 1:
+                ss = np.repeat(ss[None], axis=0, repeats=2)
+
+            N = self.object.shape[-1]
+            sy, sx = [slice(int(s[0] * N), int(s[1] * N)) for s in ss]
+        else:
+            sy, sx = ss, ss
+
+        merit, OEs = TV_at(self.object, dz, self.dxo, self.wavelength, (sy, sx),
                       intensity_only=self.params.TV_autofocus_intensityonly,
                            return_propagated=True)
         # from here on we are looking at 11 data points, work on CPU
@@ -600,7 +613,7 @@ class Reconstruction(object):
             diff_phase = xp.exp(1j*diff_phase)
             self.probe *= diff_phase
 
-        return merit[5], OEs[5]
+        return merit[5]/ asNumpyArray(abs(self.object[...,sy,sx]).mean()), OEs[5]
 
     def reset_TV_autofocus(self):
         """ Reset the settings of TV autofocus. Can be useful to reset the memory effect if the steps are getting really large. """

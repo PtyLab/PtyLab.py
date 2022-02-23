@@ -18,9 +18,9 @@ change data visualization and initialization options manually for now
 
 fileName = 'Lenspaper.hdf5'  # simu.hdf5 or Lenspaper.hdf5
 filePath = getExampleDataFolder() / fileName
-# filePath = r'C:\Users\dbs660\PycharmProjects\ptycho_data_analysis\scripts\test.hdf5'
-filePath = r'/home/dbs660/PycharmProjects/ptycho_data_analysis/scripts/test.hdf5'
-filePath = r'/home/dbs660/Desktop/daniel/31012022_div_1.hdf5'
+filePath = r'C:\Users\dbs660\PycharmProjects\ptycho_data_analysis\scripts\test.hdf5'
+# filePath = r'/home/dbs660/PycharmProjects/ptycho_data_analysis/scripts/test.hdf5'
+# filePath = r'/home/dbs660/Desktop/daniel/31012022_div_1.hdf5'
 from fracPy.Monitor.TensorboardMonitor import TensorboardMonitor
 
 

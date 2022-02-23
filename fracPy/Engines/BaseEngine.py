@@ -125,7 +125,11 @@ class BaseEngine(object):
             self.adaptStep = 1  # adaptive step size
             self.D = np.zeros((self.experimentalData.numFrames, 2))  # position search direction
             # predefine shifts
+            rmax = 2
+            dy, dx = np.mgrid[-rmax:rmax+1, -rmax:rmax+1]
+            # self.rowShifts = dy.flatten()#np.array([-1, -1, -1, 0, 0, 0, 1, 1, 1])
             self.rowShifts = np.array([-1, -1, -1, 0, 0, 0, 1, 1, 1])
+            # self.colShifts = dx.flatten()#np.array([-1, 0, 1, -1, 0, 1, -1, 0, 1])
             self.colShifts = np.array([-1, 0, 1, -1, 0, 1, -1, 0, 1])
             self.startAtIteration = 20
             self.meanEncoder00 = np.mean(self.experimentalData.encoder[:, 0]).copy()
@@ -172,15 +176,18 @@ class BaseEngine(object):
         Set object/probe ROI for monitoring
         """
         if not hasattr(self.monitor, 'objectROI') or update:
-            rx, ry = ((np.max(self.reconstruction.positions, axis=0) - np.min(self.reconstruction.positions, axis=0) \
-                       + self.reconstruction.Np) / self.monitor.objectZoom).astype(int)
-            xc, yc = ((np.max(self.reconstruction.positions, axis=0) + np.min(self.reconstruction.positions, axis=0) \
-                       + self.reconstruction.Np) / 2).astype(int)
+            if self.monitor.objectZoom == 'full':
+                self.monitor.objectROI = [slice(None,None,None), slice(None, None, None)]
+            else:
+                rx, ry = ((np.max(self.reconstruction.positions, axis=0) - np.min(self.reconstruction.positions, axis=0) \
+                           + self.reconstruction.Np) / self.monitor.objectZoom).astype(int)
+                xc, yc = ((np.max(self.reconstruction.positions, axis=0) + np.min(self.reconstruction.positions, axis=0) \
+                           + self.reconstruction.Np) / 2).astype(int)
 
-            self.monitor.objectROI = [slice(max(0, yc - ry // 2),
-                                                min(self.reconstruction.No, yc + ry // 2)),
-                                          slice(max(0, xc - rx // 2),
-                                                min(self.reconstruction.No, xc + rx // 2))]
+                self.monitor.objectROI = [slice(max(0, yc - ry // 2),
+                                                    min(self.reconstruction.No, yc + ry // 2)),
+                                              slice(max(0, xc - rx // 2),
+                                                    min(self.reconstruction.No, xc + rx // 2))]
 
         if not hasattr(self.monitor, 'probeROI') or update:
             if self.monitor.probeZoom == 'full':
@@ -203,7 +210,8 @@ class BaseEngine(object):
                                                    object_estimate=objectEstimate, probe_estimate=probeEstimate,
                                                    zo=self.reconstruction.zo,
                                                    purity_probe=self.reconstruction.purityProbe,
-                                                   purity_object=self.reconstruction.purityObject)
+                                                   purity_object=self.reconstruction.purityObject,
+                                                   encoder_positions=self.reconstruction.positions)
 
         # self.monitor.updateObjectProbeErrorMonitor()
 
@@ -776,7 +784,8 @@ class BaseEngine(object):
                                                        object_estimate=object_estimate, probe_estimate=probe_estimate,
                                                        zo=self.reconstruction.zo,
                                                        purity_probe=self.reconstruction.purityProbe,
-                                                       purity_object=self.reconstruction.purityObject)
+                                                       purity_object=self.reconstruction.purityObject,
+                                                       encoder_positions=self.reconstruction.positions)
 
             self.monitor.writeEngineName(repr(type(self)))
 

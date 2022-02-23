@@ -43,7 +43,7 @@ class AbstractMonitor(object):
         """
         pass
 
-    def updatePlot(self, object_estimate: np.ndarray, probe_estimate: np.ndarray):
+    def updatePlot(self, object_estimate: np.ndarray, probe_estimate: np.ndarray, zo=None, encoder_positions=None):
         """
         Update the visualisation of both probe and and object estimate.
 
@@ -88,6 +88,7 @@ class AbstractMonitor(object):
         zo=None,
         purity_probe=None,
         purity_object=None,
+            encoder_positions=None,
     ):
         """
         Update the Object and Probe error monitor, and any associated metrics.

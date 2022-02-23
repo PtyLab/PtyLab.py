@@ -20,10 +20,7 @@ def TV_at(object_estimate, dz, dx, wavelength, ss=slice(None, None),
     :param average_by_power: Wether or not to normalize the intensity in the area in which we measure.
     :return:
     """
-    if isinstance(ss, list):
-        N = object_estimate.shape[-1]
-        ss = slice(int(ss[0]*N), int(ss[1]*N))
-        # print(ss)
+    sy, sx = ss
     xp = getArrayModule(object_estimate)
     if isGpuArray(dz):
         dz = dz.get()
@@ -39,7 +36,7 @@ def TV_at(object_estimate, dz, dx, wavelength, ss=slice(None, None),
         OE = op(aspw(xp.squeeze(OE_ff), z=float(z),
                    wavelength=float(wavelength),
                    L=dx*object_estimate.shape[-1],
-                   bandlimit=False, is_FT=True)[0][...,ss,ss])
+                   bandlimit=False, is_FT=True)[0][...,sy,sx])
         if average_by_power and not intensity_only:
             OE = OE / abs(OE**2).mean()
         elif average_by_power and intensity_only:

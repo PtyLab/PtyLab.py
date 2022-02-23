@@ -61,11 +61,19 @@ class TensorboardMonitor(AbstractMonitor):
 
     # These are the codes that have to be implemented
 
-    def updatePlot(self, object_estimate, probe_estimate, highres=True, zo=None):
+    def updatePlot(self, object_estimate, probe_estimate, highres=True, zo=None,
+                   encoder_positions=None):
         self.i += 1
+
         if not highres:
+            Np = probe_estimate.shape[-1]
+            No = object_estimate.shape[-1]
+            xmax, ymax = np.clip(encoder_positions.max(axis=0) + 2*Np//3,0, No)
+            xmin, ymin = np.clip(encoder_positions.min(axis=0) + Np//3, 0, No)
+
+
             probe_estimate = probe_estimate[..., ::4, ::4]
-            object_estimate = object_estimate[..., ::4, ::4]
+            object_estimate = object_estimate[..., ymin:ymax, xmin:xmax]
         probe_estimate_rgb = self._update_probe_estimate(
             probe_estimate, highres=highres
         )
@@ -82,16 +90,19 @@ class TensorboardMonitor(AbstractMonitor):
         zo,
         purity_object=None,
         purity_probe=None,
+            encoder_positions=None,
         *args,
         **kwargs,
     ):
         # The input can be either an empty array, an array with length 1 or a list of all the errors so far.
         # In the last case, we only want the last value.
         # or just a number. This part should account of all of them.
-
+        if encoder_positions is None:
+            raise ValueError('Please submit encoder positions or the code won\'t work.')
         self._update_error_estimate(error)
 
         self.updatePlot(object_estimate, probe_estimate, highres=self.i % 5 == 0,
+                        encoder_positions=encoder_positions,
                         zo=zo)
 
         self.update_z(zo)
@@ -312,15 +323,19 @@ class TensorboardMonitor(AbstractMonitor):
             self.__safe_upload_image(
                 "I object log estimate", logI.astype(np.uint8), self.i, self.max_nosm
             )
+            self.save_intensities = True
+            if self.save_intensities:
+                p = Path('./intensities')
+                p.mkdir(exist_ok=True)
 
-            import matplotlib.pyplot as plt
-            plt.clf()
-            im = plt.imshow(I_object)
-            plt.colorbar(im)
-            if zo is not None:
-                plt.title(f'z = {zo*1e3:.3f} mm')
-            plt.savefig(f'intensities/{self.i}.png')
-            plt.savefig(f'intensities/AAA.png')
+                import matplotlib.pyplot as plt
+                plt.clf()
+                im = plt.imshow(I_object)
+                plt.colorbar(im)
+                if zo is not None:
+                    plt.title(f'z = {zo*1e3:.3f} mm')
+                plt.savefig(f'intensities/{self.i}.png')
+                plt.savefig(f'intensities/AAA.png')
 
     def _update_probe_estimate(self, probe_estimate, highres=True):
         # first, convert it to images
