@@ -962,7 +962,7 @@ class BaseEngine(object):
                 grad_x = r * grad_x / abs(grad_x)
             if abs(grad_y) > r:
                 grad_y = r * grad_y / abs(grad_y)
-            self.D[positionIndex, :] = self.daleth * asNumpyArray([grad_y, grad_x]) + self.beth * \
+            self.D[positionIndex, :] = self.daleth * np.array([asNumpyArray(grad_y), asNumpyArray(grad_x)]) + self.beth * \
                                        self.D[positionIndex, :]
 
     def positionCorrectionUpdate(self):
