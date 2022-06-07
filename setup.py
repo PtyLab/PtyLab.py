@@ -1,9 +1,10 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
     name='fracpy',
     version='0.0',
-    packages=['fracPy', 'fracPy.io', 'fracPy.utils', 'fracPy.config', 'fracPy.Operators'],
+    packages=find_packages(),
+    #packages=['fracPy', 'fracPy.io', 'fracPy.utils', 'fracPy.config', 'fracPy.Operators'],
     url='',
     license='',
     author='Lars Loetgering, fracPy team',
