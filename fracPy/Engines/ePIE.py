@@ -53,9 +53,14 @@ class ePIE(BaseEngine):
         for loop in self.pbar:
             # set position order
             self.setPositionOrder()
+            if self.params.OPRP:
+                # make the initial guess the default storage
+                self.reconstruction.probe_storage.push(self.reconstruction.probe, 0, self.experimentalData.ptychogram.shape[0])
             for positionLoop, positionIndex in enumerate(self.positionIndices):
                 # get object patch
                 with cp.cuda.Stream(non_blocking=True) as stream:
+                    if self.params.OPRP:
+                        self.reconstruction.probe = self.reconstruction.probe_storage.get(positionIndex)
                     row, col = self.reconstruction.positions[positionIndex]
                     sy = slice(row, row + self.reconstruction.Np)
                     sx = slice(col, col + self.reconstruction.Np)
@@ -76,6 +81,8 @@ class ePIE(BaseEngine):
 
                     # probe update
                     self.reconstruction.probe = self.probeUpdate(objectPatch, DELTA)
+                    if self.params.OPRP:
+                        self.reconstruction.probe_storage.push(self.reconstruction.probe, positionIndex, self.experimentalData.ptychogram.shape[0])
                     stream.synchronize()
                     yield loop, positionLoop
 

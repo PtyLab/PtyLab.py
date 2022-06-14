@@ -5,4 +5,5 @@ dependencies:
   - h5py
   - conda-forge::scikit-image
   - conda-forge::scikit-learn
-  - tqdm
+  - conda-forge::cupy
+  - conda-forge::cudatoolkit=11.4

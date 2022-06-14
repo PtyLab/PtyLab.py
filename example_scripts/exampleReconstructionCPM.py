@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import matplotlib
 
 from fracPy.Engines.BaseEngine import smooth_amplitude
@@ -16,33 +18,47 @@ ptycho data reconstructor
 change data visualization and initialization options manually for now
 """
 
-fileName = 'Lenspaper.hdf5'  # simu.hdf5 or Lenspaper.hdf5
-filePath = getExampleDataFolder() / fileName
-filePath = r'C:\Users\dbs660\PycharmProjects\ptycho_data_analysis\scripts\test.hdf5'
+# fileName = 'simu.hdf5'  # simu.hdf5 or Lenspaper.hdf5
+filename = r"Preprocessedf7.hdf5"
+filePath = Path(r"C:\Users\dbs2\Documents\projects\ptycho\sobhi") / filename
+                #r";#getExampleDataFolder() / fileName
+
+
+# filePath = r'C:\Users\dbs660\PycharmProjects\ptycho_data_analysis\scripts\test.hdf5'
 # filePath = r'/home/dbs660/PycharmProjects/ptycho_data_analysis/scripts/test.hdf5'
 # filePath = r'/home/dbs660/Desktop/daniel/31012022_div_1.hdf5'
-from fracPy.Monitor.TensorboardMonitor import TensorboardMonitor
+# from fracPy.Monitor.TensorboardMonitor import TensorboardMonitor
 
 
 experimentalData, reconstruction, params, monitor, ePIE_engine = fracPy.easyInitialize(filePath, operationMode='CPM')
-reconstruction.No *= 1.2
+experimentalData.setOrientation(5)
+# reconstruction.No *= 1.2
 reconstruction.No = int(reconstruction.No)
+
+# print(experimentalData.encoder.max(), experimentalData.encoder.min())
+# random_error_max = 0.00005*0
+# reconstruction.positions
+# experimentalData.encoder += random_error_max * (np.random.random(experimentalData.encoder.shape)-0.5)
+# from fracPy import Reconstruction
+# reconstruction = Reconstruction(experimentalData, params)
+# reconstruction.copyAttributesFromExperiment(experimentalData)
+# casdcsad
 
 # experimentalData.encoder0 -=
 # print(reconstruction.No)
 # experimentalData.zo = 20e-3
 # reconstruction.zo = experimentalData.zo
 
-monitor = TensorboardMonitor()
-params.TV_autofocus = True
+# monitor = TensorboardMonitor()
+params.TV_autofocus = False
 params.TV_autofocus_stepsize = 10
 params.TV_autofocus_intensityonly=False
 
 
-params.fftshiftFlag = False
+params.fftshiftFlag = True
 params.l2reg = True
-params.l2reg_probe_aleph = 1e-1
-params.l2reg_object_aleph = 1e-3
+params.l2reg_probe_aleph = 1e-2
+params.l2reg_object_aleph = 1e-2
 
 
 params.positionCorrectionSwitch = False
@@ -64,7 +80,7 @@ params.positionCorrectionSwitch = False
 
 # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
 # now create an object to hold everything we're eventually interested in
-reconstruction.npsm = 4 # Number of probe modes to reconstruct
+reconstruction.npsm = 1 # Number of probe modes to reconstruct
 reconstruction.nosm = 1 # Number of object modes to reconstruct
 reconstruction.nlambda = 1 # len(experimentalData.spectralDensity) # Number of wavelength
 reconstruction.nslice = 1 # Number of object slice
@@ -91,10 +107,10 @@ reconstruction.describe_reconstruction()
 # # Set monitor properties
 # monitor = Monitor()
 monitor.figureUpdateFrequency = 2
-monitor.objectPlot = 'complex'  # complex abs angle
-monitor.verboseLevel = 'high'  # high: plot two figures, low: plot only one figure
-monitor.objectZoom = 0.01  # control object plot FoV
-monitor.probeZoom = 0.01#0.5   # control probe plot FoV
+monitor.objectPlot = 'complex'# 'complex'  # complex abs angle
+monitor.verboseLevel = 'low'  # high: plot two figures, low: plot only one figure
+monitor.objectZoom = 1.5  # control object plot FoV
+monitor.probeZoom = 1.0#0.5   # control probe plot FoV
 
 # Run the reconstruction
 
@@ -118,10 +134,10 @@ params.probeSmoothenessWidth = 10
 
 
 ## how do we want to reconstruct?
-params.gpuSwitch = True
+params.gpuSwitch = False
 params.probePowerCorrectionSwitch = True
 
-params.comStabilizationSwitch = True
+params.comStabilizationSwitch = False
 params.orthogonalizationSwitch = True
 params.orthogonalizationFrequency = 10
 
@@ -137,44 +153,52 @@ params.couplingSwitch = False
 params.couplingAleph = 1
 params.positionCorrectionSwitch = False
 
+params.OPRP = False
 
 
 monitor.describe_parameters(params)
 
 ## choose mqNewton engine
-mqNewton = Engines.mqNewton(reconstruction, experimentalData, params, monitor)
+mPIE = Engines.mPIE(reconstruction, experimentalData, params, monitor)
 
-mqNewton.numIterations = 30
-mqNewton.betaProbe = .5
-mqNewton.betaObject = 1
-mqNewton.beta1 = 0.5
-mqNewton.beta2 = 0.5
-mqNewton.betaProbe_m = 1
-mqNewton.betaObject_m = 1
-mqNewton.momentum_method = 'NADAM'
+mPIE.numIterations = 30
+mPIE.betaProbe = .5
+mPIE.betaObject = 1
+mPIE.beta1 = 0.5
+mPIE.beta2 = 0.5
+mPIE.betaProbe_m = 1
+mPIE.betaObject_m = 1
+mPIE.numIterations = 11# * reconstruction.npsm
+# mPIE.momentum_method = 'NADAM'
+mPIE.reconstruct(experimentalData, reconstruction)
+
+params.OPRP = True
+mPIE.numIterations = 30
+mPIE.reconstruct(experimentalData, reconstruction)
+
 
 # first get some idea
-params.TV_autofocus = True
-params.comStabilizationSwitch = True
-mqNewton.reconstruct()
+params.TV_autofocus = False
+params.comStabilizationSwitch = False
+# mqNewton.reconstruct()
 
 np.savez('object.npz',  object=reconstruction.object, dxo=reconstruction.dxo,
              wavelength=reconstruction.wavelength)
 
 
-params.comStabilizationSwitch = True
+params.comStabilizationSwitch = False
 
-mqNewton.numIterations = 15
-mqNewton.reconstruct()
+mPIE.numIterations = 15
+mPIE.reconstruct()
 np.savez('object.npz',  object=reconstruction.object, dxo=reconstruction.dxo,
              wavelength=reconstruction.wavelength)
 
 # now try to focus
 params.TV_autofocus = False
-mqNewton.numIterations = 100
-params.comStabilizationSwitch = True
+mPIE.numIterations = 100
+params.comStabilizationSwitch = False
 for i in range(100):
-    mqNewton.reconstruct()
+    mPIE.reconstruct()
     np.savez('object.npz', object=reconstruction.object, dxo=reconstruction.dxo,
              wavelength=reconstruction.wavelength)
 #

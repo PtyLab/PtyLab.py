@@ -27,6 +27,7 @@ try:
 
 except ImportError:
     print("Cupy not installed")
+    cp = None
 
 try:
     from skimage.transform import rescale
@@ -81,6 +82,9 @@ class BaseEngine(object):
         self._showInitialGuesses()
         self._initializePCParameters()
         self._checkGPU()  # checkGPU needs to be the last
+
+        if self.params.OPRP:
+            self.reconstruction.probe_storage.push(self.reconstruction.probe, 0, self.experimentalData.ptychogram.shape[0])
 
     def _setCPSC(self):
         """
@@ -792,9 +796,9 @@ class BaseEngine(object):
 
             self.monitor.writeEngineName(repr(type(self)))
 
-            self.monitor.update_encoder(self.reconstruction.encoder_corrected,
-                                          self.experimentalData.encoder,
-                                          1.0)
+            self.monitor.update_encoder(corrected_positions=self.reconstruction.encoder_corrected,
+                                          original_positions=self.experimentalData.encoder,
+                                          scale=1.0)
 
 
 
@@ -1055,7 +1059,7 @@ class BaseEngine(object):
                                      self.params.absorbingProbeBoundaryAleph * self.reconstruction.probe * self.probeWindow
 
             # experimental: also apply in fourier space
-            self.reconstruction.probe = ifft2c(fft2c(self.reconstruction.probe)*self.probeWindow)
+            # self.reconstruction.probe = ifft2c(fft2c(self.reconstruction.probe)*self.probeWindow)
 
 
         # Todo: objectSmoothenessSwitch,probeSmoothenessSwitch,
@@ -1114,6 +1118,10 @@ class BaseEngine(object):
         if self.params.TV_autofocus:
             merit, AOI_image = self.reconstruction.TV_autofocus(self.params, loop=loop)
             self.monitor.update_TV(merit, AOI_image)
+
+        if self.params.OPRP and loop % self.params.OPRP_tsvd_interval == 0:
+            self.reconstruction.probe_storage.tsvd()
+
 
 
     def orthogonalization(self):
