@@ -74,7 +74,7 @@ class AbstractMonitor(object):
         """ Update the position information."""
         pass
 
-    def update_encoder(self, corrected_positions, original_positions):
+    def update_encoder(self, corrected_positions, original_positions, *args, **kwargs):
         """ Update the image of the encoder positions. """
         pass
 
@@ -155,6 +155,7 @@ class Monitor(AbstractMonitor):
         zo=None,
         purity_probe=None,
         purity_object=None,
+            encoder_positions=None,
     ):
         """
         update the probe object plots
@@ -180,6 +181,9 @@ class Monitor(AbstractMonitor):
         )
         self.defaultMonitor.update_z(zo)
         self.defaultMonitor.drawNow()
+
+    def describe_parameters(self, *args, **kwargs):
+        pass
 
     def updateDiffractionDataMonitor(self, Iestimated, Imeasured):
         """

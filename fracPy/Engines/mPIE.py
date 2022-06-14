@@ -101,8 +101,10 @@ class mPIE(BaseEngine):
             # set position order
             self.setPositionOrder()
 
-            for positionLoop, positionIndex in enumerate(self.positionIndices):
+            for positionLoop, positionIndex in enumerate(tqdm.tqdm(self.positionIndices),
+                                                         ):
                 # get object patch
+                self.reconstruction.make_probe(positionIndex)
                 row, col = self.reconstruction.positions[positionIndex]
                 sy = slice(row, row + self.reconstruction.Np)
                 sx = slice(col, col + self.reconstruction.Np)
@@ -131,6 +133,8 @@ class mPIE(BaseEngine):
 
                 # probe update
                 self.reconstruction.probe = self.probeUpdate(objectPatch, DELTA)
+                self.reconstruction.push_probe_update(self.reconstruction.probe, positionIndex, self.experimentalData.ptychogram.shape[0])
+
                 if self.params.positionCorrectionSwitch:
                     self.positionCorrection(objectPatch, positionIndex, sy, sx)
 

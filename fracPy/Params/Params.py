@@ -12,7 +12,7 @@ class Params(object):
     def __init__(self):
         # datalogger
 
-
+        self.OPRP_tsvd_interval = 5
         self.logger = logging.getLogger('Params')
 
         # Default settings for switches, settings that involve how things are computed
@@ -90,5 +90,8 @@ class Params(object):
         self.map_position_to_z_change = True
 
         self.OPRP = True
+        # how many modes to use
+        self.OPRP_nmodes = 10
+
 
 
