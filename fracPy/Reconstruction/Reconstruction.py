@@ -275,6 +275,12 @@ class Reconstruction(object):
             self.initialProbe = 'circ'
             self.initialObject = 'ones'
 
+    def prepare_probe(self, i):
+        """ Replace probe with the i-th TSVD estimate.
+
+        This function is used in OPRP
+        """
+        raise NotImplementedError()
 
     def initializeObjectProbe(self):
 

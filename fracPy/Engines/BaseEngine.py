@@ -15,7 +15,10 @@ from fracPy.Monitor.Monitor import Monitor
 from matplotlib import pyplot as plt
 # from fracPy.utils.utils import smooth_amplitude
 # Dirty hack to get running
-from cupyx.scipy.ndimage import gaussian_filter as gaussian_filter_gpu
+try:
+    from cupyx.scipy.ndimage import gaussian_filter as gaussian_filter_gpu
+except ImportError:
+    print('cupy unavailable')
 from scipy.ndimage import gaussian_filter as gaussian_filter
 # smooth_amplitude = lambda x, *args: x
 # from ..Operators.Operators import FT, IFT
@@ -1222,6 +1225,11 @@ class BaseEngine(object):
                 self.experimentalData.emptyBeam / (1e-10 + xp.sum(abs(self.reconstruction.ESW) ** 2, axis=(0, 1, 2, 3))))
 
         self.detector2object()
+
+        if self.params.OPRP:
+            pass
+            #self.probes.append(self.reconstruction.esw.reshape(-))
+
         self.reconstruction.probe = self.reconstruction.esw
 
     def adaptiveDenoising(self):

@@ -1,6 +1,9 @@
 from functools import lru_cache
 
-import cupy as cp
+try:
+    import cupy as cp
+except ImportError:
+    print('Cupy unavailable')
 import numpy as np
 
 # from fracPy.Operators.Operators import cache_size

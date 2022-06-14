@@ -2,7 +2,10 @@ import logging
 from collections import Callable
 from functools import lru_cache
 
-import cupy as cp
+try:
+    import cupy as cp
+except ImportError:
+    print('cupy not avialable')
 import numpy as np
 
 from fracPy.Operators._propagation_kernels import __make_quad_phase
