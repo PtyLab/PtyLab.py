@@ -89,4 +89,6 @@ class Params(object):
         # map a change in positions to a change in z. Experimental, do not use
         self.map_position_to_z_change = True
 
+        self.OPRP = True
+
 

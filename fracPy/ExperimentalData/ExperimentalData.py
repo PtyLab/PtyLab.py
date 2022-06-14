@@ -1,6 +1,9 @@
 from fracPy.utils.gpuUtils import transfer_fields_to_cpu, transfer_fields_to_gpu
 import numpy as np
-import pyqtgraph as pg
+try:
+    import pyqtgraph as pg
+except ImportError:
+    print('Cannot use pyqtgraph')
 import matplotlib.pyplot as plt
 # from pathlib import Path
 import logging

@@ -1,0 +1,8 @@
+name: fracPy
+dependencies:
+  - matplotlib
+  - numpy
+  - h5py
+  - conda-forge::scikit-image
+  - conda-forge::scikit-learn
+  - tqdm
