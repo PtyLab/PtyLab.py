@@ -1,0 +1,11 @@
+name: fracpy_jul2022
+dependencies:
+  - numpy
+  - cupy
+  - h5py
+  - matplotlib
+  - scipy
+  - scikit-image
+  - pyqtgraph
+  - tqdm
+  - pytables
