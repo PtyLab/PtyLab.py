@@ -1,4 +1,4 @@
-import napari
+# import napari
 import numpy as np
 from matplotlib import pyplot as plt
 import tqdm

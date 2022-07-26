@@ -18,10 +18,10 @@ ptycho data reconstructor
 change data visualization and initialization options manually for now
 """
 
-# fileName = 'simu.hdf5'  # simu.hdf5 or Lenspaper.hdf5
-filename = r"Preprocessedf7.hdf5"
-filePath = Path(r"C:\Users\dbs2\Documents\projects\ptycho\sobhi") / filename
-                #r";#getExampleDataFolder() / fileName
+fileName = 'example:simulation_cpm'   # simu.hdf5 or Lenspaper.hdf5
+# filename = r"Preprocessedf7.hdf5"
+# filePath = Path(r"C:\Users\dbs2\Documents\projects\ptycho\sobhi") / filename
+#r";#getExampleDataFolder() / fileName
 
 
 # filePath = r'C:\Users\dbs660\PycharmProjects\ptycho_data_analysis\scripts\test.hdf5'
@@ -30,8 +30,8 @@ filePath = Path(r"C:\Users\dbs2\Documents\projects\ptycho\sobhi") / filename
 # from fracPy.Monitor.TensorboardMonitor import TensorboardMonitor
 
 
-experimentalData, reconstruction, params, monitor, ePIE_engine = fracPy.easyInitialize(filePath, operationMode='CPM')
-experimentalData.setOrientation(5)
+experimentalData, reconstruction, params, monitor, ePIE_engine = fracPy.easyInitialize(fileName, operationMode='CPM')
+# experimentalData.setOrientation(5)
 # reconstruction.No *= 1.2
 reconstruction.No = int(reconstruction.No)
 
@@ -172,10 +172,11 @@ mPIE.numIterations = 11# * reconstruction.npsm
 # mPIE.momentum_method = 'NADAM'
 mPIE.reconstruct(experimentalData, reconstruction)
 
-params.OPRP = True
+params.OPRP = False
 mPIE.numIterations = 30
 mPIE.reconstruct(experimentalData, reconstruction)
-
+mPIE.comStabilization()
+mPIE.reconstruct(experimentalData, reconstruction)
 
 # first get some idea
 params.TV_autofocus = False
