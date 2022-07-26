@@ -53,12 +53,13 @@ class Reconstruction(object):
         "entrancePupilDiameter",
     ]
     listOfReconstructionPropertiesFPM = [
-            'wavelength',
-            # 'zo',
-            'dxd',
-            'zled',
-            'NA'
-        ]
+        "wavelength",
+        # 'zo',
+        "dxd",
+        "zled",
+        "dxp",
+        "entrancePupilDiameter",
+    ]
 
     def __init__(self, data: ExperimentalData, params: Params):
 
