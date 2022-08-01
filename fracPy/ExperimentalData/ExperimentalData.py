@@ -118,12 +118,21 @@ class ExperimentalData:
             self.logger.debug('Setting %s', a)
 
         self._setData()
+        # last step, just to be sure that it's the last thing we do: set orientation
+        # this has to be last as it can actually change the data in self.ptychogram
+        # depending on the orientation
+        self.setOrientation(readHdf5.getOrientation(self.filename))
+
 
 
     def setOrientation(self, orientation):
         """
         Sets the correct orientation. This function follows the ptypy convention.
+
+        If orientation is None, it won't change the current orientation.
         """
+        if orientation is None: # do not update.
+            return
         if not isinstance(orientation, int):
             raise TypeError("Orientation value is not valid.")
         if orientation == 1:

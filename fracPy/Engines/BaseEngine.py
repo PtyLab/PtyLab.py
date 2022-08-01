@@ -797,9 +797,9 @@ class BaseEngine(object):
             self.monitor.writeEngineName(repr(type(self)))
 
             self.monitor.update_encoder(corrected_positions=self.reconstruction.encoder_corrected,
-                                          original_positions=self.experimentalData.encoder,
-                                          scale=1.0)
+                                          original_positions=self.experimentalData.encoder)
 
+            self.monitor.visualize_probe_engine(self.reconstruction.probe_storage)
 
 
 
@@ -1042,8 +1042,9 @@ class BaseEngine(object):
             self.reconstruction.probe = self.reconstruction.probe / np.sqrt(
                 np.sum(self.reconstruction.probe * self.reconstruction.probe.conj())) * self.experimentalData.maxProbePower
 
-        if self.params.comStabilizationSwitch:
-            self.comStabilization()
+        if self.params.comStabilizationSwitch is not None and self.params.comStabilizationSwitch is not False:
+            if loop % int(self.params.comStabilizationSwitch) == 0:
+                self.comStabilization()
 
         if self.params.PSDestimationSwitch:
             raise NotImplementedError()
@@ -1205,6 +1206,7 @@ class BaseEngine(object):
                         xp.roll(self.reconstruction.probeMomentum[:, :, k, -1, ...], (-yc, -xc), axis=(-2, -1))
                     self.reconstruction.probeBuffer[:, :, k, -1, ...] = \
                         xp.roll(self.reconstruction.probeBuffer[:, :, k, -1, ...], (-yc, -xc), axis=(-2, -1))
+                self.reconstruction.probe_storage._push_hard(self.reconstruction.probe, 100)
 
             # shift object
             for k in xp.arange(self.reconstruction.nosm):

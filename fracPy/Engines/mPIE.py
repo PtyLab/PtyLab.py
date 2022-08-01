@@ -103,8 +103,9 @@ class mPIE(BaseEngine):
 
             for positionLoop, positionIndex in enumerate(tqdm.tqdm(self.positionIndices),
                                                          ):
-                # get object patch
+                # get object patch, stored as self.probe
                 self.reconstruction.make_probe(positionIndex)
+
                 row, col = self.reconstruction.positions[positionIndex]
                 sy = slice(row, row + self.reconstruction.Np)
                 sx = slice(col, col + self.reconstruction.Np)

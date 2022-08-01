@@ -1,3 +1,5 @@
+from fracPy.ProbeEngines import StandardProbe
+
 import time
 import numpy as np
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
@@ -7,13 +9,12 @@ import h5py
 
 # logging.basicConfig(level=logging.DEBUG)
 from fracPy.Regularizers import TV_at, TV
-from fracPy.utils.OPRP import OPRP_storage
+from fracPy.ProbeEngines.OPRP import OPRP_storage
 from fracPy.utils.initializationFunctions import initialProbeOrObject
 from fracPy.utils.gpuUtils import (
     transfer_fields_to_cpu,
     transfer_fields_to_gpu,
     getArrayModule,
-    isGpuArray,
 )
 from fracPy import Params
 from fracPy.utils.gpuUtils import asNumpyArray
@@ -75,7 +76,8 @@ class Reconstruction(object):
         self.logger = logging.getLogger("Reconstruction")
         self.data = data
         self.params = params
-        self.probe_storage = OPRP_storage(self.params.OPRP_nmodes)
+        self.probe_storage = StandardProbe.SHGProbe()# OPRP_storage(self.params.OPRP_nmodes)
+        # self._probe_storage = StandardProbe.LinearProbe()
         self.copyAttributesFromExperiment(data)
         self.computeParameters()
         self.initializeSettings()
@@ -94,6 +96,18 @@ class Reconstruction(object):
             "purityObject",
             "reference",
         ]
+
+    @property
+    def probe(self):
+        # convenience function. Updates the temporary probe. Nothing in probe is updated
+        return self.probe_storage.get_temporary()#_probe_storage.get(None)
+
+    @probe.setter
+    def probe(self, new_probe):
+        # ignore this for now
+        self.probe_storage.set_temporary(new_probe)
+
+
 
     def copyAttributesFromExperiment(self, data: ExperimentalData):
         """

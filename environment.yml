@@ -16,3 +16,5 @@ dependencies:
   - conda-forge::scikit-learn
   - conda-forge::cupy
   - conda-forge::cudatoolkit=11.4
+  # optional
+  - conda-forge::tensorflow

@@ -36,6 +36,7 @@ class Params(object):
         self.objectUpdateStart = 1
         self.positionOrder = 'random'  # 'random' or 'sequential' or 'NA'
 
+
         ## Swtiches used in applyConstraints method:
         self.orthogonalizationSwitch = False
         self.orthogonalizationFrequency = 10  # probe orthogonalization frequency
@@ -55,7 +56,7 @@ class Params(object):
         self.absorbingProbeBoundaryAleph = 5e-2
         self.probePowerCorrectionSwitch = False  # probe normalization to measured PSD
         self.modulusEnforcedProbeSwitch = False  # enforce empty beam
-        self.comStabilizationSwitch = False  # center of mass stabilization for probe
+
         self.absProbeSwitch = False  # force the probe to be abs-only
         self.absProbeBeta = 1e-2  # relaxation parameter for abs-only constraint
         # other
@@ -95,3 +96,5 @@ class Params(object):
 
 
 
+        # SHG stuff
+        self.SHG_probe = False

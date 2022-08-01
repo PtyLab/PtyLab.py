@@ -1,8 +1,6 @@
-import unittest
-
 from numpy.testing import assert_almost_equal
 
-from fracPy.utils.OPRP import OPRP_storage
+from fracPy.ProbeEngines.OPRP import OPRP_storage
 import numpy as np
 
 

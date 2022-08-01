@@ -82,6 +82,11 @@ class TensorboardMonitor(AbstractMonitor):
 
         )
 
+    def visualize_probe_engine(self, engine):
+        RGB_image = complex2rgb_vectorized(engine.get_fundamental())
+        self.__safe_upload_image('original probe', np.squeeze(RGB_image), self.i)
+        pass
+
     def updateObjectProbeErrorMonitor(
         self,
         error,
@@ -94,6 +99,8 @@ class TensorboardMonitor(AbstractMonitor):
         *args,
         **kwargs,
     ):
+        object_estimate = asNumpyArray(object_estimate)
+        probe_estimate = asNumpyArray(probe_estimate)
         # The input can be either an empty array, an array with length 1 or a list of all the errors so far.
         # In the last case, we only want the last value.
         # or just a number. This part should account of all of them.

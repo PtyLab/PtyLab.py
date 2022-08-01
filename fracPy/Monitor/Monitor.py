@@ -43,6 +43,12 @@ class AbstractMonitor(object):
         """
         pass
 
+    def visualize_probe_engine(self, estimate):
+        """
+        For nonlinear imaging only. Return the electric field of the probe.
+        """
+        pass
+
     def updatePlot(self, object_estimate: np.ndarray, probe_estimate: np.ndarray, zo=None, encoder_positions=None):
         """
         Update the visualisation of both probe and and object estimate.

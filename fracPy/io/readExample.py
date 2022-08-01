@@ -10,6 +10,7 @@ logger.setLevel(logging.INFO)
 exampleFiles = {
     'simulation_cpm': 'simu.hdf5',
     'simulation_fpm': 'LungCarcinomaSmallFPM.hdf5',
+    'lensPaper_cpm': 'Lenspaper.hdf5'
 }
 
 # This is a convenience class to aid in loading a particular example
