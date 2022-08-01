@@ -11,10 +11,13 @@ class Params(object):
     """
     def __init__(self):
         # datalogger
+
+        self.OPRP_tsvd_interval = 5
         self.logger = logging.getLogger('Params')
 
         # Default settings for switches, settings that involve how things are computed
         self.fftshiftSwitch = False
+        # this is an internal setting, tracking wether of not the fftshifts have been done. Do not change this yourself
         self.fftshiftFlag = False
         self.FourierMaskSwitch = False
         self.CPSCswitch = False
@@ -32,6 +35,7 @@ class Params(object):
         self.probeUpdateStart = 1
         self.objectUpdateStart = 1
         self.positionOrder = 'random'  # 'random' or 'sequential' or 'NA'
+
 
         ## Swtiches used in applyConstraints method:
         self.orthogonalizationSwitch = False
@@ -52,7 +56,7 @@ class Params(object):
         self.absorbingProbeBoundaryAleph = 5e-2
         self.probePowerCorrectionSwitch = False  # probe normalization to measured PSD
         self.modulusEnforcedProbeSwitch = False  # enforce empty beam
-        self.comStabilizationSwitch = False  # center of mass stabilization for probe
+
         self.absProbeSwitch = False  # force the probe to be abs-only
         self.absProbeBeta = 1e-2  # relaxation parameter for abs-only constraint
         # other
@@ -68,7 +72,29 @@ class Params(object):
         self.positionCorrectionSwitch = False  # position correction for encoder
         self.adaptiveDenoisingSwitch = False  # estimated noise floor to be clipped from raw data
 
+        self.l2reg = False # l2 regularisation
+        self.l2reg_probe_aleph = 0.01 # strength of the regularizer
+        self.l2reg_object_aleph = 0.001
+
+        # autofocusing
+        self.TV_autofocus = True
+        self.TV_autofocus_intensityonly = False
+        self.TV_autofocus_stepsize = 5
+        self.TV_autofocus_aleph = 0.01
+        self.TV_autofocus_roi = [0.4, 0.6]
+        self.TV_autofocus_range_dof = 11
+        self.TV_autofocus_friction = 0.7
+        # only run every run_every iterations
+        self.TV_autofocus_run_every = 3
+
+        # map a change in positions to a change in z. Experimental, do not use
+        self.map_position_to_z_change = True
+
+        self.OPRP = True
+        # how many modes to use
+        self.OPRP_nmodes = 10
 
 
 
-
+        # SHG stuff
+        self.SHG_probe = False

@@ -65,6 +65,16 @@ def loadInputData(filename:Path, requiredFields, optionalFields):
         
     return dataset
 
+def getOrientation(filename):
+    """
+    If orientation is given, return it. Otherwise, return None
+    """
+    orientation = None
+    with h5py.File(str(filename), 'r') as archive:
+        if 'orientation' in archive.keys():
+            orientation = np.array(archive['orientation']).ravel()[0].astype(int)
+    return int(orientation)
+
 
 def checkDataFields(filename, requiredFields):
     """

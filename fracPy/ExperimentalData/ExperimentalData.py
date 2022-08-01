@@ -1,6 +1,9 @@
 from fracPy.utils.gpuUtils import transfer_fields_to_cpu, transfer_fields_to_gpu
 import numpy as np
-import pyqtgraph as pg
+try:
+    import pyqtgraph as pg
+except ImportError:
+    print('Cannot use pyqtgraph')
 import matplotlib.pyplot as plt
 # from pathlib import Path
 import logging
@@ -54,7 +57,8 @@ class ExperimentalData:
             self.optionalFields = [
                 'entrancePupilDiameter',  # used in CPM as the probe diameter
                 'spectralDensity',  # CPM parameters: different wavelengths required for polychromatic ptychography
-                'theta'  # CPM parameters: reflection tilt angle, required for
+                'theta',  # CPM parameters: reflection tilt angle, required for
+                'emptyBeam' # image of the probe
             ]
 
         elif self.operationMode == 'FPM':
@@ -73,6 +77,7 @@ class ExperimentalData:
             ]
         else:
             raise ValueError('operationMode is not properly set, choose "CPM" or "FPM"')
+
 
 
     def loadData(self, filename=None):
@@ -113,12 +118,21 @@ class ExperimentalData:
             self.logger.debug('Setting %s', a)
 
         self._setData()
+        # last step, just to be sure that it's the last thing we do: set orientation
+        # this has to be last as it can actually change the data in self.ptychogram
+        # depending on the orientation
+        self.setOrientation(readHdf5.getOrientation(self.filename))
+
 
 
     def setOrientation(self, orientation):
         """
         Sets the correct orientation. This function follows the ptypy convention.
+
+        If orientation is None, it won't change the current orientation.
         """
+        if orientation is None: # do not update.
+            return
         if not isinstance(orientation, int):
             raise TypeError("Orientation value is not valid.")
         if orientation == 1:
@@ -144,7 +158,11 @@ class ExperimentalData:
             self.ptychogram = np.transpose(self.ptychogram, (0, 2, 1)) 
             self.ptychogram = np.fliplr(self.ptychogram)
             self.ptychogram = np.flipud(self.ptychogram)
-        
+
+        else:
+            raise ValueError(f'Orientation {orientation} is not implemented')
+
+
     def _setData(self):
 
         # Set the detector coordinates
@@ -169,8 +187,14 @@ class ExperimentalData:
         show ptychogram.
         """
         xp = getArrayModule(self.ptychogram)
-        show3Dslider(xp.log10(xp.swapaxes(self.ptychogram, 1,2)+1))
-        print('Maximum count in ptychogram is %d'%(np.max(self.ptychogram)))  #todo: make this the title
+        print(f'Min max ptychogram: {np.min(self.ptychogram)}, {self.ptychogram.max()}')
+        log_ptychogram = xp.log10(
+            xp.swapaxes(
+                np.clip(self.ptychogram.astype(np.float),0, None),
+                1,2)+1)
+        print(f'Min max ptychogram: {np.min(log_ptychogram)}, {log_ptychogram.max()}')
+        show3Dslider(log_ptychogram)
+
 
     def _move_data_to_cpu(self):
         """ Move all required data to the CPU """

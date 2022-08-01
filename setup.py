@@ -9,5 +9,10 @@ setup(
     author='Lars Loetgering, fracPy team',
     author_email='',
     description='', install_requires=['numpy', 'matplotlib', 'h5py', 'scipy', 'scikit-image',
-                                      'tqdm']
+                                      'tqdm',
+                                      # 'pytables',
+                                      'scikit-learn',
+                                      # 'pyqt5',
+                                      # 'napari[all]',
+                                      ]
 )

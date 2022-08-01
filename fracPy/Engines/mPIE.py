@@ -33,6 +33,29 @@ class mPIE(BaseEngine):
         # initialize mPIE Params
         self.initializeReconstructionParams()
         self.params.momentumAcceleration = True
+        self.name = 'mPIE'
+
+    @property
+    def keepPatches(self):
+        """ Wether or not to keep track of the individual object update patches.
+
+        This strongly increases the amount of memory required, only use when absolutely required.
+
+        """
+        return hasattr(self, 'patches')
+
+    @keepPatches.setter
+    def keepPatches(self, keep_them):
+
+        if keep_them:
+            self.logger.info('Keeping patches!')
+            self.patches = np.zeros((self.experimentalData.ptychogram.shape[0], *self.reconstruction.shape_O),
+                                    np.complex64)
+        else:
+            self.logger.info('Not keeping patches')
+            if hasattr(self, 'patches'):
+                del self.patches
+
         
     def initializeReconstructionParams(self):
         """
@@ -57,7 +80,15 @@ class mPIE(BaseEngine):
 
         self.reconstruction.probeWindow = np.abs(self.reconstruction.probe)
 
-    def reconstruct(self):
+
+
+    def reconstruct(self, experimentalData=None, reconstruction=None):
+        """ Reconstruct object. If experimentalData is given, it replaces the current data. Idem for reconstruction. """
+
+        self.changeExperimentalData(experimentalData)
+        self.changeOptimizable(reconstruction)
+
+
         self._prepareReconstruction()
 
         # set object and probe buffers, in case object and probe are changed in the _prepareReconstruction() step
@@ -70,8 +101,11 @@ class mPIE(BaseEngine):
             # set position order
             self.setPositionOrder()
 
-            for positionLoop, positionIndex in enumerate(self.positionIndices):
-                # get object patch
+            for positionLoop, positionIndex in enumerate(tqdm.tqdm(self.positionIndices),
+                                                         ):
+                # get object patch, stored as self.probe
+                self.reconstruction.make_probe(positionIndex)
+
                 row, col = self.reconstruction.positions[positionIndex]
                 sy = slice(row, row + self.reconstruction.Np)
                 sx = slice(col, col + self.reconstruction.Np)
@@ -86,23 +120,39 @@ class mPIE(BaseEngine):
 
                 # difference term
                 DELTA = self.reconstruction.eswUpdate - self.reconstruction.esw
+                # self.viewer.layers['update'].data[positionIndex] = abs(DELTA ** 2).get()
+                # import pyqtgraph as pg
+                # pg.QtGui.QGuiApplication.processEvents()
 
                 # object update
-                self.reconstruction.object[..., sy, sx] = self.objectPatchUpdate(objectPatch, DELTA)
+                object_patch = self.objectPatchUpdate(objectPatch, DELTA)
+
+                if self.keepPatches:
+                    self.patches[positionIndex,..., sy, sx] = asNumpyArray(abs(object_patch)**2)
+                else:
+                    self.reconstruction.object[..., sy, sx] = object_patch
 
                 # probe update
                 self.reconstruction.probe = self.probeUpdate(objectPatch, DELTA)
+                self.reconstruction.push_probe_update(self.reconstruction.probe, positionIndex, self.experimentalData.ptychogram.shape[0])
+
+                if self.params.positionCorrectionSwitch:
+                    self.positionCorrection(objectPatch, positionIndex, sy, sx)
+
 
                 # momentum updates
                 if np.random.rand(1) > 0.95:
                     self.objectMomentumUpdate()
                     self.probeMomentumUpdate()
+                # yield positionLoop, positionIndex
 
             # get error metric
             self.getErrorMetrics()
+            # yield 1,1
 
             # apply Constraints
             self.applyConstraints(loop)
+            # yield 1, 1
 
             # show reconstruction
             self.showReconstruction(loop)
@@ -152,6 +202,8 @@ class mPIE(BaseEngine):
                    self.reconstruction.probe.conj() / (self.alphaObject * Pmax + (1 - self.alphaObject) * absP2)
         else:
             frac = self.reconstruction.probe.conj() / (self.alphaObject * Pmax + (1 - self.alphaObject) * absP2)
+
+
         return objectPatch + self.betaObject * xp.sum(frac * DELTA, axis=2, keepdims=True)
 
        
@@ -169,3 +221,4 @@ class mPIE(BaseEngine):
         frac = objectPatch.conj() / (self.alphaProbe * Omax + (1-self.alphaProbe) * absO2)
         r = self.reconstruction.probe + self.betaProbe * xp.sum(frac * DELTA, axis=1, keepdims=True)
         return r
+

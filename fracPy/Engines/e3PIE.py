@@ -46,7 +46,8 @@ class e3PIE(BaseEngine):
 
         # preallocate transfer function
         self.reconstruction.H = aspw(np.squeeze(self.reconstruction.probe[0, 0, 0, 0, ...]), self.reconstruction.dz,
-                                     self.reconstruction.wavelength / self.reconstruction.refrIndex, self.reconstruction.Lp)[1]
+                                     self.reconstruction.wavelength / self.reconstruction.refrIndex,
+                                     self.reconstruction.Lp)[1]
         # shift transfer function to avoid fftshifts for FFTS
         self.reconstruction.H = np.fft.ifftshift(self.optimizableH)
 

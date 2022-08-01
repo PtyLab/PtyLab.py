@@ -42,7 +42,10 @@ class ePIE(BaseEngine):
         self.numIterations = 50
 
 
-    def reconstruct(self):
+    def reconstruct(self, experimentalData: ExperimentalData = None):
+        if experimentalData is not None:
+            self.reconstruction.data = experimentalData
+            self.experimentalData = experimentalData
         self._prepareReconstruction()
 
         # actual reconstruction ePIE_engine
@@ -50,28 +53,38 @@ class ePIE(BaseEngine):
         for loop in self.pbar:
             # set position order
             self.setPositionOrder()
+            if self.params.OPRP:
+                # make the initial guess the default storage
+                self.reconstruction.probe_storage.push(self.reconstruction.probe, 0, self.experimentalData.ptychogram.shape[0])
             for positionLoop, positionIndex in enumerate(self.positionIndices):
                 # get object patch
-                row, col = self.reconstruction.positions[positionIndex]
-                sy = slice(row, row + self.reconstruction.Np)
-                sx = slice(col, col + self.reconstruction.Np)
-                # note that object patch has size of probe array
-                objectPatch = self.reconstruction.object[..., sy, sx].copy()
-                
-                # make exit surface wave
-                self.reconstruction.esw = objectPatch * self.reconstruction.probe
-                
-                # propagate to camera, intensityProjection, propagate back to object
-                self.intensityProjection(positionIndex)
+                with cp.cuda.Stream(non_blocking=True) as stream:
+                    if self.params.OPRP:
+                        self.reconstruction.probe = self.reconstruction.probe_storage.get(positionIndex)
+                    row, col = self.reconstruction.positions[positionIndex]
+                    sy = slice(row, row + self.reconstruction.Np)
+                    sx = slice(col, col + self.reconstruction.Np)
+                    # note that object patch has size of probe array
+                    objectPatch = self.reconstruction.object[..., sy, sx].copy()
 
-                # difference term
-                DELTA = self.reconstruction.eswUpdate - self.reconstruction.esw
+                    # make exit surface wave
+                    self.reconstruction.esw = objectPatch * self.reconstruction.probe
 
-                # object update
-                self.reconstruction.object[..., sy, sx] = self.objectPatchUpdate(objectPatch, DELTA)
+                    # propagate to camera, intensityProjection, propagate back to object
+                    self.intensityProjection(positionIndex)
 
-                # probe update
-                self.reconstruction.probe = self.probeUpdate(objectPatch, DELTA)
+                    # difference term
+                    DELTA = self.reconstruction.eswUpdate - self.reconstruction.esw
+
+                    # object update
+                    self.reconstruction.object[..., sy, sx] = self.objectPatchUpdate(objectPatch, DELTA)
+
+                    # probe update
+                    self.reconstruction.probe = self.probeUpdate(objectPatch, DELTA)
+                    if self.params.OPRP:
+                        self.reconstruction.probe_storage.push(self.reconstruction.probe, positionIndex, self.experimentalData.ptychogram.shape[0])
+                    stream.synchronize()
+                    yield loop, positionLoop
 
             # get error metric
             self.getErrorMetrics()
@@ -80,7 +93,7 @@ class ePIE(BaseEngine):
             self.applyConstraints(loop)
 
             # show reconstruction
-            self.showReconstruction(loop)
+            # self.showReconstruction(loop)
 
         if self.params.gpuFlag:
             self.logger.info('switch to cpu')
@@ -114,5 +127,7 @@ class ePIE(BaseEngine):
         frac = objectPatch.conj() / xp.max(xp.sum(xp.abs(objectPatch) ** 2, axis=(0,1,2,3)))
         r = self.reconstruction.probe + self.betaProbe * xp.sum(frac * DELTA, axis=(0, 1, 3), keepdims=True)
         return r
+
+
 
 

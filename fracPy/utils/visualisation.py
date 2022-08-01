@@ -4,9 +4,12 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import math
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from fracPy.utils.gpuUtils import asNumpyArray
+from fracPy.utils.gpuUtils import asNumpyArray, getArrayModule, isGpuArray
 from matplotlib.colors import LinearSegmentedColormap
-import pyqtgraph as pg
+try:
+    import pyqtgraph as pg
+except ModuleNotFoundError:
+    print('Pyqtgraph not available')
 
 def hsv2rgb(hsv: np.ndarray) -> np.ndarray:
     """
@@ -17,7 +20,8 @@ def hsv2rgb(hsv: np.ndarray) -> np.ndarray:
     :param hsv: np.ndarray of shape (x,y,3)
     :return: hsv2rgb returns an array of uints between 0 and 255.
     """
-    rgb = np.empty_like(hsv)
+    xp = getArrayModule(hsv)
+    rgb = xp.empty_like(hsv)
     rgb[..., 3:] = hsv[..., 3:]
     h, s, v = hsv[..., 0], hsv[..., 1], hsv[..., 2]
     i = (h * 6.0).astype('uint8')
@@ -26,13 +30,13 @@ def hsv2rgb(hsv: np.ndarray) -> np.ndarray:
     q = v * (1.0 - s * f)
     t = v * (1.0 - s * (1.0 - f))
     i = i % 6
-    conditions = [s == 0.0, i == 1, i == 2, i == 3, i == 4, i == 5]
-    rgb[..., 0] = np.select(conditions, [v, q, p, p, t, v], default=v)
-    rgb[..., 1] = np.select(conditions, [v, v, v, q, p, p], default=t)
-    rgb[..., 2] = np.select(conditions, [v, p, t, v, v, q], default=p)
+    conditions = [s == 0.0, i == 1, i == 2, i == 3, i == 4, i == 5, i == i]
+    rgb[..., 0] = xp.select(conditions, [v, q, p, p, t, v, v])#, default=v)
+    rgb[..., 1] = xp.select(conditions, [v, v, v, q, p, p, t])#, default=t)
+    rgb[..., 2] = xp.select(conditions, [v, p, t, v, v, q, p])#, default=p)
     return rgb.astype('uint8')
 
-def complex2rgb(u, amplitudeScalingFactor=1):
+def complex2rgb(u, amplitudeScalingFactor=1, force_numpy=True):
     """
     Preparation function for a complex plot, converting a 2D complex array into an rgb array
     :param u: a 2D complex array
@@ -40,22 +44,41 @@ def complex2rgb(u, amplitudeScalingFactor=1):
     """
     # hue (normalize angle)
     # if u is on the GPU, remove it as we can toss it now.
-    u = asNumpyArray(u)
-    h = np.angle(u)
+    xp = getArrayModule(u)
+    #u = asNumpyArray(u)
+    h = xp.angle(u)
     h = (h + np.pi) / (2 * np.pi)
     # saturation  (ones)
-    s = np.ones_like(h)
+    s = xp.ones_like(h)
     # value (normalize brightness to 8-bit)
-    v = np.abs(u)
-    if amplitudeScalingFactor!=1:
+    v = xp.abs(u)
+    if amplitudeScalingFactor == '2sigma':
+        ASF = v.mean() + 2 * np.std(v)
+        ASF = ASF / v.max()
+    else:
+        ASF = amplitudeScalingFactor
+    if ASF!=1:
         v[v>amplitudeScalingFactor*np.max(v)] = amplitudeScalingFactor*np.max(v)
-    v = v / (np.max(v) + np.finfo(float).eps) * (2 ** 8-1)
+    v = v / (xp.max(v) + xp.finfo(float).eps) * (2 ** 8-1)
 
-    hsv = np.dstack([h, s, v])
+    hsv = xp.dstack([h, s, v])
     rgb = hsv2rgb(hsv)
+    if isGpuArray(rgb) and force_numpy:
+        rgb = rgb.get()
     return rgb
 
 
+def complex2rgb_vectorized(probe):
+    """ Turn complex image into rgb for every line.
+
+    The individual images are all autoscaled, so you cannot compare them.
+    """
+    xp = getArrayModule(probe)
+    original_shape = probe.shape
+    probe = probe.reshape(-1, *probe.shape[-2:])
+    probe_rgb = xp.array([complex2rgb(p, force_numpy=False) for p in probe])
+    probe_rgb = probe_rgb.reshape(original_shape + (3,))
+    return probe_rgb
 
 def complexPlot(rgb, ax=None, pixelSize=1, axisUnit ='pixel'):
     """
@@ -194,9 +217,11 @@ def show3Dslider(A, colormap = 'diffraction'):
     :param colormap: matplotlib colormap, default, customized colormap for plotting diffraction data
     return: a pyqtgraph plot
     """
+    print(A.min(), A.max())
     app = pg.mkQApp()
     imv = pg.ImageView(view=pg.PlotItem())
     imv.setWindowTitle('Close to proceed')
+
     imv.setImage(A)
 
     # choose colormap from matplotlib colormaps

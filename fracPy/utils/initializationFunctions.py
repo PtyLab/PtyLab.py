@@ -1,10 +1,11 @@
+import logging
 import numpy as np
 from fracPy.utils.utils import circ, fft2c, ifft2c
 from matplotlib import pyplot as plt
 from scipy.ndimage import gaussian_filter
 from skimage.transform import rescale
 
-def initialProbeOrObject(shape, type_of_init, data):
+def initialProbeOrObject(shape, type_of_init, data, logger: logging.Logger=None):
     """
     Initialization objects are created for the reconstruction. Currently
     implemented:
@@ -17,7 +18,10 @@ def initialProbeOrObject(shape, type_of_init, data):
     
     :return:
     """
-    if type(type_of_init) is np.ndarray: # it has already been implemented
+    if type(type_of_init) is np.ndarray: # it has already been run
+        if logger is not None:
+            logger.warning('initialObjectOrProbe was called but the object has already '
+                        'been initialized. Skipping.')
         return type_of_init
     
     if type_of_init not in ['circ', 'rand', 'gaussian', 'ones', 'upsampled']:
@@ -28,8 +32,12 @@ def initialProbeOrObject(shape, type_of_init, data):
     
     if type_of_init == 'circ':
         try:
-            pupil = circ(data.Xp, data.Yp, data.entrancePupilDiameter)
-            return np.ones(shape) * pupil + 0.001 * np.random.rand(*shape) * pupil
+            # BUG: This only works for the probe, not for the object
+            pupil = circ(data.Xp, data.Yp, data.data.entrancePupilDiameter)
+            # soften the edges a bit
+            from scipy import ndimage
+            pupil = ndimage.gaussian_filter(pupil.astype(np.float64), 0.05*data.Xp.shape[-1])
+            return np.ones(shape, dtype=np.complex64) * pupil + 0.001 * np.random.rand(*shape)
         
         except AttributeError as e:
             raise AttributeError(e, 'probe/aperture/entrancePupilDiameter was not defined')
