@@ -10,10 +10,11 @@ import numpy as np
 
 
 class OPRP_storage:
-    def __init__(self, N_probes=5, correct_position=True):
+    def __init__(self, N_probes=5, correct_position=False):
         self.logger = logging.getLogger('OPRP')
         self.N_probes = N_probes
         self.correct_position = correct_position
+        self.disabled = False
 
     def clear(self):
         """Use this when the probe is changed, for instance number of probe modes is changed"""
@@ -22,6 +23,9 @@ class OPRP_storage:
                 delattr(self, name)
 
     def push(self, probe, index, N_positions):
+        if self.disabled:
+            self._last_probe = probe
+            return
         self.xp = getArrayModule(probe)
 
         probe = probe * self.xp.exp(-1j * self.xp.angle(probe.sum()))
@@ -41,6 +45,9 @@ class OPRP_storage:
         self.probe_indices[index] = True
 
     def tsvd(self):
+        if self.disabled:
+            self.logger.info('Running TSVD while disabled. Not doing anything')
+            return
         self.logger.info('Running TSVD')
         if not np.all(self.probe_indices == True):
             indices = self.xp.argwhere(self.probe_indices)
@@ -71,6 +78,8 @@ class OPRP_storage:
 
          If the particular index has not been given yet,
          or tsvd has not been run yet, return the averaged probe that we measured so far. """
+        if self.disabled:
+            return self._last_probe
         if not hasattr(self, 'A'):
             # tsvd has not been run yet, return the averaged probe
             return self.probes[self.probe_indices].mean(axis=0).reshape(self.original_probe_shape)
@@ -136,3 +145,11 @@ class OPRP_storage:
             cmass = np.array(ndimage.center_of_mass(abs(probe)**2))
 
             print(i, cmass - np.array(probe.shape)/2 + 1 )
+
+    def disable(self):
+        self.disabled = True
+        if hasattr(self, 'probes'):
+            delattr(self, 'probes')
+
+    def enable(self):
+        self.disabled = False

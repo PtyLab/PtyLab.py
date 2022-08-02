@@ -76,6 +76,8 @@ class Reconstruction(object):
         self.data = data
         self.params = params
         self.probe_storage = OPRP_storage(self.params.OPRP_nmodes)
+        if not self.params.OPRP:
+            self.probe_storage.disable()
         self.copyAttributesFromExperiment(data)
         self.computeParameters()
         self.initializeSettings()
