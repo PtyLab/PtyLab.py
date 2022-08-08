@@ -62,7 +62,7 @@ def scaledASP(u, z, wavelength, dx, dq, bandlimit = True, exactSolution = False)
     Q2 = np.exp(-1.j * np.pi**2 * 2 * z / m / k * fsq)
 
     if bandlimit:
-        if m is not 1:
+        if m != 1:
             r1sq_max = wavelength*z/(2*dx*(1-m))
             Wr = np.array(circ(X1, Y1, 2 * r1sq_max))
             Q1 = Q1*Wr
