@@ -41,7 +41,7 @@ class aPIE(BaseEngine):
 
     def initializeReconstructionParams(self):
         """
-        Set parameters that are specific to the ePIE settings.
+        Set parameters that are specific to the aPIE settings.
         :return:
         """
         self.betaProbe = 0.25
@@ -54,10 +54,12 @@ class aPIE(BaseEngine):
             self.reconstruction.thetaMomentum = 0
         if not hasattr(self.reconstruction, 'thetaHistory'):
             self.reconstruction.thetaHistory = np.array([])
+        if not hasattr(self.experimentalData, 'ptychogram_bk'):
+            self.experimentalData.ptychogram_bk = self.experimentalData.ptychogram.copy()
 
         self.thetaSearchRadiusMin = 0.01
         self.thetaSearchRadiusMax = 0.1
-        self.ptychogramUntransformed = self.experimentalData.ptychogram.copy()
+        self.ptychogramUntransformed = self.experimentalData.ptychogram_bk.copy()
         self.experimentalData.W = np.ones_like(self.reconstruction.Xd)
 
         if self.reconstruction.theta == None:
