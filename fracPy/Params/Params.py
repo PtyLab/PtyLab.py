@@ -1,4 +1,5 @@
 import logging
+import numpy as np
 
 class Params(object):
     """
@@ -68,7 +69,6 @@ class Params(object):
         self.positionCorrectionSwitch = False  # position correction for encoder
         self.adaptiveDenoisingSwitch = False  # estimated noise floor to be clipped from raw data
 
-
-
-
-
+        # OPR params
+        self.OPR_modes = np.array([0])
+        self.n_subspace = 4

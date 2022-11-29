@@ -21,7 +21,7 @@ import tqdm
 import sys
 
 
-class OPR_new(BaseEngine):
+class OPR_TV(BaseEngine):
 
     def __init__(self, reconstruction: Reconstruction, experimentalData: ExperimentalData, params: Params, monitor: Monitor):
         # This contains reconstruction parameters that are specific to the reconstruction
@@ -40,32 +40,33 @@ class OPR_new(BaseEngine):
         self.betaProbe = 0.25
         self.betaObject = 0.25
         self.numIterations = 50
+        self.OPR_modes = self.params.OPR_modes
+        self.n_subspace = self.params.n_subspace
+        print(self.OPR_modes)
 
     def reconstruct(self):
         self._prepareReconstruction()
 
         # OPR parameters
-        self.OPR_modes = np.array([0, 1, 2, 3])
+        # self.OPR_modes = np.array([0, 1, 2, 3])
+        # self.OPR_modes = np.array([0, 1, 2, 3, 4])
         Nmodes = self.OPR_modes.shape[0]
         Np = self.reconstruction.Np
         Nframes = self.experimentalData.numFrames
         mode_slice = slice(np.min(self.OPR_modes), np.max(self.OPR_modes) + 1) 
-        n_subspace = 4 
+        n_subspace = self.n_subspace 
+        # n_subspace = 4 
         import copy
         
-        '''
-        # this version works 
-        self.reconstruction.probe_stack = cp.repeat(self.reconstruction.probe[0, 0, 0, 0, :, :, cp.newaxis], Nframes, axis=2).reshape(1, 1, Nmodes, 1, Np, Np, Nframes) 
-        '''
-
         self.reconstruction.probe_stack = cp.zeros((1, 1, Nmodes, 1, Np, Np, Nframes), dtype=cp.complex64)
+        '''
+        old version which works
         for i in self.OPR_modes:
             test = cp.repeat(self.reconstruction.probe[0, 0, i, 0, :, :, cp.newaxis], Nframes, axis=2)
             self.reconstruction.probe_stack[0, 0, i, 0, :, :, :] = copy.deepcopy(test) 
-        print('shapes')
-        print(mode_slice) 
-        print(self.reconstruction.probe_stack.shape)
-        print(self.reconstruction.probe.shape)
+        '''
+        for i in self.OPR_modes:
+            self.reconstruction.probe_stack[0, 0, i, 0, :, :, :] = cp.repeat(self.reconstruction.probe[0, 0, i, 0, :, :, cp.newaxis], Nframes, axis=2)
 
         # actual reconstruction ePIE_engine
         self.pbar = tqdm.trange(self.numIterations, desc='OPR_new', file=sys.stdout, leave=True)
@@ -85,6 +86,7 @@ class OPR_new(BaseEngine):
                 self.reconstruction.probe[:, :, mode_slice, :, :, :] = self.reconstruction.probe_stack[..., positionIndex]
 
                 # make exit surface wave
+                # make exit surface wave
                 self.reconstruction.esw = objectPatch * self.reconstruction.probe 
                 
                 # propagate to camera, intensityProjection, propagate back to object
@@ -92,9 +94,14 @@ class OPR_new(BaseEngine):
 
                 # difference term
                 DELTA = self.reconstruction.eswUpdate - self.reconstruction.esw
-
-                # object update
-                self.reconstruction.object[..., sy, sx] = self.objectPatchUpdate(objectPatch, DELTA)
+                
+                tv_freq = 5
+                tv = False
+                if loop % tv_freq == 0 and tv:
+                    self.reconstruction.object[..., sy, sx] = self.objectPatchUpdate_TV(objectPatch, DELTA)
+                else:
+                    # object update
+                    self.reconstruction.object[..., sy, sx] = self.objectPatchUpdate(objectPatch, DELTA)
                 
                 # probe update
                 self.reconstruction.probe = self.probeUpdate(objectPatch, DELTA)
@@ -105,18 +112,19 @@ class OPR_new(BaseEngine):
             # get error metric
             self.getErrorMetrics()
 
+            # added this line
+            self.orthogonalizeIncoherentModes()
+
+            neighbor_constraint = False 
+            if neighbor_constraint:
+               pass
+
             OPR_constraint = True
             if OPR_constraint:
                self.reconstruction.probe_stack = self.orthogonalizeProbeStack(self.reconstruction.probe_stack, n_subspace)
 
             # apply Constraints
             self.applyConstraints(loop)
-
-            ''' 
-            OPR_constraint = True
-            if OPR_constraint:
-               self.reconstruction.probe_stack = self.orthogonalizeProbeStack(self.reconstruction.probe_stack, 3)
-            '''
 
             # show reconstruction
             self.showReconstruction(loop)
@@ -126,38 +134,37 @@ class OPR_new(BaseEngine):
             self._move_data_to_cpu()
             self.params.gpuFlag = 0
 
+    def neighbor_contraint(self):
+    # still has to be implemented
+        for pos in range(nFrames):
+            probe = self.reconstruction.probe_stack[0, 0, :, 0, :, :, pos]
+            if pos == 0:
+                pass          
+
     def orthogonalizeIncoherentModes(self):
         nFrames = self.experimentalData.numFrames 
-        n = self.reconstructoin.Np
-        nModes = self.reconstruction.probe.shape[2]
-        print(nFrames)
-        print(n)
-        print(nModes)
+        n = self.reconstruction.Np
+        nModes = self.reconstruction.probe_stack.shape[2]
         for pos in range(nFrames):
-            probe = self.probe_stack[0, 0, :, 0, :, :, pos]
+            probe = self.reconstruction.probe_stack[0, 0, :, 0, :, :, pos]
             probe = probe.reshape(nModes, n*n)
             U, s, Vh = cp.linalg.svd(probe, full_matrices=False)
             modes = cp.dot(cp.diag(s), Vh).reshape(nModes, n, n)
-            self.probe_stack[0, 0, :, 0, :, :, pos] = modes
-            modes_cpu = modes.get() 
-            plt.figure()
-            plt.imshow(np.abs(modes[0]))
-
-            plt.figure()
-            plt.imshow(np.abs(modes[1]))
-            plt.show()
+            self.reconstruction.probe_stack[0, 0, :, 0, :, :, pos] = modes
 
     def orthogonalizeProbeStack(self, probe_stack, n_dim):
         plot_cycle = 10
         plot = False 
         n = self.reconstruction.Np
         nFrames = self.experimentalData.numFrames
+        alpha = 0.5
 
         for i in self.OPR_modes:
             # temp = cp.copy(probe_stack[:, :, i, :, :, :].reshape(n * n, nFrames)) 
             U, s, Vh = cp.linalg.svd(probe_stack[:, :, i, :, :, :].reshape(n * n, nFrames), full_matrices=False)
             s[n_dim:] = 0
-            probe_stack[:, :, i, :, :, :] = cp.dot(U, cp.dot(cp.diag(s), Vh)).reshape(n, n, nFrames) 
+            # probe_stack[:, :, i, :, :, :] = cp.dot(U, cp.dot(cp.diag(s), Vh)).reshape(n, n, nFrames) 
+            probe_stack[:, :, i, :, :, :] = alpha * probe_stack[:, :, i, :, :, :] + (1 - alpha) * cp.dot(U, cp.dot(cp.diag(s), Vh)).reshape(n, n, nFrames) 
         
         if self.it == 0 and plot:
             plt.ion()
@@ -190,6 +197,29 @@ class OPR_new(BaseEngine):
         frac = self.reconstruction.probe.conj() / xp.max(xp.sum(xp.abs(self.reconstruction.probe) ** 2, axis=(0, 1, 2, 3)))
         return objectPatch + self.betaObject * xp.sum(frac * DELTA, axis=(0,2,3), keepdims=True)
 
+    def objectPatchUpdate_TV(self, objectPatch: np.ndarray, DELTA: np.ndarray):
+        """
+        Todo add docstring
+        :param objectPatch:
+        :param DELTA:
+        :return:
+        """
+        def divergence(f):
+            xp = getArrayModule(f[0])
+            return xp.gradient(f[0], axis=(4, 5))[0] + xp.gradient(f[1], axis=(4, 5))[1]
+
+        xp = getArrayModule(objectPatch)
+        frac = self.reconstruction.probe.conj() / xp.max(xp.sum(xp.abs(self.reconstruction.probe) ** 2, axis=(0, 1, 2, 3)))
+
+        epsilon = 1e-2
+        gradient = xp.gradient(objectPatch, axis=(4, 5))
+        # norm = xp.abs(gradient[0] + gradient[1]) ** 2
+        norm = (gradient[0] + gradient[1]) ** 2
+        temp = [gradient[0] / xp.sqrt(norm + epsilon), gradient[1] / xp.sqrt(norm + epsilon)]
+        TV_update = divergence(temp) 
+        lam = self.params.TV_lam 
+        return objectPatch + self.betaObject * xp.sum(frac * DELTA, axis=(0,2,3), keepdims=True) + lam * self.betaObject * TV_update
+
     def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
         """
         Todo add docstring
@@ -214,5 +244,4 @@ class OPR_new(BaseEngine):
         xp = getArrayModule(objectPatch)
         # frac = objectPatch.conj() / xp.max(xp.sum(xp.abs(objectPatch) ** 2, axis=(0,1,2,3)))
         self.reconstruction.probe += self.betaProbe * xp.sum(objectPatch.conj() / xp.max(xp.sum(xp.abs(objectPatch) ** 2, axis=(0,1,2,3))) * DELTA, axis=(0, 1, 3), keepdims=True)
-
 

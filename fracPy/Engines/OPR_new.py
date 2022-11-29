@@ -45,6 +45,7 @@ class OPR_new(BaseEngine):
         self._prepareReconstruction()
 
         # OPR parameters
+        # self.OPR_modes = np.array([0, 1, 2, 3])
         self.OPR_modes = np.array([0, 1, 2, 3])
         Nmodes = self.OPR_modes.shape[0]
         Np = self.reconstruction.Np
@@ -53,11 +54,6 @@ class OPR_new(BaseEngine):
         n_subspace = 4 
         import copy
         
-        '''
-        # this version works 
-        self.reconstruction.probe_stack = cp.repeat(self.reconstruction.probe[0, 0, 0, 0, :, :, cp.newaxis], Nframes, axis=2).reshape(1, 1, Nmodes, 1, Np, Np, Nframes) 
-        '''
-
         self.reconstruction.probe_stack = cp.zeros((1, 1, Nmodes, 1, Np, Np, Nframes), dtype=cp.complex64)
         for i in self.OPR_modes:
             test = cp.repeat(self.reconstruction.probe[0, 0, i, 0, :, :, cp.newaxis], Nframes, axis=2)
@@ -104,8 +100,9 @@ class OPR_new(BaseEngine):
 
             # get error metric
             self.getErrorMetrics()
-
-            self.orthogonalizeIncoherentModes()
+            
+            # Orthogonalization does not seem to be necessary
+            # self.orthogonalizeIncoherentModes()
 
             OPR_constraint = True
             if OPR_constraint:
@@ -129,9 +126,13 @@ class OPR_new(BaseEngine):
             self.params.gpuFlag = 0
 
     def orthogonalizeIncoherentModes(self):
+        # This function orthogonalizes all modes
         nFrames = self.experimentalData.numFrames 
         n = self.reconstruction.Np
+        print(n)
         nModes = self.reconstruction.probe.shape[2]
+        print(nModes)
+        print(self.reconstruction.probe_stack.shape)
         for pos in range(nFrames):
             probe = self.reconstruction.probe_stack[0, 0, :, 0, :, :, pos]
             probe = probe.reshape(nModes, n*n)

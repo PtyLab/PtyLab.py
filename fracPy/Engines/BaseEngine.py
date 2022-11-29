@@ -1070,9 +1070,6 @@ class BaseEngine(object):
         if self.params.positionCorrectionSwitch:
             self.positionCorrectionUpdate()
 
-        if self.params.referenceAreaSwitch and loop <= self.params.referenceAreaStop:
-            self.enforceReferenceArea()
-
     def enforceReferenceArea(self):
         '''
         Add some nice docstring here.
