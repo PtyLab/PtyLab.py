@@ -11,4 +11,8 @@ from .multiPIE import multiPIE
 from .zPIE import zPIE
 # # for other Engines (like one you are developing but which is too specific) you can always import fracPy.Engines.<your_engine_filename>.<your_class>
 from .BaseEngine import BaseEngine
+from .ePIE_TV import ePIE_TV
+from .OPR_TV import OPR_TV
+from .refPIE import refPIE
+from .mPIE_tv import mPIE_tv 
 

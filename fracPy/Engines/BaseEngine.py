@@ -354,7 +354,7 @@ class BaseEngine(object):
         self.experimentalData._move_data_to_gpu()
 
         transfer_fields_to_gpu(self, ['probeWindow',], self.logger)# '.probeWindow = cp.array(self.probeWindow)
-
+        
         # reconstruction parameters
         # self.reconstruction.probe = cp.array(self.reconstruction.probe, cp.complex64)
         # self.reconstruction.object = cp.array(self.reconstruction.object, cp.complex64)
@@ -634,8 +634,8 @@ class BaseEngine(object):
         if self.params.fftshiftSwitch:
             self.reconstruction.ESW = xp.fft.fft2(self.reconstruction.esw, norm='ortho')
         else:
+            # self.reconstruction.ESW = xp.fft.fftshift(cupyx.scipy.fftpack.fft2(xp.fft.ifftshift(self.reconstruction.esw), plan=self.reconstruction.plan))
             self.reconstruction.ESW = xp.fft.fftshift(xp.fft.fft2(xp.fft.ifftshift(self.reconstruction.esw), norm='ortho'))
-
     def getBeamWidth(self):
         """
         Calculate probe beam width (Full width half maximum)
@@ -879,7 +879,7 @@ class BaseEngine(object):
                 self.pbar.write('estimated area overlap: %.1f %%' % (100 * self.reconstruction.areaOverlap))
                 # self.pbar.write('coherence structure:')
 
-            if self.params.positionCorrectionSwitch:
+            if self.params.positionCorrectionSwitch and True:
                 # show reconstruction
                 if (len(self.reconstruction.error) > self.startAtIteration):  # & (np.mod(loop,
                     # self.monitor.figureUpdateFrequency) == 0):
@@ -1072,6 +1072,28 @@ class BaseEngine(object):
 
         if self.params.positionCorrectionSwitch:
             self.positionCorrectionUpdate()
+
+    def enforceReferenceArea(self):
+        '''
+        Add some nice docstring here.
+        '''
+
+        if self.reconstruction.nosm > 1:
+            raise NotImplemented
+       
+        xp = getArrayModule(self.reconstruction.probe)
+
+        # mask = xp.array(self.params.mask)
+        fill_value = self.params.referenceAreaFillValue 
+        # plt.figure()
+        # plt.imshow(np.abs(self.reconstruction.object.squeeze()))
+        self.reconstruction.object = (1 - self.params.referenceAreaBeta) * self.reconstruction.object + self.params.referenceAreaBeta * xp.where(self.reconstruction.ref_mask, self.reconstruction.object, fill_value) 
+        # self.reconstruction.object = xp.where(self.reconstruction.ref_mask, self.reconstruction.object, fill_value)  
+        # ^self.reconstruction.object[mask] = fill_value
+        # import matplotlib.pyplot as pllt
+        # plt.figure()
+        # plt.imshow(np.abs(self.reconstruction.object.squeeze()))
+        # plt.show()
 
     def orthogonalization(self):
         """

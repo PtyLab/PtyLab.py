@@ -110,15 +110,32 @@ class ExperimentalData:
             attribute = str(a)
             if not isinstance(getattr(type(self), attribute, None), property):
                 setattr(self, attribute, measurementDict[a])
+            self.logger.debug(measurementDict[a]) 
             self.logger.debug('Setting %s', a)
 
         self._setData()
 
 
+    def showPositions(self):
+        '''
+        Function which shows the positions
+        '''
+        plt.figure()
+        plt.plot(self.encoder[:, 0], self.encoder[:, 1])
+        plt.show()
+
+    def reduce_positions(self, start, end):
+        '''
+        Reduced the used positions for the reconstruction run
+        '''
+        self.ptychogram = self.ptychogram[start: end]
+        self.encoder = self.encoder[start: end]
+
     def setOrientation(self, orientation):
         """
         Sets the correct orientation. This function follows the ptypy convention.
         """
+        self.logger.debug('Change orientation to %s', orientation)    
         if not isinstance(orientation, int):
             raise TypeError("Orientation value is not valid.")
         if orientation == 1:
@@ -144,8 +161,25 @@ class ExperimentalData:
             self.ptychogram = np.transpose(self.ptychogram, (0, 2, 1)) 
             self.ptychogram = np.fliplr(self.ptychogram)
             self.ptychogram = np.flipud(self.ptychogram)
+
+    def cropCenter(self, size):
+        '''
+        The parameter size corresponds to the finale size of the diffraction patterns
+        '''
+        if not isinstance(size, int):
+            raise TypeError('Crop value is not valid. Int expected')
         
+        x = self.ptychogram.shape[-1]
+        startx = x // 2 - (size // 2)
+    
+        startx += 1
+
+        self.ptychogram = self.ptychogram[..., startx: startx + size, startx: startx + size]
+        # self._setData()
+
     def _setData(self):
+
+        # self.cropCenter(256)
 
         # Set the detector coordinates
         self.Nd = self.ptychogram.shape[-1]
@@ -162,7 +196,6 @@ class ExperimentalData:
         self.energyAtPos = np.sum(abs(self.ptychogram), (-1, -2))
         # maximum probe power
         self.maxProbePower = np.sqrt(np.max(np.sum(self.ptychogram, (-1, -2))))
-
 
     def showPtychogram(self):
         """

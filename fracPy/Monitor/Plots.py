@@ -83,7 +83,7 @@ class ObjectProbeErrorPlot(object):
             self.im_probe = complexPlot(PE, ax=self.ax_probe, **kwargs)
         else:
             self.im_probe.set_data(PE)
-            if optimizable.npsm > 1:
+            if optimizable.npsm > 1 and optimizable.purityProbe == optimizable.purityProbe :
                 self.txt_purityProbe.set_text('Probe estimate\nPurity: %i' %(100*optimizable.purityProbe)+'%')
         self.im_probe.autoscale()
         
@@ -98,7 +98,7 @@ class ObjectProbeErrorPlot(object):
             self.error_metric_plot = self.ax_error_metric.plot(error_estimate, 'o-',
                                                                mfc='none')[0]
         else:
-            if len(error_estimate) > 1:
+            if len(error_estimate) > 1 and error_estimate[-1] == error_estimate[-1]:
                 self.error_metric_plot.set_data(np.arange(len(error_estimate)) + 1, error_estimate)
                 self.ax_error_metric.set_xlim(1, len(error_estimate))
                 self.ax_error_metric.set_ylim(np.min(error_estimate), np.max(error_estimate))
