@@ -228,17 +228,7 @@ class Reconstruction(object):
     # detector coordinates
     @property
     def Nd(self):
-        '''
-        if self._Nd is None:
-            self._Nd = self.data.ptychogram.shape[1]
-        return self._Nd 
-        '''
         return self.data.ptychogram.shape[1]
-    ''' 
-    @Nd.setter
-    def Nd(self, n):
-        self._Nd = n 
-    '''
 
     @property
     def xd(self):
