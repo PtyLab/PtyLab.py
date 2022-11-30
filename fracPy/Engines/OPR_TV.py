@@ -69,7 +69,7 @@ class OPR_TV(BaseEngine):
             self.reconstruction.probe_stack[0, 0, i, 0, :, :, :] = cp.repeat(self.reconstruction.probe[0, 0, i, 0, :, :, cp.newaxis], Nframes, axis=2)
 
         # actual reconstruction ePIE_engine
-        self.pbar = tqdm.trange(self.numIterations, desc='OPR_new', file=sys.stdout, leave=True)
+        self.pbar = tqdm.trange(self.numIterations, desc='OPR_TV', file=sys.stdout, leave=True)
         for loop in self.pbar:
             self.it = loop
             # set position order
@@ -113,7 +113,9 @@ class OPR_TV(BaseEngine):
             self.getErrorMetrics()
 
             # added this line
-            self.orthogonalizeIncoherentModes()
+            orthogonalize_modes = False
+            if orthogonalize_modes:
+               self.orthogonalizeIncoherentModes()
 
             neighbor_constraint = False 
             if neighbor_constraint:
