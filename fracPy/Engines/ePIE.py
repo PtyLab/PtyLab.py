@@ -71,8 +71,7 @@ class ePIE(BaseEngine):
                 self.reconstruction.object[..., sy, sx] = self.objectPatchUpdate(objectPatch, DELTA)
 
                 # probe update
-                # self.reconstruction.probe = self.probeUpdate(objectPatch, DELTA)
-                self.probeUpdate_new(objectPatch, DELTA)
+                self.reconstruction.probe = self.probeUpdate(objectPatch, DELTA)
 
             # get error metric
             self.getErrorMetrics()
@@ -115,16 +114,3 @@ class ePIE(BaseEngine):
         r = self.reconstruction.probe + self.betaProbe * xp.sum(frac * DELTA, axis=(0, 1, 3), keepdims=True)
         return r
     
-    def probeUpdate_new(self, objectPatch: np.ndarray, DELTA: np.ndarray):
-        """
-        Todo add docstring
-        :param objectPatch:
-        :param DELTA:
-        :return:
-        """
-        # find out which array module to use, numpy or cupy (or other...)
-        xp = getArrayModule(objectPatch)
-        # frac = objectPatch.conj() / xp.max(xp.sum(xp.abs(objectPatch) ** 2, axis=(0,1,2,3)))
-        self.reconstruction.probe += self.betaProbe * xp.sum(objectPatch.conj() / xp.max(xp.sum(xp.abs(objectPatch) ** 2, axis=(0,1,2,3))) * DELTA, axis=(0, 1, 3), keepdims=True)
-
-
