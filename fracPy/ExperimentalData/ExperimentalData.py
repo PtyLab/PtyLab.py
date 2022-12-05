@@ -116,6 +116,7 @@ class ExperimentalData:
                 setattr(self, attribute, measurementDict[a])
             self.logger.debug('Setting %s', a)
 
+
         self._setData()
         # last step, just to be sure that it's the last thing we do: set orientation
         # this has to be last as it can actually change the data in self.ptychogram
@@ -181,6 +182,7 @@ class ExperimentalData:
         self.energyAtPos = np.sum(abs(self.ptychogram), (-1, -2))
         # maximum probe power
         self.maxProbePower = np.sqrt(np.max(np.sum(self.ptychogram, (-1, -2))))
+
 
 
     def showPtychogram(self):

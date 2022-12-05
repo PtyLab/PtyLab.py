@@ -34,6 +34,8 @@ def initialProbeOrObject(shape, type_of_init, data, logger: logging.Logger=None)
         try:
             # BUG: This only works for the probe, not for the object
             pupil = circ(data.Xp, data.Yp, data.data.entrancePupilDiameter)
+
+                # pupil = circ(data.Xp, data.Yp, data.Xp.max()/2)
             # soften the edges a bit
             from scipy import ndimage
             pupil = ndimage.gaussian_filter(pupil.astype(np.float64), 0.05*data.Xp.shape[-1])

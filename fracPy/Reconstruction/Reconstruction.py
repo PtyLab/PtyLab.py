@@ -156,7 +156,7 @@ class Reconstruction(object):
             # CPM dxp (depending on the propagatorType, if none given, assum Fraunhofer/Fresnel)
             # self.dxp = self.wavelength * self._zo / self.Ld
             # if entrancePupilDiameter is not provided in the hdf5 file, set it to be one third of the probe FoV.
-            if isinstance(self.entrancePupilDiameter, type(None)):
+            if self.entrancePupilDiameter is None:
                 self.entrancePupilDiameter = self.Lp / 3
             # if spectralDensity is not provided in the hdf5 file, set it to be a 1d array of the wavelength
             if isinstance(self.spectralDensity, type(None)):
@@ -318,6 +318,7 @@ class Reconstruction(object):
             self.initialProbe = "circ"
             self.initialObject = "ones"
 
+
     def prepare_probe(self, i):
         """ Replace probe with the i-th TSVD estimate.
 
@@ -354,6 +355,10 @@ class Reconstruction(object):
         # self.initialGuessObject *= 1e-2
 
     def initializeProbe(self, force=False):
+        if self.data.entrancePupilDiameter is None:
+            # if it is not set, set it to something reasonable
+            self.logger.warning('entrancePupilDiameter not set. Setting to one third of the FoV of the probe.')
+            self.data.entrancePupilDiameter = self.Lp / 3
         self.logger.info("Initial probe set to %s", self.initialProbe)
         self.shape_P = (
             self.nlambda,

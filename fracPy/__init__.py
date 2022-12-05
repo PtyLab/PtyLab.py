@@ -28,6 +28,7 @@ def _easyInitializeCPM(filename, engine_function, operationMode, dummy_monitor=F
     else:
         monitor = Monitor()
     reconstruction = Reconstruction(experimentalData, params)
+
     reconstruction.initializeObjectProbe()
 
     engine = engine_function(reconstruction, experimentalData, params, monitor)
