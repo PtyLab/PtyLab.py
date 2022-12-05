@@ -1,5 +1,5 @@
 # This script contains some example of preprocessing an dataset into a hdf5 file that can be read into the
-# fracPy dataset.
+# PtyLab dataset.
 import numpy as np
 import matplotlib.pylab as plt
 import imageio

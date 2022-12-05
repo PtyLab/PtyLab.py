@@ -1,13 +1,13 @@
 import matplotlib
 
 matplotlib.use("tkagg")
-import fracPy
-from fracPy.io import getExampleDataFolder
-from fracPy import Params
-from fracPy import Monitor
-from fracPy import Reconstruction
-from fracPy import ExperimentalData
-from fracPy import Engines
+import PtyLab
+from PtyLab.io import getExampleDataFolder
+from PtyLab import Params
+from PtyLab import Monitor
+from PtyLab import Reconstruction
+from PtyLab import ExperimentalData
+from PtyLab import Engines
 import logging
 
 logging.basicConfig(level=logging.INFO)

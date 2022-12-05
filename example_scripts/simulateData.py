@@ -1,10 +1,10 @@
 # This script contains a minimum working example of how to generate data
 # todo: mention that it generates simu.hdf5
 import numpy as np
-from fracPy.utils.utils import circ, gaussian2D, cart2pol
-from fracPy.utils.scanGrids import GenerateNonUniformFermat
-from fracPy.Operators.Operators import aspw
-from fracPy.utils.visualisation import hsvplot, show3Dslider
+from PtyLab.utils.utils import circ, gaussian2D, cart2pol
+from PtyLab.utils.scanGrids import GenerateNonUniformFermat
+from PtyLab.Operators.Operators import aspw
+from PtyLab.utils.visualisation import hsvplot, show3Dslider
 import matplotlib.pylab as plt
 from scipy.signal import convolve2d
 import os
@@ -185,7 +185,7 @@ show3Dslider(np.log(ptychogram_comparison + 1))
 
 # export data
 export_data = False  # exportBool in MATLAB
-from fracPy.io import getExampleDataFolder
+from PtyLab.io import getExampleDataFolder
 
 saveFilePath = getExampleDataFolder()
 os.chdir(saveFilePath)
