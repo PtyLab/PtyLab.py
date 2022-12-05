@@ -113,14 +113,24 @@ class ExperimentalData:
             self.logger.debug('Setting %s', a)
 
         self._setData()
+        print('Setting orientation')
+        self.setOrientation(readHdf5.getOrientation(self.filename))
+        print('Setting orientation')
+
+
 
 
     def setOrientation(self, orientation):
         """
         Sets the correct orientation. This function follows the ptypy convention.
         """
+        print(f'Setting orientation to {orientation}')
+        if orientation is None:
+            return
         if not isinstance(orientation, int):
             raise TypeError("Orientation value is not valid.")
+        if orientation == 0: # don't change anything
+            pass
         if orientation == 1:
             # Invert column
             self.ptychogram = np.fliplr(self.ptychogram)
@@ -169,7 +179,7 @@ class ExperimentalData:
         show ptychogram.
         """
         xp = getArrayModule(self.ptychogram)
-        show3Dslider(xp.log10(xp.swapaxes(self.ptychogram, 1,2)+1))
+        show3Dslider(xp.log10(np.clip(xp.swapaxes(self.ptychogram, 1,2)+1, 1e-3, None)))
         print('Maximum count in ptychogram is %d'%(np.max(self.ptychogram)))  #todo: make this the title
 
     def _move_data_to_cpu(self):
