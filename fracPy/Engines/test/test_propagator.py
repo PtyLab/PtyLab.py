@@ -6,12 +6,12 @@ from fracPy.Reconstruction.Reconstruction import Reconstruction
 from fracPy.Engines import ePIE, mPIE, qNewton
 from fracPy.Monitor.Monitor import Monitor as Monitor
 
-class TestPropagator(TestCase):
 
+class TestPropagator(TestCase):
     def test_FresnelPropagator(self):
         exampleData = ExperimentalData()
-        exampleData.loadData('example:simulation_ptycho')
-        exampleData.operationMode = 'CPM'
+        exampleData.loadData("example:simulation_ptycho")
+        exampleData.operationMode = "CPM"
 
         # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
         # now create an object to hold everything we're eventually interested in
@@ -28,7 +28,7 @@ class TestPropagator(TestCase):
         # Compare mPIE to ePIE
         # ePIE_engine = ePIE.ePIE_GPU(reconstruction, experimentalData, monitor)
         ePIE_engine = ePIE.ePIE(optimizable, exampleData, monitor)
-        ePIE_engine.propagatorType = 'ASP'
+        ePIE_engine.propagatorType = "ASP"
         ePIE_engine.numIterations = 1
         ePIE_engine.reconstruct()
 
@@ -38,5 +38,6 @@ class TestPropagator(TestCase):
 
         assert_almost_equal(A, optimizable.esw)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

@@ -10,14 +10,13 @@ import os
 import h5py
 
 
-
 filePathForRead = r"D:\Du\Workshop\fracmat\lenspaper4\AVT camera (GX1920)"
 filePathForSave = r"D:\Du\Workshop\fracpy\example_data"
 # D:\Du\Workshop\fracmat\lenspaper4\AVT camera (GX1920)
 # D:/fracmat/ptyLab/lenspaper4/AVT camera (GX1920)
 os.chdir(filePathForRead)
 
-fileName = 'Lenspaper'
+fileName = "Lenspaper"
 # wavelength
 wavelength = 450e-9
 # binning
@@ -33,78 +32,87 @@ zo = 19.23e-3
 # B: camera to further side of stage (doesn't allow to bring close in transmission),
 # or other way around in reflection
 # C: objective + tube lens in transmission
-measurementMode = 'A'
+measurementMode = "A"
 # camera
-camera = 'GX'
-if camera == 'GX':
+camera = "GX"
+if camera == "GX":
     N = 1456
     M = 1456
-    dxd = 4.54e-6 * binningFactor / magfinication # effective detector pixel size is magnified by binning
-    backgroundOffset = 100 # globally subtracted from raw data (diffraction intensities), play with this value
-elif camera == 'Hamamatsu':
+    dxd = (
+        4.54e-6 * binningFactor / magfinication
+    )  # effective detector pixel size is magnified by binning
+    backgroundOffset = 100  # globally subtracted from raw data (diffraction intensities), play with this value
+elif camera == "Hamamatsu":
     N = 2**11
     M = 2**11
     dxd = 6.5e-6 * binningFactor / magfinication
     backgroundOffset = 0
 
 # number of frames is calculated automatically
-framesList = glob.glob('*'+'.tif')
+framesList = glob.glob("*" + ".tif")
 framesList.sort()
-numFrames = len(framesList)-1
+numFrames = len(framesList) - 1
 
 # read background
-dark = imageio.imread('background.tif')
+dark = imageio.imread("background.tif")
 
 # read empty beam (if available)
 
 # binning
-ptychogram = np.zeros((numFrames, N//binningFactor*padFactor, N//binningFactor*padFactor), dtype=np.float32)
+ptychogram = np.zeros(
+    (numFrames, N // binningFactor * padFactor, N // binningFactor * padFactor),
+    dtype=np.float32,
+)
 
 # read frames
 pbar = tqdm.trange(numFrames, leave=True)
 for k in pbar:
     # get file name
-    pbar.set_description('reading frame' + framesList[k])
-    temp = imageio.imread(framesList[k]).astype('float32')-dark-backgroundOffset
-    temp[temp < 0] = 0  #todo check if data type is single
+    pbar.set_description("reading frame" + framesList[k])
+    temp = imageio.imread(framesList[k]).astype("float32") - dark - backgroundOffset
+    temp[temp < 0] = 0  # todo check if data type is single
     # crop
-    temp = temp[M//2-N//2:M//2+N//2-1, M//2-N//2:M//2+N//2-1]
+    temp = temp[
+        M // 2 - N // 2 : M // 2 + N // 2 - 1, M // 2 - N // 2 : M // 2 + N // 2 - 1
+    ]
     # binning
-    temp = rescale(temp, 1/binningFactor, order=0) # order = 0 takes the nearest-neighbor
+    temp = rescale(
+        temp, 1 / binningFactor, order=0
+    )  # order = 0 takes the nearest-neighbor
     # flipping
-    if measurementMode == 'A':
+    if measurementMode == "A":
         temp = np.flipud(temp)
-    elif measurementMode == 'B':
+    elif measurementMode == "B":
         temp = np.rot90(temp, axes=(0, 1))
-    elif measurementMode == 'C':
+    elif measurementMode == "C":
         temp = np.rot90(np.flipud(temp), axes=(0, 1))
 
     # zero padding
-    ptychogram[k] = np.pad(temp, (padFactor-1)*N//binningFactor//2)
+    ptychogram[k] = np.pad(temp, (padFactor - 1) * N // binningFactor // 2)
 
 # set experimental specifications:
 entrancePupilDiameter = 1000e-6
 
 # detector coordinates
-Nd = ptychogram.shape[-1]              # number of detector pixels
-Ld = Nd * dxd                         # effective size of detector
-xd = np.arange(-Nd//2, Nd//2) * dxd   # 1D coordinates in detector plane
-Xd, Yd = np.meshgrid(xd, xd)          # 2D coordinates in detector plane
+Nd = ptychogram.shape[-1]  # number of detector pixels
+Ld = Nd * dxd  # effective size of detector
+xd = np.arange(-Nd // 2, Nd // 2) * dxd  # 1D coordinates in detector plane
+Xd, Yd = np.meshgrid(xd, xd)  # 2D coordinates in detector plane
 
 # get positions
 # get file name (this assumes there is only one text file in the raw data folder)
-positionFileName = glob.glob('*'+'.txt')[0]
+positionFileName = glob.glob("*" + ".txt")[0]
 
 # take raw data positions
-T = np.genfromtxt(positionFileName, delimiter=' ', skip_header=2)
+T = np.genfromtxt(positionFileName, delimiter=" ", skip_header=2)
 # convert to micrometer
-encoder = (T-T[0]) * 1e-6
+encoder = (T - T[0]) * 1e-6
 
 # show positions
 plt.figure(figsize=(5, 5))
-plt.plot(encoder[:, 1]* 1e6, encoder[:, 0]* 1e6, 'o-')
-plt.xlabel('(um))')
-plt.ylabel('(um))')
+plt.plot(encoder[:, 1] * 1e6, encoder[:, 0] * 1e6, "o-")
+plt.xlabel("(um))")
+plt.ylabel("(um))")
 plt.show()
 
 # export data
@@ -112,14 +120,14 @@ exportBool = True
 
 if exportBool:
     os.chdir(filePathForSave)
-    hf = h5py.File(fileName+'.hdf5', 'w')
-    hf.create_dataset('ptychogram', data=ptychogram, dtype='f')
-    hf.create_dataset('encoder', data=encoder, dtype='f')
-    hf.create_dataset('binningFactor', data=(binningFactor,), dtype='i')
-    hf.create_dataset('dxd', data=(dxd,), dtype='f')
-    hf.create_dataset('Nd', data=(Nd,), dtype='i')
-    hf.create_dataset('zo', data=(zo,), dtype='f')
-    hf.create_dataset('wavelength', data=(wavelength,), dtype='f')
-    hf.create_dataset('entrancePupilDiameter', data=(entrancePupilDiameter,), dtype='f')
+    hf = h5py.File(fileName + ".hdf5", "w")
+    hf.create_dataset("ptychogram", data=ptychogram, dtype="f")
+    hf.create_dataset("encoder", data=encoder, dtype="f")
+    hf.create_dataset("binningFactor", data=(binningFactor,), dtype="i")
+    hf.create_dataset("dxd", data=(dxd,), dtype="f")
+    hf.create_dataset("Nd", data=(Nd,), dtype="i")
+    hf.create_dataset("zo", data=(zo,), dtype="f")
+    hf.create_dataset("wavelength", data=(wavelength,), dtype="f")
+    hf.create_dataset("entrancePupilDiameter", data=(entrancePupilDiameter,), dtype="f")
     hf.close()
-    print('An hd5f file has been saved')
+    print("An hd5f file has been saved")

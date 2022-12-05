@@ -1,6 +1,7 @@
 from unittest import TestCase
 from fracPy.io import getExampleDataFolder
 
+
 class TestGet_example_data_folder(TestCase):
     def test_example_folder_exists(self):
         """
@@ -8,7 +9,10 @@ class TestGet_example_data_folder(TestCase):
         :return:
         """
         example_data_folder = getExampleDataFolder()
-        self.assertTrue(example_data_folder.exists(), 'example data folder returned does not exist on the filesystem')
+        self.assertTrue(
+            example_data_folder.exists(),
+            "example data folder returned does not exist on the filesystem",
+        )
 
     def test_simulationTiny_in_example_data(self):
         """
@@ -16,6 +20,8 @@ class TestGet_example_data_folder(TestCase):
         :return:
         """
         example_data_folder = getExampleDataFolder()
-        matlabfile = example_data_folder / 'simulationTiny.hdf5'
-        self.assertTrue(matlabfile.exists(), '`simulationTiny.hdf5` is not present in the example data folder')
-
+        matlabfile = example_data_folder / "simulationTiny.hdf5"
+        self.assertTrue(
+            matlabfile.exists(),
+            "`simulationTiny.hdf5` is not present in the example data folder",
+        )

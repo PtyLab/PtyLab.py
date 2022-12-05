@@ -6,10 +6,9 @@ from fracPy.Engines.BaseEngine import BaseEngine
 
 
 class TestBaseReconstructor(TestCase):
-
     def setUp(self) -> None:
         # For almost all reconstructor properties we need both a data and an reconstruction object.
-        self.experimentalData = ExperimentalData('test:nodata')
+        self.experimentalData = ExperimentalData("test:nodata")
         self.optimizable = Reconstruction(self.experimentalData)
         self.BR = BaseEngine(self.optimizable, self.experimentalData)
 
@@ -23,15 +22,15 @@ class TestBaseReconstructor(TestCase):
         self.assertEqual(self.BR.reconstruction, optimizable2)
 
     def test_setPositionOrder(self):
-        '''
+        """
         Make sure the position of positionIndices is set 'sequential' or 'random'
         :return:
-        '''
+        """
         pass
 
     def test_getErrorMetrics(self):
-        '''
+        """
         Dont know how to test it
         :return:
-        '''
+        """
         pass

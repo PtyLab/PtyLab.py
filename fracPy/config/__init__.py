@@ -3,7 +3,5 @@ from pathlib import Path
 
 
 def get_fracPy_folder():
-    """ Return the folder that fracPy is installed in. """
+    """Return the folder that fracPy is installed in."""
     return Path(__file__).parent.parent
-
-

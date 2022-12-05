@@ -1,16 +1,18 @@
 from unittest import TestCase
 import logging
+
 logging.basicConfig(level=logging.DEBUG)
 from numpy.testing import assert_almost_equal, assert_array_almost_equal
 
 from fracPy.FixedData.DefaultExperimentalData import ExperimentalData
 from fracPy.Reconstruction.Reconstruction import Reconstruction
 
+
 class TestOptimizable(TestCase):
     def setUp(self):
         # first, create a FixedData dataset
-        data = ExperimentalData('test:nodata')
-        #data = FixedData('example:simulation_fpm')
+        data = ExperimentalData("test:nodata")
+        # data = FixedData('example:simulation_fpm')
 
         data.wavelength = 1234
         optimizable = Reconstruction(data)
@@ -36,4 +38,3 @@ class TestOptimizable(TestCase):
         """
         self.optimizable.positions += 1
         assert_array_almost_equal(self.optimizable.positions - 1, self.data.positions)
-

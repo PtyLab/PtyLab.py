@@ -7,10 +7,12 @@ import numpy as np
 
 try:
     import cupy as cp
+
     CP_AVAILABLE = True
 except ImportError:
     CP_AVAILABLE = False
     cp = np
+
 
 def getArrayModule(*args, **kwargs):
     """
@@ -28,8 +30,10 @@ def getArrayModule(*args, **kwargs):
 
 
 def isGpuArray(ary):
-    raise NotImplementedError()
-
+    if getArrayModule(ary) is np:
+        return False
+    else:
+        return True
 
 
 def asNumpyArray(ary) -> np.ndarray:
@@ -46,18 +50,20 @@ def asNumpyArray(ary) -> np.ndarray:
         return ary
 
 
-def asCupyArray(field: np.ndarray, dtype='auto'):
-    if dtype == 'auto':
+def asCupyArray(field: np.ndarray, dtype="auto"):
+    if dtype == "auto":
         if np.isrealobj(field):
             dtype = np.float32
         elif np.iscomplexobj(field):
             dtype = np.complex64
         else:
-            raise NotImplementedError(f'Dtype {field.dtype} is not supported.')
+            raise NotImplementedError(f"Dtype {field.dtype} is not supported.")
     return cp.array(field, copy=False, dtype=dtype)
 
 
-def transfer_fields_to_gpu(self: object, fields: List[str], logger: logging.Logger, dtype='auto'):
+def transfer_fields_to_gpu(
+    self: object, fields: List[str], logger: logging.Logger, dtype="auto"
+):
     """
     Move any fields defined in fields to the CPU. Fields has to be a list of strings with field names
     :param self:
@@ -70,10 +76,14 @@ def transfer_fields_to_gpu(self: object, fields: List[str], logger: logging.Logg
         if hasattr(self, field):  # This field is defined
             # move it to the CPU
             attribute = getattr(self, field)
-            setattr(self, field, asCupyArray(attribute))
-            self.logger.debug(f'Moved {field} to GPU')
+            try:
+                setattr(self, field, asCupyArray(attribute))
+            except AttributeError:
+                self.logger.error(f"Cannot set attribute {field}")
+                raise
+            self.logger.debug(f"Moved {field} to GPU")
         else:
-            self.logger.debug(f'Skipped {field} as it is not defined')
+            self.logger.debug(f"Skipped {field} as it is not defined")
 
 
 def transfer_fields_to_cpu(self: object, fields: List[str], logger: logging.Logger):
@@ -89,6 +99,6 @@ def transfer_fields_to_cpu(self: object, fields: List[str], logger: logging.Logg
             # move it to the CPU
             attribute = getattr(self, field)
             setattr(self, field, asNumpyArray(attribute))
-            self.logger.debug(f'Moved {field} to CPU')
+            self.logger.debug(f"Moved {field} to CPU")
         else:
-            self.logger.debug(f'Skipped {field} as it is not defined')
+            self.logger.debug(f"Skipped {field} as it is not defined")

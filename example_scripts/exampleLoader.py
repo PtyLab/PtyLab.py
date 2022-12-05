@@ -12,9 +12,9 @@ from fracPy.io import readExample
 ##############################################################################
 
 
-loaderObject = ExperimentalData('example:simulation_fpm')
-#example_data_folder)
-#loaderObject.loadExample('fpm_dataset')#loadData
+loaderObject = ExperimentalData("example:simulation_fpm")
+# example_data_folder)
+# loaderObject.loadExample('fpm_dataset')#loadData
 
 plt.figure(1)
 plt.subplot(131)
@@ -26,4 +26,4 @@ plt.imshow(np.angle(loaderObject.probe))
 plt.show()
 
 plt.figure(2)
-plt.plot(loaderObject.positions[:,0], loaderObject.positions[:,1], '-o')
+plt.plot(loaderObject.positions[:, 0], loaderObject.positions[:, 1], "-o")

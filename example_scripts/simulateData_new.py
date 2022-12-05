@@ -10,7 +10,6 @@ from scipy.signal import convolve2d
 
 
 class PtySim:
-
     def __init__(self, param):
         self.wavelength = param["wavelength"]
 
@@ -24,7 +23,7 @@ class PtySim:
         self.dxp = self.wavelength * self.z0 / self.Ld
         self.Np = self.Nd
         self.Lp = self.dxp * self.Np
-        self.xp = np.arange(-self.Np//2, self.Np//2 ) * self.dxp
+        self.xp = np.arange(-self.Np // 2, self.Np // 2) * self.dxp
         self.Xp, self.Yp = np.meshgrid(self.xp, self.xp)
 
         # object coordinates
@@ -46,17 +45,30 @@ class PtySim:
         if probe_type == "simulate_focus":
             # Simulate a focused beam
             f = kwargs["f"]
-            pinhole = circ(self.Xp, self.Yp, self.Lp/2)
-            pinhole = convolve2d(pinhole, gaussian2D(5,1).astype(np.float32), mode="same")
+            pinhole = circ(self.Xp, self.Yp, self.Lp / 2)
+            pinhole = convolve2d(
+                pinhole, gaussian2D(5, 1).astype(np.float32), mode="same"
+            )
 
             probe = aspw(pinhole, 2 * f, self.wavelength, self.Lp)[0]
 
-            aperture = circ(self.Xp, self.Yp, 3 * self.Lp/4)
-            aperture = convolve2d(aperture, gaussian2D(5, 3).astype(np.float32), mode='same')
-            probe = probe * np.exp(-1.j * 2 * np.pi / self.wavelength * (self.Xp ** 2 + self.Yp ** 2) / (2 * f))\
-                    * aperture
+            aperture = circ(self.Xp, self.Yp, 3 * self.Lp / 4)
+            aperture = convolve2d(
+                aperture, gaussian2D(5, 3).astype(np.float32), mode="same"
+            )
+            probe = (
+                probe
+                * np.exp(
+                    -1.0j
+                    * 2
+                    * np.pi
+                    / self.wavelength
+                    * (self.Xp**2 + self.Yp**2)
+                    / (2 * f)
+                )
+                * aperture
+            )
             self.probe = aspw(probe, 2 * f, self.wavelength, self.Lp)[0]
-
 
         elif probe_type == "mat":
             # Load probe to simulate from a mat file
@@ -71,15 +83,17 @@ class PtySim:
                 probe = temp_r + 1j * temp_i
 
                 if not probe.shape[0] == self.d_shape:
-                    probe = utils.array_utils.crop_center(probe, self.d_shape, self.d_shape)
+                    probe = utils.array_utils.crop_center(
+                        probe, self.d_shape, self.d_shape
+                    )
 
         plt.figure(figsize=(5, 5), num=1)
         ax1 = plt.subplot(121)
         hsvplot(self.probe, ax=ax1, pixelSize=self.dxp)
-        ax1.set_title('complex probe')
+        ax1.set_title("complex probe")
         plt.subplot(122)
         plt.imshow(abs(self.probe) ** 2)
-        plt.title('probe intensity')
+        plt.title("probe intensity")
         plt.show(block=False)
 
     def init_obj(self, obj_type, **kwargs):
@@ -107,7 +121,6 @@ class PtySim:
             # plt.figure()
             # plt.imshow(sample)
 
-
         elif obj_type == "polychrom_image":
             pass
             # """
@@ -134,19 +147,22 @@ class PtySim:
             theta, rho = cart2pol(self.Xo, self.Yo)
             t = (1 + np.sign(np.sin(b * theta + 2 * np.pi * (rho / d) ** 2))) / 2
             phaseFun = 1
-            t = t * circ(self.Xo, self.Yo, self.Lo) * (1 - circ(self.Xo, self.Yo, 200 * self.dxo)) * phaseFun \
-                + circ(self.Xo, self.Yo, 130 * self.dxo)
-            obj = convolve2d(t, gaussian2D(5, 3), mode='same')  # smooth edges
+            t = t * circ(self.Xo, self.Yo, self.Lo) * (
+                1 - circ(self.Xo, self.Yo, 200 * self.dxo)
+            ) * phaseFun + circ(self.Xo, self.Yo, 130 * self.dxo)
+            obj = convolve2d(t, gaussian2D(5, 3), mode="same")  # smooth edges
             # obj_phase = np.exp(1.j*2*np.pi/wavelength*(Xo**2+Yo**2)*20)
             self.object = obj * phaseFun
 
         plt.figure(figsize=(5, 5), num=2)
         ax = plt.axes()
         hsvplot(np.squeeze(self.object), ax=ax)
-        ax.set_title('Complex Object')
+        ax.set_title("Complex Object")
         plt.show()
 
-    def init_coordinates(self, pos_spacing, pos_extent, pos_model="spiral", plot_scan_pattern=True):
+    def init_coordinates(
+        self, pos_spacing, pos_extent, pos_model="spiral", plot_scan_pattern=True
+    ):
         pass
 
     def init_spectrum(self, N_spec, **kwargs):
@@ -164,13 +180,16 @@ class PtySim:
     def export_data(self):
         pass
 
+
 if __name__ == "__main__":
 
-    phys_param = {"wavelength": 632.8e-9,
-                  "z0": 50e-3,
-                  "Nd": 2**7,
-                  "dxd": 2**11/2**7 * 4.5e-6,
-                  "No": 2**10 + 2**9}
+    phys_param = {
+        "wavelength": 632.8e-9,
+        "z0": 50e-3,
+        "Nd": 2**7,
+        "dxd": 2**11 / 2**7 * 4.5e-6,
+        "No": 2**10 + 2**9,
+    }
 
     vis_sim = PtySim(phys_param)
     vis_sim.init_probe(probe_type="simulate_focus", f=5e-3)

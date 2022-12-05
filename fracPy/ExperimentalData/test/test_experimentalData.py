@@ -6,7 +6,7 @@ from unittest import TestCase
 #         self.fail()
 #
 #     def test_load_data(self):
-            # Todo: Tomas: Please put a minimal version of your example script here
+# Todo: Tomas: Please put a minimal version of your example script here
 #         self.fail()
 #
 #     def test__checkdata(self):

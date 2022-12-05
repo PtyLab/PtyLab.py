@@ -4,11 +4,14 @@ fracPy/__init__.py
 fracPy/testall.py
 fracPy/Operators/Operators.py
 fracPy/Operators/__init__.py
+fracPy/Operators/_propagation_kernels.py
+fracPy/Operators/test_Operators.py
 fracPy/config/__init__.py
 fracPy/io/__init__.py
 fracPy/io/readExample.py
 fracPy/io/readHdf5.py
 fracPy/utils/__init__.py
+fracPy/utils/alignment.py
 fracPy/utils/gpuUtils.py
 fracPy/utils/initializationFunctions.py
 fracPy/utils/scanGrids.py

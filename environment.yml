@@ -9,3 +9,12 @@ dependencies:
   - pyqtgraph
   - tqdm
   - pytables
+  - matplotlib
+  - numpy
+  - h5py
+  # optional
+  - conda-forge::scikit-image
+  - conda-forge::scikit-learn
+  - conda-forge::cupy
+  - conda-forge::cudatoolkit=11.4
+  - conda-forge::tensorflow-cpu

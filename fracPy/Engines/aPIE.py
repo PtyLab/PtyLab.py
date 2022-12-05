@@ -8,7 +8,7 @@ from fracPy.utils.visualisation import hsvplot
 try:
     import cupy as cp
 except ImportError:
-    print('Cupy not available, will not be able to run GPU based computation')
+    print("Cupy not available, will not be able to run GPU based computation")
     # Still define the name, we'll take care of it later but in this way it's still possible
     # to see that gPIE exists for example.
     cp = None
@@ -24,20 +24,26 @@ from fracPy.Operators.Operators import aspw
 import logging
 import sys
 
+
 class aPIE(BaseEngine):
     """
     aPIE: angle correction PIE: ePIE combined with Luus-Jaakola algorithm (the latter for angle correction) + momentum
     """
 
-    def __init__(self, reconstruction: Reconstruction, experimentalData: ExperimentalData, params: Params, monitor: Monitor):
+    def __init__(
+        self,
+        reconstruction: Reconstruction,
+        experimentalData: ExperimentalData,
+        params: Params,
+        monitor: Monitor,
+    ):
         # This contains reconstruction parameters that are specific to the reconstruction
         # but not necessarily to aPIE reconstruction
         super().__init__(reconstruction, experimentalData, params, monitor)
-        self.logger = logging.getLogger('aPIE')
-        self.logger.info('Sucesfully created aPIE aPIE_engine')
-        self.logger.info('Wavelength attribute: %s', self.reconstruction.wavelength)
+        self.logger = logging.getLogger("aPIE")
+        self.logger.info("Sucesfully created aPIE aPIE_engine")
+        self.logger.info("Wavelength attribute: %s", self.reconstruction.wavelength)
         self.initializeReconstructionParams()
-
 
     def initializeReconstructionParams(self):
         """
@@ -50,9 +56,9 @@ class aPIE(BaseEngine):
         self.feedback = 0.5
         self.numIterations = 50
 
-        if not hasattr(self.reconstruction, 'thetaMomentum'):
+        if not hasattr(self.reconstruction, "thetaMomentum"):
             self.reconstruction.thetaMomentum = 0
-        if not hasattr(self.reconstruction, 'thetaHistory'):
+        if not hasattr(self.reconstruction, "thetaHistory"):
             self.reconstruction.thetaHistory = np.array([])
 
         self.thetaSearchRadiusMin = 0.01
@@ -61,7 +67,7 @@ class aPIE(BaseEngine):
         self.experimentalData.W = np.ones_like(self.reconstruction.Xd)
 
         if self.reconstruction.theta == None:
-            raise ValueError('theta value is not given')
+            raise ValueError("theta value is not given")
 
     def doReconstruction(self):
         self._prepareReconstruction()
@@ -69,27 +75,45 @@ class aPIE(BaseEngine):
         xp = getArrayModule(self.reconstruction.object)
 
         # linear search
-        thetaSearchRadiusList = np.linspace(self.thetaSearchRadiusMax, self.thetaSearchRadiusMin,
-                                            self.numIterations)
+        thetaSearchRadiusList = np.linspace(
+            self.thetaSearchRadiusMax, self.thetaSearchRadiusMin, self.numIterations
+        )
 
-        self.pbar = tqdm.trange(self.numIterations, desc='aPIE', file=sys.stdout, leave=True)
+        self.pbar = tqdm.trange(
+            self.numIterations, desc="aPIE", file=sys.stdout, leave=True
+        )
         for loop in self.pbar:
             # save theta search history
-            self.reconstruction.thetaHistory = np.append(self.reconstruction.thetaHistory, asNumpyArray(self.reconstruction.theta))
+            self.reconstruction.thetaHistory = np.append(
+                self.reconstruction.thetaHistory,
+                asNumpyArray(self.reconstruction.theta),
+            )
 
             # select two angles (todo check if three angles behave better)
-            theta = np.array([self.reconstruction.theta, self.reconstruction.theta + thetaSearchRadiusList[loop] *
-                              (-1 + 2 * np.random.rand())]) + self.reconstruction.thetaMomentum
+            theta = (
+                np.array(
+                    [
+                        self.reconstruction.theta,
+                        self.reconstruction.theta
+                        + thetaSearchRadiusList[loop] * (-1 + 2 * np.random.rand()),
+                    ]
+                )
+                + self.reconstruction.thetaMomentum
+            )
 
             # save object and probe
             probeTemp = self.reconstruction.probe.copy()
             objectTemp = self.reconstruction.object.copy()
 
             # probe and object buffer (todo maybe there's more elegant way )
-            probeBuffer = xp.zeros_like(probeTemp) # shape=(np.array([probeTemp, probeTemp])).shape)
+            probeBuffer = xp.zeros_like(
+                probeTemp
+            )  # shape=(np.array([probeTemp, probeTemp])).shape)
             probeBuffer = [probeBuffer, probeBuffer]
-            objectBuffer = xp.zeros_like(objectTemp) #, shape=(np.array([objectTemp, objectTemp])).shape)  # for polychromatic case this will need to be multimode
-            objectBuffer = [objectBuffer,objectBuffer]
+            objectBuffer = xp.zeros_like(
+                objectTemp
+            )  # , shape=(np.array([objectTemp, objectTemp])).shape)  # for polychromatic case this will need to be multimode
+            objectBuffer = [objectBuffer, objectBuffer]
             # initialize error
             errorTemp = np.zeros((2, 1))
 
@@ -97,31 +121,54 @@ class aPIE(BaseEngine):
                 self.reconstruction.probe = probeTemp
                 self.reconstruction.object = objectTemp
                 # reset ptychogram (transform into estimate coordinates)
-                Xq = T_inv(self.reconstruction.Xd, self.reconstruction.Yd, self.reconstruction.zo, theta[k]) # todo check if 1D is enough to save time
+                Xq = T_inv(
+                    self.reconstruction.Xd,
+                    self.reconstruction.Yd,
+                    self.reconstruction.zo,
+                    theta[k],
+                )  # todo check if 1D is enough to save time
                 for l in range(self.experimentalData.numFrames):
                     temp = self.ptychogramUntransformed[l]
-                    f = interp2d(self.reconstruction.xd, self.reconstruction.xd, temp, kind='linear', fill_value=0)
+                    f = interp2d(
+                        self.reconstruction.xd,
+                        self.reconstruction.xd,
+                        temp,
+                        kind="linear",
+                        fill_value=0,
+                    )
                     temp2 = abs(f(Xq[0], self.reconstruction.xd))
                     temp2 = np.nan_to_num(temp2)
                     temp2[temp2 < 0] = 0
                     self.experimentalData.ptychogram[l] = xp.array(temp2)
 
                 # renormalization(for energy conservation) # todo not layer by layer?
-                self.experimentalData.ptychogram = self.experimentalData.ptychogram / np.linalg.norm(
-                    self.experimentalData.ptychogram) * np.linalg.norm(self.ptychogramUntransformed)
+                self.experimentalData.ptychogram = (
+                    self.experimentalData.ptychogram
+                    / np.linalg.norm(self.experimentalData.ptychogram)
+                    * np.linalg.norm(self.ptychogramUntransformed)
+                )
 
                 self.experimentalData.W = np.ones_like(self.reconstruction.Xd)
-                fw = interp2d(self.reconstruction.xd, self.reconstruction.xd, self.experimentalData.W, kind='linear', fill_value=0)
+                fw = interp2d(
+                    self.reconstruction.xd,
+                    self.reconstruction.xd,
+                    self.experimentalData.W,
+                    kind="linear",
+                    fill_value=0,
+                )
                 self.experimentalData.W = abs(fw(Xq[0], self.reconstruction.xd))
                 self.experimentalData.W = np.nan_to_num(self.experimentalData.W)
                 self.experimentalData.W[self.experimentalData.W == 0] = 1e-3
                 self.experimentalData.W = xp.array(self.experimentalData.W)
 
-
                 # todo check if it is right
                 if self.params.fftshiftSwitch:
-                    self.experimentalData.ptychogram = xp.fft.ifftshift(self.experimentalData.ptychogram, axes=(-1, -2))
-                    self.experimentalData.W = xp.fft.ifftshift(self.experimentalData.W, axes=(-1, -2))
+                    self.experimentalData.ptychogram = xp.fft.ifftshift(
+                        self.experimentalData.ptychogram, axes=(-1, -2)
+                    )
+                    self.experimentalData.W = xp.fft.ifftshift(
+                        self.experimentalData.W, axes=(-1, -2)
+                    )
 
                 # set position order
                 self.setPositionOrder()
@@ -145,11 +192,12 @@ class aPIE(BaseEngine):
                     DELTA = self.reconstruction.eswUpdate - self.reconstruction.esw
 
                     # object update
-                    self.reconstruction.object[..., sy, sx] = self.objectPatchUpdate(objectPatch, DELTA)
+                    self.reconstruction.object[..., sy, sx] = self.objectPatchUpdate(
+                        objectPatch, DELTA
+                    )
 
                     # probe update
                     self.reconstruction.probe = self.probeUpdate(objectPatch, DELTA)
-
 
                 # get error metric
                 self.getErrorMetrics()
@@ -168,39 +216,60 @@ class aPIE(BaseEngine):
                 self.reconstruction.theta = theta[1]
                 self.reconstruction.probe = probeBuffer[1]
                 self.reconstruction.object = objectBuffer[1]
-                self.reconstruction.error = np.append(self.reconstruction.error, errorTemp[1])
+                self.reconstruction.error = np.append(
+                    self.reconstruction.error, errorTemp[1]
+                )
             else:
                 dtheta = 0
                 self.reconstruction.theta = theta[0]
                 self.reconstruction.probe = probeBuffer[0]
                 self.reconstruction.object = objectBuffer[0]
-                self.reconstruction.error = np.append(self.reconstruction.error, errorTemp[0])
+                self.reconstruction.error = np.append(
+                    self.reconstruction.error, errorTemp[0]
+                )
 
-            self.reconstruction.thetaMomentum = self.feedback * dtheta + self.aPIEfriction * self.reconstruction.thetaMomentum
+            self.reconstruction.thetaMomentum = (
+                self.feedback * dtheta
+                + self.aPIEfriction * self.reconstruction.thetaMomentum
+            )
             # print updated theta
-            self.pbar.set_description('aPIE: update a=%.3f deg (search radius=%.3f deg, thetaMomentum=%.3f deg)'
-                                      % (self.reconstruction.theta, thetaSearchRadiusList[loop], self.reconstruction.thetaMomentum))
+            self.pbar.set_description(
+                "aPIE: update a=%.3f deg (search radius=%.3f deg, thetaMomentum=%.3f deg)"
+                % (
+                    self.reconstruction.theta,
+                    thetaSearchRadiusList[loop],
+                    self.reconstruction.thetaMomentum,
+                )
+            )
 
             # show reconstruction
             if loop == 0:
-                figure, ax = plt.subplots(1, 1, num=777, squeeze=True, clear=True, figsize=(5, 5))
-                ax.set_title('Estimated angle')
-                ax.set_xlabel('iteration')
-                ax.set_ylabel('estimated theta [deg]')
-                ax.set_xscale('symlog')
-                line = plt.plot(0, self.reconstruction.theta, 'o-')[0]
+                figure, ax = plt.subplots(
+                    1, 1, num=777, squeeze=True, clear=True, figsize=(5, 5)
+                )
+                ax.set_title("Estimated angle")
+                ax.set_xlabel("iteration")
+                ax.set_ylabel("estimated theta [deg]")
+                ax.set_xscale("symlog")
+                line = plt.plot(0, self.reconstruction.theta, "o-")[0]
                 plt.tight_layout()
                 plt.show(block=False)
 
             elif np.mod(loop, self.monitor.figureUpdateFrequency) == 0:
-                idx = np.linspace(0, np.log10(len(self.reconstruction.thetaHistory) - 1),
-                                  np.minimum(len(self.reconstruction.thetaHistory), 100))
-                idx = np.rint(10 ** idx).astype('int')
+                idx = np.linspace(
+                    0,
+                    np.log10(len(self.reconstruction.thetaHistory) - 1),
+                    np.minimum(len(self.reconstruction.thetaHistory), 100),
+                )
+                idx = np.rint(10**idx).astype("int")
 
                 line.set_xdata(idx)
                 line.set_ydata(np.array(self.reconstruction.thetaHistory)[idx])
                 ax.set_xlim(0, np.max(idx))
-                ax.set_ylim(min(self.reconstruction.thetaHistory), max(self.reconstruction.thetaHistory))
+                ax.set_ylim(
+                    min(self.reconstruction.thetaHistory),
+                    max(self.reconstruction.thetaHistory),
+                )
 
                 figure.canvas.draw()
                 figure.canvas.flush_events()
@@ -208,12 +277,11 @@ class aPIE(BaseEngine):
             self.showReconstruction(loop)
 
         if self.params.gpuFlag:
-            self.logger.info('switch to cpu')
+            self.logger.info("switch to cpu")
             self._move_data_to_cpu()
             self.params.gpuFlag = 0
 
         # self.thetaSearchRadiusMax = thetaSearchRadiusList[loop]
-
 
     def objectPatchUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
         """
@@ -225,8 +293,12 @@ class aPIE(BaseEngine):
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
 
-        frac = self.reconstruction.probe.conj() / xp.max(xp.sum(xp.abs(self.reconstruction.probe) ** 2, axis=(0, 1, 2, 3)))
-        return objectPatch + self.betaObject * xp.sum(frac * DELTA, axis=(0, 2, 3), keepdims=True)
+        frac = self.reconstruction.probe.conj() / xp.max(
+            xp.sum(xp.abs(self.reconstruction.probe) ** 2, axis=(0, 1, 2, 3))
+        )
+        return objectPatch + self.betaObject * xp.sum(
+            frac * DELTA, axis=(0, 2, 3), keepdims=True
+        )
 
     def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
         """
@@ -237,8 +309,12 @@ class aPIE(BaseEngine):
         """
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
-        frac = objectPatch.conj() / xp.max(xp.sum(xp.abs(objectPatch) ** 2, axis=(0, 1, 2, 3)))
-        r = self.reconstruction.probe + self.betaProbe * xp.sum(frac * DELTA, axis=(0, 1, 3), keepdims=True)
+        frac = objectPatch.conj() / xp.max(
+            xp.sum(xp.abs(objectPatch) ** 2, axis=(0, 1, 2, 3))
+        )
+        r = self.reconstruction.probe + self.betaProbe * xp.sum(
+            frac * DELTA, axis=(0, 1, 3), keepdims=True
+        )
         return r
 
 
@@ -246,7 +322,7 @@ def T(x, y, z, theta):
     """
     Coordinate transformation
     """
-    r0 = np.sqrt(x ** 2 + y ** 2 + z ** 2)
+    r0 = np.sqrt(x**2 + y**2 + z**2)
     yd = y
     xd = x * np.cos(toDegree(theta)) - np.sin(toDegree(theta)) * (r0 - z)
     return xd, yd
@@ -257,12 +333,19 @@ def T_inv(xd, yd, z, theta):
     inverse coordinate transformation
     """
     if theta != 45:
-        rootTerm = np.sqrt((z * np.cos(toDegree(theta))) ** 2 + xd ** 2 + yd ** 2 * np.cos(toDegree(2 * theta)) -
-                           2 * xd * z * np.sin(toDegree(theta)))
-        x = (xd * np.cos(toDegree(theta)) - z * np.sin(toDegree(theta)) * np.cos(toDegree(theta)) +
-             np.sin(toDegree(theta)) * rootTerm) / np.cos(toDegree(2 * theta))
+        rootTerm = np.sqrt(
+            (z * np.cos(toDegree(theta))) ** 2
+            + xd**2
+            + yd**2 * np.cos(toDegree(2 * theta))
+            - 2 * xd * z * np.sin(toDegree(theta))
+        )
+        x = (
+            xd * np.cos(toDegree(theta))
+            - z * np.sin(toDegree(theta)) * np.cos(toDegree(theta))
+            + np.sin(toDegree(theta)) * rootTerm
+        ) / np.cos(toDegree(2 * theta))
     else:
-        x = (xd ** 2 - (yd ** 2) / 2 - xd * np.sqrt(2) * z) / (xd * np.sqrt(2) - z)
+        x = (xd**2 - (yd**2) / 2 - xd * np.sqrt(2) * z) / (xd * np.sqrt(2) - z)
     return x
 
 

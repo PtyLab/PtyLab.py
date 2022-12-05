@@ -1,10 +1,11 @@
 import numpy as np
 from matplotlib import pyplot as plt
+
 # fracPy imports
 try:
     import cupy as cp
 except ImportError:
-    print('Cupy not available, will not be able to run GPU based computation')
+    print("Cupy not available, will not be able to run GPU based computation")
     # Still define the name, we'll take care of it later but in this way it's still possible
     # to see that gPIE exists for example.
     cp = None
@@ -19,16 +20,22 @@ import logging
 import tqdm
 import sys
 
-class qNewton(BaseEngine):
 
-    def __init__(self, reconstruction: Reconstruction, experimentalData: ExperimentalData, params: Params, monitor: Monitor):
+class qNewton(BaseEngine):
+    def __init__(
+        self,
+        reconstruction: Reconstruction,
+        experimentalData: ExperimentalData,
+        params: Params,
+        monitor: Monitor,
+    ):
         # This contains reconstruction parameters that are specific to the reconstruction
         # but not necessarily to ePIE reconstruction
         super().__init__(reconstruction, experimentalData, params, monitor)
-        self.logger = logging.getLogger('qNewton')
-        self.logger.info('Sucesfully created qNewton qNewton_engine')
+        self.logger = logging.getLogger("qNewton")
+        self.logger.info("Sucesfully created qNewton qNewton_engine")
 
-        self.logger.info('Wavelength attribute: %s', self.reconstruction.wavelength)
+        self.logger.info("Wavelength attribute: %s", self.reconstruction.wavelength)
         self.initializeReconstructionParams()
 
     def initializeReconstructionParams(self):
@@ -45,11 +52,13 @@ class qNewton(BaseEngine):
     def reconstruct(self):
         self._prepareReconstruction()
 
-        self.pbar = tqdm.trange(self.numIterations, desc='qNewton', file=sys.stdout, leave=True)
+        self.pbar = tqdm.trange(
+            self.numIterations, desc="qNewton", file=sys.stdout, leave=True
+        )
         for loop in self.pbar:
             # set position order
             self.setPositionOrder()
-            
+
             for positionLoop, positionIndex in enumerate(self.positionIndices):
                 # get object patch
                 row, col = self.reconstruction.positions[positionIndex]
@@ -57,10 +66,10 @@ class qNewton(BaseEngine):
                 sx = slice(col, col + self.reconstruction.Np)
                 # note that object patch has size of probe array
                 objectPatch = self.reconstruction.object[..., sy, sx].copy()
-                
+
                 # make exit surface wave
                 self.reconstruction.esw = objectPatch * self.reconstruction.probe
-                
+
                 # propagate to camera, intensityProjection, propagate back to object
                 self.intensityProjection(positionIndex)
 
@@ -68,7 +77,9 @@ class qNewton(BaseEngine):
                 DELTA = self.reconstruction.eswUpdate - self.reconstruction.esw
 
                 # object update
-                self.reconstruction.object[..., sy, sx] = self.objectPatchUpdate(objectPatch, DELTA)
+                self.reconstruction.object[..., sy, sx] = self.objectPatchUpdate(
+                    objectPatch, DELTA
+                )
 
                 # probe update
                 self.reconstruction.probe = self.probeUpdate(objectPatch, DELTA)
@@ -83,22 +94,28 @@ class qNewton(BaseEngine):
             self.showReconstruction(loop)
 
         if self.params.gpuFlag:
-            self.logger.info('switch to cpu')
+            self.logger.info("switch to cpu")
             self._move_data_to_cpu()
             self.params.gpuFlag = 0
 
-            #todo clearMemory implementation
-        
+            # todo clearMemory implementation
+
     def objectPatchUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
         """
         Temporary barebones update
         """
         xp = getArrayModule(objectPatch)
         Pmax = xp.max(xp.sum(xp.abs(self.reconstruction.probe), axis=(0, 1, 2, 3)))
-        frac = xp.abs(self.reconstruction.probe) / Pmax * self.reconstruction.probe.conj() / (xp.abs(self.reconstruction.probe) ** 2 + self.regObject)
-        return objectPatch + self.betaObject * xp.sum(frac * DELTA, axis=(0,2,3), keepdims=True)
+        frac = (
+            xp.abs(self.reconstruction.probe)
+            / Pmax
+            * self.reconstruction.probe.conj()
+            / (xp.abs(self.reconstruction.probe) ** 2 + self.regObject)
+        )
+        return objectPatch + self.betaObject * xp.sum(
+            frac * DELTA, axis=(0, 2, 3), keepdims=True
+        )
 
-       
     def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
         """
         Temporary barebones update
@@ -106,6 +123,13 @@ class qNewton(BaseEngine):
         """
         xp = getArrayModule(objectPatch)
         Omax = xp.max(xp.sum(xp.abs(self.reconstruction.object), axis=(0, 1, 2, 3)))
-        frac = xp.abs(objectPatch)/Omax * objectPatch.conj() / (xp.abs(objectPatch)**2 + self.regProbe)
-        r = self.reconstruction.probe + self.betaProbe * xp.sum(frac * DELTA, axis=(0, 1, 3), keepdims=True)
+        frac = (
+            xp.abs(objectPatch)
+            / Omax
+            * objectPatch.conj()
+            / (xp.abs(objectPatch) ** 2 + self.regProbe)
+        )
+        r = self.reconstruction.probe + self.betaProbe * xp.sum(
+            frac * DELTA, axis=(0, 1, 3), keepdims=True
+        )
         return r
