@@ -18,258 +18,144 @@ ptycho data reconstructor
 change data visualization and initialization options manually for now
 """
 
-fileName = 'example:simulation_cpm'   # simu.hdf5 or Lenspaper.hdf5
-# filename = r"Preprocessedf7.hdf5"
-# filePath = Path(r"C:\Users\dbs2\Documents\projects\ptycho\sobhi") / filename
-#r";#getExampleDataFolder() / fileName
-
-
-# filePath = r'C:\Users\dbs660\PycharmProjects\ptycho_data_analysis\scripts\test.hdf5'
-# filePath = r'/home/dbs660/PycharmProjects/ptycho_data_analysis/scripts/test.hdf5'
-# filePath = r'/home/dbs660/Desktop/daniel/31012022_div_1.hdf5'
-# from fracPy.Monitor.TensorboardMonitor import TensorboardMonitor
-
+fileName = 'example:Lenspaper_cpm'   # simu.hdf5 or Lenspaper.hdf5
 
 experimentalData, reconstruction, params, monitor, ePIE_engine = fracPy.easyInitialize(fileName, operationMode='CPM')
-# experimentalData.setOrientation(5)
-# reconstruction.No *= 1.2
-reconstruction.No = int(reconstruction.No)
+# optional - use tensorboard monitor instead. To see the results, open tensorboard in the directory ./logs_tensorboard
+from fracPy.Monitor.TensorboardMonitor import TensorboardMonitor
+monitor = TensorboardMonitor()
+# set this to >1 for larger images
+monitor.downsample_everything = 2
+monitor.probe_downsampling = 1
 
-# print(experimentalData.encoder.max(), experimentalData.encoder.min())
-# random_error_max = 0.00005*0
-# reconstruction.positions
-# experimentalData.encoder += random_error_max * (np.random.random(experimentalData.encoder.shape)-0.5)
-# from fracPy import Reconstruction
-# reconstruction = Reconstruction(experimentalData, params)
-# reconstruction.copyAttributesFromExperiment(experimentalData)
-# casdcsad
+# optional - customize orientation (you usually don't need this)
+# experimentalData.setOrientation(3)
 
-# experimentalData.encoder0 -=
-# print(reconstruction.No)
-# experimentalData.zo = 20e-3
-# reconstruction.zo = experimentalData.zo
+# optional: try to reload the last probe. This can really help convergence, especially for larger probes
+reload_probe = False
+reload_object = True
 
-# monitor = TensorboardMonitor()
+# change the number of pixels in the object
+reconstruction.No = int(reconstruction.No*0.9)
+
+
+
+
+
 params.TV_autofocus = False
-params.TV_autofocus_stepsize = 10
+params.TV_autofocus_stepsize = 100
 params.TV_autofocus_intensityonly=False
+params.TV_autofocus_what = 'object'
+params.TV_autofocus_metric = 'TV'
+params.TV_autofocus_roi = [[0.3, 0.7], [0.3, 0.7]]#[[0.45, 0.5], [0.6, 0.65]]
+# optional - set the minimum and maximum propagation distance to something reasonable
+params.TV_autofocus_min_z = experimentalData.zo - 2e-2
+params.TV_autofocus_max_z = experimentalData.zo + 5e-2
 
 
-params.fftshiftFlag = False
+
+
 params.l2reg = False
 params.l2reg_probe_aleph = 1e-2
 params.l2reg_object_aleph = 1e-2
 
 
 params.positionCorrectionSwitch = False
-# show_alignment(reconstruction, experimentalData, params, ePIE_engine)
-# experimentalData.encoder = -np.fliplr(experimentalData.encoder)
-# experimentalData.ptychogram = experimentalData.ptychogram[...,::2,::2]
-# experimentalData.xd *= 2
-# from fracPy import Reconstruction
-# reconstruction: Reconstruction = Reconstruction(experimentalData, params)
-## altternative
-# experimentalData = ExperimentalData()
-# experimentalData.loadData(filePath)
-# experimentalData.operationMode = 'CPM'
-# experimentalData.showPtychogram()
-# almost worked
-# experimentalData.zo = 134.7e-3 #90e-3#80.07e-3
-# reconstruction.zo = experimentalData.zo
-
 
 # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
 # now create an object to hold everything we're eventually interested in
-reconstruction.npsm = 4 # Number of probe modes to reconstruct
+reconstruction.npsm = 1 # Number of probe modes to reconstruct
 reconstruction.nosm = 1 # Number of object modes to reconstruct
 reconstruction.nlambda = 1 # len(experimentalData.spectralDensity) # Number of wavelength
 reconstruction.nslice = 1 # Number of object slice
 
-# reconstruction.dxp = reconstruction.dxd
-
 
 reconstruction.initialProbe = 'circ'
-# reconstruction.entrancePupilDiameter = reconstruction.Np / 3 * reconstruction.dxp  # initial estimate of beam
+print(reconstruction.entrancePupilDiameter)
 reconstruction.initialObject = 'ones'
 # initialize probe and object and related Params
 reconstruction.initializeObjectProbe()
 
 # customize initial probe quadratic phase
-#reconstruction.initialProbe = reconstruction.initialProbe.astype(np.complex64)
-# reconstruction.probe *= np.exp(1.j * 2 * np.pi / (reconstruction.wavelength * reconstruction.zo*2 ) *
-#                                                     (reconstruction.Xp ** 2 + reconstruction.Yp ** 2))
+# reconstruction.initialProbe = reconstruction.initialProbe.astype(np.complex64)
+reconstruction.probe *= np.exp(1.j * 2 * np.pi / (reconstruction.wavelength * reconstruction.zo*2 ) *
+                                                    (reconstruction.Xp ** 2 + reconstruction.Yp ** 2) / 2)
 initial_probe = reconstruction.probe.copy()
+
+if reload_probe:
+    try:
+        print('reloading last probe')
+        reconstruction.load_probe('last.hdf5')
+    except (FileNotFoundError, RuntimeError):
+        print('Cannot re-use last probe')
+
+if reload_object:
+    try:
+        reconstruction.load_object('last.hdf5')
+    except (FileNotFoundError, RuntimeError):
+        print('Cannot re-use last probe')
 
 
 
 reconstruction.describe_reconstruction()
-# this will copy any attributes from experimental data that we might care to optimize
-# # Set monitor properties
-# monitor = Monitor()
-monitor.figureUpdateFrequency = 2
+
+
+monitor.figureUpdateFrequency = 1
 monitor.objectPlot = 'complex'# 'complex'  # complex abs angle
 monitor.verboseLevel = 'low'  # high: plot two figures, low: plot only one figure
-monitor.objectZoom = 0.5  # control object plot FoV
-monitor.probeZoom = 0.5   # control probe plot FoV
+monitor.objectZoom = None#0.5  # control object plot FoV
+monitor.probeZoom = None # 0.5   # control probe plot FoV
 
 # Run the reconstruction
 
 # Params = Params()
 ## main parameters
 params.positionOrder = 'random'  # 'sequential' or 'random'
-params.propagatorType = 'Fresnel'# 'Fresnel' #aunhofer'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
-params.fftshiftSwitch = True
-params.fftshiftFlag = False
+params.propagatorType = 'Fresnel'#Fresnel'# 'Fresnel' #aunhofer'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
+
 params.positionCorrectionSwitch = False
 params.modulusEnforcedProbeSwitch = False
 
-# params.objectSmoothenessSwitch = False
-# params.objectSmoothnessAleph = 1e-2
-# params.objectSmoothenessWidth = 2
-
-params.probeSmoothenessSwitch = False
+params.probeSmoothenessSwitch = True
 params.probeSmoothnessAleph = 1e-2
 params.probeSmoothenessWidth = 10
-
-
-
-## how do we want to reconstruct?
-params.gpuSwitch = True
-params.probePowerCorrectionSwitch = True
-params.comStabilizationSwitch = 3
+params.comStabilizationSwitch = 10
 params.orthogonalizationSwitch = True
+# orthogonalize every ten iterations
 params.orthogonalizationFrequency = 10
-
-params.fftshiftSwitch = True
-params.intensityConstraint = 'standard'  # standard fluctuation exponential poission
 params.absorbingProbeBoundary = False
 params.absorbingProbeBoundaryAleph = 1e-1
 
-params.objectContrastSwitch = True
+params.objectContrastSwitch = False
 params.absObjectSwitch = False
 params.backgroundModeSwitch = False
 params.couplingSwitch = True
 params.couplingAleph = 1
 params.positionCorrectionSwitch = False
+params.probePowerCorrectionSwitch = True
 
-params.OPRP = False
 
+
+## computation stuff - how do we want to reconstruct?
+params.gpuSwitch = True
+# this speeds up some propagators but not all of them are implemented
+params.fftshiftSwitch = True
+
+
+params.intensityConstraint = 'standard'  # standard fluctuation exponential poission
 
 monitor.describe_parameters(params)
 
 ## choose mqNewton engine
 mPIE = Engines.mPIE(reconstruction, experimentalData, params, monitor)
+mPIE.numIterations = 50
 
-mPIE.numIterations = 30
-mPIE.reconstruct(experimentalData, reconstruction)
+# you can now run simple scripts, such as:
+for i in range(3):
+    # turn on autofocusing and then l2 regularization, iterate both for about 50 iterations
+    params.TV_autofocus = i % 2 == 1
+    params.l2reg = i%2 == 0
 
-params.OPRP = False
-mPIE.numIterations = 30
-mPIE.reconstruct(experimentalData, reconstruction)
-mPIE.comStabilization()
-mPIE.reconstruct(experimentalData, reconstruction)
+    mPIE.reconstruct(experimentalData, reconstruction)
+    reconstruction.saveResults('last.hdf5', squeeze=False)
 
-# first get some idea
-params.TV_autofocus = False
-params.comStabilizationSwitch = False
-# mqNewton.reconstruct()
-
-np.savez('object.npz',  object=reconstruction.object, dxo=reconstruction.dxo,
-             wavelength=reconstruction.wavelength)
-
-
-params.comStabilizationSwitch = False
-
-mPIE.numIterations = 15
-mPIE.reconstruct()
-np.savez('object.npz',  object=reconstruction.object, dxo=reconstruction.dxo,
-             wavelength=reconstruction.wavelength)
-
-# now try to focus
-params.TV_autofocus = False
-mPIE.numIterations = 100
-params.comStabilizationSwitch = False
-for i in range(100):
-    mPIE.reconstruct()
-    np.savez('object.npz', object=reconstruction.object, dxo=reconstruction.dxo,
-             wavelength=reconstruction.wavelength)
-#
-#
-#
-# #
-# # ## choose ePIE engine
-# # ePIE = Engines.ePIE(reconstruction, experimentalData, params, monitor)
-# # ePIE.numIterations = 5
-# # ePIE.betaProbe = 0.25
-# # ePIE.betaObject = 0.25
-# # ePIE.reconstruct()
-# #
-# # # ## choose mPIE engine
-# mPIE = Engines.mPIE(reconstruction, experimentalData, params, monitor)
-#
-# mPIE.numIterations = 100
-# mPIE.betaProbe = 0.25
-# mPIE.betaObject = 0.25
-# # mPIE.reconstruct()
-# # #
-# # ## choose zPIE engine
-# zPIE = Engines.zPIE(reconstruction, experimentalData, params, monitor)
-# zPIE.focusObject = True
-# zPIE.numIterations = 30
-# params.l2reg = False
-# zPIE.betaProbe = 0.0
-# zPIE.betaObject = 0.25
-# zPIE.zPIEgradientStepSize = .5  # gradient step size for axial position correction (typical range [1, 100])
-# # zPIE.reconstruct()
-#
-# params.l2reg = False
-# # zPIE.reconstruct()
-# params.l2reg = True
-#
-#
-# pcPIE = Engines.pcPIE(reconstruction, experimentalData, params, monitor)
-# # mPIE = Engines.mPIE(reconstruction, experimentalData, params, monitor)
-#
-#
-# zPIE.numIterations = 500
-# mqNewton.numIterations = 150
-# pcPIE.numIterations = 150
-#
-#
-# params.positionCorrectionSwitch = True
-#
-#
-# # pcPIE.reconstruct()
-#
-# pcPIE.reconstruct()
-#
-#
-# for i in range(5):
-#     # reconstruction.probe = reconstruction.initialGuessProbe.copy()
-#     if i % 3 == 1:
-#         params.comStabilizationSwitch = True
-#     else:
-#         params.comStabilizationSwitch = False
-#
-#
-#     # zPIE.reconstruct(reconstruction=reconstruction)
-#     mqNewton.reconstruct()
-#     # params.l2reg = False
-#     # zPIE.reconstruct()
-#     # params.l2reg = True
-#     pcPIE.reconstruct()
-#
-#
-#     # reconstruction.saveResults(f'reconstruction_{i}.hdf5', squeeze=True)
-#
-# reconstruction.saveResults('final_run_before_PC', squeeze=True)
-#
-# pcPIE.numIterations = 300
-# pcPIE.reconstruct()
-# mqNewton.reconstruct(experimentalData)
-#
-# reconstruction.saveResults('final_run_after_PC', squeeze=True)
-#
-#
-# # now save the data
-#
