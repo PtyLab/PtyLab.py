@@ -1,7 +1,7 @@
-from fracPy.utils.utils import circ, gaussian2D, cart2pol
-from fracPy.utils.scanGrids import GenerateNonUniformFermat
-from fracPy.Operators.Operators import aspw
-from fracPy.utils.visualisation import hsvplot, show3Dslider
+from PtyLab.utils.utils import circ, gaussian2D, cart2pol
+from PtyLab.utils.scanGrids import GenerateNonUniformFermat
+from PtyLab.Operators.Operators import aspw
+from PtyLab.utils.visualisation import hsvplot, show3Dslider
 import h5py
 import matplotlib.pyplot as plt
 import numpy as np

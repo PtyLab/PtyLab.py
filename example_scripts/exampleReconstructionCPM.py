@@ -2,12 +2,12 @@ from pathlib import Path
 
 import matplotlib
 
-from fracPy.Engines.BaseEngine import smooth_amplitude
+from PtyLab.Engines.BaseEngine import smooth_amplitude
 
 matplotlib.use("tkagg")
-import fracPy
-from fracPy.io import getExampleDataFolder
-from fracPy import Engines
+import PtyLab
+from PtyLab.io import getExampleDataFolder
+from PtyLab import Engines
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -21,11 +21,11 @@ change data visualization and initialization options manually for now
 
 fileName = "example:Lenspaper_cpm"  # simu.hdf5 or Lenspaper.hdf5
 
-experimentalData, reconstruction, params, monitor, ePIE_engine = fracPy.easyInitialize(
+experimentalData, reconstruction, params, monitor, ePIE_engine = PtyLab.easyInitialize(
     fileName, operationMode="CPM"
 )
 # optional - use tensorboard monitor instead. To see the results, open tensorboard in the directory ./logs_tensorboard
-from fracPy.Monitor.TensorboardMonitor import TensorboardMonitor
+from PtyLab.Monitor.TensorboardMonitor import TensorboardMonitor
 
 monitor = TensorboardMonitor()
 # set this to >1 for larger images

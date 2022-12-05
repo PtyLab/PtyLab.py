@@ -8,9 +8,9 @@ try:
     matplotlib.use("tkagg")
 except:
     pass
-import fracPy
-from fracPy.io import getExampleDataFolder
-from fracPy import Engines
+import PtyLab
+from PtyLab.io import getExampleDataFolder
+from PtyLab import Engines
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -24,7 +24,7 @@ change data visualization and initialization options manually for now
 fileName = "lung_441_256x256_color_0.hdf5"  # simu.hdf5 or Lenspaper.hdf5
 # filePath = getExampleDataFolder() / fileName
 filePath = "example:simulation_fpm"
-exampleData, reconstruction, params, monitor, engine, calib = fracPy.easyInitialize(
+exampleData, reconstruction, params, monitor, engine, calib = PtyLab.easyInitialize(
     filePath, operationMode="FPM"
 )
 
