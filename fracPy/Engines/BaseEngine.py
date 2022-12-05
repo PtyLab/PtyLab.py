@@ -13,35 +13,44 @@ from fracPy.Params.Params import Params
 from fracPy.utils.utils import ifft2c, fft2c, orthogonalizeModes, circ
 from fracPy.Monitor.Monitor import Monitor
 from matplotlib import pyplot as plt
-# from fracPy.utils.utils import smooth_amplitude
-# Dirty hack to get running
-try:
-    from cupyx.scipy.ndimage import fourier_gaussian as fourier_gaussian_gpu
-except ImportError:
-    print('cupy unavailable')
-from scipy.ndimage import fourier_gaussian as fourier_gaussian_cpu
-# smooth_amplitude = lambda x, *args: x
-# from ..Operators.Operators import FT, IFT
 try:
     import cupy as cp
-
+    from cupyx.scipy.ndimage import fourier_gaussian as fourier_gaussian_gpu
 except ImportError:
-    print("Cupy not installed")
-    cp = None
+    from scipy.ndimage import fourier_gaussian as fourier_gaussian_gpu
+from scipy.ndimage import fourier_gaussian as fourier_gaussian_cpu
 
-try:
-    from skimage.transform import rescale
-except ImportError:
-    print("Skimage not installed")
 
-def smooth_amplitude(field, width, aleph):
-    print('smoothing amp')
+def smooth_amplitude(field: np.ndarray, width: float, aleph: float, amplitude_only: bool=True):
+    """
+    Smooth the amplitude of a field. Optional phase can be smoothed as well.
+    Parameters
+    ----------
+    field
+    width
+    aleph
+    amplitude_only
+
+    Returns
+    -------
+
+    """
     xp = getArrayModule(field)
     smooth_fun = isGpuArray(field) and fourier_gaussian_gpu or fourier_gaussian_cpu
-    F_field = xp.fft.fft2(field)
+    gimmel = 1e-5
+    if amplitude_only:
+        ph_field = field / (xp.abs(field) + gimmel)
+        A_field = abs(field)
+    else:
+        ph_field = 1
+        A_field = field
+    F_field = xp.fft.fft2(A_field)
     for ax in [-2, -1]:
         F_field = smooth_fun(F_field, width, axis=ax)
     field_smooth = xp.fft.ifft2(F_field)
+
+    if amplitude_only:
+        field_smooth = abs(field_smooth) * ph_field
     return aleph*field_smooth + (1-aleph)*field
 
 
@@ -181,7 +190,7 @@ class BaseEngine(object):
         Set object/probe ROI for monitoring
         """
         if not hasattr(self.monitor, 'objectROI') or update:
-            if self.monitor.objectZoom == 'full':
+            if self.monitor.objectZoom == 'full' or self.monitor.objectZoom is None:
                 self.monitor.objectROI = [slice(None,None,None), slice(None, None, None)]
             else:
                 rx, ry = ((np.max(self.reconstruction.positions, axis=0) - np.min(self.reconstruction.positions, axis=0) \
@@ -195,7 +204,7 @@ class BaseEngine(object):
                                                     min(self.reconstruction.No, xc + rx // 2))]
 
         if not hasattr(self.monitor, 'probeROI') or update:
-            if self.monitor.probeZoom == 'full':
+            if self.monitor.probeZoom == 'full' or self.monitor.probeZoom is None:
                 self.monitor.probeROI = [slice(None, None), slice(None, None)]
             else:
                 r = int(self.experimentalData.entrancePupilDiameter / self.reconstruction.dxp / self.monitor.probeZoom)

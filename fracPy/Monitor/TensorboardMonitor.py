@@ -40,7 +40,7 @@ class TensorboardMonitor(AbstractMonitor):
     # maximum number of object state mixtures we want to show
     max_nosm = 10
     # remove any phase slant from the object
-    center_angle_object = True
+    center_angle_object = False
     # Turn on to show the FFT of the object. Usually not useful.
     show_farfield_object = False
 

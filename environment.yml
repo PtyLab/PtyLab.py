@@ -12,9 +12,9 @@ dependencies:
   - matplotlib
   - numpy
   - h5py
+  # optional
   - conda-forge::scikit-image
   - conda-forge::scikit-learn
   - conda-forge::cupy
   - conda-forge::cudatoolkit=11.4
-  # optional
-  - conda-forge::tensorflow
+  - conda-forge::tensorflow-cpu

@@ -381,6 +381,50 @@ class Reconstruction(object):
     def initializeProbeMomentum(self):
         self.probeMomentum = np.zeros_like(self.initialGuessProbe)
 
+    def load_object(self, filename):
+        """
+        Load the object from a previous reconstruction
+
+        Parameters
+        ----------
+        filename: .hdf5 file
+            Filenamne of the reconstruction whose object should be loaded.
+
+        Returns
+        -------
+
+        """
+        with h5py.File(filename, "r") as archive:
+            obj = np.array(archive['object'])
+            obj = obj[:self.shape_O[0], :self.shape_O[1], :self.shape_O[2], :self.shape_O[3], :self.shape_O[4], :self.shape_O[5]]
+            if np.all(np.array(obj.shape) == np.array(self.shape_O)):
+                self.object = obj
+            else:
+                raise RuntimeError(f'Shape of saved probe cannot be extended to shape of required probe. File: {archive["object"].shape}. Need: {self.shape_O}')
+
+
+    def load_probe(self, filename):
+        """
+        Load the probe from a previous reconstruction.
+
+        Parameters
+        ----------
+        filename: .hdf5 file
+            The filename of the reconstruction whose probe should be loaded.
+
+        Returns
+        -------
+
+        """
+        with h5py.File(filename, "r") as archive:
+            probe = np.array(archive['probe'])
+            probe = probe[:self.nlambda, :1, :self.npsm, :self.nslice, :int(self.Np), :int(self.Np)]
+            if np.all(np.array(probe.shape) == np.array(self.shape_P)):
+                self.probe = probe
+            else:
+                raise RuntimeError(f'Shape of saved probe cannot be extended to shape of required probe. File: {archive["probe"].shape}. Need: {self.shape_P}')
+
+
     def load(self, filename):
         """Load the results given by saveResults. """
         with h5py.File(filename, "r") as archive:
@@ -659,6 +703,14 @@ class Reconstruction(object):
         d = params.TV_autofocus_range_dof
         dz = np.linspace(-1, 1, 11) * d * self.DoF
 
+        if params.TV_autofocus_what == 'object':
+            field = self.object[self.nlambda//2,0,0, self.nslice//2,:,:]
+        elif params.TV_autofocus_what == 'probe':
+            field = self.probe[self.nlambda//2, 0, 0, self.nslice//2,:,:]
+        else:
+            raise NotImplementedError(f'So far, only object and probe are valid options for params.T_autofocus_what. Got {params.TV_autofocus_what}')
+
+
         ss = params.TV_autofocus_roi
         if isinstance(ss, list):
             # semi-smart way to set up an AOI.
@@ -667,15 +719,15 @@ class Reconstruction(object):
             if ss.ndim == 1:
                 ss = np.repeat(ss[None], axis=0, repeats=2)
 
-            N = self.object.shape[-1]
+            N = field.shape[-1]
             sy, sx = [slice(int(s[0] * N), int(s[1] * N)) for s in ss]
         else:
             sy, sx = ss, ss
 
         merit, OEs = TV_at(
-            self.object,
+            field,
             dz,
-            self.dxo,
+            self.dxo, # same as dxp
             self.wavelength,
             (sy, sx),
             intensity_only=self.params.TV_autofocus_intensityonly,
@@ -689,20 +741,6 @@ class Reconstruction(object):
         self.zo += self.zMomentum
         end_time = time.time()
         self.logger.info(f"TV autofocus took {end_time-start_time} seconds")
-        # calculate the change to the probe (only works if we are using Fresnel propagation at the moment)
-        if False:  # self.params.propagatorType == 'Fresnel':
-            # the forward model is fft2c(esw * propagator_esw). In this case,
-            # if we change the propagator, a part of the probe will be off.
-            # As in general it can be quite hard to reconstruct that accurately,
-            # correct the step. The aim is that as long as the object is transparent,
-            # the expected intensity on the camera would not change
-
-            xp = getArrayModule(self.probe)
-            rr = xp.array(self.xp ** 2 + self.Yp ** 2)
-            diff_phase = -xp.pi / (self.wavelength * self._zo) * rr
-            diff_phase += xp.pi / (self.wavelength * (self._zo - self.zMomentum)) * rr
-            diff_phase = xp.exp(1j * diff_phase)
-            self.probe *= diff_phase
 
         return merit[5] / asNumpyArray(abs(self.object[..., sy, sx]).mean()), OEs[5]
 

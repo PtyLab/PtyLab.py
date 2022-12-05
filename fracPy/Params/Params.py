@@ -77,20 +77,30 @@ class Params(object):
         self.l2reg_object_aleph = 0.001
 
         # autofocusing
+        # Wether or not to perform TV autofocusing
         self.TV_autofocus = True
+        # Only look at the TV of the intensity as a focusing metric
         self.TV_autofocus_intensityonly = False
+        # stepsize
         self.TV_autofocus_stepsize = 5
+        # ???
         self.TV_autofocus_aleph = 0.01
+        # Region of interest. Can either be in pixels or in a fraction of No/ Np
         self.TV_autofocus_roi = [0.4, 0.6]
+        # Propagation range in depths of focus
         self.TV_autofocus_range_dof = 11
+        # Friction ot the step algorithm
         self.TV_autofocus_friction = 0.7
+        # Shat to focus, can be either 'object' or 'probe'
+        self.TV_autofocus_what = 'object'
         # only run every run_every iterations
         self.TV_autofocus_run_every = 3
 
         # map a change in positions to a change in z. Experimental, do not use
-        self.map_position_to_z_change = True
+        self.map_position_to_z_change = False
 
-        self.OPRP = True
+        # this is not implemented at the moment
+        self.OPRP = False
         # how many modes to use
         self.OPRP_nmodes = 10
 
