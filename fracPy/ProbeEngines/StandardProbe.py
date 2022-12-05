@@ -6,7 +6,7 @@ from fracPy.utils.gpuUtils import isGpuArray, getArrayModule
 
 class LinearProbe:
     def __init__(self):
-        self.logger = logging.getLogger('SHG')
+        self.logger = logging.getLogger("SHG")
         self.probe = None
         self.probe_temp = None
 
@@ -43,22 +43,24 @@ class LinearProbe:
         self.probe = xp.roll(self.probe, (-dy, -dx), axis=(-2, -1))
         self.probe_temp = self.probe.copy()
 
+
 class SHGProbe(LinearProbe):
     def __init__(self):
         super().__init__()
-        self.logger = logging.getLogger('SHG')
-        self.probe = None # wavelength = wavelength  * self.nonlinearity
+        self.logger = logging.getLogger("SHG")
+        self.probe = None  # wavelength = wavelength  * self.nonlinearity
         self.nonlinearity = 2
 
     def clear(self):
         pass
 
     def push(self, new_probe_nonlinear, index, N_positions):
-        """ Gets the update of the nonlinear part """
+        """Gets the update of the nonlinear part"""
         if self.probe is not None:
             if isGpuArray(new_probe_nonlinear) and not isGpuArray(self.probe):
                 import cupy as cp
-                print(' Moving self.probe to GPU')
+
+                print(" Moving self.probe to GPU")
                 self.probe = cp.array(self.probe)
             else:
                 xp = getArrayModule(self.probe)
@@ -66,18 +68,17 @@ class SHGProbe(LinearProbe):
         else:
             xp = getArrayModule(new_probe_nonlinear)
 
-
         # what's actually pushed is the second harmonic. We need to update that
 
-        if self.probe is  None:
+        if self.probe is None:
             self.probe = new_probe_nonlinear * 0
         # try "newtons" method
 
         # Solve for the new estimate, and update the original estimate based on it
-        new_probe_estimate = new_probe_nonlinear ** (1./self.nonlinearity)
+        new_probe_estimate = new_probe_nonlinear ** (1.0 / self.nonlinearity)
 
         diff = new_probe_estimate - self.probe
-        self.probe += diff /(2*self.nonlinearity)
+        self.probe += diff / (2 * self.nonlinearity)
         # diff = new_probe_nonlinear - self.probe ** self.nonlinearity
         if N_positions == -1:
             print(np.linalg.norm(self.probe**self.nonlinearity - new_probe_nonlinear))
@@ -98,8 +99,7 @@ class SHGProbe(LinearProbe):
             print(xp.linalg.norm(self.get(None) - new_probe))
 
     def get(self, index):
-        return self.probe ** self.nonlinearity
+        return self.probe**self.nonlinearity
 
     def get_fundamental(self):
         return self.probe
-

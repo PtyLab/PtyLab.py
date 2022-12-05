@@ -3,8 +3,9 @@ import numpy as np
 import imageio
 from fracPy.ProbeEngines.StandardProbe import SHGProbe
 
+
 class TestSHGProbe(TestCase):
-    target = imageio.imread('imageio:camera.png').astype(np.float32)
+    target = imageio.imread("imageio:camera.png").astype(np.float32)
     target = target / np.linalg.norm(target)
     engine = SHGProbe()
     engine.probe = np.random.rand(*target.shape)

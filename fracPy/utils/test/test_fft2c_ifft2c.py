@@ -6,13 +6,14 @@ from numpy.testing import assert_almost_equal
 
 
 class TestOperators(TestCase):
-
     def test_fft2c_ifft2c(self):
         """
         Test that fft2c and ifft2c are unitary.
         :return:
         """
-        E_in = np.random.rand(5,100,100) + 1j*np.random.rand(5,100,100) -0.5 -0.5j
+        E_in = (
+            np.random.rand(5, 100, 100) + 1j * np.random.rand(5, 100, 100) - 0.5 - 0.5j
+        )
         # FFT(IFFT(x)) == x
         assert_almost_equal(ifft2c(fft2c(E_in)), E_in)
         # and vice versa
@@ -20,5 +21,5 @@ class TestOperators(TestCase):
         # assert_almost_equal(E_in, abs(E_out))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

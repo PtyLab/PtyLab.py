@@ -78,7 +78,6 @@ class Reconstruction(object):
         self.computeParameters()
         self.initializeSettings()
 
-
         # list of the fields that have to be transfered back and forth from the GPU
         self.possible_GPU_fields = [
             "probe",
@@ -106,8 +105,6 @@ class Reconstruction(object):
     #     # self._probe = new_probe
     #     # self.probe_storage.set_temporary(new_probe)
 
-
-
     def copyAttributesFromExperiment(self, data: ExperimentalData):
         """
         Copy all the attributes from the experiment that are in listOfReconstructionProperties (CPM or FPM)
@@ -130,12 +127,12 @@ class Reconstruction(object):
             self.encoder_corrected = data.encoder.copy()
 
     def reset_positioncorrection(self):
-        """ Reset the position corrections. """
+        """Reset the position corrections."""
         self.encoder_corrected = self.data.encoder.copy()
 
     @property
     def zo(self):
-        """Distance from sample to detector. Also updates all derived qualities. """
+        """Distance from sample to detector. Also updates all derived qualities."""
         return self._zo
 
     @zo.setter
@@ -170,15 +167,21 @@ class Reconstruction(object):
             # if NA is not provided in the hdf5 file, set Fourier pupil entrance diameter it to be half of the Fourier space FoV.
             # then estimate the NA from the pupil diameter in the Fourier plane
             if isinstance(self.NA, type(None)):
-                self.entrancePupilDiameter = self.Lp/2
-                self.NA = self.entrancePupilDiameter * self.wavelength / (2 * self.dxp**2 * self.Np)
+                self.entrancePupilDiameter = self.Lp / 2
+                self.NA = (
+                    self.entrancePupilDiameter
+                    * self.wavelength
+                    / (2 * self.dxp**2 * self.Np)
+                )
             else:
                 # compute the pupil radius in the Fourier plane
-                self.entrancePupilDiameter = 2 * self.dxp**2 * self.Np * self.NA / self.wavelength
+                self.entrancePupilDiameter = (
+                    2 * self.dxp**2 * self.Np * self.NA / self.wavelength
+                )
 
         # set object pixel numbers
         self.No = (
-            self.Np * 2 ** 2
+            self.Np * 2**2
         )  # unimportant but leave it here as it's required for self.positions
         # we need space for the probe as well, on both sides that would be half the probe
         range_pixels = np.max(self.positions, axis=0) - np.min(self.positions, axis=0)
@@ -277,7 +280,9 @@ class Reconstruction(object):
         p = row(*p_list)
 
         if saveit:
-            save(p,)
+            save(
+                p,
+            )
         t1 = time.time()
         print(f"Alignment display took {t1-t0} secs")
         return p
@@ -318,9 +323,8 @@ class Reconstruction(object):
             self.initialProbe = "circ"
             self.initialObject = "ones"
 
-
     def prepare_probe(self, i):
-        """ Replace probe with the i-th TSVD estimate.
+        """Replace probe with the i-th TSVD estimate.
 
         This function is used in OPRP
         """
@@ -357,7 +361,9 @@ class Reconstruction(object):
     def initializeProbe(self, force=False):
         if self.data.entrancePupilDiameter is None:
             # if it is not set, set it to something reasonable
-            self.logger.warning('entrancePupilDiameter not set. Setting to one third of the FoV of the probe.')
+            self.logger.warning(
+                "entrancePupilDiameter not set. Setting to one third of the FoV of the probe."
+            )
             self.data.entrancePupilDiameter = self.Lp / 3
         self.logger.info("Initial probe set to %s", self.initialProbe)
         self.shape_P = (
@@ -395,13 +401,21 @@ class Reconstruction(object):
 
         """
         with h5py.File(filename, "r") as archive:
-            obj = np.array(archive['object'])
-            obj = obj[:self.shape_O[0], :self.shape_O[1], :self.shape_O[2], :self.shape_O[3], :self.shape_O[4], :self.shape_O[5]]
+            obj = np.array(archive["object"])
+            obj = obj[
+                : self.shape_O[0],
+                : self.shape_O[1],
+                : self.shape_O[2],
+                : self.shape_O[3],
+                : self.shape_O[4],
+                : self.shape_O[5],
+            ]
             if np.all(np.array(obj.shape) == np.array(self.shape_O)):
                 self.object = obj
             else:
-                raise RuntimeError(f'Shape of saved probe cannot be extended to shape of required probe. File: {archive["object"].shape}. Need: {self.shape_O}')
-
+                raise RuntimeError(
+                    f'Shape of saved probe cannot be extended to shape of required probe. File: {archive["object"].shape}. Need: {self.shape_O}'
+                )
 
     def load_probe(self, filename, expand_npsm=False):
         """
@@ -417,16 +431,24 @@ class Reconstruction(object):
 
         """
         with h5py.File(filename, "r") as archive:
-            probe = np.array(archive['probe'])
-            probe = probe[:self.nlambda, :1, :self.npsm, :self.nslice, :int(self.Np), :int(self.Np)]
+            probe = np.array(archive["probe"])
+            probe = probe[
+                : self.nlambda,
+                :1,
+                : self.npsm,
+                : self.nslice,
+                : int(self.Np),
+                : int(self.Np),
+            ]
             if np.all(np.array(probe.shape) == np.array(self.shape_P)):
                 self.probe = probe
             else:
-                raise RuntimeError(f'Shape of saved probe cannot be extended to shape of required probe. File: {archive["probe"].shape}. Need: {self.shape_P}')
-
+                raise RuntimeError(
+                    f'Shape of saved probe cannot be extended to shape of required probe. File: {archive["probe"].shape}. Need: {self.shape_P}'
+                )
 
     def load(self, filename):
-        """Load the results given by saveResults. """
+        """Load the results given by saveResults."""
         with h5py.File(filename, "r") as archive:
 
             self.probe = np.array(archive["probe"])
@@ -467,14 +489,10 @@ class Reconstruction(object):
         else:
             squeezefun = np.squeeze
         if type == "all":
-            if self.data.operationMode == 'CPM':
+            if self.data.operationMode == "CPM":
                 hf = h5py.File(fileName, "w")
-                hf.create_dataset(
-                    "probe", data=self.probe, dtype="complex64"
-                )
-                hf.create_dataset(
-                    "object", data=self.object, dtype="complex64"
-                )
+                hf.create_dataset("probe", data=self.probe, dtype="complex64")
+                hf.create_dataset("object", data=self.object, dtype="complex64")
                 hf.create_dataset("error", data=self.error, dtype="f")
                 hf.create_dataset("zo", data=self._zo, dtype="f")
                 hf.create_dataset("wavelength", data=self.wavelength, dtype="f")
@@ -483,16 +501,16 @@ class Reconstruction(object):
                 hf.create_dataset("purityObject", data=self.purityObject, dtype="f")
                 if hasattr(self, "theta"):
                     if self.theta != None:
-                        hf.create_dataset("theta", data=self.theta, dtype='f')
+                        hf.create_dataset("theta", data=self.theta, dtype="f")
 
-            if self.data.operationMode == 'FPM':
-                hf = h5py.File(fileName, 'w')
-                hf.create_dataset('probe', data=self.probe, dtype='complex64')
-                hf.create_dataset('object', data=self.object, dtype='complex64')
-                hf.create_dataset('error', data=self.error, dtype='f')
-                hf.create_dataset('zled', data=self.zled, dtype='f')
-                hf.create_dataset('wavelength', data=self.wavelength, dtype='f')
-                hf.create_dataset('dxp', data=self.dxp, dtype="f")
+            if self.data.operationMode == "FPM":
+                hf = h5py.File(fileName, "w")
+                hf.create_dataset("probe", data=self.probe, dtype="complex64")
+                hf.create_dataset("object", data=self.object, dtype="complex64")
+                hf.create_dataset("error", data=self.error, dtype="f")
+                hf.create_dataset("zled", data=self.zled, dtype="f")
+                hf.create_dataset("wavelength", data=self.wavelength, dtype="f")
+                hf.create_dataset("dxp", data=self.dxp, dtype="f")
         elif type == "probe":
             with h5py.File(fileName, "w") as hf:
                 hf.create_dataset(
@@ -512,24 +530,24 @@ class Reconstruction(object):
 
     @property
     def xd(self):
-        """ Detector coordinates 1D """
+        """Detector coordinates 1D"""
         return np.linspace(-self.Nd / 2, self.Nd / 2, np.int(self.Nd)) * self.dxd
 
     @property
     def Xd(self):
-        """ Detector coordinates 2D """
+        """Detector coordinates 2D"""
         Xd, Yd = np.meshgrid(self.xd, self.xd)
         return Xd
 
     @property
     def Yd(self):
-        """ Detector coordinates 2D """
+        """Detector coordinates 2D"""
         Xd, Yd = np.meshgrid(self.xd, self.xd)
         return Yd
 
     @property
     def Ld(self):
-        """ Detector size in SI units. """
+        """Detector size in SI units."""
         return self.Nd * self.dxd
 
     # probe coordinates
@@ -541,13 +559,13 @@ class Reconstruction(object):
 
     @property
     def Lp(self):
-        """ probe size in SI units """
+        """probe size in SI units"""
         Lp = self.Np * self.dxp
         return Lp
 
     @property
     def xp(self):
-        """ Probe coordinates 1D """
+        """Probe coordinates 1D"""
         try:
             return np.linspace(-self.Np / 2, self.Np / 2, int(self.Np)) * self.dxp
         except AttributeError as e:
@@ -557,31 +575,31 @@ class Reconstruction(object):
 
     @property
     def Xp(self):
-        """ Probe coordinates 2D """
+        """Probe coordinates 2D"""
         Xp, Yp = np.meshgrid(self.xp, self.xp)
         return Xp
 
     @property
     def Yp(self):
-        """ Probe coordinates 2D """
+        """Probe coordinates 2D"""
         Xp, Yp = np.meshgrid(self.xp, self.xp)
         return Yp
 
     # Object coordinates
     @property
     def dxo(self):
-        """ object pixel size, always equal to probe pixel size."""
+        """object pixel size, always equal to probe pixel size."""
         dxo = self.dxp
         return dxo
 
     @property
     def Lo(self):
-        """ Field of view (entrance pupil plane) """
+        """Field of view (entrance pupil plane)"""
         return self.No * self.dxo
 
     @property
     def xo(self):
-        """ object coordinates 1D """
+        """object coordinates 1D"""
         try:
             return np.linspace(-self.No / 2, self.No / 2, np.int(self.No)) * self.dxo
         except AttributeError as e:
@@ -591,13 +609,13 @@ class Reconstruction(object):
 
     @property
     def Xo(self):
-        """ Object coordinates 2D """
+        """Object coordinates 2D"""
         Xo, Yo = np.meshgrid(self.xo, self.xo)
         return Xo
 
     @property
     def Yo(self):
-        """ Object coordinates 2D """
+        """Object coordinates 2D"""
         Xo, Yo = np.meshgrid(self.xo, self.xo)
         return Yo
 
@@ -624,7 +642,7 @@ class Reconstruction(object):
                 / np.sqrt(
                     self.encoder_corrected[:, 0] ** 2
                     + self.encoder[:, 1] ** 2
-                    + self.zled ** 2
+                    + self.zled**2
                 )[..., None]
             )
         else:
@@ -635,14 +653,14 @@ class Reconstruction(object):
     # system property list
     @property
     def NAd(self):
-        """ Detection NA"""
+        """Detection NA"""
         NAd = self.Ld / (2 * self.zo)
         return NAd
 
     @property
     def DoF(self):
         """expected Depth of field"""
-        DoF = self.wavelength / self.NAd ** 2
+        DoF = self.wavelength / self.NAd**2
         return DoF
 
     def _move_data_to_cpu(self):
@@ -682,7 +700,7 @@ class Reconstruction(object):
 
     @property
     def quadraticPhase(self):
-        """ These functions are cached internally in Python and therefore no longer required. """
+        """These functions are cached internally in Python and therefore no longer required."""
         raise NotImplementedError("Quadratic phase is no longer cached. ")
 
     @property
@@ -699,9 +717,9 @@ class Reconstruction(object):
 
     def TV_autofocus(self, params: Params, loop):
 
-        """ Perform an autofocusing step based on optimizing the total variation.
+        """Perform an autofocusing step based on optimizing the total variation.
 
-        If not required, returns none. Otherwise, returns the value of the TV at the current z0. """
+        If not required, returns none. Otherwise, returns the value of the TV at the current z0."""
         start_time = time.time()
 
         if not params.TV_autofocus:
@@ -718,13 +736,14 @@ class Reconstruction(object):
         d = params.TV_autofocus_range_dof
         dz = np.linspace(-1, 1, 11) * d * self.DoF
 
-        if params.TV_autofocus_what == 'object':
-            field = self.object[self.nlambda//2,0,0, self.nslice//2,:,:]
-        elif params.TV_autofocus_what == 'probe':
-            field = self.probe[self.nlambda//2, 0, 0, self.nslice//2,:,:]
+        if params.TV_autofocus_what == "object":
+            field = self.object[self.nlambda // 2, 0, 0, self.nslice // 2, :, :]
+        elif params.TV_autofocus_what == "probe":
+            field = self.probe[self.nlambda // 2, 0, 0, self.nslice // 2, :, :]
         else:
-            raise NotImplementedError(f'So far, only object and probe are valid options for params.T_autofocus_what. Got {params.TV_autofocus_what}')
-
+            raise NotImplementedError(
+                f"So far, only object and probe are valid options for params.T_autofocus_what. Got {params.TV_autofocus_what}"
+            )
 
         ss = params.TV_autofocus_roi
         if isinstance(ss, list):
@@ -742,7 +761,7 @@ class Reconstruction(object):
         merit, OEs = metric_at(
             field,
             dz,
-            self.dxo, # same as dxp
+            self.dxo,  # same as dxp
             self.wavelength,
             (sy, sx),
             intensity_only=self.params.TV_autofocus_intensityonly,
@@ -755,18 +774,24 @@ class Reconstruction(object):
         self.zMomentum *= params.TV_autofocus_friction
         self.zMomentum += params.TV_autofocus_stepsize * feedback
         # now, clip it to the bounds
-        delta_z = self.zo - np.clip(self.zo + self.zMomentum, self.params.TV_autofocus_min_z, self.params.TV_autofocus_max_z)
+        delta_z = self.zo - np.clip(
+            self.zo + self.zMomentum,
+            self.params.TV_autofocus_min_z,
+            self.params.TV_autofocus_max_z,
+        )
         self.zo -= delta_z
         end_time = time.time()
-        self.logger.info(f"TV autofocus took {end_time-start_time} seconds, and moved focus by {-delta_z*1e6} micron")
+        self.logger.info(
+            f"TV autofocus took {end_time-start_time} seconds, and moved focus by {-delta_z*1e6} micron"
+        )
 
         return merit[5] / asNumpyArray(abs(self.object[..., sy, sx]).mean()), OEs[5]
 
     def reset_TV_autofocus(self):
-        """ Reset the settings of TV autofocus. Can be useful to reset the memory effect if the steps are getting really large. """
+        """Reset the settings of TV autofocus. Can be useful to reset the memory effect if the steps are getting really large."""
         self.zMomentum = 0
 
     @property
     def TV(self):
-        """ Return the TV of the object """
+        """Return the TV of the object"""
         return TV(self.object, 1e-2)

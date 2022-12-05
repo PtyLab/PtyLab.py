@@ -3,11 +3,12 @@ from functools import lru_cache
 try:
     import cupy as cp
 except ImportError:
-    print('Cupy unavailable')
+    print("Cupy unavailable")
 import numpy as np
 
 # from fracPy.Operators.Operators import cache_size
 cache_size = 30
+
 
 @lru_cache(maxsize=cache_size)
 def __make_quad_phase(zo, wavelength, Np, dxp, on_gpu):
@@ -26,9 +27,8 @@ def __make_quad_phase(zo, wavelength, Np, dxp, on_gpu):
     else:
         xp = np
 
-    x_p = xp.linspace(-Np/2, Np/2, int(Np))*dxp
+    x_p = xp.linspace(-Np / 2, Np / 2, int(Np)) * dxp
     Xp, Yp = xp.meshgrid(x_p, x_p)
 
-    quadraticPhase = xp.exp(1.j * xp.pi / (wavelength * zo)
-                                  * (Xp ** 2 + Yp ** 2))
+    quadraticPhase = xp.exp(1.0j * xp.pi / (wavelength * zo) * (Xp**2 + Yp**2))
     return quadraticPhase

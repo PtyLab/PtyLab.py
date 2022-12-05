@@ -14,7 +14,10 @@ from fracPy.Engines.BaseEngine import BaseEngine
 VISUAL_TESTS = False
 
 
-@unittest.skipUnless(VISUAL_TESTS, 'Visual tests are disabled by default. To turn them on, set VISUAL_TESTS to true')
+@unittest.skipUnless(
+    VISUAL_TESTS,
+    "Visual tests are disabled by default. To turn them on, set VISUAL_TESTS to true",
+)
 class TestMatplotlib_monitor(TestCase):
     def setUp(self):
         self.monitor = ObjectProbeErrorPlot()
@@ -31,11 +34,14 @@ class TestMatplotlib_monitor(TestCase):
             self.monitor.drawNow()
 
 
-@unittest.skipUnless(VISUAL_TESTS, 'Visual tests are disabled by default. To turn them on, set VISUAL_TESTS to true')
+@unittest.skipUnless(
+    VISUAL_TESTS,
+    "Visual tests are disabled by default. To turn them on, set VISUAL_TESTS to true",
+)
 class TestPlotFromBaseReconstructor(TestCase):
     def setUp(self):
         # For almost all reconstructor properties we need both a data and an reconstruction object.
-        self.experimentalData = ExperimentalData('example:simulationTiny')
+        self.experimentalData = ExperimentalData("example:simulationTiny")
         self.optimizable = Reconstruction(self.experimentalData)
         self.optimizable.initializeObjectProbe()
         self.BR = BaseEngine(self.optimizable, self.experimentalData)

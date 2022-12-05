@@ -4,11 +4,12 @@ import matplotlib
 
 from fracPy.Engines.BaseEngine import smooth_amplitude
 
-matplotlib.use('tkagg')
+matplotlib.use("tkagg")
 import fracPy
 from fracPy.io import getExampleDataFolder
 from fracPy import Engines
 import logging
+
 logging.basicConfig(level=logging.INFO)
 import numpy as np
 
@@ -18,11 +19,14 @@ ptycho data reconstructor
 change data visualization and initialization options manually for now
 """
 
-fileName = 'example:Lenspaper_cpm'   # simu.hdf5 or Lenspaper.hdf5
+fileName = "example:Lenspaper_cpm"  # simu.hdf5 or Lenspaper.hdf5
 
-experimentalData, reconstruction, params, monitor, ePIE_engine = fracPy.easyInitialize(fileName, operationMode='CPM')
+experimentalData, reconstruction, params, monitor, ePIE_engine = fracPy.easyInitialize(
+    fileName, operationMode="CPM"
+)
 # optional - use tensorboard monitor instead. To see the results, open tensorboard in the directory ./logs_tensorboard
 from fracPy.Monitor.TensorboardMonitor import TensorboardMonitor
+
 monitor = TensorboardMonitor()
 # set this to >1 for larger images
 monitor.downsample_everything = 2
@@ -36,23 +40,18 @@ reload_probe = False
 reload_object = True
 
 # change the number of pixels in the object
-reconstruction.No = int(reconstruction.No*0.9)
-
-
-
+reconstruction.No = int(reconstruction.No * 0.9)
 
 
 params.TV_autofocus = False
 params.TV_autofocus_stepsize = 100
-params.TV_autofocus_intensityonly=False
-params.TV_autofocus_what = 'object'
-params.TV_autofocus_metric = 'TV'
-params.TV_autofocus_roi = [[0.3, 0.7], [0.3, 0.7]]#[[0.45, 0.5], [0.6, 0.65]]
+params.TV_autofocus_intensityonly = False
+params.TV_autofocus_what = "object"
+params.TV_autofocus_metric = "TV"
+params.TV_autofocus_roi = [[0.3, 0.7], [0.3, 0.7]]  # [[0.45, 0.5], [0.6, 0.65]]
 # optional - set the minimum and maximum propagation distance to something reasonable
 params.TV_autofocus_min_z = experimentalData.zo - 2e-2
 params.TV_autofocus_max_z = experimentalData.zo + 5e-2
-
-
 
 
 params.l2reg = False
@@ -64,54 +63,61 @@ params.positionCorrectionSwitch = False
 
 # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
 # now create an object to hold everything we're eventually interested in
-reconstruction.npsm = 1 # Number of probe modes to reconstruct
-reconstruction.nosm = 1 # Number of object modes to reconstruct
-reconstruction.nlambda = 1 # len(experimentalData.spectralDensity) # Number of wavelength
-reconstruction.nslice = 1 # Number of object slice
+reconstruction.npsm = 1  # Number of probe modes to reconstruct
+reconstruction.nosm = 1  # Number of object modes to reconstruct
+reconstruction.nlambda = (
+    1  # len(experimentalData.spectralDensity) # Number of wavelength
+)
+reconstruction.nslice = 1  # Number of object slice
 
 
-reconstruction.initialProbe = 'circ'
+reconstruction.initialProbe = "circ"
 print(reconstruction.entrancePupilDiameter)
-reconstruction.initialObject = 'ones'
+reconstruction.initialObject = "ones"
 # initialize probe and object and related Params
 reconstruction.initializeObjectProbe()
 
 # customize initial probe quadratic phase
 # reconstruction.initialProbe = reconstruction.initialProbe.astype(np.complex64)
-reconstruction.probe *= np.exp(1.j * 2 * np.pi / (reconstruction.wavelength * reconstruction.zo*2 ) *
-                                                    (reconstruction.Xp ** 2 + reconstruction.Yp ** 2) / 2)
+reconstruction.probe *= np.exp(
+    1.0j
+    * 2
+    * np.pi
+    / (reconstruction.wavelength * reconstruction.zo * 2)
+    * (reconstruction.Xp**2 + reconstruction.Yp**2)
+    / 2
+)
 initial_probe = reconstruction.probe.copy()
 
 if reload_probe:
     try:
-        print('reloading last probe')
-        reconstruction.load_probe('last.hdf5')
+        print("reloading last probe")
+        reconstruction.load_probe("last.hdf5")
     except (FileNotFoundError, RuntimeError):
-        print('Cannot re-use last probe')
+        print("Cannot re-use last probe")
 
 if reload_object:
     try:
-        reconstruction.load_object('last.hdf5')
+        reconstruction.load_object("last.hdf5")
     except (FileNotFoundError, RuntimeError):
-        print('Cannot re-use last probe')
-
+        print("Cannot re-use last probe")
 
 
 reconstruction.describe_reconstruction()
 
 
 monitor.figureUpdateFrequency = 1
-monitor.objectPlot = 'complex'# 'complex'  # complex abs angle
-monitor.verboseLevel = 'low'  # high: plot two figures, low: plot only one figure
-monitor.objectZoom = None#0.5  # control object plot FoV
-monitor.probeZoom = None # 0.5   # control probe plot FoV
+monitor.objectPlot = "complex"  # 'complex'  # complex abs angle
+monitor.verboseLevel = "low"  # high: plot two figures, low: plot only one figure
+monitor.objectZoom = None  # 0.5  # control object plot FoV
+monitor.probeZoom = None  # 0.5   # control probe plot FoV
 
 # Run the reconstruction
 
 # Params = Params()
 ## main parameters
-params.positionOrder = 'random'  # 'sequential' or 'random'
-params.propagatorType = 'Fresnel'#Fresnel'# 'Fresnel' #aunhofer'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
+params.positionOrder = "random"  # 'sequential' or 'random'
+params.propagatorType = "Fresnel"  # Fresnel'# 'Fresnel' #aunhofer'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
 
 params.positionCorrectionSwitch = False
 params.modulusEnforcedProbeSwitch = False
@@ -135,14 +141,13 @@ params.positionCorrectionSwitch = False
 params.probePowerCorrectionSwitch = True
 
 
-
 ## computation stuff - how do we want to reconstruct?
 params.gpuSwitch = True
 # this speeds up some propagators but not all of them are implemented
 params.fftshiftSwitch = True
 
 
-params.intensityConstraint = 'standard'  # standard fluctuation exponential poission
+params.intensityConstraint = "standard"  # standard fluctuation exponential poission
 
 monitor.describe_parameters(params)
 
@@ -154,8 +159,7 @@ mPIE.numIterations = 50
 for i in range(3):
     # turn on autofocusing and then l2 regularization, iterate both for about 50 iterations
     params.TV_autofocus = i % 2 == 1
-    params.l2reg = i%2 == 0
+    params.l2reg = i % 2 == 0
 
     mPIE.reconstruct(experimentalData, reconstruction)
-    reconstruction.saveResults('last.hdf5', squeeze=False)
-
+    reconstruction.saveResults("last.hdf5", squeeze=False)

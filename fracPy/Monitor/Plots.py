@@ -1,5 +1,6 @@
 from matplotlib.image import AxesImage
 import matplotlib as mpl
+
 # mpl.use('TkAgg')
 from matplotlib import pyplot as plt
 import numpy as np
@@ -7,10 +8,10 @@ from fracPy.utils import gpuUtils
 from fracPy.utils.visualisation import modeTile, complexPlot, complex2rgb
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-class ObjectProbeErrorPlot(object):
 
+class ObjectProbeErrorPlot(object):
     def __init__(self, figNum=1):
-        """ Create a monitor.
+        """Create a monitor.
 
         In principle, to use this method all you have to do is initialize the monitor and then call
 
@@ -23,10 +24,8 @@ class ObjectProbeErrorPlot(object):
         self._createFigure()
 
     def update_z(self, *args, **kwargs):
-        """ Update the sample-detector distance. Does nothing at the moment. """
+        """Update the sample-detector distance. Does nothing at the moment."""
         pass
-
-
 
     def _createFigure(self) -> None:
         """
@@ -35,75 +34,97 @@ class ObjectProbeErrorPlot(object):
         """
 
         # add an axis for the object
-        self.figure, axes = plt.subplot_mosaic("""
+        self.figure, axes = plt.subplot_mosaic(
+            """
         AA p e
-        AA P  """, num=self.figNum, figsize=(10,3), empty_sentinel=' ', constrained_layout=False)
+        AA P  """,
+            num=self.figNum,
+            figsize=(10, 3),
+            empty_sentinel=" ",
+            constrained_layout=False,
+        )
         # self.figure, axes = plt.subplots(1, 3, num=self.figNum, squeeze=False, clear=True, figsize=(10, 3))
-        self.ax_object = axes['A']
-        self.ax_probe = axes['p']
-        self.ax_probe_ff = axes['P']
-        self.ax_error_metric = axes['e']
-        self.ax_probe_ff.set_title('FF probe')
-        self.ax_probe.set_title('Probe')
+        self.ax_object = axes["A"]
+        self.ax_probe = axes["p"]
+        self.ax_probe_ff = axes["P"]
+        self.ax_error_metric = axes["e"]
+        self.ax_probe_ff.set_title("FF probe")
+        self.ax_probe.set_title("Probe")
         # self.ax_object = axes[0][0]
         # self.ax_probe = axes[0][1]
         # self.ax_error_metric = axes[0][2]
         # self.ax_object.set_title
-        self.txt_purityProbe = self.ax_probe.set_title('Probe estimate')
-        self.txt_purityObject = self.ax_object.set_title('Object estimate')
-        self.ax_error_metric.set_title('Error metric')
+        self.txt_purityProbe = self.ax_probe.set_title("Probe estimate")
+        self.txt_purityObject = self.ax_object.set_title("Object estimate")
+        self.ax_error_metric.set_title("Error metric")
         self.ax_error_metric.grid(True)
-        self.ax_error_metric.grid(b=True, which='minor', color='#999999', linestyle='-', alpha=0.2)
-        self.ax_error_metric.set_xlabel('iterations')
-        self.ax_error_metric.set_ylabel('error')
-        self.ax_error_metric.set_xscale('log')
-        self.ax_error_metric.set_yscale('log')
-        self.ax_error_metric.axis('image')
+        self.ax_error_metric.grid(
+            b=True, which="minor", color="#999999", linestyle="-", alpha=0.2
+        )
+        self.ax_error_metric.set_xlabel("iterations")
+        self.ax_error_metric.set_ylabel("error")
+        self.ax_error_metric.set_xscale("log")
+        self.ax_error_metric.set_yscale("log")
+        self.ax_error_metric.axis("image")
         self.figure.tight_layout()
         self.firstrun = True
 
-
-    def updateObject(self, object_estimate, optimizable, objectPlot, amplitudeScalingFactor=1, **kwargs):
+    def updateObject(
+        self,
+        object_estimate,
+        optimizable,
+        objectPlot,
+        amplitudeScalingFactor=1,
+        **kwargs
+    ):
         OE = modeTile(object_estimate, normalize=True)
-        if objectPlot == 'complex':
+        if objectPlot == "complex":
             OE = complex2rgb(OE, amplitudeScalingFactor=amplitudeScalingFactor)
 
-        elif objectPlot == 'abs':
+        elif objectPlot == "abs":
             # original
-            #OE = OE / abs(OE).max()
+            # OE = OE / abs(OE).max()
             # better
             AOE = abs(OE)
             OE = OE / (AOE.mean() + np.std(AOE))
-            #OE = OE / abs(OE.max())
+            # OE = OE / abs(OE.max())
             OE = abs(OE)
-        elif objectPlot == 'angle':
+        elif objectPlot == "angle":
             OE = np.angle(OE)
 
         if self.firstrun:
-            if objectPlot == 'complex':
+            if objectPlot == "complex":
                 self.im_object = complexPlot(OE, ax=self.ax_object, **kwargs)
             else:
                 self.im_object = self.ax_object.imshow(OE, interpolation=None)
                 divider = make_axes_locatable(self.ax_object)
                 cax = divider.append_axes("right", size="5%", pad=0.1)
-                self.objectCbar = plt.colorbar(self.im_object, ax=self.ax_object, cax=cax)
+                self.objectCbar = plt.colorbar(
+                    self.im_object, ax=self.ax_object, cax=cax
+                )
         else:
             self.im_object.set_data(OE)
-            if optimizable.nosm >1:
-                self.txt_purityObject.set_text('Object estimate\nPurity: %i' % (100 * optimizable.purityObject) + '%')
-
-
+            if optimizable.nosm > 1:
+                self.txt_purityObject.set_text(
+                    "Object estimate\nPurity: %i" % (100 * optimizable.purityObject)
+                    + "%"
+                )
 
         self.im_object.autoscale()
 
-    def updateProbe(self, probe_estimate, optimizable, amplitudeScalingFactor=1, **kwargs):
+    def updateProbe(
+        self, probe_estimate, optimizable, amplitudeScalingFactor=1, **kwargs
+    ):
 
         from fracPy.Operators.Operators import fft2c
+
         probe_estimate_ff = fft2c(probe_estimate)
         PE_ff = complex2rgb(modeTile(probe_estimate_ff, normalize=True))
 
-
-        PE = complex2rgb(modeTile(probe_estimate, normalize=True), amplitudeScalingFactor=amplitudeScalingFactor)
+        PE = complex2rgb(
+            modeTile(probe_estimate, normalize=True),
+            amplitudeScalingFactor=amplitudeScalingFactor,
+        )
 
         if self.firstrun:
             self.im_probe = complexPlot(PE, ax=self.ax_probe, **kwargs)
@@ -112,9 +133,11 @@ class ObjectProbeErrorPlot(object):
             self.im_probe.set_data(PE)
             self.im_probe_ff.set_data(PE_ff)
             if optimizable.npsm > 1:
-                self.txt_purityProbe.set_text('Probe estimate\nPurity: %i' %(100*optimizable.purityProbe)+'%')
+                self.txt_purityProbe.set_text(
+                    "Probe estimate\nPurity: %i" % (100 * optimizable.purityProbe) + "%"
+                )
         self.im_probe.autoscale()
-        
+
     def updateError(self, error_estimate: np.ndarray) -> None:
         """
         Update the error estimate plot.
@@ -123,16 +146,22 @@ class ObjectProbeErrorPlot(object):
         """
 
         if self.firstrun:
-            self.error_metric_plot = self.ax_error_metric.plot(error_estimate, 'o-',
-                                                               mfc='none')[0]
+            self.error_metric_plot = self.ax_error_metric.plot(
+                error_estimate, "o-", mfc="none"
+            )[0]
         else:
             if len(error_estimate) > 1:
-                self.error_metric_plot.set_data(np.arange(len(error_estimate)) + 1, error_estimate)
+                self.error_metric_plot.set_data(
+                    np.arange(len(error_estimate)) + 1, error_estimate
+                )
                 self.ax_error_metric.set_xlim(1, len(error_estimate))
-                self.ax_error_metric.set_ylim(np.min(error_estimate), np.max(error_estimate))
-                data_aspect = (np.log(np.max(error_estimate)/np.min(error_estimate))/np.log(len(error_estimate)))
-                self.ax_error_metric.set_aspect(1/data_aspect)
-
+                self.ax_error_metric.set_ylim(
+                    np.min(error_estimate), np.max(error_estimate)
+                )
+                data_aspect = np.log(
+                    np.max(error_estimate) / np.min(error_estimate)
+                ) / np.log(len(error_estimate))
+                self.ax_error_metric.set_aspect(1 / data_aspect)
 
     def drawNow(self):
         """
@@ -151,10 +180,9 @@ class ObjectProbeErrorPlot(object):
         self.figure.canvas.flush_events()
 
 
-
 class DiffractionDataPlot(object):
     def __init__(self, figNum=2):
-        """ Create a monitor.
+        """Create a monitor.
 
         In principle, to use this method all you have to do is initialize the monitor and then call
 
@@ -173,44 +201,50 @@ class DiffractionDataPlot(object):
         """
 
         # add an axis for the object
-        self.figure, axes= plt.subplots(1, 2, num=self.figNum, squeeze=False, clear=True, figsize=(8, 3))
+        self.figure, axes = plt.subplots(
+            1, 2, num=self.figNum, squeeze=False, clear=True, figsize=(8, 3)
+        )
         self.ax_Iestimated = axes[0][0]
         self.ax_Imeasured = axes[0][1]
-        self.ax_Iestimated.set_title('Estimated intensity')
-        self.ax_Imeasured.set_title('Measured intensity')
+        self.ax_Iestimated.set_title("Estimated intensity")
+        self.ax_Imeasured.set_title("Measured intensity")
         self.figure.tight_layout()
         self.firstrun = True
 
-
-    def updateIestimated(self, Iestimate, cmap='gray',**kwargs):
+    def updateIestimated(self, Iestimate, cmap="gray", **kwargs):
         # move it to CPU if it's on the GPU
         Iestimate = gpuUtils.asNumpyArray(Iestimate)
 
         if self.firstrun:
 
-            self.im_Iestimated: AxesImage = self.ax_Iestimated.imshow(np.log10(np.squeeze(Iestimate+1)),
-                                                           cmap=cmap, interpolation=None)
+            self.im_Iestimated: AxesImage = self.ax_Iestimated.imshow(
+                np.log10(np.squeeze(Iestimate + 1)), cmap=cmap, interpolation=None
+            )
 
             divider = make_axes_locatable(self.ax_Iestimated)
             cax = divider.append_axes("right", size="5%", pad=0.1)
-            self.IestimatedCbar = plt.colorbar(self.im_Iestimated, ax=self.ax_Iestimated, cax=cax)
+            self.IestimatedCbar = plt.colorbar(
+                self.im_Iestimated, ax=self.ax_Iestimated, cax=cax
+            )
             # scale it according to I measured
 
         else:
-            self.im_Iestimated.set_data(np.log10(np.squeeze(Iestimate+1)))
+            self.im_Iestimated.set_data(np.log10(np.squeeze(Iestimate + 1)))
         # self.im_Iestimated.autoscale()
-        #self.im_Iestimated.set_
+        # self.im_Iestimated.set_
 
-
-    def updateImeasured(self, Imeasured, cmap='gray', **kwargs):
+    def updateImeasured(self, Imeasured, cmap="gray", **kwargs):
         Imeasured = gpuUtils.asNumpyArray(Imeasured)
         if self.firstrun:
-            self.im_Imeasured: AxesImage = self.ax_Imeasured.imshow(np.log10(np.squeeze(Imeasured + 1)),
-                                                         cmap=cmap, interpolation=None)
+            self.im_Imeasured: AxesImage = self.ax_Imeasured.imshow(
+                np.log10(np.squeeze(Imeasured + 1)), cmap=cmap, interpolation=None
+            )
 
             divider = make_axes_locatable(self.ax_Imeasured)
             cax = divider.append_axes("right", size="5%", pad=0.1)
-            self.ImeasuredCbar = plt.colorbar(self.im_Imeasured, ax=self.ax_Imeasured, cax=cax)
+            self.ImeasuredCbar = plt.colorbar(
+                self.im_Imeasured, ax=self.ax_Imeasured, cax=cax
+            )
 
         else:
             self.im_Imeasured.set_data(np.log10(np.squeeze(Imeasured + 1)))
@@ -233,13 +267,12 @@ class DiffractionDataPlot(object):
         self.figure.canvas.flush_events()
 
     def update_view(self, Iestimated, Imeasured, cmap):
-        """ Update the I measured and I estimated and make sure that the colormaps have the same limits"""
+        """Update the I measured and I estimated and make sure that the colormaps have the same limits"""
         self.updateImeasured(Imeasured, cmap=cmap)
         self.updateIestimated(Iestimated, cmap=cmap)
         self._equalize_contrast()
 
     def _equalize_contrast(self):
-        """ Adopt the contrast limits from the measured data and apply them to the predicted """
+        """Adopt the contrast limits from the measured data and apply them to the predicted"""
         clims = self.im_Imeasured.get_clim()
         self.im_Iestimated.set_clim(*clims)
-

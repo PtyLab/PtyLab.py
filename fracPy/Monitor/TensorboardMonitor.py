@@ -48,7 +48,7 @@ class TensorboardMonitor(AbstractMonitor):
     probe_downsampling = 2
 
     # downsample all images by the same amount to make it run a bit faster
-    downsample_everything=1
+    downsample_everything = 1
 
     def __init__(self, logdir="./logs_tensorboard", name=None):
         super(AbstractMonitor).__init__()
@@ -64,16 +64,21 @@ class TensorboardMonitor(AbstractMonitor):
 
     # These are the codes that have to be implemented
 
-    def updatePlot(self, object_estimate, probe_estimate, highres=True, zo=None,
-                   encoder_positions=None):
+    def updatePlot(
+        self,
+        object_estimate,
+        probe_estimate,
+        highres=True,
+        zo=None,
+        encoder_positions=None,
+    ):
         self.i += 1
 
         if not highres:
             Np = probe_estimate.shape[-1]
             No = object_estimate.shape[-1]
-            xmax, ymax = np.clip(encoder_positions.max(axis=0) + 2*Np//3,0, No)
-            xmin, ymin = np.clip(encoder_positions.min(axis=0) + Np//3, 0, No)
-
+            xmax, ymax = np.clip(encoder_positions.max(axis=0) + 2 * Np // 3, 0, No)
+            xmin, ymin = np.clip(encoder_positions.min(axis=0) + Np // 3, 0, No)
 
             probe_estimate = probe_estimate[..., ::4, ::4]
             object_estimate = object_estimate[..., ymin:ymax, xmin:xmax]
@@ -82,12 +87,11 @@ class TensorboardMonitor(AbstractMonitor):
         )
         self._update_object_estimate(
             object_estimate, probe_estimate_rgb, highres=highres, zo=zo
-
         )
 
     def visualize_probe_engine(self, engine):
         RGB_image = complex2rgb_vectorized(engine.get_fundamental())
-        self.__safe_upload_image('original probe', np.squeeze(RGB_image), self.i)
+        self.__safe_upload_image("original probe", np.squeeze(RGB_image), self.i)
         pass
 
     def updateObjectProbeErrorMonitor(
@@ -98,7 +102,7 @@ class TensorboardMonitor(AbstractMonitor):
         zo,
         purity_object=None,
         purity_probe=None,
-            encoder_positions=None,
+        encoder_positions=None,
         *args,
         **kwargs,
     ):
@@ -108,18 +112,21 @@ class TensorboardMonitor(AbstractMonitor):
         # In the last case, we only want the last value.
         # or just a number. This part should account of all of them.
         if encoder_positions is None:
-            raise ValueError('Please submit encoder positions or the code won\'t work.')
+            raise ValueError("Please submit encoder positions or the code won't work.")
         self._update_error_estimate(error)
 
-        self.updatePlot(object_estimate, probe_estimate, highres=self.i % 5 == 0,
-                        encoder_positions=encoder_positions,
-                        zo=zo)
+        self.updatePlot(
+            object_estimate,
+            probe_estimate,
+            highres=self.i % 5 == 0,
+            encoder_positions=encoder_positions,
+            zo=zo,
+        )
 
         self.update_z(zo)
         self.update_purities(asNumpyArray(purity_probe), asNumpyArray(purity_object))
 
     def updateDiffractionDataMonitor(self, Iestimated, Imeasured):
-
 
         Itotal = np.hstack([Iestimated, Imeasured])
         Itotal = Itotal[None, ..., None]
@@ -140,16 +147,28 @@ class TensorboardMonitor(AbstractMonitor):
 
     def update_focusing_metric(self, TV_value, AOI_image, metric_name):
         if TV_value is not None:
-            self.__safe_upload_scalar(f'Autofocus {metric_name}', TV_value, self.i, 'Total Variation of the object')
+            self.__safe_upload_scalar(
+                f"Autofocus {metric_name}",
+                TV_value,
+                self.i,
+                "Total Variation of the object",
+            )
         if AOI_image is not None:
             # print(AOI_image)
 
-            self.__smart_upload_image_couldbecomplex(f'Autofocus {metric_name} AOI', AOI_image, self.i, 1, 'AOI used by autofocus')
-
-
+            self.__smart_upload_image_couldbecomplex(
+                f"Autofocus {metric_name} AOI",
+                AOI_image,
+                self.i,
+                1,
+                "AOI used by autofocus",
+            )
 
     def update_encoder(
-        self, corrected_positions: np.ndarray, original_positions: np.ndarray, scaling: float = 1.
+        self,
+        corrected_positions: np.ndarray,
+        original_positions: np.ndarray,
+        scaling: float = 1.0,
     ) -> None:
         """
         Update the stage position images.
@@ -162,13 +181,12 @@ class TensorboardMonitor(AbstractMonitor):
         corrected_positions = corrected_positions
         original_positions = original_positions
         # set them to mean 0
-        corrected_positions = corrected_positions - corrected_positions.mean(axis=0, keepdims=True)
+        corrected_positions = corrected_positions - corrected_positions.mean(
+            axis=0, keepdims=True
+        )
         original_positions = original_positions - original_positions.mean(
             axis=0, keepdims=True
         )
-
-
-
 
         import matplotlib
         import io
@@ -195,9 +213,16 @@ class TensorboardMonitor(AbstractMonitor):
             figsize=(10, 5),
         )
 
-        meandiff = np.mean(abs(1e6*corrected_positions - 1e6*original_positions) ** 2)
+        meandiff = np.mean(
+            abs(1e6 * corrected_positions - 1e6 * original_positions) ** 2
+        )
 
-        self.__safe_upload_scalar('mean position displacement in micron', meandiff, self.i, 'mean absolute displacement')
+        self.__safe_upload_scalar(
+            "mean position displacement in micron",
+            meandiff,
+            self.i,
+            "mean absolute displacement",
+        )
 
         axes["O"].set_title("Original positions")
         axes["N"].set_title("Updatred positions")
@@ -223,15 +248,23 @@ class TensorboardMonitor(AbstractMonitor):
 
         # plot the new one in the middle image
         axes["N"].scatter(
-            corrected_positions[:, 0], corrected_positions[:, 1], color="C1", marker="x", label="new"
+            corrected_positions[:, 0],
+            corrected_positions[:, 1],
+            color="C1",
+            marker="x",
+            label="new",
         )
         # scaled version on the right (should only show displacement, not magnification)
         diff = corrected_positions - original_positions
-        axes['S'].quiver(original_positions[:,0], original_positions[:,1],
-                         diff[:,0], diff[:,1], angles='xy', units='xy',
-                         scale=1
-                         )
-
+        axes["S"].quiver(
+            original_positions[:, 0],
+            original_positions[:, 1],
+            diff[:, 0],
+            diff[:, 1],
+            angles="xy",
+            units="xy",
+            scale=1,
+        )
 
         buf = io.BytesIO()
         fig.savefig(buf, format="png", dpi=300)
@@ -242,11 +275,13 @@ class TensorboardMonitor(AbstractMonitor):
             img = np.expand_dims(img, 0)
             tfs.image("position correction", img, self.i)
 
-
     # internal use for tensorboardMonitor
     def _update_object_estimate(
-        self, object_estimate, probe_estimate_rgb, highres=True,
-            zo=None,
+        self,
+        object_estimate,
+        probe_estimate_rgb,
+        highres=True,
+        zo=None,
     ):
         """
         Update the object estimate. This ensures that within the web interface the object and the probe estimate are available.
@@ -296,7 +331,7 @@ class TensorboardMonitor(AbstractMonitor):
         self.__safe_upload_image(tag, object_estimate_rgb, self.i, self.max_npsm)
 
         if highres:
-            I_object = abs(object_estimate ** 2)
+            I_object = abs(object_estimate**2)
 
             std_obj = I_object.std()
             mean_obj = I_object.mean()
@@ -323,23 +358,23 @@ class TensorboardMonitor(AbstractMonitor):
                 "I object estimate", I_object, self.i, self.max_nosm
             )
 
-
             self.__safe_upload_image(
                 "I object log estimate", logI.astype(np.uint8), self.i, self.max_nosm
             )
             self.save_intensities = False
             if self.save_intensities:
-                p = Path('./intensities')
+                p = Path("./intensities")
                 p.mkdir(exist_ok=True)
 
                 import matplotlib.pyplot as plt
+
                 plt.clf()
                 im = plt.imshow(I_object)
                 plt.colorbar(im)
                 if zo is not None:
-                    plt.title(f'z = {zo*1e3:.3f} mm')
-                plt.savefig(f'intensities/{self.i}.png')
-                plt.savefig(f'intensities/AAA.png')
+                    plt.title(f"z = {zo*1e3:.3f} mm")
+                plt.savefig(f"intensities/{self.i}.png")
+                plt.savefig(f"intensities/AAA.png")
 
     def _update_probe_estimate(self, probe_estimate, highres=True):
         # first, convert it to images
@@ -358,25 +393,25 @@ class TensorboardMonitor(AbstractMonitor):
             self.__safe_upload_image("FF " + tag, ff_probe, self.i, self.max_npsm)
         return probe_estimate_rgb
 
-    def __smart_upload_image_couldbecomplex(self, name, data, step, max_outputs=3, description=None):
+    def __smart_upload_image_couldbecomplex(
+        self, name, data, step, max_outputs=3, description=None
+    ):
         """
         Safely upload an image that could be complex. If it is, cast it to colour before uploading.
 
         """
         data = asNumpyArray(data)
         if np.iscomplexobj(data):
-            print('Got complex datatype')
+            print("Got complex datatype")
             data = complex2rgb_vectorized(data)
         else:
-            print('Got real datatype')
+            print("Got real datatype")
             # auto scale
             data = data / data.max() * 255
             data = data.astype(np.uint8)
             # convert to black-white
 
-
         self.__safe_upload_image(name, data, step, max_outputs, description)
-
 
     def __safe_upload_image(self, name, data, step, max_outputs=3, description=None):
         data = asNumpyArray(data)
@@ -386,7 +421,13 @@ class TensorboardMonitor(AbstractMonitor):
             data = data[None]
         with self.writer.as_default():
             tfs.image(
-                name, data[...,::self.downsample_everything, ::self.downsample_everything,:], step, max_outputs=max_outputs, description=description
+                name,
+                data[
+                    ..., :: self.downsample_everything, :: self.downsample_everything, :
+                ],
+                step,
+                max_outputs=max_outputs,
+                description=description,
             )
 
     def __safe_upload_scalar(self, name, data, step, description=None):
@@ -401,8 +442,6 @@ class TensorboardMonitor(AbstractMonitor):
 
         with self.writer.as_default():
             tfs.scalar(name, data, step, description)
-
-
 
     def update_z(self, z):
         self.__safe_upload_scalar(
@@ -443,7 +482,12 @@ class TensorboardMonitor(AbstractMonitor):
             ..., :: self.probe_downsampling, :: self.probe_downsampling, :
         ]
 
-        self.__safe_upload_scalar('probe downsampling in inset', self.probe_downsampling, self.i, 'probe downsampling in the inset images')
+        self.__safe_upload_scalar(
+            "probe downsampling in inset",
+            self.probe_downsampling,
+            self.i,
+            "probe downsampling in the inset images",
+        )
         Ny, Nx, _ = probe_estimate_rgb_ss.shape[-3:]
         if object_estimate_rgb.shape[-2] < Nx:
             raise RuntimeError(

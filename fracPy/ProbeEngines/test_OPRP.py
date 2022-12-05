@@ -43,7 +43,7 @@ def test_push():
             assert_almost_equal(p1, probes[i], decimal=5)
 
         except AssertionError:
-            print(f'Failed for i={i}')
+            print(f"Failed for i={i}")
             print(p1.shape, probes[i].shape)
             raise
 
@@ -52,7 +52,7 @@ def test_center_probe():
     N = 100
     npix = 128
     probes = np.random.rand(N // 10, 4, npix, npix)
-    probes[:,:, :npix//3,:] = 0
+    probes[:, :, : npix // 3, :] = 0
     probes = np.repeat(probes, axis=0, repeats=10)
     storage = OPRP_storage(5)
     storage.push(probes[0], 0, N)
@@ -60,11 +60,7 @@ def test_center_probe():
         p_inout, _ = storage.uncenter_probe(storage.center_probe(p, i)[0], i)
         assert_almost_equal(p, p_inout)
         probes[i], shift = storage.center_probe(p, i)
-        print('first round: ', shift)
+        print("first round: ", shift)
 
         probes[i], shift = storage.center_probe(p, i)
-        print('second round', shift)
-
-
-
-
+        print("second round", shift)

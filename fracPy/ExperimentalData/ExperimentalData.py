@@ -1,18 +1,26 @@
 from fracPy.utils.gpuUtils import transfer_fields_to_cpu, transfer_fields_to_gpu
 import numpy as np
+
 try:
     import pyqtgraph as pg
 except ImportError:
-    print('Cannot use pyqtgraph')
+    print("Cannot use pyqtgraph")
 import matplotlib.pyplot as plt
+
 # from pathlib import Path
 import logging
+
 # import tables
 from fracPy.io import readHdf5
+
 # from fracPy.io import readExample
 from fracPy.utils.visualisation import show3Dslider
 from fracPy.utils.visualisation import setColorMap
-from fracPy.utils.gpuUtils import getArrayModule, transfer_fields_to_gpu, transfer_fields_to_cpu
+from fracPy.utils.gpuUtils import (
+    getArrayModule,
+    transfer_fields_to_gpu,
+    transfer_fields_to_cpu,
+)
 
 
 class ExperimentalData:
@@ -21,11 +29,13 @@ class ExperimentalData:
     It only holds attributes that are the same for every type of reconstruction.
     """
 
-    def __init__(self, filename=None, operationMode='CPM'):
-        self.logger = logging.getLogger('ExperimentalData')
-        self.logger.debug('Initializing ExperimentalData object')
+    def __init__(self, filename=None, operationMode="CPM"):
+        self.logger = logging.getLogger("ExperimentalData")
+        self.logger.debug("Initializing ExperimentalData object")
 
-        self.operationMode = operationMode        # operationMode: 'CPM' or 'FPM', default is CPM is not given
+        self.operationMode = (
+            operationMode  # operationMode: 'CPM' or 'FPM', default is CPM is not given
+        )
         self._setFields()
         if filename is not None:
             self.loadData(filename)
@@ -34,10 +44,10 @@ class ExperimentalData:
         # not all of them are always used, but the class will determine by itself which ones are
         # required
         self.fields_to_transfer = [
-            'emptyBeam',
-            'ptychogram',
-            'ptychogramDownsampled',
-            'W',  # for aPIE
+            "emptyBeam",
+            "ptychogram",
+            "ptychogramDownsampled",
+            "W",  # for aPIE
         ]
 
     def _setFields(self):
@@ -46,38 +56,37 @@ class ExperimentalData:
         ALL VALUES MUST BE IN METERS.
         """
         # These are the fields required for ptyLab to work (depending on the operationMode)
-        if self.operationMode == 'CPM':
+        if self.operationMode == "CPM":
             self.requiredFields = [
-                'ptychogram',  # 3D image stack
-                'wavelength',  # illumination lambda
-                'encoder',  # diffracted field positions
-                'dxd',  # pixel size
-                'zo'  # sample to detector distance
+                "ptychogram",  # 3D image stack
+                "wavelength",  # illumination lambda
+                "encoder",  # diffracted field positions
+                "dxd",  # pixel size
+                "zo",  # sample to detector distance
             ]
             self.optionalFields = [
-                'entrancePupilDiameter',  # used in CPM as the probe diameter
-                'spectralDensity',  # CPM parameters: different wavelengths required for polychromatic ptychography
-                'theta',  # CPM parameters: reflection tilt angle, required for
-                'emptyBeam' # image of the probe
+                "entrancePupilDiameter",  # used in CPM as the probe diameter
+                "spectralDensity",  # CPM parameters: different wavelengths required for polychromatic ptychography
+                "theta",  # CPM parameters: reflection tilt angle, required for
+                "emptyBeam",  # image of the probe
             ]
 
-        elif self.operationMode == 'FPM':
+        elif self.operationMode == "FPM":
             self.requiredFields = [
-                'ptychogram',  # 3D image stack
-                'wavelength',  # illumination lambda
-                'encoder',  # diffracted field positions
-                'dxd',  # detector pixel size
-                'zled',  # LED to sample distance
-                'magnification',  # magnification, used for FPM computations of dxp
+                "ptychogram",  # 3D image stack
+                "wavelength",  # illumination lambda
+                "encoder",  # diffracted field positions
+                "dxd",  # detector pixel size
+                "zled",  # LED to sample distance
+                "magnification",  # magnification, used for FPM computations of dxp
             ]
             self.optionalFields = [
                 # entrance pupil diameter, defined in lens-based microscopes as the aperture diameter, reqquired for FPM
                 # 'entrancePupilDiameter'
-                'NA', # numerical aperture of the microscope
+                "NA",  # numerical aperture of the microscope
             ]
         else:
             raise ValueError('operationMode is not properly set, choose "CPM" or "FPM"')
-
 
     def loadData(self, filename=None):
         """
@@ -93,10 +102,14 @@ class ExperimentalData:
         :return:
         """
         import os
-        if not os.path.exists(filename) and str(filename).startswith('example:'):
+
+        if not os.path.exists(filename) and str(filename).startswith("example:"):
             self.filename = filename
             from fracPy.io.readExample import examplePath
-            self.filename = examplePath(filename)  # readExample(filename, python_order=True)
+
+            self.filename = examplePath(
+                filename
+            )  # readExample(filename, python_order=True)
         else:
             self.filename = filename
 
@@ -104,7 +117,9 @@ class ExperimentalData:
         readHdf5.checkDataFields(self.filename, self.requiredFields)
         # 2. load dictionary. Only the values specified by 'requiredFields'
         # in readHdf.py file were loaded
-        measurementDict = readHdf5.loadInputData(self.filename, self.requiredFields, self.optionalFields)
+        measurementDict = readHdf5.loadInputData(
+            self.filename, self.requiredFields, self.optionalFields
+        )
         # 3. 'requiredFields' will be the attributes that must be set
         attributesToSet = measurementDict.keys()
         # 4. set object attributes as the essential data fields
@@ -114,8 +129,7 @@ class ExperimentalData:
             attribute = str(a)
             if not isinstance(getattr(type(self), attribute, None), property):
                 setattr(self, attribute, measurementDict[a])
-            self.logger.debug('Setting %s', a)
-
+            self.logger.debug("Setting %s", a)
 
         self._setData()
         # last step, just to be sure that it's the last thing we do: set orientation
@@ -123,19 +137,17 @@ class ExperimentalData:
         # depending on the orientation
         self.setOrientation(readHdf5.getOrientation(self.filename))
 
-
-
     def setOrientation(self, orientation):
         """
         Sets the correct orientation. This function follows the ptypy convention.
 
         If orientation is None, it won't change the current orientation.
         """
-        if orientation is None: # do not update.
+        if orientation is None:  # do not update.
             return
         if not isinstance(orientation, int):
             raise TypeError("Orientation value is not valid.")
-        if orientation == 0: # don't change anything
+        if orientation == 0:  # don't change anything
             pass
         if orientation == 1:
             # Invert column
@@ -148,29 +160,28 @@ class ExperimentalData:
             self.ptychogram = np.fliplr(self.ptychogram)
             self.ptychogram = np.flipud(self.ptychogram)
         elif orientation == 4:
-            # Transpose 
-            self.ptychogram = np.transpose(self.ptychogram, (0, 2, 1)) 
+            # Transpose
+            self.ptychogram = np.transpose(self.ptychogram, (0, 2, 1))
         elif orientation == 5:
-            self.ptychogram = np.transpose(self.ptychogram, (0, 2, 1)) 
+            self.ptychogram = np.transpose(self.ptychogram, (0, 2, 1))
             self.ptychogram = np.fliplr(self.ptychogram)
         elif orientation == 6:
-            self.ptychogram = np.transpose(self.ptychogram, (0, 2, 1)) 
+            self.ptychogram = np.transpose(self.ptychogram, (0, 2, 1))
             self.ptychogram = np.flipud(self.ptychogram)
         elif orientation == 7:
-            self.ptychogram = np.transpose(self.ptychogram, (0, 2, 1)) 
+            self.ptychogram = np.transpose(self.ptychogram, (0, 2, 1))
             self.ptychogram = np.fliplr(self.ptychogram)
             self.ptychogram = np.flipud(self.ptychogram)
 
         else:
-            raise ValueError(f'Orientation {orientation} is not implemented')
-
+            raise ValueError(f"Orientation {orientation} is not implemented")
 
     def _setData(self):
 
         # Set the detector coordinates
         self.Nd = self.ptychogram.shape[-1]
         # Detector coordinates 1D
-        self.xd = np.linspace(-self.Nd/2, self.Nd/2, np.int(self.Nd))*self.dxd
+        self.xd = np.linspace(-self.Nd / 2, self.Nd / 2, np.int(self.Nd)) * self.dxd
         # Detector coordinates 2D
         self.Xd, self.Yd = np.meshgrid(self.xd, self.xd)
         # Detector size in SI units
@@ -183,26 +194,22 @@ class ExperimentalData:
         # maximum probe power
         self.maxProbePower = np.sqrt(np.max(np.sum(self.ptychogram, (-1, -2))))
 
-
-
     def showPtychogram(self):
         """
         show ptychogram.
         """
         xp = getArrayModule(self.ptychogram)
-        print(f'Min max ptychogram: {np.min(self.ptychogram)}, {self.ptychogram.max()}')
+        print(f"Min max ptychogram: {np.min(self.ptychogram)}, {self.ptychogram.max()}")
         log_ptychogram = xp.log10(
-            xp.swapaxes(
-                np.clip(self.ptychogram.astype(np.float),0, None),
-                1,2)+1)
-        print(f'Min max ptychogram: {np.min(log_ptychogram)}, {log_ptychogram.max()}')
+            xp.swapaxes(np.clip(self.ptychogram.astype(np.float), 0, None), 1, 2) + 1
+        )
+        print(f"Min max ptychogram: {np.min(log_ptychogram)}, {log_ptychogram.max()}")
         show3Dslider(log_ptychogram)
 
-
     def _move_data_to_cpu(self):
-        """ Move all required data to the CPU """
+        """Move all required data to the CPU"""
         transfer_fields_to_cpu(self, self.fields_to_transfer, self.logger)
 
     def _move_data_to_gpu(self):
-        """ Move all required fata to the GPU"""
+        """Move all required fata to the GPU"""
         transfer_fields_to_gpu(self, self.fields_to_transfer, self.logger)

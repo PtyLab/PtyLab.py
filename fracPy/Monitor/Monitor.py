@@ -49,7 +49,13 @@ class AbstractMonitor(object):
         """
         pass
 
-    def updatePlot(self, object_estimate: np.ndarray, probe_estimate: np.ndarray, zo=None, encoder_positions=None):
+    def updatePlot(
+        self,
+        object_estimate: np.ndarray,
+        probe_estimate: np.ndarray,
+        zo=None,
+        encoder_positions=None,
+    ):
         """
         Update the visualisation of both probe and and object estimate.
 
@@ -77,14 +83,12 @@ class AbstractMonitor(object):
         pass
 
     def update_positions(self, *args, **kwargs):
-        """ Update the position information."""
+        """Update the position information."""
         pass
 
     def update_encoder(self, corrected_positions, original_positions, *args, **kwargs):
-        """ Update the image of the encoder positions. """
+        """Update the image of the encoder positions."""
         pass
-
-
 
     def updateObjectProbeErrorMonitor(
         self,
@@ -94,7 +98,7 @@ class AbstractMonitor(object):
         zo=None,
         purity_probe=None,
         purity_object=None,
-            encoder_positions=None,
+        encoder_positions=None,
     ):
         """
         Update the Object and Probe error monitor, and any associated metrics.
@@ -110,7 +114,7 @@ class AbstractMonitor(object):
 
         pass
 
-    def updateDiffractionDataMonitor(self,  Iestimated, Imeasured):
+    def updateDiffractionDataMonitor(self, Iestimated, Imeasured):
         """
         Update the diffraction data estimate at the current iteration.
 
@@ -161,7 +165,7 @@ class Monitor(AbstractMonitor):
         zo=None,
         purity_probe=None,
         purity_object=None,
-            encoder_positions=None,
+        encoder_positions=None,
     ):
         """
         update the probe object plots
@@ -205,7 +209,7 @@ class Monitor(AbstractMonitor):
 
 
 class DummyMonitor(object):
-    """ Monitor without any visualisation so it won't consume any time """
+    """Monitor without any visualisation so it won't consume any time"""
 
     objectZoom = 1
     probeZoom = 1
