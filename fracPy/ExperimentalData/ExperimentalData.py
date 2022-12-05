@@ -79,7 +79,6 @@ class ExperimentalData:
             raise ValueError('operationMode is not properly set, choose "CPM" or "FPM"')
 
 
-
     def loadData(self, filename=None):
         """
         Load data specified in filename.
@@ -135,6 +134,8 @@ class ExperimentalData:
             return
         if not isinstance(orientation, int):
             raise TypeError("Orientation value is not valid.")
+        if orientation == 0: # don't change anything
+            pass
         if orientation == 1:
             # Invert column
             self.ptychogram = np.fliplr(self.ptychogram)

@@ -55,8 +55,8 @@ params.TV_autofocus_stepsize = 10
 params.TV_autofocus_intensityonly=False
 
 
-params.fftshiftFlag = True
-params.l2reg = True
+params.fftshiftFlag = False
+params.l2reg = False
 params.l2reg_probe_aleph = 1e-2
 params.l2reg_object_aleph = 1e-2
 
@@ -80,7 +80,7 @@ params.positionCorrectionSwitch = False
 
 # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
 # now create an object to hold everything we're eventually interested in
-reconstruction.npsm = 1 # Number of probe modes to reconstruct
+reconstruction.npsm = 4 # Number of probe modes to reconstruct
 reconstruction.nosm = 1 # Number of object modes to reconstruct
 reconstruction.nlambda = 1 # len(experimentalData.spectralDensity) # Number of wavelength
 reconstruction.nslice = 1 # Number of object slice
@@ -109,8 +109,8 @@ reconstruction.describe_reconstruction()
 monitor.figureUpdateFrequency = 2
 monitor.objectPlot = 'complex'# 'complex'  # complex abs angle
 monitor.verboseLevel = 'low'  # high: plot two figures, low: plot only one figure
-monitor.objectZoom = 1.5  # control object plot FoV
-monitor.probeZoom = 1.0#0.5   # control probe plot FoV
+monitor.objectZoom = 0.5  # control object plot FoV
+monitor.probeZoom = 0.5   # control probe plot FoV
 
 # Run the reconstruction
 
@@ -127,29 +127,28 @@ params.modulusEnforcedProbeSwitch = False
 # params.objectSmoothnessAleph = 1e-2
 # params.objectSmoothenessWidth = 2
 
-params.probeSmoothenessSwitch = True
+params.probeSmoothenessSwitch = False
 params.probeSmoothnessAleph = 1e-2
 params.probeSmoothenessWidth = 10
 
 
 
 ## how do we want to reconstruct?
-params.gpuSwitch = False
+params.gpuSwitch = True
 params.probePowerCorrectionSwitch = True
-
-params.comStabilizationSwitch = False
+params.comStabilizationSwitch = 3
 params.orthogonalizationSwitch = True
 params.orthogonalizationFrequency = 10
 
-# params.fftshiftSwitch = True
+params.fftshiftSwitch = True
 params.intensityConstraint = 'standard'  # standard fluctuation exponential poission
-params.absorbingProbeBoundary = True
+params.absorbingProbeBoundary = False
 params.absorbingProbeBoundaryAleph = 1e-1
 
-params.objectContrastSwitch = False
+params.objectContrastSwitch = True
 params.absObjectSwitch = False
 params.backgroundModeSwitch = False
-params.couplingSwitch = False
+params.couplingSwitch = True
 params.couplingAleph = 1
 params.positionCorrectionSwitch = False
 
@@ -162,14 +161,6 @@ monitor.describe_parameters(params)
 mPIE = Engines.mPIE(reconstruction, experimentalData, params, monitor)
 
 mPIE.numIterations = 30
-mPIE.betaProbe = .5
-mPIE.betaObject = 1
-mPIE.beta1 = 0.5
-mPIE.beta2 = 0.5
-mPIE.betaProbe_m = 1
-mPIE.betaObject_m = 1
-mPIE.numIterations = 11# * reconstruction.npsm
-# mPIE.momentum_method = 'NADAM'
 mPIE.reconstruct(experimentalData, reconstruction)
 
 params.OPRP = False

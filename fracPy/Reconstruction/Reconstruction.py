@@ -76,11 +76,10 @@ class Reconstruction(object):
         self.logger = logging.getLogger("Reconstruction")
         self.data = data
         self.params = params
-        self.probe_storage = StandardProbe.SHGProbe()# OPRP_storage(self.params.OPRP_nmodes)
-        # self._probe_storage = StandardProbe.LinearProbe()
         self.copyAttributesFromExperiment(data)
         self.computeParameters()
         self.initializeSettings()
+        self.probe_storage = StandardProbe.LinearProbe()
 
         # list of the fields that have to be transfered back and forth from the GPU
         self.possible_GPU_fields = [
@@ -100,11 +99,13 @@ class Reconstruction(object):
     @property
     def probe(self):
         # convenience function. Updates the temporary probe. Nothing in probe is updated
+        # return self._probe
         return self.probe_storage.get_temporary()#_probe_storage.get(None)
 
     @probe.setter
     def probe(self, new_probe):
         # ignore this for now
+        # self._probe = new_probe
         self.probe_storage.set_temporary(new_probe)
 
 
@@ -715,9 +716,7 @@ class Reconstruction(object):
         """
         Update the probe if necessary. This is used for OPRP
         """
-        if self.params.OPRP:
-            # print('probe shape', self.probe.shape)
-            self.probe = self.probe_storage.get(positionIndex)
+        self.probe = self.probe_storage.get(positionIndex)
 
     def push_probe_update(self, probe, positionIndex, N_ptycho):
         """Update the probe estimate based on the new probe. This is used for OPRP. """

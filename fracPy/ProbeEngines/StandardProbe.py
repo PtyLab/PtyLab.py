@@ -13,11 +13,22 @@ class LinearProbe:
     def clear(self):
         pass
 
-    def push(self, probe, index, N_positions):
-        self.probe = probe
+    def push(self, new_probe, index, N_positions, factor=1.0, force=False):
+        """
+        Set the current estimate of the probe to new_probe.
+        """
+        if force:
+            self.probe = new_probe
+        elif self.probe is not None:
+            self.probe = new_probe * factor + (1 - factor) * self.probe
+        else:
+            self.probe = new_probe
         self.probe_temp = self.probe.copy()
 
     def set_temporary(self, probe):
+        """These map to self.reconstruction.probe. Can be used for quick updates in the calculation of the probe.
+
+        Once you're done, make it official by updating with push()"""
         self.probe_temp = probe
 
     def get_temporary(self):
@@ -25,6 +36,12 @@ class LinearProbe:
 
     def get(self, index):
         return self.probe
+
+    def roll(self, dy, dx):
+        self.probe = self.probe_temp.copy()
+        xp = getArrayModule(self.probe)
+        self.probe = xp.roll(self.probe, (-dy, -dx), axis=(-2, -1))
+        self.probe_temp = self.probe.copy()
 
 class SHGProbe(LinearProbe):
     def __init__(self):

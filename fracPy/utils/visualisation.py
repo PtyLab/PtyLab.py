@@ -121,7 +121,7 @@ def modeTile(P, normalize = True):
     """
     if P.ndim == 3 and P.shape[0]>1:
         if normalize:
-            maxs = np.max(P, axis=(-1, -2))
+            maxs = np.max(abs(P), axis=(-1, -2)) + 1e-6
             P = (P.T/maxs).T
         S = P.shape[0]
         s = math.ceil(np.sqrt(S))
@@ -134,7 +134,7 @@ def modeTile(P, normalize = True):
             (s * P.shape[1], s * P.shape[3]) + P.shape[4:])
     elif P.ndim == 4 and P.shape[0]>1:
         if normalize:
-            maxs = np.max(P, axis=(-1, -2))
+            maxs = np.max(abs(P), axis=(-1, -2)) + 1e-6
             P = (P.T / maxs.T).T
         P = np.swapaxes(P,1,2).reshape(P.shape[0]*P.shape[2],P.shape[1]*P.shape[3])
     else:

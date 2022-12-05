@@ -98,3 +98,16 @@ def checkDataFields(filename, requiredFields):
             raise KeyError('hdf5 file misses key %s' % k)
     
     return None
+
+
+def getOrientation(filename):
+    """
+    Get the orientation from the hdf5 file. If not available, set to None
+    """
+    orientation = None
+    try:
+        with h5py.File(str(filename), mode='r') as archive:
+            orientation = int(np.array(archive['orientation']).ravel())
+    except KeyError as e:
+        print(e)
+    return orientation
