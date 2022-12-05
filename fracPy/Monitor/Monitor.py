@@ -25,7 +25,7 @@ class AbstractMonitor(object):
 
         pass
 
-    def update_TV(self, TV_value, AOI_image):
+    def update_focusing_metric(self, TV_value, AOI_image, metric_name):
         """
         Show the total variation of the object estimate inside the area of interest.
         :param TV_value: Value of TV

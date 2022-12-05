@@ -47,6 +47,9 @@ class TensorboardMonitor(AbstractMonitor):
     # the probe is shown as an inset in the object. This specifies how much to downsample it
     probe_downsampling = 2
 
+    # downsample all images by the same amount to make it run a bit faster
+    downsample_everything=1
+
     def __init__(self, logdir="./logs_tensorboard", name=None):
         super(AbstractMonitor).__init__()
         if name is None:
@@ -135,13 +138,13 @@ class TensorboardMonitor(AbstractMonitor):
                 description="reconstruction name",
             )
 
-    def update_TV(self, TV_value, AOI_image):
+    def update_focusing_metric(self, TV_value, AOI_image, metric_name):
         if TV_value is not None:
-            self.__safe_upload_scalar('TV object', TV_value, self.i, 'Total Variation of the object')
+            self.__safe_upload_scalar(f'Autofocus {metric_name}', TV_value, self.i, 'Total Variation of the object')
         if AOI_image is not None:
             # print(AOI_image)
 
-            self.__smart_upload_image_couldbecomplex('TV autofocus AOI', AOI_image, self.i, 1, 'AOI used by TV')
+            self.__smart_upload_image_couldbecomplex(f'Autofocus {metric_name} AOI', AOI_image, self.i, 1, 'AOI used by autofocus')
 
 
 
@@ -228,13 +231,7 @@ class TensorboardMonitor(AbstractMonitor):
                          diff[:,0], diff[:,1], angles='xy', units='xy',
                          scale=1
                          )
-        # axes["S"].scatter(
-        #     corrected_positions[:, 0] * scaling,
-        #     corrected_positions[:, 1] * scaling,
-        #     color="C1",
-        #     marker="x",
-        #     label="new",
-        # )
+
 
         buf = io.BytesIO()
         fig.savefig(buf, format="png", dpi=300)
@@ -330,7 +327,7 @@ class TensorboardMonitor(AbstractMonitor):
             self.__safe_upload_image(
                 "I object log estimate", logI.astype(np.uint8), self.i, self.max_nosm
             )
-            self.save_intensities = True
+            self.save_intensities = False
             if self.save_intensities:
                 p = Path('./intensities')
                 p.mkdir(exist_ok=True)
@@ -389,7 +386,7 @@ class TensorboardMonitor(AbstractMonitor):
             data = data[None]
         with self.writer.as_default():
             tfs.image(
-                name, data, step, max_outputs=max_outputs, description=description
+                name, data[...,::self.downsample_everything, ::self.downsample_everything,:], step, max_outputs=max_outputs, description=description
             )
 
     def __safe_upload_scalar(self, name, data, step, description=None):

@@ -6,7 +6,7 @@ import logging
 import h5py
 
 # logging.basicConfig(level=logging.DEBUG)
-from fracPy.Regularizers import TV_at, TV
+from fracPy.Regularizers import metric_at, TV
 
 from fracPy.utils.initializationFunctions import initialProbeOrObject
 from fracPy.utils.gpuUtils import (
@@ -403,7 +403,7 @@ class Reconstruction(object):
                 raise RuntimeError(f'Shape of saved probe cannot be extended to shape of required probe. File: {archive["object"].shape}. Need: {self.shape_O}')
 
 
-    def load_probe(self, filename):
+    def load_probe(self, filename, expand_npsm=False):
         """
         Load the probe from a previous reconstruction.
 
@@ -441,6 +441,21 @@ class Reconstruction(object):
                 self.theta = np.array(archive["theta"])
 
     def saveResults(self, fileName="recent", type="all", squeeze=False):
+        """
+        Save reconstruction results.
+
+
+        Parameters
+        ----------
+        fileName
+        type
+        squeeze
+
+
+        Returns
+        -------
+
+        """
 
         allowed_save_types = ["all", "object", "probe"]
         if type not in allowed_save_types:
@@ -453,7 +468,7 @@ class Reconstruction(object):
             squeezefun = np.squeeze
         if type == "all":
             if self.data.operationMode == 'CPM':
-                hf = h5py.File(fileName + "_Reconstruction.hdf5", "w")
+                hf = h5py.File(fileName, "w")
                 hf.create_dataset(
                     "probe", data=self.probe, dtype="complex64"
                 )
@@ -471,7 +486,7 @@ class Reconstruction(object):
                         hf.create_dataset("theta", data=self.theta, dtype='f')
 
             if self.data.operationMode == 'FPM':
-                hf = h5py.File(fileName + '_Reconstruction.hdf5', 'w')
+                hf = h5py.File(fileName, 'w')
                 hf.create_dataset('probe', data=self.probe, dtype='complex64')
                 hf.create_dataset('object', data=self.object, dtype='complex64')
                 hf.create_dataset('error', data=self.error, dtype='f')
@@ -479,12 +494,12 @@ class Reconstruction(object):
                 hf.create_dataset('wavelength', data=self.wavelength, dtype='f')
                 hf.create_dataset('dxp', data=self.dxp, dtype="f")
         elif type == "probe":
-            with h5py.File(fileName + "_probe.hdf5", "w") as hf:
+            with h5py.File(fileName, "w") as hf:
                 hf.create_dataset(
                     "probe", data=squeezefun(self.probe), dtype="complex64"
                 )
         elif type == "object":
-            with h5py.File(fileName + "_object.hdf5", "w") as hf:
+            with h5py.File(fileName, "w") as hf:
                 hf.create_dataset(
                     "object", data=squeezefun(self.object), dtype="complex64"
                 )
@@ -654,7 +669,7 @@ class Reconstruction(object):
         - Pixel pitch: {self.dxo*1e6} um
         - Field of view: {self.Lo*1e3} mm
         - Scan size in pixels: {self.positions.max(axis=0)- self.positions.min(axis=0)}
-        - Propagation distance: {self.zo * 1e3} mm
+        - Propagation distance: {self.zo * 1e3} mm (min: {self.params.TV_autofocus_min_z*1e3}, max: {self.params.TV_autofocus_max_z*1e3}.)
         - Probe FoV: {self.Lp*1e3} mm
         
         Derived parameters:
@@ -724,13 +739,14 @@ class Reconstruction(object):
         else:
             sy, sx = ss, ss
 
-        merit, OEs = TV_at(
+        merit, OEs = metric_at(
             field,
             dz,
             self.dxo, # same as dxp
             self.wavelength,
             (sy, sx),
             intensity_only=self.params.TV_autofocus_intensityonly,
+            metric=self.params.TV_autofocus_metric,
             return_propagated=True,
         )
         # from here on we are looking at 11 data points, work on CPU
@@ -738,9 +754,11 @@ class Reconstruction(object):
         feedback = np.sum(dz * merit) / np.sum(merit)
         self.zMomentum *= params.TV_autofocus_friction
         self.zMomentum += params.TV_autofocus_stepsize * feedback
-        self.zo += self.zMomentum
+        # now, clip it to the bounds
+        delta_z = self.zo - np.clip(self.zo + self.zMomentum, self.params.TV_autofocus_min_z, self.params.TV_autofocus_max_z)
+        self.zo -= delta_z
         end_time = time.time()
-        self.logger.info(f"TV autofocus took {end_time-start_time} seconds")
+        self.logger.info(f"TV autofocus took {end_time-start_time} seconds, and moved focus by {-delta_z*1e6} micron")
 
         return merit[5] / asNumpyArray(abs(self.object[..., sy, sx]).mean()), OEs[5]
 
@@ -752,13 +770,3 @@ class Reconstruction(object):
     def TV(self):
         """ Return the TV of the object """
         return TV(self.object, 1e-2)
-
-    # def make_probe(self, positionIndex):
-    #     """
-    #     Update the probe if necessary. This is used for OPRP
-    #     """
-    #     self.probe = self.probe_storage.get(positionIndex)
-    #
-    # def push_probe_update(self, probe, positionIndex, N_ptycho):
-    #     """Update the probe estimate based on the new probe. This is used for OPRP. """
-    #     self.probe_storage.push(probe, positionIndex, N_ptycho)

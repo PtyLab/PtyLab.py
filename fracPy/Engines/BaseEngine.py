@@ -1125,7 +1125,7 @@ class BaseEngine(object):
 
         if self.params.TV_autofocus:
             merit, AOI_image = self.reconstruction.TV_autofocus(self.params, loop=loop)
-            self.monitor.update_TV(merit, AOI_image)
+            self.monitor.update_focusing_metric(merit, AOI_image, metric_name=self.params.TV_autofocus_metric)
 
         if self.params.OPRP and loop % self.params.OPRP_tsvd_interval == 0:
             self.reconstruction.probe_storage.tsvd()
@@ -1207,26 +1207,21 @@ class BaseEngine(object):
             # self.reconstruction.probe_storage.roll(-yc, -xc)
 
             # shift probe
-            for k in xp.arange(self.reconstruction.npsm):
-                self.reconstruction.probe[:, :, k, -1, ...] = \
-                    xp.roll(self.reconstruction.probe[:, :, k, -1, ...], (-yc, -xc), axis=(-2, -1))
-                # for mPIE
-                if self.params.momentumAcceleration:
-                    self.reconstruction.probeMomentum[:, :, k, -1, ...] = \
-                        xp.roll(self.reconstruction.probeMomentum[:, :, k, -1, ...], (-yc, -xc), axis=(-2, -1))
-                    self.reconstruction.probeBuffer[:, :, k, -1, ...] = \
-                        xp.roll(self.reconstruction.probeBuffer[:, :, k, -1, ...], (-yc, -xc), axis=(-2, -1))
+            self.reconstruction.probe = xp.roll(self.reconstruction.probe, (-yc, -xc), axis=(-2,-1))
+            # for k in xp.arange(self.reconstruction.npsm):
+            #     self.reconstruction.probe[:, :, k, -1, ...] = \
+            #         xp.roll(self.reconstruction.probe[:, :, k, -1, ...], (-yc, -xc), axis=(-2, -1))
+            #     # for mPIE
+            if self.params.momentumAcceleration:
+                self.reconstruction.probeMomentum  = xp.roll(self.reconstruction.probeMomentum, (-yc, -xc), axis=(-2, -1))
+                self.reconstruction.probeBuffer = xp.roll(self.reconstruction.probeBuffer, (-yc, -xc), axis=(-2, -1))
 
             # shift object
-            for k in xp.arange(self.reconstruction.nosm):
-                self.reconstruction.object[:, k, :, -1, ...] = \
-                    xp.roll(self.reconstruction.object[:, k, :, -1, ...], (-yc, -xc), axis=(-2, -1))
-                # for mPIE
-                if self.params.momentumAcceleration:
-                    self.reconstruction.objectMomentum[:, k, :, -1, ...] = \
-                        xp.roll(self.reconstruction.objectMomentum[:, k, :, -1, ...], (-yc, -xc), axis=(-2, -1))
-                    self.reconstruction.objectBuffer[:, k, :, -1, ...] = \
-                        xp.roll(self.reconstruction.objectBuffer[:, k, :, -1, ...], (-yc, -xc), axis=(-2, -1))
+            self.reconstruction.object = xp.roll(self.reconstruction.object, (-yc, -xc), axis=(-2, -1))
+            # for mPIE
+            if self.params.momentumAcceleration:
+                self.reconstruction.objectMomentum = xp.roll(self.reconstruction.objectMomentum, (-yc, -xc), axis=(-2, -1))
+                self.reconstruction.objectBuffer = xp.roll(self.reconstruction.objectBuffer, (-yc, -xc), axis=(-2, -1))
 
     def modulusEnforcedProbe(self):
         # propagate probe to detector

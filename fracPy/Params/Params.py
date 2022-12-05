@@ -12,6 +12,7 @@ class Params(object):
     def __init__(self):
         # datalogger
 
+
         self.OPRP_tsvd_interval = 5
         self.logger = logging.getLogger('Params')
 
@@ -79,6 +80,8 @@ class Params(object):
         # autofocusing
         # Wether or not to perform TV autofocusing
         self.TV_autofocus = True
+        # what to focus: can be 'TV', 'std', 'min_std', or a callable
+        self.TV_autofocus_metric = 'TV'
         # Only look at the TV of the intensity as a focusing metric
         self.TV_autofocus_intensityonly = False
         # stepsize
@@ -95,6 +98,10 @@ class Params(object):
         self.TV_autofocus_what = 'object'
         # only run every run_every iterations
         self.TV_autofocus_run_every = 3
+        # minimum distance, set to None for no limit
+        self.TV_autofocus_min_z = None
+        # maximum distance, set to None for no limit
+        self.TV_autofocus_max_z = None
 
         # map a change in positions to a change in z. Experimental, do not use
         self.map_position_to_z_change = False
