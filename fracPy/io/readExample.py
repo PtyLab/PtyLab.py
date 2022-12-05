@@ -10,7 +10,7 @@ logger.setLevel(logging.INFO)
 exampleFiles = {
     'simulation_cpm': 'simu.hdf5',
     'simulation_fpm': 'LungCarcinomaSmallFPM.hdf5',
-    'lensPaper_cpm': 'Lenspaper.hdf5'
+    'lenspaper_cpm': 'Lenspaper.hdf5'
 }
 
 # This is a convenience class to aid in loading a particular example
@@ -30,7 +30,7 @@ def examplePath(key:str):
     :return:
     """
     try:
-        key = key.split('example:')[1]
+        key = key.split('example:')[1].lower()
         filename = exampleFiles[key]
     except KeyError:
         raise KeyError(f'Could not find example {key}. Allowed filenames are: {list(exampleFiles.keys())}')

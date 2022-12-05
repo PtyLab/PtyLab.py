@@ -16,10 +16,10 @@ from matplotlib import pyplot as plt
 # from fracPy.utils.utils import smooth_amplitude
 # Dirty hack to get running
 try:
-    from cupyx.scipy.ndimage import gaussian_filter as gaussian_filter_gpu
+    from cupyx.scipy.ndimage import fourier_gaussian as fourier_gaussian_gpu
 except ImportError:
     print('cupy unavailable')
-from scipy.ndimage import gaussian_filter as gaussian_filter
+from scipy.ndimage import fourier_gaussian as fourier_gaussian_cpu
 # smooth_amplitude = lambda x, *args: x
 # from ..Operators.Operators import FT, IFT
 try:
@@ -35,15 +35,14 @@ except ImportError:
     print("Skimage not installed")
 
 def smooth_amplitude(field, width, aleph):
+    print('smoothing amp')
     xp = getArrayModule(field)
-    smooth_fun = isGpuArray(field) and gaussian_filter_gpu or gaussian_filter
-    field_amp = abs(field)
-    field_phase = xp.angle(field)
-    widths = np.zeros(field.ndim)
-    widths[-2:] = width
-    smoothed_field_amp = smooth_fun(field_amp, widths)
-    new_amp = field_amp * (1-aleph) + aleph * smoothed_field_amp
-    return new_amp * xp.exp(1j*field_phase)
+    smooth_fun = isGpuArray(field) and fourier_gaussian_gpu or fourier_gaussian_cpu
+    F_field = xp.fft.fft2(field)
+    for ax in [-2, -1]:
+        F_field = smooth_fun(F_field, width, axis=ax)
+    field_smooth = xp.fft.ifft2(F_field)
+    return aleph*field_smooth + (1-aleph)*field
 
 
 class BaseEngine(object):
