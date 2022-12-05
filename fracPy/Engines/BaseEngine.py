@@ -83,7 +83,7 @@ class BaseEngine(object):
         self._initializePCParameters()
         self._checkGPU()  # checkGPU needs to be the last
 
-        self.reconstruction.probe_storage.push(self.reconstruction.probe, 0, self.experimentalData.ptychogram.shape[0])
+        # self.reconstruction.probe_storage.push(self.reconstruction.probe, 0, self.experimentalData.ptychogram.shape[0])
 
     def _setCPSC(self):
         """
@@ -798,7 +798,7 @@ class BaseEngine(object):
             self.monitor.update_encoder(corrected_positions=self.reconstruction.encoder_corrected,
                                           original_positions=self.experimentalData.encoder)
 
-            self.monitor.visualize_probe_engine(self.reconstruction.probe_storage)
+            # self.monitor.visualize_probe_engine(self.reconstruction.probe_storage)
 
 
 
@@ -1153,7 +1153,7 @@ class BaseEngine(object):
 
                         # if self.comStabilizationSwitch:
                         #     self.comStabilization()
-            self.reconstruction.probe_storage.push(self.reconstruction.probe, None, len(self.experimentalData.ptychogram), force=True)
+            # self.reconstruction.probe_storage.push(self.reconstruction.probe, None, len(self.experimentalData.ptychogram), force=True)
 
 
         elif self.reconstruction.nosm > 1:
@@ -1196,7 +1196,7 @@ class BaseEngine(object):
         # shift only if necessary
         if xc ** 2 + yc ** 2 > 1:
             # self.reconstruction.probe_storage._push_hard(self.reconstruction.probe, 100)
-            self.reconstruction.probe_storage.roll(-yc, -xc)
+            # self.reconstruction.probe_storage.roll(-yc, -xc)
 
             # shift probe
             for k in xp.arange(self.reconstruction.npsm):

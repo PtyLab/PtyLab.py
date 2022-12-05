@@ -1,5 +1,3 @@
-from fracPy.ProbeEngines import StandardProbe
-
 import time
 import numpy as np
 from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
@@ -9,7 +7,7 @@ import h5py
 
 # logging.basicConfig(level=logging.DEBUG)
 from fracPy.Regularizers import TV_at, TV
-from fracPy.ProbeEngines.OPRP import OPRP_storage
+
 from fracPy.utils.initializationFunctions import initialProbeOrObject
 from fracPy.utils.gpuUtils import (
     transfer_fields_to_cpu,
@@ -79,7 +77,7 @@ class Reconstruction(object):
         self.copyAttributesFromExperiment(data)
         self.computeParameters()
         self.initializeSettings()
-        self.probe_storage = StandardProbe.LinearProbe()
+
 
         # list of the fields that have to be transfered back and forth from the GPU
         self.possible_GPU_fields = [
@@ -96,17 +94,17 @@ class Reconstruction(object):
             "reference",
         ]
 
-    @property
-    def probe(self):
-        # convenience function. Updates the temporary probe. Nothing in probe is updated
-        # return self._probe
-        return self.probe_storage.get_temporary()#_probe_storage.get(None)
-
-    @probe.setter
-    def probe(self, new_probe):
-        # ignore this for now
-        # self._probe = new_probe
-        self.probe_storage.set_temporary(new_probe)
+    # @property
+    # def probe(self):
+    #     # convenience function. Updates the temporary probe. Nothing in probe is updated
+    #     # return self._probe
+    #     return self.probe_storage.get_temporary()#_probe_storage.get(None)
+    #
+    # @probe.setter
+    # def probe(self, new_probe):
+    #     # ignore this for now
+    #     # self._probe = new_probe
+    #     # self.probe_storage.set_temporary(new_probe)
 
 
 
@@ -712,12 +710,12 @@ class Reconstruction(object):
         """ Return the TV of the object """
         return TV(self.object, 1e-2)
 
-    def make_probe(self, positionIndex):
-        """
-        Update the probe if necessary. This is used for OPRP
-        """
-        self.probe = self.probe_storage.get(positionIndex)
-
-    def push_probe_update(self, probe, positionIndex, N_ptycho):
-        """Update the probe estimate based on the new probe. This is used for OPRP. """
-        self.probe_storage.push(probe, positionIndex, N_ptycho)
+    # def make_probe(self, positionIndex):
+    #     """
+    #     Update the probe if necessary. This is used for OPRP
+    #     """
+    #     self.probe = self.probe_storage.get(positionIndex)
+    #
+    # def push_probe_update(self, probe, positionIndex, N_ptycho):
+    #     """Update the probe estimate based on the new probe. This is used for OPRP. """
+    #     self.probe_storage.push(probe, positionIndex, N_ptycho)
