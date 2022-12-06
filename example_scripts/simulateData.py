@@ -84,7 +84,7 @@ theta, rho = cart2pol(Xo, Yo)
 t = (1 + np.sign(np.sin(b * theta + 2 * np.pi * (rho / d) ** 2))) / 2
 # phaseFun = np.exp(1.j * np.arctan2(Yo, Xo))
 # phaseFun = 1
-phaseFun = np.exp(1.j*( theta + 2*np.pi * (rho/d)**2))
+phaseFun = np.exp(1.0j * (theta + 2 * np.pi * (rho / d) ** 2))
 t = t * circ(Xo, Yo, Lo) * (1 - circ(Xo, Yo, 200 * dxo)) * phaseFun + circ(
     Xo, Yo, 130 * dxo
 )
@@ -129,11 +129,14 @@ print("generate positions(" + str(numFrames) + ")")
 
 # calculate estimated overlap
 # expected beam size, required to calculate overlap (expect Gaussian-like beam, derive from second moment)
-beamSize = np.sqrt(np.sum((Xp**2 + Yp**2) * np.abs(probe) ** 2) / np.sum(abs(probe) ** 2)) * 2.355
+beamSize = (
+    np.sqrt(np.sum((Xp**2 + Yp**2) * np.abs(probe) ** 2) / np.sum(abs(probe) ** 2))
+    * 2.355
+)
 distances = np.sqrt(np.diff(R) ** 2 + np.diff(C) ** 2) * dxo
-averageDistance = np.mean(distances)*1e6
+averageDistance = np.mean(distances) * 1e6
 print("average step size:%.1f (um)" % averageDistance)
-print(f'probe diameter: {beamSize*1e6:.2f}')
+print(f"probe diameter: {beamSize*1e6:.2f}")
 print("number of scan points: %d" % numFrames)
 
 # show scan grid on object
@@ -141,14 +144,19 @@ plt.figure(figsize=(5, 5), num=33)
 ax1 = plt.axes()
 hsvplot(np.squeeze(object), ax=ax1)
 
-pos_pix = positions + Np//2
+pos_pix = positions + Np // 2
 dia_pix = beamSize / dxo
-ax1.plot(pos_pix[:,-1], pos_pix[:,-2], 'ro', alpha=0.9, )
-ax1.set_xlim(pos_pix[:,1].min()-100, pos_pix[:,1].max()+100)
-ax1.set_ylim(pos_pix[:,0].max()+100, pos_pix[:,0].min()-100)
+ax1.plot(
+    pos_pix[:, -1],
+    pos_pix[:, -2],
+    "ro",
+    alpha=0.9,
+)
+ax1.set_xlim(pos_pix[:, 1].min() - 100, pos_pix[:, 1].max() + 100)
+ax1.set_ylim(pos_pix[:, 0].max() + 100, pos_pix[:, 0].min() - 100)
 # indicate the probe with the typical diameter
 for p in pos_pix:
-    c = plt.Circle(p, radius=dia_pix/2, color='black', fill=False, alpha=0.5)
+    c = plt.Circle(p, radius=dia_pix / 2, color="black", fill=False, alpha=0.5)
     ax1.add_artist(c)
 ax1.set_title("object with probe positions")
 plt.show(block=False)
@@ -186,7 +194,6 @@ ptychogram = ptychogram / np.max(ptychogram) * maxNumCountsPerDiff
 ptychogram_noNoise = ptychogram.copy()
 
 
-
 ## simulate Poisson noise
 noise = np.random.poisson(ptychogram)
 ptychogram += noise
@@ -211,6 +218,6 @@ if export_data:
     hf.create_dataset("zo", data=(zo,), dtype="f")
     hf.create_dataset("wavelength", data=(wavelength,), dtype="f")
     hf.create_dataset("entrancePupilDiameter", data=(entrancePupilDiameter,), dtype="f")
-    hf.create_dataset('orientation', data=0)
+    hf.create_dataset("orientation", data=0)
     hf.close()
     print("An hd5f file has been saved")

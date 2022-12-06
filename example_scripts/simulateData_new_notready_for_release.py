@@ -187,7 +187,9 @@ class PtySim:
             hf.create_dataset("No", data=(No,), dtype="i")
             hf.create_dataset("zo", data=(zo,), dtype="f")
             hf.create_dataset("wavelength", data=(wavelength,), dtype="f")
-            hf.create_dataset("entrancePupilDiameter", data=(entrancePupilDiameter,), dtype="f")
+            hf.create_dataset(
+                "entrancePupilDiameter", data=(entrancePupilDiameter,), dtype="f"
+            )
             hf.close()
             print("An hd5f file has been saved")
 
