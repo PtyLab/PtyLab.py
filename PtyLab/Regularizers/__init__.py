@@ -39,6 +39,8 @@ def min_std(*args, **kwargs):
     Returns
     -------
 
+    minus the standard deviation of the field
+
     """
     return -std(*args, **kwargs)
 
