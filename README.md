@@ -1,10 +1,10 @@
-# fracPy
+# PtyLab
 
 This repository contains the Python implementation.
 
 ## Organisation of this repository:
 
-- fracPy contains the python module that enables reconstructions
+- PtyLab contains the python module that enables reconstructions
 - in example_scripts you can find typical use cases
 - test contains all the tests of fracpy
  

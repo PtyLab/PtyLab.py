@@ -2,6 +2,6 @@
 from pathlib import Path
 
 
-def get_fracPy_folder():
+def get_PtyLab_folder():
     """Return the folder that PtyLab is installed in."""
     return Path(__file__).parent.parent
