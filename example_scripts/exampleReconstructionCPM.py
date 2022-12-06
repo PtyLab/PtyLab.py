@@ -19,7 +19,7 @@ ptycho data reconstructor
 change data visualization and initialization options manually for now
 """
 
-fileName = "example:Lenspaper_cpm"  # simu.hdf5 or Lenspaper.hdf5
+fileName = "example:simulation_cpm"  # simu.hdf5 or Lenspaper.hdf5
 
 experimentalData, reconstruction, params, monitor, ePIE_engine = PtyLab.easyInitialize(
     fileName, operationMode="CPM"
@@ -27,7 +27,10 @@ experimentalData, reconstruction, params, monitor, ePIE_engine = PtyLab.easyInit
 # optional - use tensorboard monitor instead. To see the results, open tensorboard in the directory ./logs_tensorboard
 from PtyLab.Monitor.TensorboardMonitor import TensorboardMonitor
 
-monitor = TensorboardMonitor()
+# turn these two lines on to see the autofocusing in action
+# experimentalData.zo = experimentalData.zo + 1e-2
+# reconstruction.zo = reconstruction.zo + 1e-2
+# monitor = TensorboardMonitor()
 # set this to >1 for larger images
 monitor.downsample_everything = 2
 monitor.probe_downsampling = 1
@@ -37,19 +40,20 @@ monitor.probe_downsampling = 1
 
 # optional: try to reload the last probe. This can really help convergence, especially for larger probes
 reload_probe = False
-reload_object = True
+reload_object = False
 
 # change the number of pixels in the object
 reconstruction.No = int(reconstruction.No * 0.9)
 
 
 params.TV_autofocus = False
-params.TV_autofocus_stepsize = 100
+params.TV_autofocus_stepsize = 50
 params.TV_autofocus_intensityonly = False
 params.TV_autofocus_what = "object"
 params.TV_autofocus_metric = "TV"
 params.TV_autofocus_roi = [[0.3, 0.7], [0.3, 0.7]]  # [[0.45, 0.5], [0.6, 0.65]]
-# optional - set the minimum and maximum propagation distance to something reasonable
+# optional - set the minimum and maximum propagation distance to something reasonable.
+# to disable, set to None
 params.TV_autofocus_min_z = experimentalData.zo - 2e-2
 params.TV_autofocus_max_z = experimentalData.zo + 5e-2
 
@@ -156,7 +160,7 @@ mPIE = Engines.mPIE(reconstruction, experimentalData, params, monitor)
 mPIE.numIterations = 50
 
 # you can now run simple scripts, such as:
-for i in range(3):
+for i in range(8):
     # turn on autofocusing and then l2 regularization, iterate both for about 50 iterations
     params.TV_autofocus = i % 2 == 1
     params.l2reg = i % 2 == 0

@@ -177,7 +177,22 @@ class PtySim:
     def plot_diff_data(self):
         pass
 
-    def export_data(self):
+    def export_data(self, filename):
+        with h5py.File(fileName + ".hdf5", "w") as hf:
+            hf.create_dataset("ptychogram", data=ptychogram, dtype="f")
+            hf.create_dataset("encoder", data=encoder, dtype="f")
+            hf.create_dataset("binningFactor", data=binningFactor, dtype="i")
+            hf.create_dataset("dxd", data=(dxd,), dtype="f")
+            hf.create_dataset("Nd", data=(Nd,), dtype="i")
+            hf.create_dataset("No", data=(No,), dtype="i")
+            hf.create_dataset("zo", data=(zo,), dtype="f")
+            hf.create_dataset("wavelength", data=(wavelength,), dtype="f")
+            hf.create_dataset(
+                "entrancePupilDiameter", data=(entrancePupilDiameter,), dtype="f"
+            )
+            hf.close()
+            print("An hd5f file has been saved")
+
         pass
 
 
