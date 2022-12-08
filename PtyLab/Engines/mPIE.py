@@ -104,14 +104,14 @@ class mPIE(BaseEngine):
 
         # actual reconstruction MPIE_engine
         self.pbar = tqdm.trange(
-            self.numIterations, desc="mPIE", file=sys.stdout, leave=True
+            self.numIterations, desc="mPIE", file=sys.stdout, leave=False
         )
         for loop in self.pbar:
             # set position order
             self.setPositionOrder()
 
             for positionLoop, positionIndex in enumerate(
-                tqdm.tqdm(self.positionIndices),
+                tqdm.tqdm(self.positionIndices, leave=False, desc='ptychogram'),
             ):
                 # get object patch, stored as self.probe
                 # self.reconstruction.make_probe(positionIndex)

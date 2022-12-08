@@ -371,8 +371,8 @@ class Reconstruction(object):
             1,
             self.npsm,
             self.nslice,
-            np.int(self.Np),
-            np.int(self.Np),
+            int(self.Np),
+            int(self.Np),
         )
         if force:
             self.initialProbe = "circ"
@@ -432,13 +432,15 @@ class Reconstruction(object):
         """
         with h5py.File(filename, "r") as archive:
             probe = np.array(archive["probe"])
+            N_probe_read = probe.shape[-1]
+            # roughly extract the center
+            ss = slice(np.clip(N_probe_read//2-self.Np//2, 0, None), np.clip(N_probe_read//2-self.Np//2+int(self.Np), 0, N_probe_read))
             probe = probe[
                 : self.nlambda,
                 :1,
                 : self.npsm,
                 : self.nslice,
-                : int(self.Np),
-                : int(self.Np),
+                ss,ss
             ]
             if np.all(np.array(probe.shape) == np.array(self.shape_P)):
                 self.probe = probe
@@ -490,18 +492,21 @@ class Reconstruction(object):
             squeezefun = np.squeeze
         if type == "all":
             if self.data.operationMode == "CPM":
-                hf = h5py.File(fileName, "w")
-                hf.create_dataset("probe", data=self.probe, dtype="complex64")
-                hf.create_dataset("object", data=self.object, dtype="complex64")
-                hf.create_dataset("error", data=self.error, dtype="f")
-                hf.create_dataset("zo", data=self._zo, dtype="f")
-                hf.create_dataset("wavelength", data=self.wavelength, dtype="f")
-                hf.create_dataset("dxp", data=self.dxp, dtype="f")
-                hf.create_dataset("purityProbe", data=self.purityProbe, dtype="f")
-                hf.create_dataset("purityObject", data=self.purityObject, dtype="f")
-                if hasattr(self, "theta"):
-                    if self.theta != None:
-                        hf.create_dataset("theta", data=self.theta, dtype="f")
+                with h5py.File(fileName, "w") as hf:
+                    hf.create_dataset("probe", data=self.probe, dtype="complex64")
+                    hf.create_dataset("object", data=self.object, dtype="complex64")
+                    hf.create_dataset("error", data=self.error, dtype="f")
+                    hf.create_dataset("zo", data=self._zo, dtype="f")
+                    hf.create_dataset("wavelength", data=self.wavelength, dtype="f")
+                    hf.create_dataset("dxp", data=self.dxp, dtype="f")
+                    hf.create_dataset("purityProbe", data=self.purityProbe, dtype="f")
+                    hf.create_dataset("purityObject", data=self.purityObject, dtype="f")
+                    hf.create_dataset('I object', data=abs(self.object), dtype='f')
+                    hf.create_dataset('I probe', data=abs(self.probe), dtype='f')
+
+                    if hasattr(self, "theta"):
+                        if self.theta != None:
+                            hf.create_dataset("theta", data=self.theta, dtype="f")
 
             if self.data.operationMode == "FPM":
                 hf = h5py.File(fileName, "w")
@@ -723,10 +728,10 @@ class Reconstruction(object):
         start_time = time.time()
 
         if not params.TV_autofocus:
-            return None, None
+            return None, None, None
         if loop is not None:
             if loop % params.TV_autofocus_run_every != 0:
-                return None, None
+                return None, None, None
 
         if params.l2reg:
             self.logger.warning(
@@ -734,7 +739,8 @@ class Reconstruction(object):
             )
 
         d = params.TV_autofocus_range_dof
-        dz = np.linspace(-1, 1, 11) * d * self.DoF
+        nplanes = params.TV_autofocus_nplanes
+        dz = np.linspace(-1, 1, nplanes) * d * self.DoF
 
         if params.TV_autofocus_what == "object":
             field = self.object[self.nlambda // 2, 0, 0, self.nslice // 2, :, :]
@@ -771,6 +777,9 @@ class Reconstruction(object):
         # from here on we are looking at 11 data points, work on CPU
         # as it's much more convenient and faster
         feedback = np.sum(dz * merit) / np.sum(merit)
+
+        scores = np.vstack([self.zo + dz, merit])
+
         self.zMomentum *= params.TV_autofocus_friction
         self.zMomentum += params.TV_autofocus_stepsize * feedback
         # now, clip it to the bounds
@@ -784,8 +793,8 @@ class Reconstruction(object):
         self.logger.info(
             f"TV autofocus took {end_time-start_time} seconds, and moved focus by {-delta_z*1e6} micron"
         )
-
-        return merit[5] / asNumpyArray(abs(self.object[..., sy, sx]).mean()), OEs[5]
+        indices = [nplanes//2, np.argmax(merit)]
+        return merit[nplanes//2] / asNumpyArray(abs(self.object[..., sy, sx]).mean()), np.hstack(OEs[indices]), (scores, self.zo)
 
     def reset_TV_autofocus(self):
         """Reset the settings of TV autofocus. Can be useful to reset the memory effect if the steps are getting really large."""

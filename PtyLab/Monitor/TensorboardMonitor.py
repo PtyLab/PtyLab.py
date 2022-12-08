@@ -1,3 +1,5 @@
+import io
+
 import numpy as np
 import time
 from pathlib import Path
@@ -10,7 +12,9 @@ from PtyLab.utils.visualisation import complex2rgb, complex2rgb_vectorized
 from tensorflow import summary as tfs
 from scipy import ndimage
 
-
+import matplotlib
+import io
+from tensorflow import image
 def center_angle(object_estimate):
     # first, align the angle of the object based on the zeroth order mode
     object_estimate_0 = object_estimate.copy()
@@ -145,7 +149,7 @@ class TensorboardMonitor(AbstractMonitor):
                 description="reconstruction name",
             )
 
-    def update_focusing_metric(self, TV_value, AOI_image, metric_name):
+    def update_focusing_metric(self, TV_value, AOI_image, metric_name, allmerits=None):
         if TV_value is not None:
             self.__safe_upload_scalar(
                 f"Autofocus {metric_name}",
@@ -163,6 +167,22 @@ class TensorboardMonitor(AbstractMonitor):
                 1,
                 "AOI used by autofocus",
             )
+        if allmerits is not None:
+            import matplotlib.pyplot as plt
+            allmerits, new_z = allmerits
+            fig, ax = plt.subplot_mosaic('A')
+            ax = ax['A']
+            ax.plot(allmerits[0], allmerits[1], '-ro')
+            ax.vlines(new_z, *ax.get_ylim())
+            ax.set_title(f'{metric_name}')
+            buf = io.BytesIO()
+            fig.savefig(buf, format='png', dpi=70)
+            plt.close(fig)
+            buf.seek(0)
+            with self.writer.as_default():
+                img = image.decode_png(buf.getvalue(), channels=4)
+                img = np.expand_dims(img, 0)
+                tfs.image('Autofocus dz score', img, self.i)
 
     def update_encoder(
         self,
@@ -188,9 +208,7 @@ class TensorboardMonitor(AbstractMonitor):
             axis=0, keepdims=True
         )
 
-        import matplotlib
-        import io
-        from tensorflow import image
+
 
         matplotlib.use("Agg")  # no images output
         import matplotlib.pyplot as plt
@@ -267,7 +285,7 @@ class TensorboardMonitor(AbstractMonitor):
         )
 
         buf = io.BytesIO()
-        fig.savefig(buf, format="png", dpi=300)
+        fig.savefig(buf, format="png", dpi=70)
         plt.close(fig)
         buf.seek(0)
         with self.writer.as_default():
