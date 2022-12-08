@@ -64,6 +64,24 @@ def loadInputData(filename: Path, requiredFields, optionalFields):
     except Exception as e:
         logger.error("Error reading hdf5 file!")
         raise e
+    if 'encoder' in dataset:
+        print(f'Found encoder with shape {dataset["encoder"].shape}')
+        if dataset['encoder'].shape[0] < dataset['encoder'].shape[1]:
+            dataset['encoder'] = dataset['encoder'].T
+            print('Warning: Automatically changing the shape of encoder. ')
+            dataset['encoder'] -= dataset['encoder'].mean(axis=0, keepdims=True)
+            print(dataset['encoder'].shape, dataset['encoder'].mean(axis=0))
+            # dataset['encoder'] *= -1
+    # dirty hack for now
+
+    # upsample
+
+    from PtyLab.utils.utils import fft2c, ifft2c
+    dataset['dxd'] = dataset['dxd'] / 2
+    # padwidth = dataset['ptychogram'].shape[-1]//2
+    # padwidth = [[0,0], [padwidth, padwidth], [padwidth,padwidth]]
+    # dataset['ptychogram'] = abs(ifft2c(np.pad(fft2c(dataset['ptychogram']), padwidth))).astype(np.float32)
+    # dataset['ptychogram'] = np.repeat(np.repeat(dataset['ptychogram'], axis=-2, repeats=2), axis=-1, repeats=2)
 
     return dataset
 

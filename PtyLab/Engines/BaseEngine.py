@@ -1527,9 +1527,10 @@ class BaseEngine(object):
             self.position_update_to_change_in_z(loop)
 
         if self.params.TV_autofocus:
-            merit, AOI_image = self.reconstruction.TV_autofocus(self.params, loop=loop)
+            merit, AOI_image, allmerits = self.reconstruction.TV_autofocus(self.params, loop=loop)
             self.monitor.update_focusing_metric(
-                merit, AOI_image, metric_name=self.params.TV_autofocus_metric
+                merit, AOI_image, metric_name=self.params.TV_autofocus_metric,
+                allmerits=allmerits,
             )
 
         if self.params.OPRP and loop % self.params.OPRP_tsvd_interval == 0:
