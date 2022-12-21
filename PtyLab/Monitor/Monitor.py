@@ -90,6 +90,9 @@ class AbstractMonitor(object):
         """Update the image of the encoder positions."""
         pass
 
+    def update_overlap(self, overlap_area, linear_overlap):
+        pass
+
     def updateObjectProbeErrorMonitor(
         self,
         error: float,
@@ -112,6 +115,21 @@ class AbstractMonitor(object):
         :return:
         """
 
+        pass
+
+    def updateBeamWidth(self, beamwidth_x, beamwidth_y):
+        """
+        Update the beam width in X and Y
+
+        Parameters
+        ----------
+        beamwidth_x: beamwidth x in meter
+        beamwidth_y: beamwidth y in meter
+
+        Returns
+        -------
+
+        """
         pass
 
     def updateDiffractionDataMonitor(self, Iestimated, Imeasured):
