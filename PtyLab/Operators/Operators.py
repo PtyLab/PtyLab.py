@@ -913,7 +913,7 @@ def __make_transferfunction_polychrome_ASP(
                 [
                     [
                         __aspw_transfer_function(
-                            zo, spectralDensity[nlambda], Np, Lp, gpuSwitch
+                            zo, spectralDensity[nlambda], Np, Lp, False,
                         )
                         for nslice in range(1)
                     ]
