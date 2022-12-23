@@ -9,13 +9,13 @@ except ImportError:
     cp = None
 
 # fracPy imports
-from fracPy.Reconstruction.Reconstruction import Reconstruction
-from fracPy.Engines.BaseEngine import BaseEngine
-from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
-from fracPy.Params.Params import Params
-from fracPy.utils.gpuUtils import getArrayModule, asNumpyArray
-from fracPy.Monitor.Monitor import Monitor
-from fracPy.utils.utils import fft2c, ifft2c
+from PtyLab.Reconstruction.Reconstruction import Reconstruction
+from PtyLab.Engines.BaseEngine import BaseEngine
+from PtyLab.ExperimentalData.ExperimentalData import ExperimentalData
+from PtyLab.Params.Params import Params
+from PtyLab.utils.gpuUtils import getArrayModule, asNumpyArray
+from PtyLab.Monitor.Monitor import Monitor
+from PtyLab.utils.utils import fft2c, ifft2c
 import logging
 import tqdm
 import sys
