@@ -42,6 +42,8 @@ class Reconstruction(object):
     are defined in the listOfReconstructionProperties
     """
 
+    _Nd = None
+
     # Note: zo, the sample-detector distance, is always read.
     listOfReconstructionPropertiesCPM = [
         "wavelength",
@@ -352,11 +354,22 @@ class Reconstruction(object):
             np.int(self.No),
             np.int(self.No),
         )
-        self.initialGuessObject = initialProbeOrObject(
-            self.shape_O, self.initialObject, self, self.logger
-        ).astype(np.complex64)
+        if self.initialObject == 'recon':
+            # Load the object from an existing reconstruction
+            self.initialGuessObject = self.loadResults(self.initialProbe_filename, datatype='object')
+        else:
+            self.initialGuessObject = initialProbeOrObject(self.shape_O, self.initialObject, self, self.logger).astype(np.complex64)
 
         # self.initialGuessObject *= 1e-2
+
+    @staticmethod
+    def loadResults(fileName, datatype='probe'):
+        '''
+        Loads data from a ptylab reconstruction file.
+        '''
+        with h5py.File(fileName) as archive:
+            data = np.copy(np.array(archive[datatype]))
+        return data
 
     def initializeProbe(self, force=False):
         if self.data.entrancePupilDiameter is None:
@@ -374,11 +387,14 @@ class Reconstruction(object):
             np.int(self.Np),
             np.int(self.Np),
         )
-        if force:
-            self.initialProbe = "circ"
-        self.initialGuessProbe = initialProbeOrObject(
-            self.shape_P, self.initialProbe, self
-        ).astype(np.complex64)
+        if self.initialProbe == 'recon':
+            self.initialGuessProbe = self.loadResults(self.initialProbe_filename, datatype='probe')
+        else:
+            if force:
+                self.initialProbe = "circ"
+            self.initialGuessProbe = initialProbeOrObject(
+                self.shape_P, self.initialProbe, self
+            ).astype(np.complex64)
 
     # initialize momentum, called in specific engines with momentum accelaration
     def initializeObjectMomentum(self):
@@ -521,6 +537,9 @@ class Reconstruction(object):
                 hf.create_dataset(
                     "object", data=squeezefun(self.object), dtype="complex64"
                 )
+        elif type == "probe_stack":
+            hf = h5py.File(fileName + '_probe_stack.hdf5', 'w')
+            hf.create_dataset('probe_stack', data=self.probe_stack.get(), dtype='complex64')
         print("The reconstruction results (%s) have been saved" % type)
 
     # detector coordinates
