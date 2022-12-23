@@ -97,11 +97,9 @@ class mPIE(BaseEngine):
         self.changeOptimizable(reconstruction)
 
         self._prepareReconstruction()
-
         # set object and probe buffers, in case object and probe are changed in the _prepareReconstruction() step
         self.reconstruction.objectBuffer = self.reconstruction.object.copy()
         self.reconstruction.probeBuffer = self.reconstruction.probe.copy()
-
         # actual reconstruction MPIE_engine
         self.pbar = tqdm.trange(
             self.numIterations, desc="mPIE", file=sys.stdout, leave=True
@@ -110,9 +108,7 @@ class mPIE(BaseEngine):
             # set position order
             self.setPositionOrder()
 
-            for positionLoop, positionIndex in enumerate(
-                tqdm.tqdm(self.positionIndices),
-            ):
+            for positionLoop, positionIndex in enumerate(self.positionIndices):
                 # get object patch, stored as self.probe
                 # self.reconstruction.make_probe(positionIndex)
 
