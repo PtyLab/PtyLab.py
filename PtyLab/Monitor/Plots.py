@@ -132,7 +132,7 @@ class ObjectProbeErrorPlot(object):
         else:
             self.im_probe.set_data(PE)
             self.im_probe_ff.set_data(PE_ff)
-            if optimizable.npsm > 1:
+            if optimizable.npsm > 1 and optimizable.purityProbe == optimizable.purityProbe:
                 self.txt_purityProbe.set_text(
                     "Probe estimate\nPurity: %i" % (100 * optimizable.purityProbe) + "%"
                 )
@@ -150,7 +150,7 @@ class ObjectProbeErrorPlot(object):
                 error_estimate, "o-", mfc="none"
             )[0]
         else:
-            if len(error_estimate) > 1:
+            if len(error_estimate) > 1 and error_estimate[-1] == error_estimate[-1]:
                 self.error_metric_plot.set_data(
                     np.arange(len(error_estimate)) + 1, error_estimate
                 )

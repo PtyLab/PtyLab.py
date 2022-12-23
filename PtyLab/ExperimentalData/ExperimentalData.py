@@ -137,6 +137,28 @@ class ExperimentalData:
         # depending on the orientation
         self.setOrientation(readHdf5.getOrientation(self.filename))
 
+    def reduce_positions(self, start, end):
+        """
+        Reduce the number of positions for the reconstruction
+        """
+        self.ptychogram = self.ptychogram[start: end]
+        self.encoder = self.encoder[start: end]
+
+    def cropCenter(self, size):
+        '''
+        The parameter size corresponds to the finale size of the diffraction patterns
+        '''
+        if not isinstance(size, int):
+            raise TypeError('Crop value is not valid. Int expected')
+
+        x = self.ptychogram.shape[-1]
+        startx = x // 2 - (size // 2)
+
+        startx += 1
+
+        self.ptychogram = self.ptychogram[..., startx: startx + size, startx: startx + size]
+        # self._setData()
+
     def setOrientation(self, orientation):
         """
         Sets the correct orientation. This function follows the ptypy convention.

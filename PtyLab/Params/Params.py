@@ -1,4 +1,5 @@
 import logging
+import numpy as np
 
 
 class Params(object):
@@ -87,7 +88,7 @@ class Params(object):
 
         # autofocusing
         # Wether or not to perform TV autofocusing
-        self.TV_autofocus = True
+        self.TV_autofocus = False 
         # what to focus: can be 'TV', 'std', 'min_std', or a callable
         self.TV_autofocus_metric = "TV"
         # Only look at the TV of the intensity as a focusing metric
@@ -116,10 +117,10 @@ class Params(object):
         # map a change in positions to a change in z. Experimental, do not use
         self.map_position_to_z_change = False
 
-        # this is not implemented at the moment
+        # OPR modes 
         self.OPRP = False
-        # how many modes to use
-        self.OPRP_nmodes = 10
+        self.OPR_modes = np.array([0])
+        self.n_subspace = 4
 
         # SHG stuff
         self.SHG_probe = False
