@@ -13,9 +13,10 @@ from PtyLab.Reconstruction.Reconstruction import Reconstruction
 from PtyLab.Engines.BaseEngine import BaseEngine
 from PtyLab.ExperimentalData.ExperimentalData import ExperimentalData
 from PtyLab.Params.Params import Params
-from PtyLab.utils.gpuUtils import getArrayModule
+from PtyLab.utils.gpuUtils import getArrayModule, isGpuArray, asNumpyArray
 from PtyLab.Monitor.Monitor import Monitor
 from PtyLab.utils.utils import fft2c, ifft2c
+from PtyLab.utils.fsvd import rsvd
 import logging
 import tqdm
 import sys
@@ -132,8 +133,11 @@ class OPR_TV(BaseEngine):
         for pos in range(nFrames):
             probe = self.reconstruction.probe_stack[0, 0, :, 0, :, :, pos]
             probe = probe.reshape(nModes, n*n)
-            U, s, Vh = cp.linalg.svd(probe, full_matrices=False)
-            modes = cp.dot(cp.diag(s), Vh).reshape(nModes, n, n)
+
+            U, s, Vh = self.svd(probe)
+
+            #modes = cp.dot(cp.diag(s), Vh).reshape(nModes, n, n)
+            modes = (s[:,None]*Vh).reshape(nModes, n, n)
             self.reconstruction.probe_stack[0, 0, :, 0, :, :, pos] = modes
 
     def average(self, arr):
@@ -146,17 +150,45 @@ class OPR_TV(BaseEngine):
         divider[-1] = 2
         return (arr + arr_end + arr_start) / divider
 
+    def svd(self, P):
+        if isGpuArray(P):
+            try:
+                return cp.linalg.svd(P, full_matrices=False)
+            except:
+                print('Something is wrong with SVD on cuda. Probably an installation error')
+                raise
+        A, v, At = np.linalg.svd(asNumpyArray(P), full_matrices=False)
+        if isGpuArray(P):
+            A = cp.array(A)
+            v = cp.array(v)
+            At = cp.array(At)
+        return A, v, At
+
+    def rsvd(self, P, n_dim):
+
+        print('running rsvd')
+        return  rsvd(P, n_dim)
+
+
     def orthogonalizeProbeStack(self, probe_stack, n_dim):
         plot_cycle = 10
-        plot = False 
+        plot = False
         n = self.reconstruction.Np
         nFrames = self.experimentalData.numFrames
         alpha = 0.05
 
         for i in self.OPR_modes:
 
-            U, s, Vh = cp.linalg.svd(probe_stack[:, :, i, :, :, :].reshape(n * n, nFrames), full_matrices=False)
-            s[n_dim:] = 0
+            # U, s, Vh = cp.linalg.svd(probe_stack[:, :, i, :, :, :].reshape(n * n, nFrames), full_matrices=False)
+            # U, s, Vh = self.svd(probe_stack[:, :, i, :, :, :].reshape(n * n, nFrames))
+            # from cupyx.scipy.sparse.linalg import svds
+
+
+            #s[n_dim:] = 0
+
+
+            U, s, Vh = self.rsvd(probe_stack[:, :, i, :, :,:].reshape(n*n, nFrames), n_dim)
+
 
             # allow only slow changes
             neighbor_constraint = False
@@ -168,8 +200,12 @@ class OPR_TV(BaseEngine):
 
                 probe_stack[:, :, i, :, :, :] = alpha * probe_stack[:, :, i, :, :, :] + (1 - alpha) * cp.dot(U, content).reshape(n, n, nFrames)
             else:
-                probe_stack[:, :, i, :, :, :] = alpha * probe_stack[:, :, i, :, :, :] + (1 - alpha) * cp.dot(U, cp.dot(cp.diag(s), Vh)).reshape(n, n, nFrames)
-        
+                # probe_stack[:, :, i, :, :, :] = alpha * probe_stack[:, :, i, :, :, :] + (1 - alpha) * cp.dot(U, cp.dot(cp.diag(s), Vh)).reshape(n, n, nFrames)
+                update = (U@(s[:,None]*Vh)).reshape(n,n,nFrames)
+                # probe_stack[:, :, i, :, :, :] = alpha * probe_stack[:, :, i, :, :, :] + (1 - alpha) * update
+                probe_stack[:, :, i, :, :, :] *= alpha
+                probe_stack[:, :, i, :, :, :] += (1 - alpha) * update
+
         if self.it == 0 and plot:
             plt.ion()
             self.fig = plt.figure('content')
@@ -179,6 +215,7 @@ class OPR_TV(BaseEngine):
             self.ax_3 = self.fig_2.add_subplot(122)
       
         if self.it % plot_cycle == 0 and plot:
+            print(U.shape)
             self.reconstruction.modes = U.reshape(n, n, nFrames)
             content = cp.dot(cp.diag(s), Vh)
             self.ax.imshow(np.log10(np.abs(content.get())[0:3, :]), aspect='auto')

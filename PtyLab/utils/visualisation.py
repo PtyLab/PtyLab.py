@@ -58,6 +58,8 @@ def complex2rgb(u, amplitudeScalingFactor=1, force_numpy=True):
     if amplitudeScalingFactor == "2sigma":
         ASF = v.mean() + 2 * np.std(v)
         ASF = ASF / v.max()
+    elif amplitudeScalingFactor is None:
+        ASF = 1
     else:
         ASF = amplitudeScalingFactor
     if ASF != 1:
