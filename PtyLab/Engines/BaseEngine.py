@@ -750,21 +750,26 @@ class BaseEngine(object):
         Calculate probe beam width (Full width half maximum)
         :return:
         """
-        P = np.sum(
-            abs(asNumpyArray(self.reconstruction.probe[..., -1, :, :])) ** 2,
+        xp = getArrayModule(self.reconstruction.probe)
+        P = xp.sum(
+            abs((self.reconstruction.probe[..., -1, :, :])) ** 2,
             axis=(0, 1, 2),
         )
-        P = P / np.sum(P, axis=(-1, -2))
+        P = P / xp.sum(P, axis=(-1, -2))
+        P = asNumpyArray(P)
         xMean = np.sum(self.reconstruction.Xp * P, axis=(-1, -2))
         yMean = np.sum(self.reconstruction.Yp * P, axis=(-1, -2))
         xVariance = np.sum((self.reconstruction.Xp - xMean) ** 2 * P, axis=(-1, -2))
         yVariance = np.sum((self.reconstruction.Yp - yMean) ** 2 * P, axis=(-1, -2))
 
-        c = 2 * np.sqrt(
-            2 * np.log(2)
+        c = 2 * xp.sqrt(
+            2 * xp.log(2)
         )  # constant for converting variance to FWHM (see e.g. https://en.wikipedia.org/wiki/Full_width_at_half_maximum)
-        self.reconstruction.beamWidthX = c * np.sqrt(xVariance)
-        self.reconstruction.beamWidthY = c * np.sqrt(yVariance)
+
+        self.reconstruction.beamWidthX = asNumpyArray(c * np.sqrt(xVariance))
+        self.reconstruction.beamWidthY = asNumpyArray(c * np.sqrt(yVariance))
+
+        return self.reconstruction.beamWidthY, self.reconstruction.beamWidthX
 
     def getOverlap(self, ind1, ind2):
         """
@@ -1087,6 +1092,9 @@ class BaseEngine(object):
                 original_positions=self.experimentalData.encoder,
             )
 
+
+            self.monitor.updateBeamWidth(*self.getBeamWidth())
+
             # self.monitor.visualize_probe_engine(self.reconstruction.probe_storage)
 
             if self.monitor.verboseLevel == "high":
@@ -1118,6 +1126,9 @@ class BaseEngine(object):
                     "estimated area overlap: %.1f %%"
                     % (100 * self.reconstruction.areaOverlap)
                 )
+
+                self.monitor.update_overlap(self.reconstruction.areaOverlap,
+                                            self.reconstruction.linearOverlap)
                 # self.pbar.write('coherence structure:')
 
             if self.params.positionCorrectionSwitch:
@@ -1255,10 +1266,13 @@ class BaseEngine(object):
                 grad_y = r * grad_y / abs(grad_y)
             grad_y = asNumpyArray(grad_y)
             grad_x = asNumpyArray(grad_x)
+            delta_p = self.daleth * np.array([grad_y, grad_x])
             self.D[positionIndex, :] = (
-                self.daleth * np.array([grad_y, grad_x])
+                delta_p
                 + self.beth * self.D[positionIndex, :]
             )
+            return delta_p
+        return np.zeros(2)
 
     def position_update_to_change_in_z(self, loop):
         """
@@ -1527,9 +1541,10 @@ class BaseEngine(object):
             self.position_update_to_change_in_z(loop)
 
         if self.params.TV_autofocus:
-            merit, AOI_image = self.reconstruction.TV_autofocus(self.params, loop=loop)
+            merit, AOI_image, allmerits = self.reconstruction.TV_autofocus(self.params, loop=loop)
             self.monitor.update_focusing_metric(
-                merit, AOI_image, metric_name=self.params.TV_autofocus_metric
+                merit, AOI_image, metric_name=self.params.TV_autofocus_metric,
+                allmerits=allmerits,
             )
 
         if self.params.OPRP and loop % self.params.OPRP_tsvd_interval == 0:
@@ -1657,6 +1672,7 @@ class BaseEngine(object):
         P2 = xp.sum(
             abs(self.reconstruction.probe[:, :, :, -1, ...]) ** 2, axis=(0, 1, 2)
         )
+        P2 = abs(self.reconstruction.probe[0,0,0,-1])
         demon = xp.sum(P2) * self.reconstruction.dxp
         xc = int(
             xp.around(xp.sum(xp.array(self.reconstruction.Xp, xp.float32) * P2) / demon)
@@ -1664,6 +1680,7 @@ class BaseEngine(object):
         yc = int(
             xp.around(xp.sum(xp.array(self.reconstruction.Yp, xp.float32) * P2) / demon)
         )
+        print('Center of mass:', yc, xc)
         # shift only if necessary
         if xc**2 + yc**2 > 1:
             # self.reconstruction.probe_storage._push_hard(self.reconstruction.probe, 100)

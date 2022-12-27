@@ -39,7 +39,7 @@ def hsv2rgb(hsv: np.ndarray) -> np.ndarray:
     return rgb.astype("uint8")
 
 
-def complex2rgb(u, amplitudeScalingFactor=1, force_numpy=True):
+def complex2rgb(u, amplitudeScalingFactor=1, force_numpy=True, center_phase=False):
     """
     Preparation function for a complex plot, converting a 2D complex array into an rgb array
     :param u: a 2D complex array
@@ -49,6 +49,10 @@ def complex2rgb(u, amplitudeScalingFactor=1, force_numpy=True):
     # if u is on the GPU, remove it as we can toss it now.
     xp = getArrayModule(u)
     # u = asNumpyArray(u)
+    if center_phase:
+        N = u.shape[-1]
+        phexp = xp.sum(u[...,N//3:2*N//3,N//3:2*N//3], axis=(-2,-1))
+        u = u * phexp.conj() / (abs(phexp) + 1e-9)
     h = xp.angle(u)
     h = (h + np.pi) / (2 * np.pi)
     # saturation  (ones)
@@ -59,7 +63,8 @@ def complex2rgb(u, amplitudeScalingFactor=1, force_numpy=True):
         ASF = v.mean() + 2 * np.std(v)
         ASF = ASF / v.max()
     elif amplitudeScalingFactor is None:
-        ASF = 1
+        ASF = 1./v.max()
+        amplitudeScalingFactor = ASF
     else:
         ASF = amplitudeScalingFactor
     if ASF != 1:
@@ -73,7 +78,7 @@ def complex2rgb(u, amplitudeScalingFactor=1, force_numpy=True):
     return rgb
 
 
-def complex2rgb_vectorized(probe):
+def complex2rgb_vectorized(probe, **kwargs):
     """Turn complex image into rgb for every line.
 
     The individual images are all autoscaled, so you cannot compare them.
@@ -81,7 +86,7 @@ def complex2rgb_vectorized(probe):
     xp = getArrayModule(probe)
     original_shape = probe.shape
     probe = probe.reshape(-1, *probe.shape[-2:])
-    probe_rgb = xp.array([complex2rgb(p, force_numpy=False) for p in probe])
+    probe_rgb = xp.array([complex2rgb(p, force_numpy=False, **kwargs) for p in probe])
     probe_rgb = probe_rgb.reshape(original_shape + (3,))
     return probe_rgb
 

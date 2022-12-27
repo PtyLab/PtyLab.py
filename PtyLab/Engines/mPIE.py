@@ -107,8 +107,8 @@ class mPIE(BaseEngine):
         for loop in self.pbar:
             # set position order
             self.setPositionOrder()
-
-            for positionLoop, positionIndex in enumerate(self.positionIndices):
+            self.pbar_pos = tqdm.tqdm(self.positionIndices, leave=False, desc='ptychogram', file=sys.stdout)
+            for positionLoop, positionIndex in enumerate(self.pbar_pos):
                 # get object patch, stored as self.probe
                 # self.reconstruction.make_probe(positionIndex)
 
@@ -145,7 +145,8 @@ class mPIE(BaseEngine):
                 # self.reconstruction.push_probe_update(self.reconstruction.probe, positionIndex, self.experimentalData.ptychogram.shape[0])
 
                 if self.params.positionCorrectionSwitch:
-                    self.positionCorrection(objectPatch, positionIndex, sy, sx)
+                    shifter = self.positionCorrection(objectPatch, positionIndex, sy, sx)
+                    self.pbar_pos.write(f'Corr: {shifter[0]*1e6:.2f} um x {shifter[1]*1e6:.2f} um')
 
                 # momentum updates
                 if np.random.rand(1) > 0.95:

@@ -111,6 +111,8 @@ class Params(object):
         self.TV_autofocus_min_z = None
         # maximum distance, set to None for no limit
         self.TV_autofocus_max_z = None
+        # number of planes to examine
+        self.TV_autofocus_nplanes = 11
 
         # map a change in positions to a change in z. Experimental, do not use
         self.map_position_to_z_change = False
