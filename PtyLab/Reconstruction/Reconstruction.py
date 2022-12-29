@@ -780,6 +780,8 @@ class Reconstruction(object):
 
             N = field.shape[-1]
             sy, sx = [slice(int(s[0] * N), int(s[1] * N)) for s in ss]
+            # make them the same size if they're not
+            sy = slice(sy.start, sy.start + sx.stop - sx.start)
         else:
             sy, sx = ss, ss
 
@@ -813,7 +815,11 @@ class Reconstruction(object):
             f"TV autofocus took {end_time-start_time} seconds, and moved focus by {-delta_z*1e6} micron"
         )
         indices = [nplanes//2, np.argmax(merit)]
-        return merit[nplanes//2] / asNumpyArray(abs(self.object[..., sy, sx]).mean()), np.hstack(OEs[indices]), (scores, self.zo)
+        OEs = OEs[indices]
+        phexp = OEs.sum((-2,-1), keepdims=True).conj()
+        phexp = phexp / abs(phexp)
+        OEs *= phexp
+        return merit[nplanes//2] / asNumpyArray(abs(self.object[..., sy, sx]).mean()), np.hstack(OEs), (scores, self.zo)
 
     def reset_TV_autofocus(self):
         """Reset the settings of TV autofocus. Can be useful to reset the memory effect if the steps are getting really large."""

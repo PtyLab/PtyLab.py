@@ -141,7 +141,12 @@ class mPIE(BaseEngine):
                     self.reconstruction.object[..., sy, sx] = object_patch
 
                 # probe update
-                self.reconstruction.probe = self.probeUpdate(objectPatch, DELTA)
+                weight = 1
+                if self.params.weigh_probe_updates_by_intensity:
+                    weight = self.experimentalData.relative_intensity(positionIndex)
+                    # print(f'for position {positionIndex}, using weight {weight}')
+
+                self.reconstruction.probe = self.probeUpdate(objectPatch, DELTA, weight)
                 # self.reconstruction.push_probe_update(self.reconstruction.probe, positionIndex, self.experimentalData.ptychogram.shape[0])
 
                 if self.params.positionCorrectionSwitch:
@@ -229,7 +234,7 @@ class mPIE(BaseEngine):
             frac * DELTA, axis=2, keepdims=True
         )
 
-    def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
+    def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray, weight: float):
         """
         Todo add docstring
         :param objectPatch:
@@ -243,7 +248,7 @@ class mPIE(BaseEngine):
         frac = objectPatch.conj() / (
             self.alphaProbe * Omax + (1 - self.alphaProbe) * absO2
         )
-        r = self.reconstruction.probe + self.betaProbe * xp.sum(
+        r = self.reconstruction.probe + weight * self.betaProbe * xp.sum(
             frac * DELTA, axis=1, keepdims=True
         )
         return r

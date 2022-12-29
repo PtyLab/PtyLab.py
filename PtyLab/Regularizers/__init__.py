@@ -174,3 +174,33 @@ def metric_at(
         return np.array(scores), np.array(OEs)
     else:
         return np.array(scores)
+
+
+def divergence(f):
+    """
+    Calculate the divergence of a vector field.
+
+    Parameters
+    ----------
+    f
+
+    Returns
+    -------
+
+    """
+    xp = getArrayModule(f[0])
+    return xp.gradient(f[0], axis=(4, 5))[0] + xp.gradient(f[1], axis=(4, 5))[1]
+
+def divergence_new(f):
+    xp = getArrayModule(f[0])
+    grad_y = xp.gradient(f[0], axis=-2)
+    grad_x = xp.gradient(f[1], axis=-1)
+    return grad_y + grad_x
+
+
+def grad_TV(field, epsilon=1e-2):
+    gradient = np.gradient(field, axis=(-2,-1))
+    norm = np.sqrt(np.sum(gradient, axis=0)**2+epsilon)
+    gradient /= norm
+    TV_update = divergence_new(gradient)
+    return TV_update

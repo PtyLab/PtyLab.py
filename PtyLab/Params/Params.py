@@ -15,6 +15,7 @@ class Params(object):
     def __init__(self):
         # datalogger
 
+        self.weigh_probe_updates_by_intensity = False
         self.OPRP_tsvd_interval = 5
         self.logger = logging.getLogger("Params")
 

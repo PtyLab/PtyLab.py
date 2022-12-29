@@ -1,5 +1,8 @@
 import numpy as np
 from matplotlib import pyplot as plt
+
+from PtyLab.Regularizers import divergence
+
 try:
     import cupy as cp
 except ImportError:
@@ -15,7 +18,6 @@ from PtyLab.ExperimentalData.ExperimentalData import ExperimentalData
 from PtyLab.Params.Params import Params
 from PtyLab.utils.gpuUtils import getArrayModule, isGpuArray, asNumpyArray
 from PtyLab.Monitor.Monitor import Monitor
-from PtyLab.utils.utils import fft2c, ifft2c
 from PtyLab.utils.fsvd import rsvd
 import logging
 import tqdm
@@ -55,12 +57,14 @@ class OPR_TV(BaseEngine):
         Nframes = self.experimentalData.numFrames
         mode_slice = slice(np.min(self.OPR_modes), np.max(self.OPR_modes) + 1) 
         n_subspace = self.n_subspace 
-        # n_subspace = 4 
-        import copy
-        
+        # n_subspace = 4
+
         self.reconstruction.probe_stack = cp.zeros((1, 1, Nmodes, 1, Np, Np, Nframes), dtype=cp.complex64)
+        # what are you doing here? Shouldn't these be incoherent?
         for i in self.OPR_modes:
             self.reconstruction.probe_stack[0, 0, i, 0, :, :, :] = cp.repeat(self.reconstruction.probe[0, 0, i, 0, :, :, cp.newaxis], Nframes, axis=2)
+        # faster way of achieving something similar, but I'm not sure that this is correct
+        # self.reconstruction.probe_stack[0, 0, :, :, :, :] = self.reconstruction.probe[..., None]
 
         # actual reconstruction ePIE_engine
         self.pbar = tqdm.trange(self.numIterations, desc='OPR_TV', file=sys.stdout, leave=True)
@@ -98,7 +102,10 @@ class OPR_TV(BaseEngine):
                     self.reconstruction.object[..., sy, sx] = self.objectPatchUpdate(objectPatch, DELTA)
                 
                 # probe update
-                self.reconstruction.probe = self.probeUpdate(objectPatch, DELTA)
+                weight = 1
+                if self.params.weigh_probe_updates_by_intensity:
+                    weight = self.experimentalData.relative_intensity(positionIndex)
+                self.reconstruction.probe = self.probeUpdate(objectPatch, DELTA, weight)
 
                 # save first, dominant probe mode
                 self.reconstruction.probe_stack[..., positionIndex] = cp.copy(self.reconstruction.probe[:, :, mode_slice, :, :, :]) 
@@ -245,23 +252,21 @@ class OPR_TV(BaseEngine):
         :param DELTA:
         :return:
         """
-        def divergence(f):
-            xp = getArrayModule(f[0])
-            return xp.gradient(f[0], axis=(4, 5))[0] + xp.gradient(f[1], axis=(4, 5))[1]
 
         xp = getArrayModule(objectPatch)
         frac = self.reconstruction.probe.conj() / xp.max(xp.sum(xp.abs(self.reconstruction.probe) ** 2, axis=(0, 1, 2, 3)))
 
         epsilon = 1e-2
         gradient = xp.gradient(objectPatch, axis=(4, 5))
+
         # norm = xp.abs(gradient[0] + gradient[1]) ** 2
         norm = (gradient[0] + gradient[1]) ** 2
         temp = [gradient[0] / xp.sqrt(norm + epsilon), gradient[1] / xp.sqrt(norm + epsilon)]
-        TV_update = divergence(temp) 
+        TV_update = divergence(temp)
         lam = self.params.TV_lam 
         return objectPatch + self.betaObject * xp.sum(frac * DELTA, axis=(0,2,3), keepdims=True) + lam * self.betaObject * TV_update
 
-    def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
+    def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray, weight: float, gimmel=0.1):
         """
         Todo add docstring
         :param objectPatch:
@@ -270,7 +275,8 @@ class OPR_TV(BaseEngine):
         """
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
-        frac = objectPatch.conj() / xp.max(xp.sum(xp.abs(objectPatch) ** 2, axis=(0,1,2,3)))
+        frac = objectPatch.conj() / (xp.max(xp.sum(xp.abs(objectPatch) ** 2, axis=(0,1,2,3)))+gimmel)
+        frac = frac * weight
         r = self.reconstruction.probe + self.betaProbe * xp.sum(frac * DELTA, axis=(0, 1, 3), keepdims=True)
         return r
     

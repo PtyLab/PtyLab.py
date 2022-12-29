@@ -77,7 +77,7 @@ def loadInputData(filename: Path, requiredFields, optionalFields):
     # upsample
 
     from PtyLab.utils.utils import fft2c, ifft2c
-    dataset['dxd'] = dataset['dxd'] / 2
+    # dataset['dxd'] = dataset['dxd'] / 2
     # padwidth = dataset['ptychogram'].shape[-1]//2
     # padwidth = [[0,0], [padwidth, padwidth], [padwidth,padwidth]]
     # dataset['ptychogram'] = abs(ifft2c(np.pad(fft2c(dataset['ptychogram']), padwidth))).astype(np.float32)

@@ -865,9 +865,10 @@ class BaseEngine(object):
             elif self.params.FourierMaskSwitch and self.params.CPSCswitch:
                 raise NotImplementedError
             else:
-                self.reconstruction.errorAtPos[positionIndex] = xp.sum(
+
+                self.reconstruction.errorAtPos[positionIndex] = asNumpyArray(xp.sum(
                     self.currentDetectorError
-                )
+                ))
         else:
             self.reconstruction.detectorError[positionIndex] = self.currentDetectorError
 

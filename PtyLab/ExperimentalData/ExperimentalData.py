@@ -235,3 +235,21 @@ class ExperimentalData:
     def _move_data_to_gpu(self):
         """Move all required fata to the GPU"""
         transfer_fields_to_gpu(self, self.fields_to_transfer, self.logger)
+
+
+    def relative_intensity(self, index):
+        """
+        Return the relative intensity of the ptychogram at index compared to the brightest one
+
+        Parameters
+        ----------
+        index
+
+        Returns
+        -------
+
+        """
+        if not hasattr(self, '_relative_intensity'):
+            self._relative_intensity = self.ptychogram.mean((-2,-1))
+            self._relative_intensity /= (self._relative_intensity.mean() + 2*self._relative_intensity.std())
+        return self._relative_intensity[index]
