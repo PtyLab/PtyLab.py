@@ -1,8 +1,6 @@
 import numpy as np
 from matplotlib import pyplot as plt
 
-from PtyLab.Regularizers import divergence, grad_TV
-
 try:
     import cupy as cp
 except ImportError:
@@ -244,30 +242,6 @@ class OPR_TV(BaseEngine):
 
         frac = self.reconstruction.probe.conj() / xp.max(xp.sum(xp.abs(self.reconstruction.probe) ** 2, axis=(0, 1, 2, 3)))
         return objectPatch + self.betaObject * xp.sum(frac * DELTA, axis=(0,2,3), keepdims=True)
-
-    def objectPatchUpdate_TV(self, objectPatch: np.ndarray, DELTA: np.ndarray):
-        """
-        Update the object patch with a TV regularization.
-
-        :param objectPatch:
-        :param DELTA:
-        :return:
-        """
-
-
-        xp = getArrayModule(objectPatch)
-        frac = self.reconstruction.probe.conj() / xp.max(xp.sum(xp.abs(self.reconstruction.probe) ** 2, axis=(0, 1, 2, 3)))
-
-
-        # gradient = xp.gradient(objectPatch, axis=(4, 5))
-        #
-        # # norm = xp.abs(gradient[0] + gradient[1]) ** 2
-        # norm = (gradient[0] + gradient[1]) ** 2
-        # temp = [gradient[0] / xp.sqrt(norm + epsilon), gradient[1] / xp.sqrt(norm + epsilon)]
-        # TV_update = divergence(temp)
-        TV_update = grad_TV(objectPatch, epsilon=1e-2)
-        lam = self.params.TV_lam 
-        return objectPatch + self.betaObject * xp.sum(frac * DELTA, axis=(0,2,3), keepdims=True) + lam * self.betaObject * TV_update
 
     def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray, weight: float, gimmel=0.1):
         """

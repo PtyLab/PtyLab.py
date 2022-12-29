@@ -131,7 +131,10 @@ class mPIE(BaseEngine):
                 # pg.QtGui.QGuiApplication.processEvents()
 
                 # object update
-                object_patch = self.objectPatchUpdate(objectPatch, DELTA)
+                if self.params.objectTVregSwitch and loop % self.params.objectTVfreq == 0:
+                    object_patch = self.objectPatchUpdate_TV(objectPatch, DELTA)
+                else:
+                    object_patch = self.objectPatchUpdate(objectPatch, DELTA)
 
                 if self.keepPatches:
                     self.patches[positionIndex, ..., sy, sx] = asNumpyArray(

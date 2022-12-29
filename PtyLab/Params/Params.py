@@ -14,7 +14,12 @@ class Params(object):
 
     def __init__(self):
         # datalogger
+        # Total variation regularizerion options
+        self.objectTVfreq = 5
+        self.objectTVregSwitch = False
+        self.objectTVregStepSize = 1e-3
 
+        # other stuff
         self.weigh_probe_updates_by_intensity = False
         self.OPRP_tsvd_interval = 5
         self.logger = logging.getLogger("Params")

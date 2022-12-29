@@ -199,8 +199,9 @@ def divergence_new(f):
 
 
 def grad_TV(field, epsilon=1e-2):
-    gradient = np.gradient(field, axis=(-2,-1))
-    norm = np.sqrt(np.sum(gradient, axis=0)**2+epsilon)
+    xp = getArrayModule(field)
+    gradient = xp.array(xp.gradient(field, axis=(-2,-1)))
+    norm = xp.sqrt(xp.sum(gradient, axis=0)**2+epsilon)
     gradient /= norm
     TV_update = divergence_new(gradient)
     return TV_update
