@@ -351,8 +351,8 @@ class Reconstruction(object):
             self.nosm,
             1,
             self.nslice,
-            np.int(self.No),
-            np.int(self.No),
+            self.No,
+            self.No,
         )
         if self.initialObject == 'recon':
             # Load the object from an existing reconstruction
@@ -711,7 +711,7 @@ class Reconstruction(object):
         - Pixel pitch: {self.dxo*1e6} um
         - Field of view: {self.Lo*1e3} mm
         - Scan size in pixels: {self.positions.max(axis=0)- self.positions.min(axis=0)}
-        - Propagation distance: {self.zo * 1e3} mm (min: {self.params.TV_autofocus_min_z*1e3}, max: {self.params.TV_autofocus_max_z*1e3}.)
+        - Propagation distance: {self.zo * 1e3} mm (min: self.params.TV_autofocus_min_z*1e3, max: self.params.TV_autofocus_max_z*1e3.)
         - Probe FoV: {self.Lp*1e3} mm
         
         Derived parameters:

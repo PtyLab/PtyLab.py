@@ -159,7 +159,7 @@ class ExperimentalData:
         self.ptychogram = self.ptychogram[..., startx: startx + size, startx: startx + size]
         # self._setData()
 
-    def setOrientation(self, orientation):
+    def setOrientation(self, orientation, force_contiguous=True):
         """
         Sets the correct orientation. This function follows the ptypy convention.
 
@@ -197,13 +197,16 @@ class ExperimentalData:
 
         else:
             raise ValueError(f"Orientation {orientation} is not implemented")
+        if force_contiguous:
+            # this almost always makes sense. It makes it easier to read chunks
+            self.ptychogram = np.ascontiguousarray(self.ptychogram)
 
     def _setData(self):
 
         # Set the detector coordinates
         self.Nd = self.ptychogram.shape[-1]
         # Detector coordinates 1D
-        self.xd = np.linspace(-self.Nd / 2, self.Nd / 2, np.int(self.Nd)) * self.dxd
+        self.xd = np.linspace(-self.Nd / 2, self.Nd / 2, int(self.Nd)) * self.dxd
         # Detector coordinates 2D
         self.Xd, self.Yd = np.meshgrid(self.xd, self.xd)
         # Detector size in SI units

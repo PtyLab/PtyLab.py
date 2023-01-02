@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 
 # import napari
@@ -162,6 +164,7 @@ class Monitor(AbstractMonitor):
         self.reconstruction = None
         self.cmapDiffraction = setColorMap()
         self.defaultMonitor = None
+        self.screenshot_directory = None
 
     def initializeMonitors(self):
         """
@@ -209,6 +212,9 @@ class Monitor(AbstractMonitor):
         )
         self.defaultMonitor.update_z(zo)
         self.defaultMonitor.drawNow()
+
+        if self.screenshot_directory is not None:
+            self.defaultMonitor.figure.savefig(Path(self.screenshot_directory) / f'{len(error)}.png')
 
     def describe_parameters(self, *args, **kwargs):
         pass
