@@ -201,6 +201,7 @@ class TensorboardMonitor(AbstractMonitor):
         corrected_positions: np.ndarray,
         original_positions: np.ndarray,
         scaling: float = 1.0,
+            beamwidth=None
     ) -> None:
         """
         Update the stage position images.
@@ -226,7 +227,7 @@ class TensorboardMonitor(AbstractMonitor):
         import matplotlib.pyplot as plt
 
         # make a fov that makes sense
-        scale_0 = 1.5
+        scale_0 = 1.1
         if scaling > scale_0:
             scale_0 = scaling
 
@@ -240,11 +241,11 @@ class TensorboardMonitor(AbstractMonitor):
             """
         ONS""",
             constrained_layout=True,
-            figsize=(10, 5),
+            figsize=(15, 8),
         )
 
         meandiff = np.mean(
-            abs(1e6 * corrected_positions - 1e6 * original_positions) ** 2
+            abs(1e6 * corrected_positions - 1e6 * original_positions)
         )
 
         self.__safe_upload_scalar(
@@ -255,7 +256,7 @@ class TensorboardMonitor(AbstractMonitor):
         )
 
         axes["O"].set_title("Original positions")
-        axes["N"].set_title("Updatred positions")
+        axes["N"].set_title("Updated positions")
         axes["S"].set_title(f"Diff. Mean: {meandiff} $\mu$m")
 
         # plot the original one everywhere
