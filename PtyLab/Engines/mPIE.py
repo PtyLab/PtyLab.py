@@ -154,7 +154,7 @@ class mPIE(BaseEngine):
 
                 if self.params.positionCorrectionSwitch:
                     shifter = self.positionCorrection(objectPatch, positionIndex, sy, sx)
-                    self.pbar_pos.write(f'Corr: {shifter[0]*1e6:.2f} um x {shifter[1]*1e6:.2f} um')
+                    #self.pbar_pos.write(f'Corr: {shifter[0]*1e6:.2f} um x {shifter[1]*1e6:.2f} um')
 
                 # momentum updates
                 if np.random.rand(1) > 0.95:

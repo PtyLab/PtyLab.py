@@ -15,6 +15,7 @@ class Params(object):
     def __init__(self):
         # datalogger
         # Total variation regularizerion options
+        self.positionCorrectionSwitch_radius = 1
         self.objectTVfreq = 5
         self.objectTVregSwitch = False
         self.objectTVregStepSize = 1e-3
