@@ -34,8 +34,8 @@ def rsvd(A, rank, n_oversamples=None, n_subspace_iters=None,
     Q = find_range(A, n_samples, n_subspace_iters)
 
     # Stage B.
-    B = Q.T @ A
-    U_tilde, S, Vt = xp.linalg.svd(B)
+    B = Q.T.conj() @ A
+    U_tilde, S, Vt = xp.linalg.svd(B, full_matrices=False)
     U = Q @ U_tilde
 
     # Truncate.
@@ -61,7 +61,7 @@ def find_range(A, n_samples, n_subspace_iters=None):
     """
     xp = getArrayModule(A)
     m, n = A.shape
-    O = xp.random.randn(n, n_samples)
+    O = xp.random.randn(n, n_samples) + 1j * xp.random.randn(n, n_samples)
     Y = A @ O
 
     if n_subspace_iters:
@@ -85,7 +85,7 @@ def subspace_iter(A, Y0, n_iters):
     """
     Q = ortho_basis(Y0)
     for _ in range(n_iters):
-        Z = ortho_basis(A.T @ Q)
+        Z = ortho_basis(A.T.conj() @ Q)
         Q = ortho_basis(A @ Z)
     return Q
 

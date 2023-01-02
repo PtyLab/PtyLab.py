@@ -38,6 +38,7 @@ class OPR_TV(BaseEngine):
         Set parameters that are specific to the ePIE settings.
         :return:
         """
+        self.alpha = 0.05
         self.betaProbe = 0.25
         self.betaObject = 0.25
         self.numIterations = 50
@@ -170,17 +171,16 @@ class OPR_TV(BaseEngine):
         return A, v, At
 
     def rsvd(self, P, n_dim):
-
-        print('running rsvd')
         return  rsvd(P, n_dim)
-
+        # A, v, At = self.svd(P)
+        # v[n_dim:] = 0
+        # return A, v, At
 
     def orthogonalizeProbeStack(self, probe_stack, n_dim):
         plot_cycle = 10
         plot = False
         n = self.reconstruction.Np
         nFrames = self.experimentalData.numFrames
-        alpha = 0.05
 
         for i in self.OPR_modes:
 
@@ -203,13 +203,13 @@ class OPR_TV(BaseEngine):
                 for j in range(n_dim):
                     content[j] = self.average(content[j])
 
-                probe_stack[:, :, i, :, :, :] = alpha * probe_stack[:, :, i, :, :, :] + (1 - alpha) * cp.dot(U, content).reshape(n, n, nFrames)
+                probe_stack[:, :, i, :, :, :] = self.alpha * probe_stack[:, :, i, :, :, :] + (1 - self.alpha) * cp.dot(U, content).reshape(n, n, nFrames)
             else:
-                # probe_stack[:, :, i, :, :, :] = alpha * probe_stack[:, :, i, :, :, :] + (1 - alpha) * cp.dot(U, cp.dot(cp.diag(s), Vh)).reshape(n, n, nFrames)
+                # probe_stack[:, :, i, :, :, :] = self.alpha * probe_stack[:, :, i, :, :, :] + (1 - self.alpha) * cp.dot(U, cp.dot(cp.diag(s), Vh)).reshape(n, n, nFrames)
                 update = (U@(s[:,None]*Vh)).reshape(n,n,nFrames)
-                # probe_stack[:, :, i, :, :, :] = alpha * probe_stack[:, :, i, :, :, :] + (1 - alpha) * update
-                probe_stack[:, :, i, :, :, :] *= alpha
-                probe_stack[:, :, i, :, :, :] += (1 - alpha) * update
+                # probe_stack[:, :, i, :, :, :] = self.alpha * probe_stack[:, :, i, :, :, :] + (1 - self.alpha) * update
+                probe_stack[:, :, i, :, :, :] *= self.alpha
+                probe_stack[:, :, i, :, :, :] += (1 - self.alpha) * update
 
         if self.it == 0 and plot:
             plt.ion()

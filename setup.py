@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(
-    name="fracpy",
+    name="PtyLab",
     version="0.0",
     packages=[
         "PtyLab",
