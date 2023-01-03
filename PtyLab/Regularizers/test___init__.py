@@ -11,7 +11,7 @@ class Test(TestCase):
         self.nlambda = 1
         self.nosm = 1
         self.nslice = 1
-        self.No = 3800
+        self.No = 380
         self.shape_O = (
             self.nlambda,
             self.nosm,

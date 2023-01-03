@@ -122,7 +122,7 @@ class Reconstruction(object):
 
         # set the distance, this has to be last
         # In FPM the sample to detector distance is irrelevant
-        # LED-to-sample distance is the more important factor that affects 
+        # LED-to-sample distance is the more important factor that affects
         # wave propagation and illumination angle
         if self.data.operationMode == "CPM":
             self.zo = getattr(data, "zo")
@@ -144,12 +144,12 @@ class Reconstruction(object):
     def zo(self, new_value):
         self._zo = new_value
         if self.data.operationMode == "CPM":
-            self.logger.info(f"Changing sample-detector distance to {new_value}")
+            self.logger.debug(f"Changing sample-detector distance to {new_value}")
             self.dxp = self.wavelength * self._zo / self.Ld
         elif self.data.operationMode == "FPM":
-             self.logger.info(f"Changing illumination-to-sample distance to {new_value}")
+             self.logger.debug(f"Changing illumination-to-sample distance to {new_value}")
              self.zled = self._zo
-             
+
     def computeParameters(self):
         """
         compute parameters that can be altered by the user later.
@@ -170,7 +170,7 @@ class Reconstruction(object):
         elif self.data.operationMode == "FPM":
             # FPM dxp (different from CPM due to lens-based systems)
             self.dxp = self.dxd / self.data.magnification
-            # the propagation distance that is meaningful in this context is the 
+            # the propagation distance that is meaningful in this context is the
             # illumination to sample distance for LED array based microscopes
             self.zo = self.zled
             # if NA is not provided in the hdf5 file, set Fourier pupil entrance diameter it to be half of the Fourier space FoV.
@@ -526,6 +526,7 @@ class Reconstruction(object):
                     hf.create_dataset("purityObject", data=self.purityObject, dtype="f")
                     hf.create_dataset('I object', data=abs(self.object), dtype='f')
                     hf.create_dataset('I probe', data=abs(self.probe), dtype='f')
+                    hf.create_dataset('encoder_corrected', data=self.encoder_corrected)
 
                     if hasattr(self, "theta"):
                         if self.theta != None:
@@ -676,12 +677,12 @@ class Reconstruction(object):
                     + self.zled**2
                 )[..., None]
             )
-            
+
             try:
                 positions = positions + self.No // 2 - self.Np // 2
             except:
                 pass
-                
+
             return positions.astype(int)
         else:
             return calculate_pixel_positions(
@@ -712,6 +713,11 @@ class Reconstruction(object):
         transfer_fields_to_gpu(self, self.possible_GPU_fields, self.logger)
 
     def describe_reconstruction(self):
+        minmax_tv = ''
+        try:
+            minmax_tv = f'(min: {self.params.TV_autofocus_min_z*1e3}, max: {self.params.TV_autofocus_max_z*1e3}.)'
+        except TypeError: # one of them is none
+            pass
         info = f"""
         Experimental data:
         - Number of ptychograms: {self.data.ptychogram.shape}
@@ -725,7 +731,7 @@ class Reconstruction(object):
         - Pixel pitch: {self.dxo*1e6} um
         - Field of view: {self.Lo*1e3} mm
         - Scan size in pixels: {self.positions.max(axis=0)- self.positions.min(axis=0)}
-        - Propagation distance: {self.zo * 1e3} mm (min: self.params.TV_autofocus_min_z*1e3, max: self.params.TV_autofocus_max_z*1e3.)
+        - Propagation distance: {self.zo * 1e3} mm {minmax_tv}
         - Probe FoV: {self.Lp*1e3} mm
         
         Derived parameters:
