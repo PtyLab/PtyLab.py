@@ -54,7 +54,8 @@ class OPR_TV(BaseEngine):
         Nmodes = self.OPR_modes.shape[0]
         Np = self.reconstruction.Np
         Nframes = self.experimentalData.numFrames
-        mode_slice = slice(np.min(self.OPR_modes), np.max(self.OPR_modes) + 1) 
+        mode_slice = slice(np.min(self.OPR_modes), np.max(self.OPR_modes) + 1)
+        # mode_slice = range(len(self.OPR_modes))
         n_subspace = self.n_subspace 
         # n_subspace = 4
 

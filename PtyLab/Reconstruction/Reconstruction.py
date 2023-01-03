@@ -519,6 +519,7 @@ class Reconstruction(object):
                     hf.create_dataset("purityObject", data=self.purityObject, dtype="f")
                     hf.create_dataset('I object', data=abs(self.object), dtype='f')
                     hf.create_dataset('I probe', data=abs(self.probe), dtype='f')
+                    hf.create_dataset('encoder_corrected', data=self.encoder_corrected)
 
                     if hasattr(self, "theta"):
                         if self.theta != None:
@@ -698,6 +699,11 @@ class Reconstruction(object):
         transfer_fields_to_gpu(self, self.possible_GPU_fields, self.logger)
 
     def describe_reconstruction(self):
+        minmax_tv = ''
+        try:
+            minmax_tv = f'(min: {self.params.TV_autofocus_min_z*1e3}, max: {self.params.TV_autofocus_max_z*1e3}.)'
+        except TypeError: # one of them is none
+            pass
         info = f"""
         Experimental data:
         - Number of ptychograms: {self.data.ptychogram.shape}
@@ -711,7 +717,7 @@ class Reconstruction(object):
         - Pixel pitch: {self.dxo*1e6} um
         - Field of view: {self.Lo*1e3} mm
         - Scan size in pixels: {self.positions.max(axis=0)- self.positions.min(axis=0)}
-        - Propagation distance: {self.zo * 1e3} mm (min: {self.params.TV_autofocus_min_z*1e3}, max: {self.params.TV_autofocus_max_z*1e3}.)
+        - Propagation distance: {self.zo * 1e3} mm {minmax_tv}
         - Probe FoV: {self.Lp*1e3} mm
         
         Derived parameters:
