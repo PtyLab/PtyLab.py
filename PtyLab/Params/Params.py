@@ -87,7 +87,7 @@ class Params(object):
 
         # autofocusing
         # Wether or not to perform TV autofocusing
-        self.TV_autofocus = True
+        self.TV_autofocus = False
         # what to focus: can be 'TV', 'std', 'min_std', or a callable
         self.TV_autofocus_metric = "TV"
         # Only look at the TV of the intensity as a focusing metric

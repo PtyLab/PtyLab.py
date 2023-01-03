@@ -49,7 +49,10 @@ class qNewton(BaseEngine):
         self.regProbe = 1
         self.numIterations = 50
 
-    def reconstruct(self):
+    def reconstruct(self, experimentalData: ExperimentalData = None):
+        if experimentalData is not None:
+            self.reconstruction.data = experimentalData
+            self.experimentalData = experimentalData
         self._prepareReconstruction()
 
         self.pbar = tqdm.trange(
