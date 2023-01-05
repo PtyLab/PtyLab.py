@@ -20,10 +20,10 @@ ptycho data reconstructor
 change data visualization and initialization options manually for now
 """
 
-# fileName = 'HeLa_tindie_256x256_color_0.hdf5'  # simu.hdf5 or Lenspaper.hdf5
-fileName = "lung_441_256x256_color_0.hdf5"  # simu.hdf5 or Lenspaper.hdf5
-# filePath = getExampleDataFolder() / fileName
-filePath = "example:simulation_fpm"
+# download the example file from one of the suggested repositories
+fileName = "LungCarcinomaFPM.hdf5"  # simu.hdf5 or Lenspaper.hdf5
+filePath = getExampleDataFolder() / fileName
+
 exampleData, reconstruction, params, monitor, engine, calib = PtyLab.easyInitialize(
     filePath, operationMode="FPM"
 )
@@ -52,7 +52,7 @@ monitor.objectZoom = 0.01  # control object plot FoVW
 monitor.probeZoom = 0.01  # control probe plot FoV
 
 # %% Set param
-params.gpuSwitch = True
+params.gpuSwitch = False
 params.positionOrder = "NA"
 params.probePowerCorrectionSwitch = False
 params.comStabilizationSwitch = False

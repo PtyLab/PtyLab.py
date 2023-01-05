@@ -26,6 +26,7 @@ try:
     from cupyx.scipy.ndimage import fourier_gaussian as fourier_gaussian_gpu
 except ImportError:
     from scipy.ndimage import fourier_gaussian as fourier_gaussian_gpu
+    cp = None
 from scipy.ndimage import fourier_gaussian as fourier_gaussian_cpu
 
 
@@ -259,8 +260,8 @@ class BaseEngine(object):
             self.probeWindow = circ(
                 self.reconstruction.Xp,
                 self.reconstruction.Yp,
-                self.reconstruction.entrancePupilDiameter
-                + self.reconstruction.entrancePupilDiameter * 0.2,
+                self.experimentalData.entrancePupilDiameter
+                + self.experimentalData.entrancePupilDiameter * 0.2,
             )
 
     def _setObjectProbeROI(self, update=False):

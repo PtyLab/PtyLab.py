@@ -58,8 +58,7 @@ class Reconstruction(object):
         # 'zo',
         "dxd",
         "zled",
-        "dxp",
-        "entrancePupilDiameter",
+        "NA",
     ]
 
     def __init__(self, data: ExperimentalData, params: Params):
@@ -122,7 +121,11 @@ class Reconstruction(object):
             setattr(self, key, copy(getattr(data, key)))
 
         # set the distance, this has to be last
-        self.zo = getattr(data, "zo")
+        # In FPM the sample to detector distance is irrelevant
+        # LED-to-sample distance is the more important factor that affects
+        # wave propagation and illumination angle
+        if self.data.operationMode == "CPM":
+            self.zo = getattr(data, "zo")
 
         # set the original positions
         if self.encoder_corrected is None:
@@ -139,12 +142,13 @@ class Reconstruction(object):
 
     @zo.setter
     def zo(self, new_value):
-        self.logger.info(f"Changing sample-detector distance to {new_value}")
         self._zo = new_value
         if self.data.operationMode == "CPM":
+            self.logger.info(f"Changing sample-detector distance to {new_value}")
             self.dxp = self.wavelength * self._zo / self.Ld
         elif self.data.operationMode == "FPM":
-            self.dxp = self.dxd / self.data.magnification
+             self.logger.info(f"Changing illumination-to-sample distance to {new_value}")
+             self.zled = self._zo
 
     def computeParameters(self):
         """
@@ -155,8 +159,8 @@ class Reconstruction(object):
             # CPM dxp (depending on the propagatorType, if none given, assum Fraunhofer/Fresnel)
             # self.dxp = self.wavelength * self._zo / self.Ld
             # if entrancePupilDiameter is not provided in the hdf5 file, set it to be one third of the probe FoV.
-            if self.entrancePupilDiameter is None:
-                self.entrancePupilDiameter = self.Lp / 3
+            if self.data.entrancePupilDiameter is None:
+                self.data.entrancePupilDiameter = self.Lp / 3
             # if spectralDensity is not provided in the hdf5 file, set it to be a 1d array of the wavelength
             if isinstance(self.spectralDensity, type(None)):
                 # this is a confusing name, it should be the wavelengths, not the intensity of the different
@@ -166,18 +170,21 @@ class Reconstruction(object):
         elif self.data.operationMode == "FPM":
             # FPM dxp (different from CPM due to lens-based systems)
             self.dxp = self.dxd / self.data.magnification
+            # the propagation distance that is meaningful in this context is the
+            # illumination to sample distance for LED array based microscopes
+            self.zo = self.zled
             # if NA is not provided in the hdf5 file, set Fourier pupil entrance diameter it to be half of the Fourier space FoV.
             # then estimate the NA from the pupil diameter in the Fourier plane
             if isinstance(self.NA, type(None)):
-                self.entrancePupilDiameter = self.Lp / 2
+                self.data.entrancePupilDiameter = self.Lp / 2
                 self.NA = (
-                    self.entrancePupilDiameter
+                    self.data.entrancePupilDiameter
                     * self.wavelength
                     / (2 * self.dxp**2 * self.Np)
                 )
             else:
                 # compute the pupil radius in the Fourier plane
-                self.entrancePupilDiameter = (
+                self.data.entrancePupilDiameter = (
                     2 * self.dxp**2 * self.Np * self.NA / self.wavelength
                 )
 
@@ -351,8 +358,8 @@ class Reconstruction(object):
             self.nosm,
             1,
             self.nslice,
-            np.int(self.No),
-            np.int(self.No),
+            self.No,
+            self.No,
         )
         if self.initialObject == 'recon':
             # Load the object from an existing reconstruction
@@ -666,10 +673,17 @@ class Reconstruction(object):
                 * self.encoder_corrected
                 / np.sqrt(
                     self.encoder_corrected[:, 0] ** 2
-                    + self.encoder[:, 1] ** 2
+                    + self.encoder_corrected[:, 1] ** 2
                     + self.zled**2
                 )[..., None]
             )
+
+            try:
+                positions = positions + self.No // 2 - self.Np // 2
+            except:
+                pass
+
+            return positions.astype(int)
         else:
             return calculate_pixel_positions(
                 self.encoder_corrected, self.dxo, self.No, self.Np, asint=True
@@ -752,6 +766,10 @@ class Reconstruction(object):
         If not required, returns none. Otherwise, returns the value of the TV at the current z0."""
         start_time = time.time()
 
+        if self.data.operationMode == "FPM":
+            raise NotImplementedError(
+                f"Not implemented/tested for FPM. Set params.TV_autofocus to False. Got {params.TV_autofocus}"
+            )
         if not params.TV_autofocus:
             return None, None, None
         if loop is not None:
