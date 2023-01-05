@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 
 # import napari
@@ -25,7 +27,7 @@ class AbstractMonitor(object):
 
         pass
 
-    def update_focusing_metric(self, TV_value, AOI_image, metric_name):
+    def update_focusing_metric(self, TV_value, AOI_image, metric_name, allmerits=None):
         """
         Show the total variation of the object estimate inside the area of interest.
         :param TV_value: Value of TV
@@ -90,6 +92,9 @@ class AbstractMonitor(object):
         """Update the image of the encoder positions."""
         pass
 
+    def update_overlap(self, overlap_area, linear_overlap):
+        pass
+
     def updateObjectProbeErrorMonitor(
         self,
         error: float,
@@ -112,6 +117,21 @@ class AbstractMonitor(object):
         :return:
         """
 
+        pass
+
+    def updateBeamWidth(self, beamwidth_x, beamwidth_y):
+        """
+        Update the beam width in X and Y
+
+        Parameters
+        ----------
+        beamwidth_x: beamwidth x in meter
+        beamwidth_y: beamwidth y in meter
+
+        Returns
+        -------
+
+        """
         pass
 
     def updateDiffractionDataMonitor(self, Iestimated, Imeasured):
@@ -144,6 +164,7 @@ class Monitor(AbstractMonitor):
         self.reconstruction = None
         self.cmapDiffraction = setColorMap()
         self.defaultMonitor = None
+        self.screenshot_directory = None
 
     def initializeMonitors(self):
         """
@@ -191,6 +212,9 @@ class Monitor(AbstractMonitor):
         )
         self.defaultMonitor.update_z(zo)
         self.defaultMonitor.drawNow()
+
+        if self.screenshot_directory is not None:
+            self.defaultMonitor.figure.savefig(Path(self.screenshot_directory) / f'{len(error)}.png')
 
     def describe_parameters(self, *args, **kwargs):
         pass

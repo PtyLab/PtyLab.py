@@ -137,7 +137,29 @@ class ExperimentalData:
         # depending on the orientation
         self.setOrientation(readHdf5.getOrientation(self.filename))
 
-    def setOrientation(self, orientation):
+    def reduce_positions(self, start, end):
+        """
+        Reduce the number of positions for the reconstruction
+        """
+        self.ptychogram = self.ptychogram[start: end]
+        self.encoder = self.encoder[start: end]
+
+    def cropCenter(self, size):
+        '''
+        The parameter size corresponds to the finale size of the diffraction patterns
+        '''
+        if not isinstance(size, int):
+            raise TypeError('Crop value is not valid. Int expected')
+
+        x = self.ptychogram.shape[-1]
+        startx = x // 2 - (size // 2)
+
+        startx += 1
+
+        self.ptychogram = self.ptychogram[..., startx: startx + size, startx: startx + size]
+        # self._setData()
+
+    def setOrientation(self, orientation, force_contiguous=True):
         """
         Sets the correct orientation. This function follows the ptypy convention.
 
@@ -175,13 +197,16 @@ class ExperimentalData:
 
         else:
             raise ValueError(f"Orientation {orientation} is not implemented")
+        if force_contiguous:
+            # this almost always makes sense. It makes it easier to read chunks
+            self.ptychogram = np.ascontiguousarray(self.ptychogram)
 
     def _setData(self):
 
         # Set the detector coordinates
         self.Nd = self.ptychogram.shape[-1]
         # Detector coordinates 1D
-        self.xd = np.linspace(-self.Nd / 2, self.Nd / 2, np.int(self.Nd)) * self.dxd
+        self.xd = np.linspace(-self.Nd / 2, self.Nd / 2, int(self.Nd)) * self.dxd
         # Detector coordinates 2D
         self.Xd, self.Yd = np.meshgrid(self.xd, self.xd)
         # Detector size in SI units
@@ -213,3 +238,21 @@ class ExperimentalData:
     def _move_data_to_gpu(self):
         """Move all required fata to the GPU"""
         transfer_fields_to_gpu(self, self.fields_to_transfer, self.logger)
+
+
+    def relative_intensity(self, index):
+        """
+        Return the relative intensity of the ptychogram at index compared to the brightest one
+
+        Parameters
+        ----------
+        index
+
+        Returns
+        -------
+
+        """
+        if not hasattr(self, '_relative_intensity'):
+            self._relative_intensity = self.ptychogram.mean((-2,-1))
+            self._relative_intensity /= (self._relative_intensity.mean() + 2*self._relative_intensity.std())
+        return self._relative_intensity[index]

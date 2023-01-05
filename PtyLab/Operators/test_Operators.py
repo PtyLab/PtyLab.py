@@ -1,3 +1,5 @@
+from unittest import TestCase
+
 from numpy.testing import assert_allclose
 
 from PtyLab import Operators, easyInitialize
@@ -112,3 +114,15 @@ def test__propagate_fresnel():
 
 def test_aspw_cached():
     assert False
+
+
+class TestASP(TestCase):
+    def test_propagate_asp(self):
+        experimentalData, reconstruction, params, monitor, engine = easyInitialize(
+            "example:simulation_cpm"
+        )
+        reconstruction.esw = None
+        a = reconstruction.probe
+        P1 = Operators.Operators.propagate_ASP(a,params, reconstruction,z=1e-3, fftflag=False)[1]
+        P2 = Operators.Operators.propagate_ASP(a, params, reconstruction, z=1e-3, fftflag=True)[1]
+        assert_allclose(P1, P2)

@@ -1,4 +1,5 @@
 import logging
+import numpy as np
 
 
 class Params(object):
@@ -13,7 +14,13 @@ class Params(object):
 
     def __init__(self):
         # datalogger
+        # Total variation regularizerion options
+        self.objectTVfreq = 5
+        self.objectTVregSwitch = False
+        self.objectTVregStepSize = 1e-3
 
+        # other stuff
+        self.weigh_probe_updates_by_intensity = False
         self.OPRP_tsvd_interval = 5
         self.logger = logging.getLogger("Params")
 
@@ -110,14 +117,16 @@ class Params(object):
         self.TV_autofocus_min_z = None
         # maximum distance, set to None for no limit
         self.TV_autofocus_max_z = None
+        # number of planes to examine
+        self.TV_autofocus_nplanes = 11
 
         # map a change in positions to a change in z. Experimental, do not use
         self.map_position_to_z_change = False
 
-        # this is not implemented at the moment
+        # OPR modes
         self.OPRP = False
-        # how many modes to use
-        self.OPRP_nmodes = 10
+        self.OPR_modes = np.array([0])
+        self.n_subspace = 4
 
         # SHG stuff
         self.SHG_probe = False
