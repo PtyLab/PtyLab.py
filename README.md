@@ -16,6 +16,3 @@ This repository contains the Python implementation.
 -  try running expample scripts in the `example_scripts` folder 
 
 
-## Known issues:
-- Almost nothing is implemented yet.
-
