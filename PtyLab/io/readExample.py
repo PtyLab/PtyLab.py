@@ -13,6 +13,7 @@ exampleFiles = {
     "simulation_fpm": "LungCarcinomaSmallFPM.hdf5",
     "lenspaper_cpm": "Lenspaper.hdf5",
     'helicalbeam': 'ptyLab_helical_beam.h5',
+    'zpie': 'ptyLab_zPIE.h5',
 }
 
 # This is a convenience class to aid in loading a particular example
