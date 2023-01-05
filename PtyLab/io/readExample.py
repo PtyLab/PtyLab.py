@@ -45,8 +45,7 @@ def examplePath(key: str):
         )
 
     full_filename = getExampleDataFolder() / filename
-    if not full_filename.exists():
-        raise FileNotFoundError(f"Could not find {full_filename}")
+
     return full_filename
 
 

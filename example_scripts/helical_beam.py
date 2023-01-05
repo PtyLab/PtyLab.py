@@ -1,6 +1,9 @@
 from pathlib import Path
 import pathlib
 import matplotlib
+
+from PtyLab.io.readExample import examplePath
+
 try:
     matplotlib.use("tkagg") # this is for people using pycharm pro
 except:
@@ -23,10 +26,17 @@ change data visualization and initialization options manually for now
 # Loetgering, Lars, et al. "Generation and characterization of focused helical x-ray beams." Science advances 6.7 (2020): eaax8836.
 
 fileName = "example:helicalbeam"  # simu.hdf5 or Lenspaper.hdf5
+# check if the file exists, download it otherwise
+from PtyLab.utils.downloader import download_with_progress
+
+fileName = examplePath(fileName)
+if not pathlib.Path(fileName).exists():
+    print('Downloading dataset...')
+    download_with_progress('https://figshare.com/ndownloader/files/38419391', filename=fileName)
 
 experimentalData, reconstruction, params, monitor, ePIE_engine = PtyLab.easyInitialize(
-    fileName, operationMode="CPM"
-)
+        fileName, operationMode="CPM"
+    )
 
 # This dataset is heavily oversampled. If you are short on memory or want to see a result a bit faster, turn this on.
 # experimentalData.ptychogram = experimentalData.ptychogram[::3]

@@ -33,6 +33,8 @@ def loadInputData(filename: Path, requiredFields, optionalFields):
     :return:
     """
     filename = Path(filename)
+    if not filename.exists():
+        raise FileNotFoundError(f'Could not find file {filename}.')
     logger.debug("Loading input data: %s", filename)
 
     # sanity checks
