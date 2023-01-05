@@ -1,4 +1,4 @@
-name: fracpy_jul2022
+name: PtyLab_jul2022
 dependencies:
   - numpy
   - cupy
