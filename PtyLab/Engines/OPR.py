@@ -49,21 +49,17 @@ class OPR(BaseEngine):
         self._prepareReconstruction()
 
         # OPR parameters
-        # self.OPR_modes = np.array([0, 1, 2, 3, 4])
         Nmodes = self.OPR_modes.shape[0]
         Np = self.reconstruction.Np
         Nframes = self.experimentalData.numFrames
-        mode_slice = slice(np.min(self.OPR_modes), np.max(self.OPR_modes) + 1)
-        # mode_slice = range(len(self.OPR_modes))
+        mode_slice = self.OPR_modes
         n_subspace = self.n_subspace 
-        # n_subspace = 4
 
         self.reconstruction.probe_stack = cp.zeros((1, 1, Nmodes, 1, Np, Np, Nframes), dtype=cp.complex64)
-        # what are you doing here? Shouldn't these be incoherent?
-        for i in self.OPR_modes:
-            self.reconstruction.probe_stack[0, 0, i, 0, :, :, :] = cp.repeat(self.reconstruction.probe[0, 0, i, 0, :, :, cp.newaxis], Nframes, axis=2)
-        # faster way of achieving something similar, but I'm not sure that this is correct
-        # self.reconstruction.probe_stack[0, 0, :, :, :, :] = self.reconstruction.probe[..., None]
+
+        for i, mode in enumerate(self.OPR_modes):
+            # fill the probe-stack with the inital guess of the probes
+            self.reconstruction.probe_stack[0, 0, i, 0, :, :, :] = cp.repeat(self.reconstruction.probe[0, 0, mode, 0, :, :, cp.newaxis], Nframes, axis=2)
 
         # actual reconstruction ePIE_engine
         self.pbar = tqdm.trange(self.numIterations, desc='OPR', file=sys.stdout, leave=True)
@@ -146,6 +142,12 @@ class OPR(BaseEngine):
             self.reconstruction.probe_stack[0, 0, :, 0, :, :, pos] = modes
 
     def average(self, arr):
+        """
+        Calculates the average from neighboring values of a numpy array
+        :param arr: 1-dimensional input array, which is used to 
+        calculate the average
+        :return: 1-dimensionl array with the same shape as the input array
+        """
         arr_start = arr[:-1]
         arr_end = arr[1:]
         arr_end = cp.append(arr_end, 0)
@@ -176,12 +178,19 @@ class OPR(BaseEngine):
         # return A, v, At
 
     def orthogonalizeProbeStack(self, probe_stack, n_dim):
+        """
+        Takes the probe stack maps it by a truncated singular value decomposition in to
+        a lower dimensional (n_dim) space.
+        :param probe_stack: Probes of all positions
+        :param n_dim: Dimension of the lower dimensional sub space
+        :return: reduced probe stack 
+        """
         plot_cycle = 10
         plot = False
         n = self.reconstruction.Np
         nFrames = self.experimentalData.numFrames
 
-        for i in self.OPR_modes:
+        for i, mode in enumerate(self.OPR_modes):
 
             # U, s, Vh = cp.linalg.svd(probe_stack[:, :, i, :, :, :].reshape(n * n, nFrames), full_matrices=False)
             # U, s, Vh = self.svd(probe_stack[:, :, i, :, :, :].reshape(n * n, nFrames))
@@ -192,7 +201,6 @@ class OPR(BaseEngine):
 
 
             U, s, Vh = self.rsvd(probe_stack[:, :, i, :, :,:].reshape(n*n, nFrames), n_dim)
-
 
             # allow only slow changes
             neighbor_constraint = False
@@ -207,23 +215,6 @@ class OPR(BaseEngine):
                 update = (U@(s[:, None] * Vh)).reshape(n, n, nFrames)
                 probe_stack[:, :, i, :, :, :] *= self.alpha
                 probe_stack[:, :, i, :, :, :] += (1 - self.alpha) * update
-
-        if self.it == 0 and plot:
-            plt.ion()
-            self.fig = plt.figure('content')
-            self.fig_2 = plt.figure('second modes')
-            self.ax = self.fig.add_subplot(111)
-            self.ax_2 = self.fig_2.add_subplot(121)
-            self.ax_3 = self.fig_2.add_subplot(122)
-      
-        if self.it % plot_cycle == 0 and plot:
-            print(U.shape)
-            self.reconstruction.modes = U.reshape(n, n, nFrames)
-            content = cp.dot(cp.diag(s), Vh)
-            self.ax.imshow(np.log10(np.abs(content.get())[0:3, :]), aspect='auto')
-            self.ax_2.imshow(np.log10(np.abs(self.reconstruction.modes[:, :, 1].get())))
-            self.ax_3.imshow(np.log10(np.abs(self.reconstruction.modes[:, :, 2].get())))
-            self.fig.canvas.draw() 
 
         return probe_stack 
 
