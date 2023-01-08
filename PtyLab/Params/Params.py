@@ -22,7 +22,6 @@ class Params(object):
 
         # other stuff
         self.weigh_probe_updates_by_intensity = False
-        self.OPRP_tsvd_interval = 5
         self.logger = logging.getLogger("Params")
 
         # Default settings for switches, settings that involve how things are computed
@@ -124,10 +123,16 @@ class Params(object):
         # map a change in positions to a change in z. Experimental, do not use
         self.map_position_to_z_change = False
 
-        # OPR modes
-        self.OPRP = False
-        self.OPR_modes = np.array([0])
-        self.n_subspace = 4
+        # Default values of all OPR parameters 
+        # self.OPRP = False
+        # self.OPRP_tsvd_interval = 5
+        # Index of the incoherent probe modes that are linked in a subspace.
+        self.OPR_modes = np.array([0]) 
+        # Size of the subspace which is used for the truncated SVD 
+        self.OPR_subspace = 4
+        # Feedback parameter of the OPR modes. The higher the more the probes are allowed
+        # to evolve freely. Value range: [0, 1]
+        self.OPR_alpha = 0.05
 
         # SHG stuff
         self.SHG_probe = False

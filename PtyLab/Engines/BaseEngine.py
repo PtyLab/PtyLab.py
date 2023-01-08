@@ -1579,8 +1579,8 @@ class BaseEngine(object):
                 allmerits=allmerits,
             )
 
-        if self.params.OPRP and loop % self.params.OPRP_tsvd_interval == 0:
-            self.reconstruction.probe_storage.tsvd()
+        # if self.params.OPRP and loop % self.params.OPRP_tsvd_interval == 0:
+        #     self.reconstruction.probe_storage.tsvd()
 
     def orthogonalization(self):
         """

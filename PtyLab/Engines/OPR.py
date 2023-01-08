@@ -38,13 +38,12 @@ class OPR(BaseEngine):
         Set parameters that are specific to the ePIE settings.
         :return:
         """
-        self.alpha = 0.05
+        self.alpha = self.params.OPR_alpha 
         self.betaProbe = 0.25
         self.betaObject = 0.25
         self.numIterations = 50
         self.OPR_modes = self.params.OPR_modes
-        self.n_subspace = self.params.n_subspace
-        print(self.OPR_modes)
+        self.n_subspace = self.params.OPR_subspace
 
     def reconstruct(self):
         self._prepareReconstruction()
@@ -83,7 +82,6 @@ class OPR(BaseEngine):
                 # Get dim reduced probe
                 self.reconstruction.probe[:, :, mode_slice, :, :, :] = self.reconstruction.probe_stack[..., positionIndex]
 
-                # make exit surface wave
                 # make exit surface wave
                 self.reconstruction.esw = objectPatch * self.reconstruction.probe 
                 
@@ -206,9 +204,7 @@ class OPR(BaseEngine):
 
                 probe_stack[:, :, i, :, :, :] = self.alpha * probe_stack[:, :, i, :, :, :] + (1 - self.alpha) * cp.dot(U, content).reshape(n, n, nFrames)
             else:
-                # probe_stack[:, :, i, :, :, :] = self.alpha * probe_stack[:, :, i, :, :, :] + (1 - self.alpha) * cp.dot(U, cp.dot(cp.diag(s), Vh)).reshape(n, n, nFrames)
-                update = (U@(s[:,None]*Vh)).reshape(n,n,nFrames)
-                # probe_stack[:, :, i, :, :, :] = self.alpha * probe_stack[:, :, i, :, :, :] + (1 - self.alpha) * update
+                update = (U@(s[:, None] * Vh)).reshape(n, n, nFrames)
                 probe_stack[:, :, i, :, :, :] *= self.alpha
                 probe_stack[:, :, i, :, :, :] += (1 - self.alpha) * update
 
