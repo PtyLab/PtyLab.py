@@ -87,19 +87,14 @@ class OPR(BaseEngine):
                 # difference term
                 DELTA = self.reconstruction.eswUpdate - self.reconstruction.esw
                 
-                tv_freq = 5
-                tv = False 
-                if loop % tv_freq == 0 and tv:
+                if loop % self.params.OPR_tv_freq == 0 and self.params.OPR_tv:
                     self.reconstruction.object[..., sy, sx] = self.objectPatchUpdate_TV(objectPatch, DELTA)
                 else:
                     # object update
                     self.reconstruction.object[..., sy, sx] = self.objectPatchUpdate(objectPatch, DELTA)
                 
                 # probe update
-                weight = 1
-                if self.params.weigh_probe_updates_by_intensity:
-                    weight = self.experimentalData.relative_intensity(positionIndex)
-                self.reconstruction.probe = self.probeUpdate(objectPatch, DELTA, weight)
+                self.reconstruction.probe = self.probeUpdate(objectPatch, DELTA, weight=1)
 
                 # save first, dominant probe mode
                 self.reconstruction.probe_stack[..., positionIndex] = cp.copy(self.reconstruction.probe[:, :, mode_slice, :, :, :]) 
@@ -112,8 +107,6 @@ class OPR(BaseEngine):
             if orthogonalize_modes:
                self.orthogonalizeIncoherentModes()
 
-            OPR_constraint = True
-            if OPR_constraint:
                self.reconstruction.probe_stack = self.orthogonalizeProbeStack(self.reconstruction.probe_stack, n_subspace)
 
             # apply Constraints
@@ -191,16 +184,14 @@ class OPR(BaseEngine):
         nFrames = self.experimentalData.numFrames
 
         for i, mode in enumerate(self.OPR_modes):
-
-            # U, s, Vh = cp.linalg.svd(probe_stack[:, :, i, :, :, :].reshape(n * n, nFrames), full_matrices=False)
             # U, s, Vh = self.svd(probe_stack[:, :, i, :, :, :].reshape(n * n, nFrames))
             # from cupyx.scipy.sparse.linalg import svds
 
-
-            #s[n_dim:] = 0
-
-
-            U, s, Vh = self.rsvd(probe_stack[:, :, i, :, :,:].reshape(n*n, nFrames), n_dim)
+            if self.params.OPR_tsvd_type == 'randomized':
+                U, s, Vh = self.rsvd(probe_stack[:, :, i, :, :,:].reshape(n*n, nFrames), n_dim)
+            elif self.params.OPR_tsvd_type == 'numpy':
+                U, s, Vh = cp.linalg.svd(probe_stack[:, :, i, :, :, :].reshape(n * n, nFrames), full_matrices=False)
+                s[n_dim:] = 0
 
             # allow only slow changes
             neighbor_constraint = False
