@@ -35,8 +35,7 @@ class OPR(BaseEngine):
 
     def initializeReconstructionParams(self):
         """
-        Set parameters that are specific to the ePIE settings.
-        :return:
+        Set parameters that are specific to the ePIE/OPR engine 
         """
         self.alpha = self.params.OPR_alpha 
         self.betaProbe = 0.25
@@ -103,11 +102,10 @@ class OPR(BaseEngine):
             self.getErrorMetrics()
 
             # added this line
-            orthogonalize_modes = True 
-            if orthogonalize_modes:
+            if self.params.OPR_orthogonalize_modes:
                self.orthogonalizeIncoherentModes()
 
-               self.reconstruction.probe_stack = self.orthogonalizeProbeStack(self.reconstruction.probe_stack, n_subspace)
+            self.reconstruction.probe_stack = self.orthogonalizeProbeStack(self.reconstruction.probe_stack, n_subspace)
 
             # apply Constraints
             self.applyConstraints(loop)
@@ -121,6 +119,10 @@ class OPR(BaseEngine):
             self.params.gpuFlag = 0
 
     def orthogonalizeIncoherentModes(self):
+        """
+        Function which cycles through the probe stack and orthogonalizes 
+        all incoherent modes of all postions
+        """
         nFrames = self.experimentalData.numFrames 
         n = self.reconstruction.Np
         nModes = self.reconstruction.probe_stack.shape[2]
@@ -130,7 +132,6 @@ class OPR(BaseEngine):
 
             U, s, Vh = self.svd(probe)
 
-            #modes = cp.dot(cp.diag(s), Vh).reshape(nModes, n, n)
             modes = (s[:,None]*Vh).reshape(nModes, n, n)
             self.reconstruction.probe_stack[0, 0, :, 0, :, :, pos] = modes
 
@@ -193,9 +194,7 @@ class OPR(BaseEngine):
                 U, s, Vh = cp.linalg.svd(probe_stack[:, :, i, :, :, :].reshape(n * n, nFrames), full_matrices=False)
                 s[n_dim:] = 0
 
-            # allow only slow changes
-            neighbor_constraint = False
-            if neighbor_constraint and self.it > 3 and self.it % 25 == 0:
+            if self.params.OPR_neighbor_constraint:
                 # Calculate the average of neigboring singular values
                 content = cp.dot(cp.diag(s), Vh)
                 for j in range(n_dim):
@@ -211,10 +210,10 @@ class OPR(BaseEngine):
 
     def objectPatchUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
         """
-        Todo add docstring
-        :param objectPatch:
-        :param DELTA:
-        :return:
+        ePIE object update function 
+        :param objectPatch: Slice of the object array
+        :param DELTA: 
+        :return: updated object patch
         """
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
@@ -225,9 +224,9 @@ class OPR(BaseEngine):
     def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray, weight: float, gimmel=0.1):
         """
         Todo add docstring
-        :param objectPatch:
+        :param objectPatch: Slice of the object array
         :param DELTA:
-        :return:
+        :return: updated probe
         """
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
@@ -236,15 +235,3 @@ class OPR(BaseEngine):
         r = self.reconstruction.probe + self.betaProbe * xp.sum(frac * DELTA, axis=(0, 1, 3), keepdims=True)
         return r
     
-    def probeUpdate_new(self, objectPatch: np.ndarray, DELTA: np.ndarray):
-        """
-        Todo add docstring
-        :param objectPatch:
-        :param DELTA:
-        :return:
-        """
-        # find out which array module to use, numpy or cupy (or other...)
-        xp = getArrayModule(objectPatch)
-        # frac = objectPatch.conj() / xp.max(xp.sum(xp.abs(objectPatch) ** 2, axis=(0,1,2,3)))
-        self.reconstruction.probe += self.betaProbe * xp.sum(objectPatch.conj() / xp.max(xp.sum(xp.abs(objectPatch) ** 2, axis=(0,1,2,3))) * DELTA, axis=(0, 1, 3), keepdims=True)
-

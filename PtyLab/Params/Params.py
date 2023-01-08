@@ -140,6 +140,10 @@ class Params(object):
         # truncated SVD to chose, either standard numpy svd or randomized tsvd, which 
         # saves some computational time
         self.OPR_tsvd_type = 'numpy' # numpy or randomized
+        # Switch to orthogonolize all incoherent probe modes
+        self.OPR_orthogonalize_modes = True
+        # If set True only slowly changing probes are allowed
+        self.OPR_neighbor_constraint = False
 
         # SHG stuff
         self.SHG_probe = False
