@@ -22,7 +22,7 @@ import tqdm
 import sys
 
 
-class OPR_TV(BaseEngine):
+class OPR(BaseEngine):
 
     def __init__(self, reconstruction: Reconstruction, experimentalData: ExperimentalData, params: Params, monitor: Monitor):
         # This contains reconstruction parameters that are specific to the reconstruction
@@ -67,7 +67,7 @@ class OPR_TV(BaseEngine):
         # self.reconstruction.probe_stack[0, 0, :, :, :, :] = self.reconstruction.probe[..., None]
 
         # actual reconstruction ePIE_engine
-        self.pbar = tqdm.trange(self.numIterations, desc='OPR_TV', file=sys.stdout, leave=True)
+        self.pbar = tqdm.trange(self.numIterations, desc='OPR', file=sys.stdout, leave=True)
         for loop in self.pbar:
             self.it = loop
             # set position order
