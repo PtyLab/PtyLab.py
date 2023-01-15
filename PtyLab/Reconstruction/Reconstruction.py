@@ -504,7 +504,7 @@ class Reconstruction(object):
 
         """
 
-        allowed_save_types = ["all", "object", "probe"]
+        allowed_save_types = ["all", "object", "probe", "probe_stack"]
         if type not in allowed_save_types:
             raise NotImplementedError(
                 f"Only {allowed_save_types} are allowed keywords for type"
