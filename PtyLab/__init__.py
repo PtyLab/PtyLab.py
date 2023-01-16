@@ -25,8 +25,6 @@ def easyInitialize(
 
 def _easyInitializeCPM(filename, engine_function, operationMode, dummy_monitor=False):
     experimentalData = ExperimentalData(filename, operationMode)
-    print(experimentalData.wavelength)
-    print(experimentalData.zo)
     params = Params()
     if dummy_monitor:
         monitor = DummyMonitor()

@@ -149,19 +149,28 @@ class Reconstruction(object):
         elif self.data.operationMode == "FPM":
              self.logger.info(f"Changing illumination-to-sample distance to {new_value}")
              self.zled = self._zo
-             
+
+    # @property
+    # def entrancePupilDiameter(self):
+    #     if self.data.entrancePupilDiameter is None:
+    #         self.logger.warning('Setting entrancePupilDiameter to one-third of the field of view as it is not provided')
+    #         return self.Lp/3
+    #     else:
+    #         return self.data.entrancePupilDiameter
+    #
     def computeParameters(self):
         """
         compute parameters that can be altered by the user later.
         """
 
         if self.data.operationMode == "CPM":
+            pass
             # CPM dxp (depending on the propagatorType, if none given, assum Fraunhofer/Fresnel)
             # self.dxp = self.wavelength * self._zo / self.Ld
             # if entrancePupilDiameter is not provided in the hdf5 file, set it to be one third of the probe FoV.
-            if self.data.entrancePupilDiameter is None:
-                self.data.entrancePupilDiameter = self.Lp / 3
-            # if spectralDensity is not provided in the hdf5 file, set it to be a 1d array of the wavelength
+            # if self.data.entrancePupilDiameter is None:
+            #     self.data.entrancePupilDiameter = self.Lp / 3
+            # # if spectralDensity is not provided in the hdf5 file, set it to be a 1d array of the wavelength
             if isinstance(self.spectralDensity, type(None)):
                 # this is a confusing name, it should be the wavelengths, not the intensity of the different
                 # wavelengths
@@ -339,17 +348,19 @@ class Reconstruction(object):
         """
         raise NotImplementedError()
 
-    def initializeObjectProbe(self):
+    def initializeObjectProbe(self, force=True):
 
         # initialize object and probe
-        self.initializeObject()
-        self.initializeProbe()
+        self.initializeObject(force=force)
+        self.initializeProbe(force=force)
 
         # set object and probe objects
         self.object = self.initialGuessObject.copy()
         self.probe = self.initialGuessProbe.copy()
 
-    def initializeObject(self, type_of_init=None):
+    def initializeObject(self, type_of_init=None, force=True):
+        if not force:
+            raise NotImplementedError()
         if type_of_init is not None:
             self.initialObject = type_of_init
         self.logger.info("Initial object set to %s", self.initialObject)

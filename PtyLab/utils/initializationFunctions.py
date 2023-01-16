@@ -3,6 +3,7 @@ import numpy as np
 from PtyLab.utils.utils import circ, fft2c, ifft2c
 from matplotlib import pyplot as plt
 from scipy.ndimage import gaussian_filter
+from scipy import ndimage
 from skimage.transform import rescale
 
 
@@ -40,14 +41,12 @@ def initialProbeOrObject(shape, type_of_init, data, logger: logging.Logger = Non
 
             # pupil = circ(data.Xp, data.Yp, data.Xp.max()/2)
             # soften the edges a bit
-            from scipy import ndimage
-
+            dia_pixel = data.data.entrancePupilDiameter / data.dxo
             pupil = ndimage.gaussian_filter(
-                pupil.astype(np.float64), 0.05 * data.Xp.shape[-1]
-            )
-            return np.ones(shape, dtype=np.complex64) * pupil + 0.001 * np.random.rand(
-                *shape
-            )
+                pupil.astype(np.float64), 0.1 * dia_pixel)
+            initial_field = np.ones(shape, dtype=np.complex64) + 0.001 * np.random.rand(*shape)
+            initial_field *= pupil
+            return initial_field
 
         except AttributeError as e:
             raise AttributeError(
