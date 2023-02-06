@@ -49,26 +49,30 @@ class e3PIE(BaseEngine):
         self.numIterations = 50
 
         # preallocate transfer function
-        self.reconstruction.H = aspw(
+        self.H = aspw(
             np.squeeze(self.reconstruction.probe[0, 0, 0, 0, ...]),
             self.reconstruction.dz,
             self.reconstruction.wavelength / self.reconstruction.refrIndex,
             self.reconstruction.Lp,
         )[1]
         # shift transfer function to avoid fftshifts for FFTS
-        self.reconstruction.H = np.fft.ifftshift(self.optimizableH)
+        self.H = np.fft.ifftshift(self.H)
 
     def reconstruct(self):
         self._prepareReconstruction()
+
+        if self.params.gpuFlag:
+            xp = getArrayModule(self.reconstruction.probe)
+            self.H = xp.array(self.H)
 
         # initialize esw
         self.reconstruction.esw = self.reconstruction.probe.copy()
         # get module
         xp = getArrayModule(self.reconstruction.object)
         # actual reconstruction e3PIE_engine
-        for loop in tqdm.tqdm(range(self.params.numIterations)):
+        for loop in tqdm.tqdm(range(self.numIterations)):
             # set position order
-            if loop == self.params.numIterations - 1:
+            if loop == self.numIterations - 1:
                 noreason = True
             self.setPositionOrder()
             for positionLoop, positionIndex in enumerate(self.positionIndices):
@@ -134,7 +138,7 @@ class e3PIE(BaseEngine):
                             xp.fft.fft2(
                                 self.reconstruction.probe[:, :, :, sliceLoop, ...]
                             )
-                            * self.optimizableH.conj()
+                            * self.H.conj()
                         )
                         - self.reconstruction.esw[:, :, :, sliceLoop - 1, ...]
                     )

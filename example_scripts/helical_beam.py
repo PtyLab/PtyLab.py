@@ -131,7 +131,7 @@ mPIE.betaObject = 0.25
 # mPIE.feedbackM = 0.1
 
 
-mPIE.numIterations = 20
+mPIE.numIterations = 5
 params.l2reg = True
 mPIE.reconstruct(experimentalData, reconstruction)
 
@@ -140,12 +140,15 @@ params.comStabilizationSwitch = False
 mPIE.reconstruct(experimentalData, reconstruction)
 
 # # to check - I don't have enough memory on my laptop
-# from PtyLab.Engines import OPR_TV
+from PtyLab.Engines import OPR_TV
+
+OPR = OPR_TV(reconstruction, experimentalData, params, monitor)
+OPR.numIterations = 1000
+params.OPR_modes = np.array([0, 1])
+params.n_subspace = 4
+OPR.alpha = 0.25
+OPR.betaProbe = 0.25
+OPR.betaObject = 0.25
 #
-# OPR = OPR_TV(reconstruction, experimentalData, params, monitor)
-# OPR.numIterations = 1000
-# params.OPR_modes = np.array([0, 1])
-# params.n_subspace = 4
 #
-#
-# OPR.reconstruct()
+OPR.reconstruct()

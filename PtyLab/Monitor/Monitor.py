@@ -104,6 +104,7 @@ class AbstractMonitor(object):
         purity_probe=None,
         purity_object=None,
         encoder_positions=None,
+        normalized_probe_powers=None,
     ):
         """
         Update the Object and Probe error monitor, and any associated metrics.
@@ -115,6 +116,10 @@ class AbstractMonitor(object):
         :param purity_probe: purity of the probe
         :param purity_object: purity of the object
         :return:
+
+        Parameters
+        ----------
+        **ignored
         """
 
         pass
@@ -178,20 +183,17 @@ class Monitor(AbstractMonitor):
         if self.verboseLevel == "high":
             self.diffractionDataMonitor = DiffractionDataPlot()
 
-    def updateObjectProbeErrorMonitor(
-        self,
-        error,
-        object_estimate,
-        probe_estimate,
-        zo=None,
-        purity_probe=None,
-        purity_object=None,
-        encoder_positions=None,
-    ):
+    def updateObjectProbeErrorMonitor(self, error, object_estimate, probe_estimate, zo=None, purity_probe=None,
+                                      purity_object=None, encoder_positions=None,
+                                      normalized_probe_powers=None, **ignored):
         """
         update the probe object plots
         :param object_estimate:
         :return:
+
+        Parameters
+        ----------
+        **ignored
         """
         self.defaultMonitor.updateError(error)  # self.reconstruction.error)
         # print(f"Object plot: {self.objectPlot}")

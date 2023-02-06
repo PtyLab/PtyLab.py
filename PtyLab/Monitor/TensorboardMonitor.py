@@ -1,5 +1,6 @@
 import io
 
+import matplotlib.pyplot as plt
 import numpy as np
 import time
 from pathlib import Path
@@ -100,18 +101,8 @@ class TensorboardMonitor(AbstractMonitor):
         self.__safe_upload_image("original probe", np.squeeze(RGB_image), self.i)
         pass
 
-    def updateObjectProbeErrorMonitor(
-        self,
-        error,
-        object_estimate,
-        probe_estimate,
-        zo,
-        purity_object=None,
-        purity_probe=None,
-        encoder_positions=None,
-        *args,
-        **kwargs,
-    ):
+    def updateObjectProbeErrorMonitor(self, error, object_estimate, probe_estimate, zo=None, purity_probe=None,
+                                      purity_object=None, encoder_positions=None, normalized_probe_powers=None, **ignored):
         object_estimate = asNumpyArray(object_estimate)
         probe_estimate = asNumpyArray(probe_estimate)
         # The input can be either an empty array, an array with length 1 or a list of all the errors so far.
@@ -131,6 +122,8 @@ class TensorboardMonitor(AbstractMonitor):
 
         self.update_z(zo)
         self.update_purities(asNumpyArray(purity_probe), asNumpyArray(purity_object))
+
+        self.update_normalized_probe_powers(normalized_probe_powers, purity_probe)
 
     def updateDiffractionDataMonitor(self, Iestimated, Imeasured):
 
@@ -554,3 +547,34 @@ class TensorboardMonitor(AbstractMonitor):
         object_estimate_rgb[..., :Ny, :Nx, :] = probe_estimate_rgb_ss[0]
 
         return object_estimate_rgb
+
+    def update_normalized_probe_powers(self, normalized_probe_powers, purity_probe):
+        """
+        Make a plot of the probe powers (bar diagram).
+        Parameters
+        ----------
+        normalized_probe_powers
+
+        Returns
+        -------
+
+        """
+        if normalized_probe_powers is None:
+            return
+        fig, ax = plt.subplot_mosaic('P')
+        normalized_probe_powers = asNumpyArray(normalized_probe_powers)
+        ax['P'].bar(np.arange(len(normalized_probe_powers)), normalized_probe_powers)
+        ax['P'].set_xticks(np.arange(len(normalized_probe_powers)))
+        ax['P'].set_ylim(0,1)
+        # save and upload
+        ax['P'].set_title(f'Purity {purity_probe:.2f}')
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', dpi=70)
+        plt.close(fig)
+        buf.seek(0)
+        with self.writer.as_default():
+            img = image.decode_png(buf.getvalue(), channels=4)
+            img = np.expand_dims(img, 0)
+            tfs.image('relative probe power', img, self.i)
+
+

@@ -333,15 +333,12 @@ class BaseEngine(object):
             ]
         )
 
-        self.monitor.updateObjectProbeErrorMonitor(
-            error=self.reconstruction.error,
-            object_estimate=objectEstimate,
-            probe_estimate=probeEstimate,
-            zo=self.reconstruction.zo,
-            purity_probe=self.reconstruction.purityProbe,
-            purity_object=self.reconstruction.purityObject,
-            encoder_positions=self.reconstruction.positions,
-        )
+        self.monitor.updateObjectProbeErrorMonitor(error=self.reconstruction.error, object_estimate=objectEstimate,
+                                                   probe_estimate=probeEstimate, zo=self.reconstruction.zo,
+                                                   purity_probe=self.reconstruction.purityProbe,
+                                                   purity_object=self.reconstruction.purityObject,
+                                                   encoder_positions=self.reconstruction.positions,
+                                                   normalized_probe_powers=getattr(self, 'normalizedEigenvaluesProbe', None))
 
         # self.monitor.updateObjectProbeErrorMonitor()
 
@@ -406,9 +403,8 @@ class BaseEngine(object):
                 print("check fftshift...")
                 print("fftshift data for fast far-field update")
                 # shift detector quantities
-                self.experimentalData.ptychogram = np.fft.ifftshift(
-                    self.experimentalData.ptychogram, axes=(-1, -2)
-                )
+                self.experimentalData.ptychogram = np.ascontiguousarray(np.fft.ifftshift(
+                    self.experimentalData.ptychogram, axes=(-1, -2)))
                 if hasattr(self.experimentalData, "ptychogramDownsampled"):
                     self.experimentalData.ptychogramDownsampled = np.fft.ifftshift(
                         self.experimentalData.ptychogramDownsampled, axes=(-1, -2)
@@ -1079,15 +1075,14 @@ class BaseEngine(object):
                         ]
                     )
                 )
-            self.monitor.updateObjectProbeErrorMonitor(
-                error=self.reconstruction.error,
-                object_estimate=object_estimate,
-                probe_estimate=probe_estimate,
-                zo=self.reconstruction.zo,
-                purity_probe=self.reconstruction.purityProbe,
-                purity_object=self.reconstruction.purityObject,
-                encoder_positions=self.reconstruction.positions,
-            )
+            self.monitor.updateObjectProbeErrorMonitor(error=self.reconstruction.error, object_estimate=object_estimate,
+                                                       probe_estimate=probe_estimate, zo=self.reconstruction.zo,
+                                                       purity_probe=self.reconstruction.purityProbe,
+                                                       purity_object=self.reconstruction.purityObject,
+                                                       encoder_positions=self.reconstruction.positions,
+                                                       normalized_probe_powers=getattr(self, 'normalizedEigenvaluesProbe', None)
+                                                       )
+
 
             self.monitor.writeEngineName(repr(type(self)))
 

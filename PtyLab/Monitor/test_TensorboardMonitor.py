@@ -26,9 +26,9 @@ class Test(TestCase):
         errors = np.random.rand(100).cumsum()[::-1]
         for e in errors:
             self.monitor.i += 1
-            self.monitor.updateObjectProbeErrorMonitor(e)
+            self.monitor.updateObjectProbeErrorMonitor(e,,
             # this often happens in various optimizers for some unclear reason
-            self.monitor.updateObjectProbeErrorMonitor([e])
+            self.monitor.updateObjectProbeErrorMonitor([e],,
 
     def test_update_z(self):
 
