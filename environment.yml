@@ -1,5 +1,6 @@
 name: PtyLab
 dependencies:
+  - python=3.10
   - numpy
   - conda-forge::cupy
   - h5py
@@ -15,7 +16,8 @@ dependencies:
   # optional
   - conda-forge::scikit-image
   - conda-forge::scikit-learn
-  #- conda-forge::tensorflow-cpu
+  - conda-forge::tensorflow-cpu
+  - napari
   #- conda-forge::tensorflow-cpu
   - pip
 #  - pip:
