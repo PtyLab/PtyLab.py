@@ -51,7 +51,8 @@ Xo, Yo = np.meshgrid(xo, xo)
 # note: simulate focused beam
 # goal: 1:1 image iris through (low-NA) lens with focal length f onto an object
 f = 8e-3  # focal length of lens, creating a focused probe
-pinhole = circ(Xp, Yp, Lp / 2)
+probe_size = 150 * dxp
+pinhole = circ(Xp, Yp,probe_size )#Lp / 2)
 pinhole = convolve2d(pinhole, gaussian2D(5, 1).astype(np.float32), mode="same")
 
 # propagate to lens
@@ -65,7 +66,7 @@ probe = (
     * np.exp(-1.0j * 2 * np.pi / wavelength * (Xp**2 + Yp**2) / (2 * f))
     * aperture
 )
-probe = aspw(probe, 2 * f, wavelength, Lp)[0]
+# probe = aspw(probe, 2 * f, wavelength, Lp)[0]
 
 
 plt.figure(figsize=(5, 5), num=1)
@@ -100,10 +101,23 @@ plt.show(block=False)
 # generate positions
 # generate non-uniform Fermat grid
 # parameters
-numPoints = 100  # number of points
+numPoints = 400  # number of points
 radius = 150  # radius of final scan grid (in pixels)
 p = 1  # p = 1 is standard Fermat;  p > 1 yields more points towards the center of grid
 R, C = GenerateNonUniformFermat(numPoints, radius=radius, power=p)
+R = R.astype(float)
+C = C.astype(float)
+
+distances = np.sqrt(np.diff(R) ** 2 + np.diff(C) ** 2) * dxo
+averageDistance = np.mean(distances) * 1e6
+
+# ensure the overlap
+overlap = 0.8
+# beam diameter
+R = R / averageDistance * overlap * probe_size  / dxp
+C = C / averageDistance * overlap * probe_size / dxp
+# scale it to entrancePupilDiameterSize
+# overlap 0.8
 # show scan grid
 plt.figure(figsize=(5, 5), num=99)
 plt.plot(R, C, "o")
