@@ -39,6 +39,8 @@ def center_angle(object_estimate):
 
 
 class TensorboardMonitor(AbstractMonitor):
+    # show probe intensity. Makes sense if it is known
+    show_probe_intensity = False
 
     # maximum number of probe state mixtures that we want to show
     max_npsm = 10
@@ -87,14 +89,21 @@ class TensorboardMonitor(AbstractMonitor):
             xmax, ymax = np.clip(encoder_positions.max(axis=0) + 2 * Np // 3, 0, No)
             xmin, ymin = np.clip(encoder_positions.min(axis=0) + Np // 3, 0, No)
 
-            probe_estimate = probe_estimate[..., ::4, ::4]
+            probe_estimate = probe_estimate[..., ::2, ::2]
             object_estimate = object_estimate[..., ymin:ymax, xmin:xmax]
+            if self.show_probe_intensity:
+                I_probe = abs(probe_estimate)
+                I_probe = I_probe / I_probe.max() * 255
+                self.__safe_upload_image('probe/Intensity', np.hstack(np.clip(I_probe, 0, 255).astype(np.uint8)),
+                                         step=self.i)
+
         probe_estimate_rgb = self._update_probe_estimate(
             probe_estimate, highres=highres
         )
         self._update_object_estimate(
             object_estimate, probe_estimate_rgb, highres=highres, zo=zo
         )
+
 
     def visualize_probe_engine(self, engine):
         RGB_image = complex2rgb_vectorized(engine.get_fundamental(), center_phase=self.center_phases)

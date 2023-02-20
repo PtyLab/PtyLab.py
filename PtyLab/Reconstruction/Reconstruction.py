@@ -421,7 +421,7 @@ class Reconstruction(object):
     def initializeProbeMomentum(self):
         self.probeMomentum = np.zeros_like(self.initialGuessProbe)
 
-    def load_object(self, filename):
+    def load_object(self, filename, upsample=1):
         """
         Load the object from a previous reconstruction
 
@@ -436,20 +436,43 @@ class Reconstruction(object):
         """
         with h5py.File(filename, "r") as archive:
             obj = np.array(archive["object"])
-            obj = obj[
-                : self.shape_O[0],
-                : self.shape_O[1],
-                : self.shape_O[2],
-                : self.shape_O[3],
-                : self.shape_O[4],
-                : self.shape_O[5],
-            ]
-            if np.all(np.array(obj.shape) == np.array(self.shape_O)):
-                self.object = obj
-            else:
-                raise RuntimeError(
-                    f'Shape of saved probe cannot be extended to shape of required probe. File: {archive["object"].shape}. Need: {self.shape_O}'
-                )
+
+
+
+        if upsample:
+            obj = np.repeat(np.repeat(obj, axis=-1, repeats=upsample), axis=-2, repeats=upsample)
+        for ax in [-2, -1]:
+            N_new = self.shape_O[ax]
+            N_old = obj.shape[ax]
+            if N_new == N_old:
+                continue
+            elif N_new > N_old:
+                dN = N_new - N_old
+                padwidth = [[0,0],] * obj.ndim
+                padwidth[ax] = [dN//2, dN - dN//2]
+                obj = np.pad(obj, pad_width=padwidth, mode='constant')
+            elif N_new < N_old:
+                ss = slice(np.clip(obj.shape[ax]//2-self.shape_O[ax]//2, 0, None),
+                           np.clip(obj.shape[ax]//2-self.shape_O[ax]//2+self.shape_O[ax], 1, None),)
+                indices = np.arange(obj.shape[ax])[ss]
+                obj = np.take(obj, indices, ax)
+            #
+            # cy, cx = [slice(np.clip(obj.shape[i]//2-self.shape_O[i]//2, 0, None),
+            #            np.clip(obj.shape[i]//2-self.shape_O[i]//2 + self.shape_O[i], 1, None)) for i in [-1,-2]]
+            # obj = obj[
+            #     : self.shape_O[0],
+            #     : self.shape_O[1],
+            #     : self.shape_O[2],
+            #     : self.shape_O[3],
+            #       cy, cx
+            # ]
+
+        if np.all(np.array(obj.shape) == np.array(self.shape_O)):
+            self.object = obj
+        else:
+            raise RuntimeError(
+                f'Shape of saved probe cannot be extended to shape of required probe. File: {archive["object"].shape}. Need: {self.shape_O}'
+            )
 
     def load_probe(self, filename, expand_npsm=False):
         """
