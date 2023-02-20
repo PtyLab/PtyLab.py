@@ -371,7 +371,7 @@ class BaseEngine(object):
                 "can not simultaneously be switched on!"
             )
 
-        if not self.params.fftshiftSwitch:
+        if not self.params.fftshiftSwitch and self.params in ['Fraunhofer', 'Fresnel']:
             warnings.warn(
                 "fftshiftSwitch set to false, this may lead to reduced performance"
             )
@@ -1080,7 +1080,11 @@ class BaseEngine(object):
                                                        purity_probe=self.reconstruction.purityProbe,
                                                        purity_object=self.reconstruction.purityObject,
                                                        encoder_positions=self.reconstruction.positions,
-                                                       normalized_probe_powers=getattr(self, 'normalizedEigenvaluesProbe', None)
+                                                       normalized_probe_powers=getattr(self,
+                                                                                       'normalizedEigenvaluesProbe',
+                                                                                       None),
+                                                       TV_weight=self.params.objectTVregStepSize,
+                                                       TV_frequency=self.params.objectTVfreq
                                                        )
 
 
@@ -1232,21 +1236,47 @@ class BaseEngine(object):
             cc = xp.zeros((len(self.rowShifts), 1))
 
             # use the real-space object (FFT for FPM)
+            O = self.reconstruction.object
+            Opatch = objectPatch
             if self.experimentalData.operationMode == "FPM":
                 O = fft2c(self.reconstruction.object)
                 Opatch = fft2c(objectPatch)
-            elif self.experimentalData.operationMode == "CPM":
-                O = self.reconstruction.object
-                Opatch = objectPatch
 
-            for shifts in range(len(self.rowShifts)):
-                tempShift = xp.roll(Opatch, self.rowShifts[shifts], axis=-2)
-                # shiftedImages[shifts, ...] = xp.roll(tempShift, self.colShifts[shifts], axis=-1)
-                shiftedImages = xp.roll(tempShift, self.colShifts[shifts], axis=-1)
-                cc[shifts] = xp.squeeze(
-                    xp.sum(shiftedImages.conj() * O[..., sy, sx], axis=(-2, -1))
-                )
-                del tempShift, shiftedImages
+            if self.params.positionCorrectionSwitch_radius < 2:
+                for shifts in range(len(self.rowShifts)):
+                    tempShift = xp.roll(Opatch, self.rowShifts[shifts], axis=-2)
+                    # shiftedImages[shifts, ...] = xp.roll(tempShift, self.colShifts[shifts], axis=-1)
+                    shiftedImages = xp.roll(tempShift, self.colShifts[shifts], axis=-1)
+                    cc[shifts] = xp.squeeze(
+                        xp.sum(shiftedImages.conj() * O[..., sy, sx], axis=(-2, -1))
+                    )
+                    del tempShift, shiftedImages
+                    betaGrad = 1000
+                    r = 3
+            else:
+                # print('doing FT position correction')
+                ss = slice(-self.params.positionCorrectionSwitch_radius, self.params.positionCorrectionSwitch_radius+1)
+                rowShifts, colShifts = xp.mgrid[ss,ss]
+                self.rowShifts = rowShifts.flatten()
+                self.colShifts = colShifts.flatten()
+                O1 = O[...,sy,sx]
+                O1 = O1 - O1.mean()
+
+                O2 = Opatch[..., sy, sx]
+                O2 = O2 - O2.mean()
+
+                FT_O = xp.fft.fft2(O1)
+                FT_Op = xp.fft.fft2(O2)
+                xcor = xp.fft.ifft2(FT_O * FT_Op.conj())
+                xcor = abs(xp.fft.fftshift(xcor))
+                N = xcor.shape[-1]
+                sy = slice(N//2-self.params.positionCorrectionSwitch_radius, N//2+self.params.positionCorrectionSwitch_radius + 1)
+                xcor = xcor[...,sy, sy]
+                cc = xcor.flatten()
+                betaGrad = 1000
+                r = 10
+                #dy, dx = xp.unravel_index(xp.argmax(xcor), xcor.shape)
+                #dx = dx.get()
             # truncated cross - correlation
             # cc = xp.squeeze(xp.sum(shiftedImages.conj() * self.reconstruction.object[..., sy, sx], axis=(-2, -1)))
             cc = abs(cc)
@@ -1258,7 +1288,8 @@ class BaseEngine(object):
             grad_y = betaGrad * xp.sum(
                 (cc.T - xp.mean(cc)) / normFactor * xp.array(self.rowShifts)
             )
-            r = 3
+            #r = np.clip(self.params.positionCorrectionSwitch_radius//5, 3, self.reconstruction.Np//10) # maximum shift in pixels?
+
             if abs(grad_x) > r:
                 grad_x = r * grad_x / abs(grad_x)
             if abs(grad_y) > r:
@@ -1415,11 +1446,7 @@ class BaseEngine(object):
                 )
                 * self.experimentalData.maxProbePower
             )
-
-        if (
-            self.params.comStabilizationSwitch is not None
-            and self.params.comStabilizationSwitch is not False
-        ):
+        if self.params.comStabilizationSwitch not in [False, None, 0]:
             if loop % int(self.params.comStabilizationSwitch) == 0:
                 self.comStabilization()
 
@@ -1679,7 +1706,7 @@ class BaseEngine(object):
         yc = int(
             xp.around(xp.sum(xp.array(self.reconstruction.Yp, xp.float32) * P2) / demon)
         )
-        print('Center of mass:', yc, xc)
+        # print('Center of mass:', yc, xc)
         # shift only if necessary
         if xc**2 + yc**2 > 1:
             # self.reconstruction.probe_storage._push_hard(self.reconstruction.probe, 100)

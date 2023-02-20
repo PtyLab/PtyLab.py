@@ -437,8 +437,6 @@ class Reconstruction(object):
         with h5py.File(filename, "r") as archive:
             obj = np.array(archive["object"])
 
-
-
         if upsample:
             obj = np.repeat(np.repeat(obj, axis=-1, repeats=upsample), axis=-2, repeats=upsample)
         for ax in [-2, -1]:
