@@ -13,6 +13,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 import numpy as np
 
+USE_TENSORBOARD_MONITOR = False
 
 """ 
 ptycho data reconstructor 
@@ -25,8 +26,9 @@ experimentalData, reconstruction, params, monitor, ePIE_engine = PtyLab.easyInit
     fileName, operationMode="CPM"
 )
 # optional - use tensorboard monitor instead. To see the results, open tensorboard in the directory ./logs_tensorboard
-from PtyLab.Monitor.TensorboardMonitor import TensorboardMonitor
-monitor = TensorboardMonitor()
+if USE_TENSORBOARD_MONITOR:
+    from PtyLab.Monitor.TensorboardMonitor import TensorboardMonitor
+    monitor = TensorboardMonitor()
 
 # turn these two lines on to see the autofocusing in action
 # experimentalData.zo = experimentalData.zo + 1e-2
@@ -111,7 +113,7 @@ if reload_object:
 reconstruction.describe_reconstruction()
 
 
-monitor.figureUpdateFrequency = 1
+monitor.figureUpdateFrequency = 10
 monitor.objectPlot = "complex"  # 'complex'  # complex abs angle
 monitor.verboseLevel = "low"  # high: plot two figures, low: plot only one figure
 monitor.objectZoom = None  # 0.5  # control object plot FoV
