@@ -1,3 +1,6 @@
+from skimage.registration import phase_cross_correlation
+from scipy.ndimage import fourier_shift
+
 import time
 import numpy as np
 from PtyLab.ExperimentalData.ExperimentalData import ExperimentalData
@@ -474,12 +477,13 @@ class Reconstruction(object):
                 f'Shape of saved probe cannot be extended to shape of required probe. File: {archive["object"].shape}. Need: {self.shape_O}'
             )
 
-    def load_probe(self, filename, expand_npsm=False):
+    def load_probe(self, filename, expand_npsm=False, center_phase=True):
         """
         Load the probe from a previous reconstruction.
 
         Parameters
         ----------
+        center_phase
         filename: .hdf5 file
             The filename of the reconstruction whose probe should be loaded.
 
@@ -505,6 +509,15 @@ class Reconstruction(object):
                 raise RuntimeError(
                     f'Shape of saved probe cannot be extended to shape of required probe. File: {archive["probe"].shape}. Need: {self.shape_P}'
                 )
+            if center_phase:
+                self._center_probe_angle()
+
+    def _center_probe_angle(self):
+        """ Center the angle of propagation for the probe. """
+        p0 = np.squeeze(self.probe)[0]
+        shift = phase_cross_correlation(p0, 0 * p0 + 1, normalization=None, space='fourier')[0]
+        phexp = np.fft.fftshift(fourier_shift(0 * p0 + 1j, -shift / 2))
+        self.probe *= phexp
 
     def load(self, filename):
         """Load the results given by saveResults."""
