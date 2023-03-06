@@ -57,6 +57,7 @@ class AbstractMonitor(object):
         probe_estimate: np.ndarray,
         zo=None,
         encoder_positions=None,
+            TV_weight=None, TV_frequency=None,
     ):
         """
         Update the visualisation of both probe and and object estimate.
@@ -105,6 +106,8 @@ class AbstractMonitor(object):
         purity_object=None,
         encoder_positions=None,
         normalized_probe_powers=None,
+            TV_weight=None,
+            TV_frequency=None,
     ):
         """
         Update the Object and Probe error monitor, and any associated metrics.
@@ -184,8 +187,8 @@ class Monitor(AbstractMonitor):
             self.diffractionDataMonitor = DiffractionDataPlot()
 
     def updateObjectProbeErrorMonitor(self, error, object_estimate, probe_estimate, zo=None, purity_probe=None,
-                                      purity_object=None, encoder_positions=None,
-                                      normalized_probe_powers=None, **ignored):
+                                      purity_object=None, encoder_positions=None, normalized_probe_powers=None,
+                                      TV_weight=None, TV_frequency=None):
         """
         update the probe object plots
         :param object_estimate:
@@ -243,7 +246,7 @@ class DummyMonitor(object):
     figureUpdateFrequency = 1000000
     verboseLevel = "low"
 
-    def updatePlot(self, object_estimate, probe_estimate):
+    def updatePlot(self, object_estimate, probe_estimate, **kwargs):
         pass
 
     def getOverlap(self, ind1, ind2, probePixelsize):
@@ -299,7 +302,7 @@ class NapariMonitor(DummyMonitor):
         RGB_object = complex2rgb(object_estimate)
         self.viewer.layers["object estimate"].data = RGB_object
 
-    def updatePlot(self, object_estimate, probe_estimate):
+    def updatePlot(self, object_estimate, probe_estimate, **kwargs):
         self.update_probe_image(probe_estimate)
         self.update_object_image(object_estimate)
 

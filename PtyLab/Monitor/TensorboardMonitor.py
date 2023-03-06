@@ -1,3 +1,4 @@
+from PtyLab.utils.visualisation import modeTile
 import io
 
 import matplotlib.pyplot as plt
@@ -51,6 +52,9 @@ class TensorboardMonitor(AbstractMonitor):
     # Turn on to show the FFT of the object. Usually not useful.
     show_farfield_object = False
 
+    xminmax = 0, -1
+    yminmax = 0, -1
+
     # the probe is shown as an inset in the object. This specifies how much to downsample it
     probe_downsampling = 2
 
@@ -73,23 +77,20 @@ class TensorboardMonitor(AbstractMonitor):
 
     # These are the codes that have to be implemented
 
-    def updatePlot(
-        self,
-        object_estimate,
-        probe_estimate,
-        highres=True,
-        zo=None,
-        encoder_positions=None,
-    ):
+    def updatePlot(self, object_estimate, probe_estimate, zo=None, encoder_positions=None, highres=True, TV_weight=None,
+                   TV_frequency=None):
         self.i += 1
-
+        self.update_TV_reg_weight(TV_weight, TV_frequency)
         if not highres:
             Np = probe_estimate.shape[-1]
             No = object_estimate.shape[-1]
             xmax, ymax = np.clip(encoder_positions.max(axis=0) + 2 * Np // 3, 0, No)
             xmin, ymin = np.clip(encoder_positions.min(axis=0) + Np // 3, 0, No)
 
-            probe_estimate = probe_estimate[..., ::2, ::2]
+            self.yminmax = ymin, ymax
+            self.xminmax = xmin, xmax
+
+            probe_estimate = probe_estimate[..., ::self.probe_downsampling, ::self.probe_downsampling]
             object_estimate = object_estimate[..., ymin:ymax, xmin:xmax]
             if self.show_probe_intensity:
                 I_probe = abs(probe_estimate)
@@ -111,7 +112,8 @@ class TensorboardMonitor(AbstractMonitor):
         pass
 
     def updateObjectProbeErrorMonitor(self, error, object_estimate, probe_estimate, zo=None, purity_probe=None,
-                                      purity_object=None, encoder_positions=None, normalized_probe_powers=None, **ignored):
+                                      purity_object=None, encoder_positions=None, normalized_probe_powers=None,
+                                      TV_weight=None, TV_frequency=None):
         object_estimate = asNumpyArray(object_estimate)
         probe_estimate = asNumpyArray(probe_estimate)
         # The input can be either an empty array, an array with length 1 or a list of all the errors so far.
@@ -121,13 +123,7 @@ class TensorboardMonitor(AbstractMonitor):
             raise ValueError("Please submit encoder positions or the code won't work.")
         self._update_error_estimate(error)
 
-        self.updatePlot(
-            object_estimate,
-            probe_estimate,
-            highres=self.i % 5 == 0,
-            encoder_positions=encoder_positions,
-            zo=zo,
-        )
+        self.updatePlot(object_estimate, probe_estimate, zo=zo, encoder_positions=encoder_positions, TV_weight=TV_weight, TV_frequency=TV_frequency)
 
         self.update_z(zo)
         self.update_purities(asNumpyArray(purity_probe), asNumpyArray(purity_object))
@@ -344,9 +340,9 @@ class TensorboardMonitor(AbstractMonitor):
         )
 
         # Add an object, but if it's the low-resolution version add it to the (low_res) version.
-        tag = "object estimate"
+        tag = "object/estimate"
         if not highres:
-            tag += "(low res)"
+            tag += " (low res)"
         if self.show_farfield_object:
             I_ff = asNumpyArray(
                 abs(
@@ -359,23 +355,20 @@ class TensorboardMonitor(AbstractMonitor):
             ) ** (0.2)
             I_ff = I_ff / I_ff.max() * 255
             I_ff = np.clip(I_ff, 0, 255).astype(np.uint8)
-            self.__safe_upload_image("I ff estimate", I_ff, self.i, self.max_nosm)
+            self.__safe_upload_image("object/I ff", I_ff, self.i, self.max_nosm)
 
         self.__safe_upload_image(tag, object_estimate_rgb, self.i, self.max_npsm)
 
         if highres:
-            I_object = abs(object_estimate**2)
+            sy = slice(*self.yminmax)
+            sx = slice(*self.xminmax)
+            I_object = abs(object_estimate[...,sy,sx]**2)
 
-            std_obj = I_object.std()
-            mean_obj = I_object.mean()
+
             min_int = 0  # mean_obj - 2 * std_obj
-            # max_int = np.min((mean_obj + 2 * std_obj, I_object.max()))
-            N = I_object.shape[-1]
-            roi = slice(N // 2 - N // 5, N // 2 + N // 5)
-            # max_int = I_object[...,roi,roi].max()
             from scipy import ndimage
 
-            max_int = ndimage.gaussian_filter(I_object, 3)[..., roi, roi].max()
+            max_int = ndimage.gaussian_filter(I_object, 3).max()
 
             if min_int == max_int:
                 max_int += 1
@@ -388,11 +381,11 @@ class TensorboardMonitor(AbstractMonitor):
             logI /= logI.max() / 255
             I_object = np.clip(I_object * 255, 0, 255).astype(np.uint8)
             self.__safe_upload_image(
-                "I object estimate", I_object, self.i, self.max_nosm
+                "object/I", I_object, self.i, self.max_nosm
             )
 
             self.__safe_upload_image(
-                "I object log estimate", logI.astype(np.uint8), self.i, self.max_nosm
+                "object/I log", logI.astype(np.uint8), self.i, self.max_nosm
             )
             self.save_intensities = False
             if self.save_intensities:
@@ -413,17 +406,25 @@ class TensorboardMonitor(AbstractMonitor):
         # first, convert it to images
         # while probe_estimate.ndim <= 3:
         #     probe_estimate = probe_estimate[None]
-        probe_estimate_rgb = complex2rgb_vectorized(probe_estimate, center_phase=self.center_phases)
+        # probe_estimate_rgb = complex2rgb_vectorized(probe_estimate, center_phase=self.center_phases)
+
+        probe_estimate_rgb  = complex2rgb(modeTile(probe_estimate), center_phase=self.center_phases)
+
+        #probe_estimate_rgb = complex2rgb(np.hstack(probe_estimate), center_phase=self.center_phases)
         # ensure it's 4 d as that's what is needed by tensorflow
-        tag = "probe estimate"
+        tag = "probe/estimate"
         if not highres:
             tag += "(low res)"
         self.__safe_upload_image(tag, probe_estimate_rgb, self.i, self.max_npsm)
+        N = probe_estimate.shape[-1]
+        probe_estimate_rgb = probe_estimate_rgb[None, :N, :N, :]
 
         if highres:
-            ff_probe = fft2c(probe_estimate)
-            ff_probe = complex2rgb_vectorized(ff_probe, center_phase=self.center_phases)
-            self.__safe_upload_image("FF " + tag, ff_probe, self.i, self.max_npsm)
+            # this is an expensive operation, and we usually only need one, so take the first one instead
+            # of all of them
+            #ff_probe = fft2c(probe_estimate[:1])
+            ff_probe = complex2rgb(fft2c(probe_estimate[0]), center_phase=self.center_phases)
+            self.__safe_upload_image(tag + 'FF', ff_probe, self.i, self.max_npsm)
 
         # make a probe COM estimate
         from scipy import ndimage
@@ -432,8 +433,8 @@ class TensorboardMonitor(AbstractMonitor):
             P = P[0]
         cy, cx = ndimage.center_of_mass(abs(P**2))
         N = probe_estimate.shape[-1]
-        self.__safe_upload_scalar('com/cy', cy-N//2, self.i)
-        self.__safe_upload_scalar('com/cx', cx-N//2, self.i)
+        self.__safe_upload_scalar('probe/cy', cy-N//2, self.i)
+        self.__safe_upload_scalar('probe/cx', cx-N//2, self.i)
         return probe_estimate_rgb
 
 
@@ -499,6 +500,12 @@ class TensorboardMonitor(AbstractMonitor):
         self.__safe_upload_scalar(
             "zo (mm)", 1e3 * z, step=self.i, description="Propagation distance"
         )
+
+    def update_TV_reg_weight(self, new_weight, new_frequency):
+        if new_weight is not None:
+            self.__safe_upload_scalar('regularization/TV (1e6)', new_weight*1e6, step=self.i, description='TV reg weight')
+        if new_frequency is not None:
+            self.__safe_upload_scalar('regularization/TV freq', new_frequency, step=self.i)
 
     def _update_error_estimate(self, error):
         self.__safe_upload_scalar(
@@ -584,6 +591,6 @@ class TensorboardMonitor(AbstractMonitor):
         with self.writer.as_default():
             img = image.decode_png(buf.getvalue(), channels=4)
             img = np.expand_dims(img, 0)
-            tfs.image('relative probe power', img, self.i)
+            tfs.image('probe/relative_powers', img, self.i)
 
 
