@@ -92,11 +92,11 @@ class TensorboardMonitor(AbstractMonitor):
 
             probe_estimate = probe_estimate[..., ::self.probe_downsampling, ::self.probe_downsampling]
             object_estimate = object_estimate[..., ymin:ymax, xmin:xmax]
-            if self.show_probe_intensity:
-                I_probe = abs(probe_estimate)
-                I_probe = I_probe / I_probe.max() * 255
-                self.__safe_upload_image('probe/Intensity', np.hstack(np.clip(I_probe, 0, 255).astype(np.uint8)),
-                                         step=self.i)
+        if self.show_probe_intensity:
+            I_probe = abs(probe_estimate)
+            I_probe = I_probe / I_probe.max() * 255
+            self.__safe_upload_image('probe/Intensity', np.hstack(np.clip(I_probe, 0, 255).astype(np.uint8)),
+                                     step=self.i)
 
         probe_estimate_rgb = self._update_probe_estimate(
             probe_estimate, highres=highres
