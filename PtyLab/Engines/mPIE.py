@@ -90,7 +90,7 @@ class mPIE(BaseEngine):
 
         self.reconstruction.probeWindow = np.abs(self.reconstruction.probe)
 
-    def reconstruct(self, experimentalData=None, reconstruction=None):
+    def reconstruct(self, experimentalData=None, reconstruction=None, tqdm_=tqdm):
         """Reconstruct object. If experimentalData is given, it replaces the current data. Idem for reconstruction."""
 
         self.changeExperimentalData(experimentalData)
@@ -101,13 +101,13 @@ class mPIE(BaseEngine):
         self.reconstruction.objectBuffer = self.reconstruction.object.copy()
         self.reconstruction.probeBuffer = self.reconstruction.probe.copy()
         # actual reconstruction MPIE_engine
-        self.pbar = tqdm.trange(
-            self.numIterations, desc="mPIE", file=sys.stdout, leave=True
+        self.pbar = tqdm_.trange(
+            self.numIterations, desc="mPIE", leave=True
         )
         for loop in self.pbar:
             # set position order
             self.setPositionOrder()
-            self.pbar_pos = tqdm.tqdm(self.positionIndices, leave=False, desc='ptychogram', file=sys.stdout)
+            self.pbar_pos = tqdm_.tqdm(self.positionIndices, leave=False, desc='ptychogram')
             for positionLoop, positionIndex in enumerate(self.pbar_pos):
                 # get object patch, stored as self.probe
                 # self.reconstruction.make_probe(positionIndex)
@@ -154,7 +154,7 @@ class mPIE(BaseEngine):
 
                 if self.params.positionCorrectionSwitch:
                     shifter = self.positionCorrection(objectPatch, positionIndex, sy, sx)
-                    self.pbar_pos.write(f'Corr: {shifter[0]*1e6:.2f} um x {shifter[1]*1e6:.2f} um')
+                    #self.pbar_pos.write(f'Corr: {shifter[0]*1e6:.2f} um x {shifter[1]*1e6:.2f} um')
 
                 # momentum updates
                 if np.random.rand(1) > 0.95:
