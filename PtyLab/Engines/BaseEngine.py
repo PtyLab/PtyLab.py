@@ -1262,7 +1262,7 @@ class BaseEngine(object):
                 O1 = O[...,sy,sx]
                 O1 = O1 - O1.mean()
 
-                O2 = Opatch[..., sy, sx]
+                O2 = Opatch.copy()#[..., sy, sx]
                 O2 = O2 - O2.mean()
 
                 FT_O = xp.fft.fft2(O1)
