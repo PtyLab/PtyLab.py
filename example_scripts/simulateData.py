@@ -13,7 +13,7 @@ import h5py
 
 # turn this off not to export the data at the end
 export_data = True
-from PtyLab.io import getExampleDataFolder
+from PtyLab.read_write import getExampleDataFolder
 
 fileName = "simu"
 

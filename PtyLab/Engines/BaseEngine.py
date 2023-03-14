@@ -21,6 +21,8 @@ from PtyLab.utils.utils import ifft2c, fft2c, orthogonalizeModes, circ
 from PtyLab.Monitor.Monitor import Monitor
 from matplotlib import pyplot as plt
 
+from PtyLab.utils.random_sampling import choose_with_arbitrary_histogram
+
 try:
     import cupy as cp
     from cupyx.scipy.ndimage import fourier_gaussian as fourier_gaussian_gpu
@@ -221,6 +223,8 @@ class BaseEngine(object):
         # initialize final error
         if not hasattr(self.reconstruction, "error"):
             self.reconstruction.error = []
+        if not hasattr(self.reconstruction, 'counts_per_position'):
+            self.counts_per_position = np.zeros(self.experimentalData.numFrames, dtype=int)
 
     def _initialProbePowerCorrection(self):
         if self.params.probePowerCorrectionSwitch:
@@ -629,14 +633,24 @@ class BaseEngine(object):
             self.positionIndices = np.arange(self.experimentalData.numFrames)
 
         elif self.params.positionOrder == "random":
+            self.positionIndices = np.arange(self.experimentalData.numFrames)
+            if len(self.reconstruction.error) >= 2:
+                np.random.shuffle(self.positionIndices)
+        elif self.params.positionOrder == "weigh_by_error":
+            probabilities = asNumpyArray(self.reconstruction.errorAtPos)
+            probabilities = probabilities / probabilities.sum()
+            N = self.experimentalData.numFrames
             if len(self.reconstruction.error) == 0:
-                self.positionIndices = np.arange(self.experimentalData.numFrames)
+                # start out normal
+                self.positionIndices = np.arange(N)
             else:
-                if len(self.reconstruction.error) < 2:
-                    self.positionIndices = np.arange(self.experimentalData.numFrames)
-                else:
-                    self.positionIndices = np.arange(self.experimentalData.numFrames)
-                    np.random.shuffle(self.positionIndices)
+                self.positionIndices = np.arange(N)
+                # self.positionIndices[N:] = self.positionIndices[:N]
+                self.positionIndices = choose_with_arbitrary_histogram(N, np.clip(probabilities, 0.1/N, 3/N))
+                np.random.shuffle(self.positionIndices)
+
+            # print(self.counts_per_position)
+
 
         # order by illumiantion angles. Use smallest angles first
         # (i.e. start with brightfield data first, then add the low SNR
@@ -653,6 +667,10 @@ class BaseEngine(object):
             self.positionIndices = np.argsort(dist)
         else:
             raise ValueError("position order not properly set")
+
+        # update the visiting frequencies
+        indices, updates = np.unique(self.positionIndices, return_counts=True)
+        self.counts_per_position[indices] += updates
 
     def changeExperimentalData(self, experimentalData: ExperimentalData):
 
@@ -836,8 +854,8 @@ class BaseEngine(object):
                     np.abs(self.reconstruction.detectorError), axis=(-1, -2)
                 )
         self.reconstruction.errorAtPos = asNumpyArray(
-            self.reconstruction.errorAtPos
-        ) / asNumpyArray(self.experimentalData.energyAtPos + 1e-20)
+            self.reconstruction.errorAtPos)
+#                                         / asNumpyArray(self.experimentalData.energyAtPos[:,None] + 1e-20)
         eAverage = np.sum(self.reconstruction.errorAtPos)
 
         # append to error vector (for plotting error as function of iteration)
@@ -1097,6 +1115,8 @@ class BaseEngine(object):
 
 
             self.monitor.updateBeamWidth(*self.getBeamWidth())
+
+            self.monitor.update_aux(self)
 
             # self.monitor.visualize_probe_engine(self.reconstruction.probe_storage)
 

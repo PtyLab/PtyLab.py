@@ -2,7 +2,7 @@ import matplotlib
 
 matplotlib.use("tkagg")
 import PtyLab
-from PtyLab.io import getExampleDataFolder
+from PtyLab.read_write import getExampleDataFolder
 from PtyLab import Params
 from PtyLab import Monitor
 from PtyLab import Reconstruction

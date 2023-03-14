@@ -1,5 +1,5 @@
 from unittest import TestCase
-from PtyLab.io import readExample
+from PtyLab.read_write import readExample
 import numpy as np
 import logging
 

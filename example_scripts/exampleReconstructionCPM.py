@@ -6,7 +6,7 @@ from PtyLab.Engines.BaseEngine import smooth_amplitude
 
 matplotlib.use("tkagg")
 import PtyLab
-from PtyLab.io import getExampleDataFolder
+from PtyLab.read_write import getExampleDataFolder
 from PtyLab import Engines
 import logging
 

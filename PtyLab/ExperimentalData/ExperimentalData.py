@@ -11,9 +11,9 @@ import matplotlib.pyplot as plt
 import logging
 
 # import tables
-from PtyLab.io import readHdf5
+from PtyLab.read_write import readHdf5
 
-# from PtyLab.io import readExample
+# from PtyLab.read_write import readExample
 from PtyLab.utils.visualisation import show3Dslider
 from PtyLab.utils.visualisation import setColorMap
 from PtyLab.utils.gpuUtils import (
@@ -105,7 +105,7 @@ class ExperimentalData:
 
         if not os.path.exists(filename) and str(filename).startswith("example:"):
             self.filename = filename
-            from PtyLab.io.readExample import examplePath
+            from PtyLab.read_write.readExample import examplePath
 
             self.filename = examplePath(
                 filename

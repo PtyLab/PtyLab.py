@@ -1,4 +1,4 @@
-from PtyLab.io import readHdf5
+from PtyLab.read_write import readHdf5
 from pathlib import Path
 
 

@@ -1,3 +1,5 @@
+import pathlib
+
 from PtyLab.utils.visualisation import modeTile
 import io
 
@@ -15,7 +17,7 @@ from tensorflow import summary as tfs
 from scipy import ndimage
 
 import matplotlib
-import io
+
 from tensorflow import image
 def center_angle(object_estimate):
     # first, align the angle of the object based on the zeroth order mode
@@ -76,6 +78,91 @@ class TensorboardMonitor(AbstractMonitor):
         self.i = 0
 
     # These are the codes that have to be implemented
+
+    def update_aux(self, engine):
+        self.plot_error_per_position(engine)
+
+
+    def plot_error_per_position(self, engine):
+        probabilities = asNumpyArray(engine.reconstruction.errorAtPos)
+        probabilities = probabilities / probabilities.sum()
+        indices, updates = np.unique(engine.positionIndices, return_counts=True)
+        N = len(engine.positionIndices)
+
+        cmap: matplotlib.colors.Colormap = matplotlib.colormaps['gray'].copy()
+        cmap.set_over('r')
+        cmap.set_under('g')
+
+        fig, axes = plt.subplot_mosaic("EPDHh\nEPDHh", num=11, clear=True, layout="constrained",
+                                       height_ratios=[1, 1],
+                                       width_ratios=[1, 1, 1, 0.5, 0.5],
+                                       figsize=(12, 3))
+        ax = axes['E']
+        ax2 = axes['H']
+        ax3 = axes['P']
+        ax3.sharex(ax)
+        ax3.sharey(ax)
+        ax_density = axes['D']
+
+        for key in 'EPD':
+            axes[key].set_aspect(1)
+            # show the error per position
+        ax.set_title('Rel. error')
+        cm = ax.scatter(engine.reconstruction.positions[:, 1], engine.reconstruction.positions[:, 0], c=probabilities * N,
+                        vmin=0.5, vmax=2,
+                        cmap=cmap)
+        plt.colorbar(cm, orientation='horizontal', ticks=np.array([0.5, 1.0, 1.5, 2.0]), extend='both')
+        # show the new positions for the next run
+        cm = ax3.scatter(engine.reconstruction.positions[indices, 1], engine.reconstruction.positions[indices, 0],
+                         c=updates + 0.5, cmap='Accent',
+                         vmin=0, vmax=8)
+        plt.colorbar(cm, orientation='horizontal', extend='both')
+        ax3.set_title('Processed pos')
+
+        # histogram of error distribution
+        ax2.hist(probabilities * N, bins=np.linspace(0, 5, 100))
+        ax2.set_title('Relative error')
+        ax2.set_xlabel('Relative error')
+        ax2.set_ylabel('#')
+
+        axes['h'].hist(engine.counts_per_position / engine.counts_per_position.mean(),
+                       bins=len(engine.counts_per_position) // 2)
+        axes['h'].set_title('Visiting frequency')
+        axes['h'].set_xlabel('Visit freq')
+        for label in 'Hh':
+            from matplotlib.ticker import MaxNLocator, FormatStrFormatter
+            axes[label].yaxis.set_major_locator(MaxNLocator(5, integer=True))
+            axes[label].yaxis.set_major_formatter(FormatStrFormatter('%.3d'))
+        # density of positions processed
+        ax_density.set_title('# visiting freq.')
+        cmap = matplotlib.colormaps['viridis'].copy()
+        cmap.set_under('gray')
+        cmap.set_over('r')
+        cm = ax_density.scatter(engine.reconstruction.positions[:, 1],
+                                engine.reconstruction.positions[:, 0],
+                                cmap=cmap,
+                                c=engine.counts_per_position / engine.counts_per_position.mean(),
+                                vmin=0.5, vmax=2)
+        plt.colorbar(cm, orientation='horizontal', extend='both')
+        lims = ax_density.get_ylim()
+        for a in 'EPD':
+            # flip the orientation to make it match with the images we reconstruct
+            axes[a].set_ylim(lims[::-1])
+
+
+        # P = pathlib.Path(f'probability_{self.params.positionOrder}')
+        # P.mkdir(exist_ok=True)
+        # plt.savefig(P / f'{i if i is not None else "prob"}.png', dpi=300)
+        # plt.savefig('density.png')
+        # plt.show()
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', dpi=150)
+        plt.close(fig)
+        buf.seek(0)
+        with self.writer.as_default():
+            img = image.decode_png(buf.getvalue(), channels=4)
+            img = np.expand_dims(img, 0)
+            tfs.image('position sampling', img, self.i)
 
     def updatePlot(self, object_estimate, probe_estimate, zo=None, encoder_positions=None, highres=True, TV_weight=None,
                    TV_frequency=None):

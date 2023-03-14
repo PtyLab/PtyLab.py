@@ -340,7 +340,7 @@ class zPIE(BaseEngine):
     # def display_focus_bokeh(self):
     #     # first, make a document
     #     from bokeh.plotting import figure, output_file, save
-    #     from bokeh.io import hplot
+    #     from bokeh.read_write import hplot
     #     from pathlib import Path
     #
     #     folder = Path('plots/zPIE.html')

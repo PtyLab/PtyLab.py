@@ -2,13 +2,13 @@ from pathlib import Path
 import numpy as np
 from matplotlib import pyplot as plt
 from PtyLab.ExperimentalData.ExperimentalData import ExperimentalData
-from PtyLab.io import readExample
+from PtyLab.read_write import readExample
 
 
 # This script loads an example dataset.
 
 ##############################################################################
-# Fourier ptychography - hdf5 data example using PtyLab/io
+# Fourier ptychography - hdf5 data example using PtyLab/read_write
 ##############################################################################
 
 

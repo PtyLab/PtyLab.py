@@ -5,7 +5,7 @@ setup(
     version="0.0",
     packages=[
         "PtyLab",
-        "PtyLab.io",
+        "PtyLab.read_write",
         "PtyLab.utils",
         "PtyLab.config",
         "PtyLab.Operators",

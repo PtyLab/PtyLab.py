@@ -51,6 +51,9 @@ class AbstractMonitor(object):
         """
         pass
 
+    def update_aux(self, engine):
+        pass
+
     def updatePlot(
         self,
         object_estimate: np.ndarray,

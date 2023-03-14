@@ -1,6 +1,6 @@
 from unittest import TestCase
-from PtyLab.io import getExampleDataFolder
-from PtyLab.io.readHdf5 import loadInputData
+from PtyLab.read_write import getExampleDataFolder
+from PtyLab.read_write.readHdf5 import loadInputData
 import logging
 
 

@@ -1,5 +1,5 @@
 from unittest import TestCase
-from PtyLab.io import getExampleDataFolder
+from PtyLab.read_write import getExampleDataFolder
 
 
 class TestGet_example_data_folder(TestCase):
