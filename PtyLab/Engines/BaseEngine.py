@@ -86,7 +86,7 @@ class BaseEngine(object):
         # These statements don't copy any data, they just keep a reference to the object
         self.betaObject = 0.25
         self.reconstruction: Reconstruction = reconstruction
-        self.experimentalData = experimentalData
+        self.experimentalData: ExperimentalData = experimentalData
         self.params = params
         self.monitor = monitor
         self.monitor.reconstruction = reconstruction
@@ -219,7 +219,7 @@ class BaseEngine(object):
         if not hasattr(self.reconstruction, "errorAtPos"):
             self.reconstruction.errorAtPos = np.zeros(
                 (self.experimentalData.numFrames, 1), dtype=np.float32
-            )
+            ) + 1e-16
         # initialize final error
         if not hasattr(self.reconstruction, "error"):
             self.reconstruction.error = []
@@ -636,9 +636,14 @@ class BaseEngine(object):
             self.positionIndices = np.arange(self.experimentalData.numFrames)
             if len(self.reconstruction.error) >= 2:
                 np.random.shuffle(self.positionIndices)
-        elif self.params.positionOrder == "weigh_by_error":
+        elif self.params.positionOrder in ["weigh_by_error", "weigh_by_normalized_error"]:
             probabilities = asNumpyArray(self.reconstruction.errorAtPos)
+            if self.params.positionOrder == 'weigh_by_normalized_error':
+                print('Weighing probability by normalized error')
+                print(probabilities.shape, self.experimentalData.energyAtPos.shape)
+                probabilities = probabilities * self.experimentalData.energyAtPos[:, None]
             probabilities = probabilities / probabilities.sum()
+
             N = self.experimentalData.numFrames
             if len(self.reconstruction.error) == 0:
                 # start out normal
