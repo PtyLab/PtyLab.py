@@ -12,6 +12,8 @@ exampleFiles = {
     "simulation_cpm": "simu.hdf5",
     "simulation_fpm": "LungCarcinomaSmallFPM.hdf5",
     "lenspaper_cpm": "Lenspaper.hdf5",
+    'helicalbeam': 'ptyLab_helical_beam.h5',
+    'zpie': 'ptyLab_zPIE.h5',
 }
 
 # This is a convenience class to aid in loading a particular example
@@ -43,8 +45,7 @@ def examplePath(key: str):
         )
 
     full_filename = getExampleDataFolder() / filename
-    if not full_filename.exists():
-        raise FileNotFoundError(f"Could not find {full_filename}")
+
     return full_filename
 
 

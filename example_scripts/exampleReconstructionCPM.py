@@ -26,11 +26,12 @@ experimentalData, reconstruction, params, monitor, ePIE_engine = PtyLab.easyInit
 )
 # optional - use tensorboard monitor instead. To see the results, open tensorboard in the directory ./logs_tensorboard
 from PtyLab.Monitor.TensorboardMonitor import TensorboardMonitor
+monitor = TensorboardMonitor()
 
 # turn these two lines on to see the autofocusing in action
 # experimentalData.zo = experimentalData.zo + 1e-2
 # reconstruction.zo = reconstruction.zo + 1e-2
-# monitor = TensorboardMonitor()
+
 # set this to >1 for larger images
 monitor.downsample_everything = 2
 monitor.probe_downsampling = 1
@@ -121,7 +122,7 @@ monitor.probeZoom = None  # 0.5   # control probe plot FoV
 # Params = Params()
 ## main parameters
 params.positionOrder = "random"  # 'sequential' or 'random'
-params.propagatorType = "Fresnel"  # Fresnel'# 'Fresnel' #aunhofer'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
+params.propagatorType = "ASP"  # Fresnel'# 'Fresnel' #aunhofer'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
 
 params.positionCorrectionSwitch = False
 params.modulusEnforcedProbeSwitch = False
@@ -148,7 +149,7 @@ params.probePowerCorrectionSwitch = True
 ## computation stuff - how do we want to reconstruct?
 params.gpuSwitch = True
 # this speeds up some propagators but not all of them are implemented
-params.fftshiftSwitch = True
+params.fftshiftSwitch = False
 
 
 params.intensityConstraint = "standard"  # standard fluctuation exponential poission
@@ -160,7 +161,7 @@ mPIE = Engines.mPIE(reconstruction, experimentalData, params, monitor)
 mPIE.numIterations = 50
 
 # you can now run simple scripts, such as:
-for i in range(8):
+for i in range(1, 8):
     # turn on autofocusing and then l2 regularization, iterate both for about 50 iterations
     params.TV_autofocus = i % 2 == 1
     params.l2reg = i % 2 == 0

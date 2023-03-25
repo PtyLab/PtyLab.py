@@ -1,3 +1,5 @@
+import io
+
 import numpy as np
 import time
 from pathlib import Path
@@ -10,7 +12,9 @@ from PtyLab.utils.visualisation import complex2rgb, complex2rgb_vectorized
 from tensorflow import summary as tfs
 from scipy import ndimage
 
-
+import matplotlib
+import io
+from tensorflow import image
 def center_angle(object_estimate):
     # first, align the angle of the object based on the zeroth order mode
     object_estimate_0 = object_estimate.copy()
@@ -52,6 +56,8 @@ class TensorboardMonitor(AbstractMonitor):
 
     def __init__(self, logdir="./logs_tensorboard", name=None):
         super(AbstractMonitor).__init__()
+        # if true, all phases are centered in such a way that the average phase in the center of any RGB plot is zero.
+        self.center_phases = True
         if name is None:
             starttime = time.strftime("%H%M")
             name = f"Start {starttime}"
@@ -90,7 +96,7 @@ class TensorboardMonitor(AbstractMonitor):
         )
 
     def visualize_probe_engine(self, engine):
-        RGB_image = complex2rgb_vectorized(engine.get_fundamental())
+        RGB_image = complex2rgb_vectorized(engine.get_fundamental(), center_phase=self.center_phases)
         self.__safe_upload_image("original probe", np.squeeze(RGB_image), self.i)
         pass
 
@@ -145,7 +151,7 @@ class TensorboardMonitor(AbstractMonitor):
                 description="reconstruction name",
             )
 
-    def update_focusing_metric(self, TV_value, AOI_image, metric_name):
+    def update_focusing_metric(self, TV_value, AOI_image, metric_name, allmerits=None):
         if TV_value is not None:
             self.__safe_upload_scalar(
                 f"Autofocus {metric_name}",
@@ -162,13 +168,40 @@ class TensorboardMonitor(AbstractMonitor):
                 self.i,
                 1,
                 "AOI used by autofocus",
+                center_phase=True,
             )
+        if allmerits is not None:
+            import matplotlib.pyplot as plt
+            allmerits, new_z = allmerits
+            fig, ax = plt.subplot_mosaic('A')
+            ax = ax['A']
+            ax.plot(allmerits[0], allmerits[1], '-ro')
+            ax.vlines(new_z, *ax.get_ylim())
+            ax.set_title(f'{metric_name}')
+            buf = io.BytesIO()
+            fig.savefig(buf, format='png', dpi=70)
+            plt.close(fig)
+            buf.seek(0)
+            with self.writer.as_default():
+                img = image.decode_png(buf.getvalue(), channels=4)
+                img = np.expand_dims(img, 0)
+                tfs.image('Autofocus dz score', img, self.i)
+
+    def updateBeamWidth(self, beamwidth_y, beamwidth_x):
+        self.__safe_upload_scalar('beamwidth/x_um', beamwidth_x*1e6, step=self.i)
+        self.__safe_upload_scalar('beamwidth/y_um', beamwidth_y*1e6, step=self.i)
+
+    def update_overlap(self, overlap_area, linear_overlap):
+        self.__safe_upload_scalar('overlap/area', overlap_area, step=self.i)
+        self.__safe_upload_scalar('overlap/linear', linear_overlap, step=self.i)
+
 
     def update_encoder(
         self,
         corrected_positions: np.ndarray,
         original_positions: np.ndarray,
         scaling: float = 1.0,
+            beamwidth=None
     ) -> None:
         """
         Update the stage position images.
@@ -188,15 +221,13 @@ class TensorboardMonitor(AbstractMonitor):
             axis=0, keepdims=True
         )
 
-        import matplotlib
-        import io
-        from tensorflow import image
+
 
         matplotlib.use("Agg")  # no images output
         import matplotlib.pyplot as plt
 
         # make a fov that makes sense
-        scale_0 = 1.5
+        scale_0 = 1.1
         if scaling > scale_0:
             scale_0 = scaling
 
@@ -210,11 +241,11 @@ class TensorboardMonitor(AbstractMonitor):
             """
         ONS""",
             constrained_layout=True,
-            figsize=(10, 5),
+            figsize=(15, 8),
         )
 
         meandiff = np.mean(
-            abs(1e6 * corrected_positions - 1e6 * original_positions) ** 2
+            abs(1e6 * corrected_positions - 1e6 * original_positions)
         )
 
         self.__safe_upload_scalar(
@@ -225,7 +256,7 @@ class TensorboardMonitor(AbstractMonitor):
         )
 
         axes["O"].set_title("Original positions")
-        axes["N"].set_title("Updatred positions")
+        axes["N"].set_title("Updated positions")
         axes["S"].set_title(f"Diff. Mean: {meandiff} $\mu$m")
 
         # plot the original one everywhere
@@ -267,7 +298,7 @@ class TensorboardMonitor(AbstractMonitor):
         )
 
         buf = io.BytesIO()
-        fig.savefig(buf, format="png", dpi=300)
+        fig.savefig(buf, format="png", dpi=70)
         plt.close(fig)
         buf.seek(0)
         with self.writer.as_default():
@@ -299,7 +330,8 @@ class TensorboardMonitor(AbstractMonitor):
             print("Angle shifts: ", shift1, shift2)
 
         # convert the object estimate to colour
-        object_estimate_rgb = complex2rgb_vectorized(object_estimate)
+        object_estimate_rgb = complex2rgb_vectorized(object_estimate, center_phase=self.center_phases
+                                                     )
 
         # ensure it's 4 d as that's what is needed by tensorflow
         if object_estimate_rgb.ndim == 3:
@@ -380,7 +412,7 @@ class TensorboardMonitor(AbstractMonitor):
         # first, convert it to images
         # while probe_estimate.ndim <= 3:
         #     probe_estimate = probe_estimate[None]
-        probe_estimate_rgb = complex2rgb_vectorized(probe_estimate)
+        probe_estimate_rgb = complex2rgb_vectorized(probe_estimate, center_phase=self.center_phases)
         # ensure it's 4 d as that's what is needed by tensorflow
         tag = "probe estimate"
         if not highres:
@@ -389,21 +421,40 @@ class TensorboardMonitor(AbstractMonitor):
 
         if highres:
             ff_probe = fft2c(probe_estimate)
-            ff_probe = complex2rgb_vectorized(ff_probe)
+            ff_probe = complex2rgb_vectorized(ff_probe, center_phase=self.center_phases)
             self.__safe_upload_image("FF " + tag, ff_probe, self.i, self.max_npsm)
+
+        # make a probe COM estimate
+        from scipy import ndimage
+        P = probe_estimate
+        while P.ndim > 2:
+            P = P[0]
+        cy, cx = ndimage.center_of_mass(abs(P**2))
+        N = probe_estimate.shape[-1]
+        self.__safe_upload_scalar('com/cy', cy-N//2, self.i)
+        self.__safe_upload_scalar('com/cx', cx-N//2, self.i)
         return probe_estimate_rgb
 
+
+
     def __smart_upload_image_couldbecomplex(
-        self, name, data, step, max_outputs=3, description=None
+        self, name, data, step, max_outputs=3, description=None, center_phase=False,
     ):
         """
         Safely upload an image that could be complex. If it is, cast it to colour before uploading.
 
         """
         data = asNumpyArray(data)
+
+
         if np.iscomplexobj(data):
+            if center_phase:
+                phexp = data.sum((-2,-1), keepdims=True)
+                phexp = phexp.conj() / (abs(phexp) + 1e-9)
+            else:
+                phexp = 1
             print("Got complex datatype")
-            data = complex2rgb_vectorized(data)
+            data = complex2rgb_vectorized(data*phexp)
         else:
             print("Got real datatype")
             # auto scale

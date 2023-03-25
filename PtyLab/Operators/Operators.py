@@ -1,5 +1,8 @@
 import logging
-from collections import Callable
+try: # pre 3.10
+    from collections import Callable
+except ImportError:
+    from collections.abc import Callable
 from functools import lru_cache
 
 try:
@@ -21,17 +24,75 @@ cache_size = 5
 def propagate_fraunhofer(
     fields, params: Params, reconstruction: Reconstruction, z=None
 ):
+    """
+    Propagate using the fraunhofer approximation.
+
+    Parameters
+    ----------
+    fields: np.ndarray
+        Electric field to propagate
+    params: Params
+        Parameter object. The parameter params.fftshiftSwitch is inspected for the fourier transform
+    reconstruction: Reconstruction
+        Reconstruction object.
+    z: float
+        propagation distance. Is ignored in this function.
+
+    Returns
+    -------
+
+    A tuple of (reconstruction.esw, Propagated field)
+
+    """
     return reconstruction.esw, fft2c(fields, params.fftshiftSwitch)
 
 
 def propagate_fraunhofer_inv(
     fields, params: Params, reconstruction: Reconstruction, z=None
 ):
+    """
+    Inverse transform. See propagate_frauhofer for the arguments.
+
+    Parameters
+    ----------
+    fields: np.ndarray
+        Electric field to propagate
+    params: Params
+        Parameter object. The parameter params.fftshiftSwitch is inspected for the fourier transform
+    reconstruction: Reconstruction
+        Reconstruction object.
+    z: float
+        propagation distance. Is ignored in this function.
+
+    Returns
+    -------
+    A tuple of (reconstruction.esw, inverse transformed field)
+    """
     return reconstruction.esw, ifft2c(fields, params.fftshiftSwitch)
 
 
 def propagate_fresnel(fields, params: Params, reconstruction: Reconstruction, z=None):
     # make the quad phase if it's not available yet
+    """
+    Propagate using the fresnel approximation.
+
+    Parameters
+    ----------
+    fields: np.ndarray
+       Electric field to propagate
+    params: Params
+       Parameter object. The parameter params.fftshiftSwitch is inspected for the fourier transform
+    reconstruction: Reconstruction
+       Reconstruction object.
+    z: float
+       propagation distance in meter
+
+    Returns
+    -------
+
+    A tuple of (reconstruction.esw, Propagated field)
+
+    """
     if z is None:
         z = reconstruction.zo
     on_gpu = isGpuArray(fields)
@@ -52,6 +113,26 @@ def propagate_fresnel(fields, params: Params, reconstruction: Reconstruction, z=
 def propagate_fresnel_inv(
     fields, params: Params, reconstruction: Reconstruction, z=None
 ):
+    """
+    Propagate using the inverse fresnel approximation.
+
+    Parameters
+    ----------
+    fields: np.ndarray
+      Electric field to propagate
+    params: Params
+      Parameter object. The parameter params.fftshiftSwitch is inspected for the fourier transform
+    reconstruction: Reconstruction
+      Reconstruction object.
+    z: float
+      propagation distance in meter
+
+    Returns
+    -------
+
+    A tuple of (reconstruction.esw, Propagated field)
+
+    """
     # make the quad phase if it's not available yet
     if z is None:
         z = reconstruction.zo
@@ -60,7 +141,7 @@ def propagate_fresnel_inv(
         reconstruction.wavelength,
         reconstruction.Np,
         reconstruction.dxp,
-        on_gpu=params.gpuSwitch,
+        on_gpu=isGpuArray(fields),
     ).conj()
 
     eswUpdate = ifft2c(fields, params.fftshiftSwitch) * quadratic_phase
@@ -69,14 +150,41 @@ def propagate_fresnel_inv(
 
 
 def propagate_ASP(
-    fields, params: Params, reconstruction: Reconstruction, inverse=False, z=None
+    fields, params: Params, reconstruction: Reconstruction, inverse=False, z=None,
+        fftflag=True,
 ):
+    """
+    Propagate using the angular spectrum method
+
+
+    Parameters
+    ----------
+    fields: np.ndarray
+      Electric field to propagate
+    params: Params
+      Parameter object. The parameter params.fftshiftSwitch is inspected for the fourier transform
+    reconstruction: Reconstruction
+      Reconstruction object.
+    z: float
+      propagation distance in meter
+    fftflag: bool
+      Specified wether or not to use a centered fft internally. Set to false for debugging but should generally be turned on.
+
+    Returns
+    -------
+    reconstruction.esw: np.ndarray
+        exit surface wave
+    result: np.ndarray
+        propagated field
+    """
+
     if params.fftshiftSwitch:
         raise ValueError("ASP propagator only works with fftshiftswitch == False")
     if reconstruction.nlambda > 1:
         raise ValueError("For multi-wavelength, set polychromeASP instead of ASP")
     if z is None:
         z = reconstruction.zo
+    xp = getArrayModule(fields)
     transfer_function = __make_transferfunction_ASP(
         params.fftshiftSwitch,
         reconstruction.nosm,
@@ -86,21 +194,56 @@ def propagate_ASP(
         reconstruction.wavelength,
         reconstruction.Lp,
         reconstruction.nlambda,
-        params.gpuSwitch,
+        isGpuArray(fields),
     )
+    if fftflag:
+        transfer_function = xp.fft.ifftshift(transfer_function, axes=(-2,-1))
     if inverse:
         transfer_function = transfer_function.conj()
-    result = ifft2c(fft2c(fields) * transfer_function)
+    result = ifft2c(fft2c(fields, fftshiftSwitch=fftflag) * transfer_function, fftshiftSwitch=fftflag)
     return reconstruction.esw, result
 
 
 def propagate_ASP_inv(*args, **kwargs):
+    """
+    See propagate_ASP
+
+    Parameters
+    ----------
+    args
+    kwargs
+
+    Returns
+    -------
+
+    """
     return propagate_ASP(*args, **kwargs, inverse=True)
 
 
 def propagate_twoStepPolychrome(
     fields, params: Params, reconstruction: Reconstruction, inverse=False, z=None
 ):
+    """
+    Two-step polychrome propagation.
+
+    Parameters
+    ----------
+    fields: np.ndarray
+        Field to propagate
+    params: Params
+        Parameters
+    reconstruction: Reconstruction
+    inverse: bool
+        Reverse propagation
+    z: float
+        Propagation distance
+
+    Returns
+    -------
+    reconstruction.esw, propagated field:
+        Exit surface wave and the propagated field
+
+    """
     if z is None:
         z = reconstruction.zo
     transfer_function, quadratic_phase = __make_cache_twoStepPolychrome(
@@ -131,18 +274,47 @@ def propagate_twoStepPolychrome(
 def propagate_twoStepPolychrome_inv(
     fields, params: Params, reconstruction: Reconstruction, z=None
 ):
+    """
+    See propagate_twoStepPolychrome.
+
+    Parameters
+    ----------
+    fields
+    params
+    reconstruction
+    z
+
+    Returns
+    -------
+
+    """
     F = propagate_twoStepPolychrome(fields, params, reconstruction, inverse=True, z=z)[
         1
     ]
     G = propagate_twoStepPolychrome(
         reconstruction.ESW, params, reconstruction, inverse=True, z=z
-    )[1]
+    )[1] # tODO: What is G here? Why are we not returning reconstruction.esw?
     return G, F
 
 
 def propagate_scaledASP(
     fields, params: Params, reconstruction: Reconstruction, inverse=False, z=None
 ):
+    """
+    Propagate using the scaled angular spectrum method.
+
+    Parameters
+    ----------
+    fields
+    params
+    reconstruction
+    inverse
+    z
+
+    Returns
+    -------
+
+    """
     if z is None:
         z = reconstruction.zo
     Q1, Q2 = __make_transferfunction_scaledASP(
@@ -167,12 +339,55 @@ def propagate_scaledASP(
 def propagate_scaledASP_inv(
     fields, params: Params, reconstruction: Reconstruction, z=None
 ):
+    """
+    Reverse scaled angular spectrum propagation. See scaledASP for details.
+
+    Parameters
+    ----------
+    fields: np.ndarray
+        Field to propagate
+    params: Params
+        Parameters
+    reconstruction: Reconstruction
+    z: float
+        Propagation distance
+
+    Returns
+    -------
+    reconstruction.esw, propagated field:
+        Exit surface wave and the propagated field
+
+    """
     return propagate_scaledASP(fields, params, reconstruction, inverse=True, z=z)
 
 
 def propagate_scaledPolychromeASP(
     fields, params: Params, reconstruction: Reconstruction, inverse=False, z=None
 ):
+    """
+    Scaled angular spectrum for multiple wavelengths.
+
+    Parameters
+    ----------
+    fields: np.ndarray
+        Field to propagate
+    params: Params
+        Parameters
+    reconstruction: Reconstruction
+    inverse: bool
+        Reverse propagation
+    z: float
+        Propagation distance
+
+    Returns
+    -------
+    reconstruction.esw, propagated field:
+        Exit surface wave and the propagated field
+
+    Returns
+    -------
+
+    """
     if z is None:
         z = reconstruction.zo
     Q1, Q2 = __make_transferfunction_scaledPolychromeASP(
@@ -196,6 +411,30 @@ def propagate_scaledPolychromeASP(
 def propagate_scaledPolychromeASP_inv(
     fields, params: Params, reconstruction: Reconstruction, z=None
 ):
+    """
+     Reverse Scaled angular spectrum for multiple wavelengths.
+
+     Parameters
+     ----------
+     fields: np.ndarray
+         Field to propagate
+     params: Params
+         Parameters
+     reconstruction: Reconstruction
+     inverse: bool
+         Reverse propagation
+     z: float
+         Propagation distance
+
+     Returns
+     -------
+     reconstruction.esw, propagated field:
+         Exit surface wave and the propagated field
+
+     Returns
+     -------
+
+     """
     return propagate_scaledPolychromeASP(
         fields, params, reconstruction, inverse=True, z=z
     )
@@ -204,6 +443,30 @@ def propagate_scaledPolychromeASP_inv(
 def propagate_polychromeASP(
     fields, params: Params, reconstruction: Reconstruction, inverse=False, z=None
 ):
+    """
+     ASP propagation  for multiple wavelengths.
+
+     Parameters
+     ----------
+     fields: np.ndarray
+         Field to propagate
+     params: Params
+         Parameters
+     reconstruction: Reconstruction
+     inverse: bool
+         Reverse propagation
+     z: float
+         Propagation distance
+
+     Returns
+     -------
+     reconstruction.esw, propagated field:
+         Exit surface wave and the propagated field
+
+     Returns
+     -------
+
+     """
     if z is None:
         z = reconstruction.zo
     transfer_function = __make_transferfunction_polychrome_ASP(
@@ -230,16 +493,22 @@ def propagate_identity(
     fields, params: Params, reconstruction: Reconstruction, inverse=False, z=None
 ):
     """
-    Identity propagator (aka, it does nothing)
+    Identity propagator (aka does nothing).
 
-    Probably useful to figure out the required orientation.
+    Can probably be used to figure out orientation or to perform some kind of stitching.
 
-    :param fields:
-    :param params:
-    :param reconstruction:
-    :param inverse:
-    :param z:
-    :return:
+
+    Parameters
+    ----------
+    fields
+    params
+    reconstruction
+    inverse
+    z
+
+    Returns
+    -------
+
     """
     transfer_function = __make_quad_phase(
         1e-3, 532e-9, reconstruction.Np, reconstruction.dxp, isGpuArray(fields)
@@ -249,6 +518,27 @@ def propagate_identity(
 
 
 def propagate_polychromeASP_inv(fields, params, reconstruction, z=None):
+    """
+     inverse scaled angular spectrum for multiple wavelengths.
+
+     Parameters
+     ----------
+     fields: np.ndarray
+         Field to propagate
+     params: Params
+         Parameters
+     reconstruction: Reconstruction
+     inverse: bool
+         Reverse propagation
+     z: float
+         Propagation distance
+
+     Returns
+     -------
+     reconstruction.esw, propagated field:
+         Exit surface wave and the propagated field
+
+     """
     return propagate_polychromeASP(fields, params, reconstruction, inverse=True, z=z)
 
 
@@ -283,13 +573,27 @@ def aspw(u, z, wavelength, L, bandlimit=True, is_FT=True):
     Angular spectrum plane wave propagation function.
     following: Matsushima et al., "Band-Limited Angular Spectrum Method for Numerical Simulation of Free-Space
     Propagation in Far and Near Fields", Optics Express, 2009
-    :param is_FT:
-    :param u: a 2D field distribution at z = 0 (u is assumed to be square, i.e. N x N)
-    :param z: propagation distance
-    :param wavelength: propagation wavelength in meter
-    :param L: total size of the field in meter
-    :param is_FT: If u has already been transformed.
-    :return: U_prop, Q  (field distribution after propagation and the bandlimited transfer function)
+
+
+    Parameters
+    ----------
+    u: np.ndarray
+        a 2D field distribution at z = 0 (u is assumed to be square, i.e. N x N)
+    z: float
+        propagation distance in meter
+    wavelength: float
+        Wavelength in meter
+    L: float
+        total size of the field in meter
+    bandlimit: bool
+        Wether or not to band limit the sample
+    is_FT: bool
+        If the field has already been fourier transformed.
+
+    Returns
+    -------
+    U_prop, Q  (field distribution after propagation and the bandlimited transfer function)
+
     """
     N = u.shape[-1]
     phase_exp = __aspw_transfer_function(
@@ -310,10 +614,37 @@ def aspw(u, z, wavelength, L, bandlimit=True, is_FT=True):
 
 @lru_cache(cache_size)
 def __aspw_transfer_function(z, wavelength, N, L, on_gpu=False, bandlimit=True):
+    """
+    Angular spectrum optical transfer function. You likely don't need to use this directly.
+
+    The result of this call is cached so it can be reused and called as often as you need without having
+    to worry about recalculating everything all the time.
+
+
+    Parameters
+    ----------
+    z: float
+        distance
+    wavelength: float
+        wavelength in meter
+    N: int
+        Number of pixels per side
+    L: int
+        Physical size
+    on_gpu: bool
+        If true, a cupy array is returned
+    bandlimit: bool
+        If the transfer function should be band-limited.
+
+    Returns
+    -------
+
+    """
     if on_gpu:
         xp = cp
     else:
         xp = np
+
     a_z = abs(z)
     k = 2 * np.pi / wavelength
     X = xp.arange(-N / 2, N / 2) / L
@@ -338,6 +669,20 @@ def __aspw_transfer_function(z, wavelength, N, L, on_gpu=False, bandlimit=True):
 
 
 def complexexp(angle):
+    """
+    Faster way of implementing np.exp(1j*something_unitary)
+
+    Parameters
+    ----------
+    angle: np.ndarray
+        Angle of the exponent
+
+    Returns
+    -------
+
+    cos(angle) + 1j * sin(angle)
+
+    """
     xp = getArrayModule(angle)
     return xp.cos(angle) + 1j * xp.sin(angle)
 
@@ -571,7 +916,7 @@ def __make_transferfunction_polychrome_ASP(
                 [
                     [
                         __aspw_transfer_function(
-                            zo, spectralDensity[nlambda], Np, Lp, gpuSwitch
+                            zo, spectralDensity[nlambda], Np, Lp, False,
                         )
                         for nslice in range(1)
                     ]

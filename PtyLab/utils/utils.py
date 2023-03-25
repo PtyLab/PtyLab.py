@@ -7,7 +7,7 @@ from PtyLab.utils.gpuUtils import getArrayModule
 
 def fft2c(field, fftshiftSwitch=False, *args, **kwargs):
     """
-    performs 2 - dimensional unitary Fourier transformation, where energy is reserved abs(g)**2==abs(fft2c(g))**2
+    performs 2 - dimensional unitary Fourier transformation, where energy is preserved sum( abs(g)**2 ) == sum( abs(fft2c(g))**2 )
     if g is two - dimensional, fft2c(g) yields the 2D DFT of g
     if g is multi - dimensional, fft2c(g) yields the 2D DFT of g along the last two axes
     :param array:
@@ -26,7 +26,7 @@ def fft2c(field, fftshiftSwitch=False, *args, **kwargs):
 
 def ifft2c(field, fftshiftSwitch=False):
     """
-    performs 2 - dimensional inverse Fourier transformation, where energy is reserved abs(G)**2==abs(fft2c(g))**2
+    performs 2 - dimensional inverse Fourier transformation, where energy is preserved sum( abs(G)**2 ) == sum( abs(fft2c(g))**2 ) 
     if G is two - dimensional, fft2c(G) yields the 2D iDFT of G
     if G is multi - dimensional, fft2c(G) yields the 2D iDFT of G along the last two axes
     :param array:

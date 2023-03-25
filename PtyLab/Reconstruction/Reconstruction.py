@@ -42,6 +42,8 @@ class Reconstruction(object):
     are defined in the listOfReconstructionProperties
     """
 
+    _Nd = None
+
     # Note: zo, the sample-detector distance, is always read.
     listOfReconstructionPropertiesCPM = [
         "wavelength",
@@ -120,7 +122,7 @@ class Reconstruction(object):
 
         # set the distance, this has to be last
         # In FPM the sample to detector distance is irrelevant
-        # LED-to-sample distance is the more important factor that affects 
+        # LED-to-sample distance is the more important factor that affects
         # wave propagation and illumination angle
         if self.data.operationMode == "CPM":
             self.zo = getattr(data, "zo")
@@ -142,12 +144,12 @@ class Reconstruction(object):
     def zo(self, new_value):
         self._zo = new_value
         if self.data.operationMode == "CPM":
-            self.logger.info(f"Changing sample-detector distance to {new_value}")
+            self.logger.debug(f"Changing sample-detector distance to {new_value}")
             self.dxp = self.wavelength * self._zo / self.Ld
         elif self.data.operationMode == "FPM":
-             self.logger.info(f"Changing illumination-to-sample distance to {new_value}")
+             self.logger.debug(f"Changing illumination-to-sample distance to {new_value}")
              self.zled = self._zo
-             
+
     def computeParameters(self):
         """
         compute parameters that can be altered by the user later.
@@ -168,7 +170,7 @@ class Reconstruction(object):
         elif self.data.operationMode == "FPM":
             # FPM dxp (different from CPM due to lens-based systems)
             self.dxp = self.dxd / self.data.magnification
-            # the propagation distance that is meaningful in this context is the 
+            # the propagation distance that is meaningful in this context is the
             # illumination to sample distance for LED array based microscopes
             self.zo = self.zled
             # if NA is not provided in the hdf5 file, set Fourier pupil entrance diameter it to be half of the Fourier space FoV.
@@ -356,14 +358,25 @@ class Reconstruction(object):
             self.nosm,
             1,
             self.nslice,
-            np.int(self.No),
-            np.int(self.No),
+            self.No,
+            self.No,
         )
-        self.initialGuessObject = initialProbeOrObject(
-            self.shape_O, self.initialObject, self, self.logger
-        ).astype(np.complex64)
+        if self.initialObject == 'recon':
+            # Load the object from an existing reconstruction
+            self.initialGuessObject = self.loadResults(self.initialProbe_filename, datatype='object')
+        else:
+            self.initialGuessObject = initialProbeOrObject(self.shape_O, self.initialObject, self, self.logger).astype(np.complex64)
 
         # self.initialGuessObject *= 1e-2
+
+    @staticmethod
+    def loadResults(fileName, datatype='probe'):
+        '''
+        Loads data from a ptylab reconstruction file.
+        '''
+        with h5py.File(fileName) as archive:
+            data = np.copy(np.array(archive[datatype]))
+        return data
 
     def initializeProbe(self, force=False):
         if self.data.entrancePupilDiameter is None:
@@ -378,14 +391,17 @@ class Reconstruction(object):
             1,
             self.npsm,
             self.nslice,
-            np.int(self.Np),
-            np.int(self.Np),
+            int(self.Np),
+            int(self.Np),
         )
-        if force:
-            self.initialProbe = "circ"
-        self.initialGuessProbe = initialProbeOrObject(
-            self.shape_P, self.initialProbe, self
-        ).astype(np.complex64)
+        if self.initialProbe == 'recon':
+            self.initialGuessProbe = self.loadResults(self.initialProbe_filename, datatype='probe')
+        else:
+            if force:
+                self.initialProbe = "circ"
+            self.initialGuessProbe = initialProbeOrObject(
+                self.shape_P, self.initialProbe, self
+            ).astype(np.complex64)
 
     # initialize momentum, called in specific engines with momentum accelaration
     def initializeObjectMomentum(self):
@@ -439,13 +455,15 @@ class Reconstruction(object):
         """
         with h5py.File(filename, "r") as archive:
             probe = np.array(archive["probe"])
+            N_probe_read = probe.shape[-1]
+            # roughly extract the center
+            ss = slice(np.clip(N_probe_read//2-self.Np//2, 0, None), np.clip(N_probe_read//2-self.Np//2+int(self.Np), 0, N_probe_read))
             probe = probe[
                 : self.nlambda,
                 :1,
                 : self.npsm,
                 : self.nslice,
-                : int(self.Np),
-                : int(self.Np),
+                ss,ss
             ]
             if np.all(np.array(probe.shape) == np.array(self.shape_P)):
                 self.probe = probe
@@ -486,7 +504,7 @@ class Reconstruction(object):
 
         """
 
-        allowed_save_types = ["all", "object", "probe"]
+        allowed_save_types = ["all", "object", "probe", "probe_stack"]
         if type not in allowed_save_types:
             raise NotImplementedError(
                 f"Only {allowed_save_types} are allowed keywords for type"
@@ -497,18 +515,22 @@ class Reconstruction(object):
             squeezefun = np.squeeze
         if type == "all":
             if self.data.operationMode == "CPM":
-                hf = h5py.File(fileName, "w")
-                hf.create_dataset("probe", data=self.probe, dtype="complex64")
-                hf.create_dataset("object", data=self.object, dtype="complex64")
-                hf.create_dataset("error", data=self.error, dtype="f")
-                hf.create_dataset("zo", data=self._zo, dtype="f")
-                hf.create_dataset("wavelength", data=self.wavelength, dtype="f")
-                hf.create_dataset("dxp", data=self.dxp, dtype="f")
-                hf.create_dataset("purityProbe", data=self.purityProbe, dtype="f")
-                hf.create_dataset("purityObject", data=self.purityObject, dtype="f")
-                if hasattr(self, "theta"):
-                    if self.theta != None:
-                        hf.create_dataset("theta", data=self.theta, dtype="f")
+                with h5py.File(fileName, "w") as hf:
+                    hf.create_dataset("probe", data=self.probe, dtype="complex64")
+                    hf.create_dataset("object", data=self.object, dtype="complex64")
+                    hf.create_dataset("error", data=self.error, dtype="f")
+                    hf.create_dataset("zo", data=self._zo, dtype="f")
+                    hf.create_dataset("wavelength", data=self.wavelength, dtype="f")
+                    hf.create_dataset("dxp", data=self.dxp, dtype="f")
+                    hf.create_dataset("purityProbe", data=self.purityProbe, dtype="f")
+                    hf.create_dataset("purityObject", data=self.purityObject, dtype="f")
+                    hf.create_dataset('I object', data=abs(self.object), dtype='f')
+                    hf.create_dataset('I probe', data=abs(self.probe), dtype='f')
+                    hf.create_dataset('encoder_corrected', data=self.encoder_corrected)
+
+                    if hasattr(self, "theta"):
+                        if self.theta != None:
+                            hf.create_dataset("theta", data=self.theta, dtype="f")
 
             if self.data.operationMode == "FPM":
                 hf = h5py.File(fileName, "w")
@@ -528,6 +550,9 @@ class Reconstruction(object):
                 hf.create_dataset(
                     "object", data=squeezefun(self.object), dtype="complex64"
                 )
+        elif type == "probe_stack":
+            hf = h5py.File(fileName + '_probe_stack.hdf5', 'w')
+            hf.create_dataset('probe_stack', data=self.probe_stack.get(), dtype='complex64')
         print("The reconstruction results (%s) have been saved" % type)
 
     # detector coordinates
@@ -652,12 +677,12 @@ class Reconstruction(object):
                     + self.zled**2
                 )[..., None]
             )
-            
+
             try:
                 positions = positions + self.No // 2 - self.Np // 2
             except:
                 pass
-                
+
             return positions.astype(int)
         else:
             return calculate_pixel_positions(
@@ -688,6 +713,11 @@ class Reconstruction(object):
         transfer_fields_to_gpu(self, self.possible_GPU_fields, self.logger)
 
     def describe_reconstruction(self):
+        minmax_tv = ''
+        try:
+            minmax_tv = f'(min: {self.params.TV_autofocus_min_z*1e3}, max: {self.params.TV_autofocus_max_z*1e3}.)'
+        except TypeError: # one of them is none
+            pass
         info = f"""
         Experimental data:
         - Number of ptychograms: {self.data.ptychogram.shape}
@@ -701,7 +731,7 @@ class Reconstruction(object):
         - Pixel pitch: {self.dxo*1e6} um
         - Field of view: {self.Lo*1e3} mm
         - Scan size in pixels: {self.positions.max(axis=0)- self.positions.min(axis=0)}
-        - Propagation distance: {self.zo * 1e3} mm (min: {self.params.TV_autofocus_min_z*1e3}, max: {self.params.TV_autofocus_max_z*1e3}.)
+        - Propagation distance: {self.zo * 1e3} mm {minmax_tv}
         - Probe FoV: {self.Lp*1e3} mm
         
         Derived parameters:
@@ -741,10 +771,10 @@ class Reconstruction(object):
                 f"Not implemented/tested for FPM. Set params.TV_autofocus to False. Got {params.TV_autofocus}"
             )
         if not params.TV_autofocus:
-            return None, None
+            return None, None, None
         if loop is not None:
             if loop % params.TV_autofocus_run_every != 0:
-                return None, None
+                return None, None, None
 
         if params.l2reg:
             self.logger.warning(
@@ -752,7 +782,8 @@ class Reconstruction(object):
             )
 
         d = params.TV_autofocus_range_dof
-        dz = np.linspace(-1, 1, 11) * d * self.DoF
+        nplanes = params.TV_autofocus_nplanes
+        dz = np.linspace(-1, 1, nplanes) * d * self.DoF
 
         if params.TV_autofocus_what == "object":
             field = self.object[self.nlambda // 2, 0, 0, self.nslice // 2, :, :]
@@ -773,6 +804,8 @@ class Reconstruction(object):
 
             N = field.shape[-1]
             sy, sx = [slice(int(s[0] * N), int(s[1] * N)) for s in ss]
+            # make them the same size if they're not
+            sy = slice(sy.start, sy.start + sx.stop - sx.start)
         else:
             sy, sx = ss, ss
 
@@ -789,6 +822,9 @@ class Reconstruction(object):
         # from here on we are looking at 11 data points, work on CPU
         # as it's much more convenient and faster
         feedback = np.sum(dz * merit) / np.sum(merit)
+
+        scores = np.vstack([self.zo + dz, merit])
+
         self.zMomentum *= params.TV_autofocus_friction
         self.zMomentum += params.TV_autofocus_stepsize * feedback
         # now, clip it to the bounds
@@ -802,8 +838,12 @@ class Reconstruction(object):
         self.logger.info(
             f"TV autofocus took {end_time-start_time} seconds, and moved focus by {-delta_z*1e6} micron"
         )
-
-        return merit[5] / asNumpyArray(abs(self.object[..., sy, sx]).mean()), OEs[5]
+        indices = [nplanes//2, np.argmax(merit)]
+        OEs = OEs[indices]
+        phexp = OEs.sum((-2,-1), keepdims=True).conj()
+        phexp = phexp / abs(phexp)
+        OEs *= phexp
+        return merit[nplanes//2] / asNumpyArray(abs(self.object[..., sy, sx]).mean()), np.hstack(OEs), (scores, self.zo)
 
     def reset_TV_autofocus(self):
         """Reset the settings of TV autofocus. Can be useful to reset the memory effect if the steps are getting really large."""

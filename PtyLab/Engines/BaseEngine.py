@@ -4,6 +4,7 @@ import numpy as np
 import logging
 import warnings
 
+from PtyLab.Regularizers import grad_TV
 # PtyLab imports
 from PtyLab.utils.gpuUtils import (
     getArrayModule,
@@ -81,6 +82,7 @@ class BaseEngine(object):
         monitor: Monitor,
     ):
         # These statements don't copy any data, they just keep a reference to the object
+        self.betaObject = 0.25
         self.reconstruction: Reconstruction = reconstruction
         self.experimentalData = experimentalData
         self.params = params
@@ -184,11 +186,12 @@ class BaseEngine(object):
             # predefine shifts
             rmax = 2
             dy, dx = np.mgrid[-rmax : rmax + 1, -rmax : rmax + 1]
+
             # self.rowShifts = dy.flatten()#np.array([-1, -1, -1, 0, 0, 0, 1, 1, 1])
             self.rowShifts = np.array([-1, -1, -1, 0, 0, 0, 1, 1, 1])
             # self.colShifts = dx.flatten()#np.array([-1, 0, 1, -1, 0, 1, -1, 0, 1])
             self.colShifts = np.array([-1, 0, 1, -1, 0, 1, -1, 0, 1])
-            self.startAtIteration = 20
+            self.startAtIteration = 1
             self.meanEncoder00 = np.mean(self.experimentalData.encoder[:, 0]).copy()
             self.meanEncoder01 = np.mean(self.experimentalData.encoder[:, 1]).copy()
 
@@ -751,21 +754,26 @@ class BaseEngine(object):
         Calculate probe beam width (Full width half maximum)
         :return:
         """
-        P = np.sum(
-            abs(asNumpyArray(self.reconstruction.probe[..., -1, :, :])) ** 2,
+        xp = getArrayModule(self.reconstruction.probe)
+        P = xp.sum(
+            abs((self.reconstruction.probe[..., -1, :, :])) ** 2,
             axis=(0, 1, 2),
         )
-        P = P / np.sum(P, axis=(-1, -2))
+        P = P / xp.sum(P, axis=(-1, -2))
+        P = asNumpyArray(P)
         xMean = np.sum(self.reconstruction.Xp * P, axis=(-1, -2))
         yMean = np.sum(self.reconstruction.Yp * P, axis=(-1, -2))
         xVariance = np.sum((self.reconstruction.Xp - xMean) ** 2 * P, axis=(-1, -2))
         yVariance = np.sum((self.reconstruction.Yp - yMean) ** 2 * P, axis=(-1, -2))
 
-        c = 2 * np.sqrt(
-            2 * np.log(2)
+        c = 2 * xp.sqrt(
+            2 * xp.log(2)
         )  # constant for converting variance to FWHM (see e.g. https://en.wikipedia.org/wiki/Full_width_at_half_maximum)
-        self.reconstruction.beamWidthX = c * np.sqrt(xVariance)
-        self.reconstruction.beamWidthY = c * np.sqrt(yVariance)
+
+        self.reconstruction.beamWidthX = asNumpyArray(c * np.sqrt(xVariance))
+        self.reconstruction.beamWidthY = asNumpyArray(c * np.sqrt(yVariance))
+
+        return self.reconstruction.beamWidthY, self.reconstruction.beamWidthX
 
     def getOverlap(self, ind1, ind2):
         """
@@ -861,9 +869,10 @@ class BaseEngine(object):
             elif self.params.FourierMaskSwitch and self.params.CPSCswitch:
                 raise NotImplementedError
             else:
-                self.reconstruction.errorAtPos[positionIndex] = xp.sum(
+
+                self.reconstruction.errorAtPos[positionIndex] = asNumpyArray(xp.sum(
                     self.currentDetectorError
-                )
+                ))
         else:
             self.reconstruction.detectorError[positionIndex] = self.currentDetectorError
 
@@ -1088,6 +1097,9 @@ class BaseEngine(object):
                 original_positions=self.experimentalData.encoder,
             )
 
+
+            self.monitor.updateBeamWidth(*self.getBeamWidth())
+
             # self.monitor.visualize_probe_engine(self.reconstruction.probe_storage)
 
             if self.monitor.verboseLevel == "high":
@@ -1119,6 +1131,9 @@ class BaseEngine(object):
                     "estimated area overlap: %.1f %%"
                     % (100 * self.reconstruction.areaOverlap)
                 )
+
+                self.monitor.update_overlap(self.reconstruction.areaOverlap,
+                                            self.reconstruction.linearOverlap)
                 # self.pbar.write('coherence structure:')
 
             if self.params.positionCorrectionSwitch:
@@ -1206,6 +1221,7 @@ class BaseEngine(object):
             # print('error:')
         # TODO: print info
 
+
     def positionCorrection(self, objectPatch, positionIndex, sy, sx):
         """
         Modified from pcPIE. Position correction is done by using positionCorrection and positionCorrectionUpdate
@@ -1215,6 +1231,7 @@ class BaseEngine(object):
         :param sx:
         :return:
         """
+
         xp = getArrayModule(objectPatch)
         if len(self.reconstruction.error) > self.startAtIteration:
             self.logger.debug("Calculating position correction")
@@ -1223,25 +1240,49 @@ class BaseEngine(object):
             cc = xp.zeros((len(self.rowShifts), 1))
 
             # use the real-space object (FFT for FPM)
+            O = self.reconstruction.object
+            Opatch = objectPatch
             if self.experimentalData.operationMode == "FPM":
                 O = fft2c(self.reconstruction.object)
                 Opatch = fft2c(objectPatch)
-            elif self.experimentalData.operationMode == "CPM":
-                O = self.reconstruction.object
-                Opatch = objectPatch
 
-            for shifts in range(len(self.rowShifts)):
-                tempShift = xp.roll(Opatch, self.rowShifts[shifts], axis=-2)
-                # shiftedImages[shifts, ...] = xp.roll(tempShift, self.colShifts[shifts], axis=-1)
-                shiftedImages = xp.roll(tempShift, self.colShifts[shifts], axis=-1)
-                cc[shifts] = xp.squeeze(
-                    xp.sum(shiftedImages.conj() * O[..., sy, sx], axis=(-2, -1))
-                )
-                del tempShift, shiftedImages
+
+            if self.params.positionCorrectionSwitch_radius < 2:
+                # do the direct one as it's a bit faster
+
+                for shifts in range(len(self.rowShifts)):
+                    tempShift = xp.roll(Opatch, self.rowShifts[shifts], axis=-2)
+                    # shiftedImages[shifts, ...] = xp.roll(tempShift, self.colShifts[shifts], axis=-1)
+                    shiftedImages = xp.roll(tempShift, self.colShifts[shifts], axis=-1)
+                    cc[shifts] = xp.squeeze(
+                        xp.sum(shiftedImages.conj() * O[..., sy, sx], axis=(-2, -1))
+                    )
+                    del tempShift, shiftedImages
+                    betaGrad = 1000
+                    r = 3
+            else:
+                # print('doing FT position correction')
+                ss = slice(-self.params.positionCorrectionSwitch_radius, self.params.positionCorrectionSwitch_radius+1)
+                rowShifts, colShifts = xp.mgrid[ss,ss]
+                self.rowShifts = rowShifts.flatten()
+                self.colShifts = colShifts.flatten()
+                FT_O = xp.fft.fft2(O[...,sy,sx] - O[...,sy, sx].mean())
+                FT_Op = xp.fft.fft2(Opatch - O.mean())
+                xcor = xp.fft.ifft2(FT_O * FT_Op.conj())
+                xcor = abs(xp.fft.fftshift(xcor))
+                N = xcor.shape[-1]
+                sy = slice(N//2-self.params.positionCorrectionSwitch_radius, N//2+self.params.positionCorrectionSwitch_radius + 1)
+                xcor = xcor[...,sy, sy]
+                cc = xcor.flatten()
+                betaGrad = 5
+                r = 10
+                #dy, dx = xp.unravel_index(xp.argmax(xcor), xcor.shape)
+                #dx = dx.get()
             # truncated cross - correlation
             # cc = xp.squeeze(xp.sum(shiftedImages.conj() * self.reconstruction.object[..., sy, sx], axis=(-2, -1)))
             cc = abs(cc)
-            betaGrad = 1000
+
+
             normFactor = xp.sum(Opatch.conj() * Opatch, axis=(-2, -1)).real
             grad_x = betaGrad * xp.sum(
                 (cc.T - xp.mean(cc)) / normFactor * xp.array(self.colShifts)
@@ -1249,17 +1290,21 @@ class BaseEngine(object):
             grad_y = betaGrad * xp.sum(
                 (cc.T - xp.mean(cc)) / normFactor * xp.array(self.rowShifts)
             )
-            r = 3
+            #r = np.clip(self.params.positionCorrectionSwitch_radius//5, 3, self.reconstruction.Np//10) # maximum shift in pixels?
+
             if abs(grad_x) > r:
                 grad_x = r * grad_x / abs(grad_x)
             if abs(grad_y) > r:
                 grad_y = r * grad_y / abs(grad_y)
             grad_y = asNumpyArray(grad_y)
             grad_x = asNumpyArray(grad_x)
+            delta_p = self.daleth * np.array([grad_y, grad_x])
             self.D[positionIndex, :] = (
-                self.daleth * np.array([grad_y, grad_x])
+                delta_p
                 + self.beth * self.D[positionIndex, :]
             )
+            return delta_p
+        return np.zeros(2)
 
     def position_update_to_change_in_z(self, loop):
         """
@@ -1528,13 +1573,14 @@ class BaseEngine(object):
             self.position_update_to_change_in_z(loop)
 
         if self.params.TV_autofocus:
-            merit, AOI_image = self.reconstruction.TV_autofocus(self.params, loop=loop)
+            merit, AOI_image, allmerits = self.reconstruction.TV_autofocus(self.params, loop=loop)
             self.monitor.update_focusing_metric(
-                merit, AOI_image, metric_name=self.params.TV_autofocus_metric
+                merit, AOI_image, metric_name=self.params.TV_autofocus_metric,
+                allmerits=allmerits,
             )
 
-        if self.params.OPRP and loop % self.params.OPRP_tsvd_interval == 0:
-            self.reconstruction.probe_storage.tsvd()
+        # if self.params.OPRP and loop % self.params.OPRP_tsvd_interval == 0:
+        #     self.reconstruction.probe_storage.tsvd()
 
     def orthogonalization(self):
         """
@@ -1658,6 +1704,7 @@ class BaseEngine(object):
         P2 = xp.sum(
             abs(self.reconstruction.probe[:, :, :, -1, ...]) ** 2, axis=(0, 1, 2)
         )
+        P2 = abs(self.reconstruction.probe[0,0,0,-1])
         demon = xp.sum(P2) * self.reconstruction.dxp
         xc = int(
             xp.around(xp.sum(xp.array(self.reconstruction.Xp, xp.float32) * P2) / demon)
@@ -1665,6 +1712,7 @@ class BaseEngine(object):
         yc = int(
             xp.around(xp.sum(xp.array(self.reconstruction.Yp, xp.float32) * P2) / demon)
         )
+        # print('Center of mass:', yc, xc)
         # shift only if necessary
         if xc**2 + yc**2 > 1:
             # self.reconstruction.probe_storage._push_hard(self.reconstruction.probe, 100)
@@ -1752,3 +1800,27 @@ class BaseEngine(object):
         :return:
         """
         self.reconstruction.TV_autofocus()
+
+    def objectPatchUpdate_TV(self, objectPatch: np.ndarray, DELTA: np.ndarray):
+        """
+        Update the object patch with a TV regularization.
+
+        :param objectPatch:
+        :param DELTA:
+        :return:
+        """
+
+
+        xp = getArrayModule(objectPatch)
+        frac = self.reconstruction.probe.conj() / xp.max(xp.sum(xp.abs(self.reconstruction.probe) ** 2, axis=(0, 1, 2, 3)))
+
+
+        # gradient = xp.gradient(objectPatch, axis=(4, 5))
+        #
+        # # norm = xp.abs(gradient[0] + gradient[1]) ** 2
+        # norm = (gradient[0] + gradient[1]) ** 2
+        # temp = [gradient[0] / xp.sqrt(norm + epsilon), gradient[1] / xp.sqrt(norm + epsilon)]
+        # TV_update = divergence(temp)
+        TV_update = grad_TV(objectPatch, epsilon=1e-2)
+        lam = self.params.objectTVregStepSize
+        return objectPatch + self.betaObject * xp.sum(frac * DELTA, axis=(0,2,3), keepdims=True) + lam * self.betaObject * TV_update

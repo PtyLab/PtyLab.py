@@ -35,9 +35,7 @@ class ObjectProbeErrorPlot(object):
 
         # add an axis for the object
         self.figure, axes = plt.subplot_mosaic(
-            """
-        AA p e
-        AA P  """,
+            """Ape""",
             num=self.figNum,
             figsize=(10, 3),
             empty_sentinel=" ",
@@ -46,9 +44,9 @@ class ObjectProbeErrorPlot(object):
         # self.figure, axes = plt.subplots(1, 3, num=self.figNum, squeeze=False, clear=True, figsize=(10, 3))
         self.ax_object = axes["A"]
         self.ax_probe = axes["p"]
-        self.ax_probe_ff = axes["P"]
+        # self.ax_probe_ff = axes["P"]
         self.ax_error_metric = axes["e"]
-        self.ax_probe_ff.set_title("FF probe")
+        # self.ax_probe_ff.set_title("FF probe")
         self.ax_probe.set_title("Probe")
         # self.ax_object = axes[0][0]
         # self.ax_probe = axes[0][1]
@@ -116,10 +114,10 @@ class ObjectProbeErrorPlot(object):
         self, probe_estimate, optimizable, amplitudeScalingFactor=1, **kwargs
     ):
 
-        from PtyLab.Operators.Operators import fft2c
-
-        probe_estimate_ff = fft2c(probe_estimate)
-        PE_ff = complex2rgb(modeTile(probe_estimate_ff, normalize=True))
+        # from PtyLab.Operators.Operators import fft2c
+        #
+        # probe_estimate_ff = fft2c(probe_estimate)
+        # PE_ff = complex2rgb(modeTile(probe_estimate_ff, normalize=True))
 
         PE = complex2rgb(
             modeTile(probe_estimate, normalize=True),
@@ -128,11 +126,11 @@ class ObjectProbeErrorPlot(object):
 
         if self.firstrun:
             self.im_probe = complexPlot(PE, ax=self.ax_probe, **kwargs)
-            self.im_probe_ff = complexPlot(PE_ff, self.ax_probe_ff, **kwargs)
+            # self.im_probe_ff = complexPlot(PE_ff, self.ax_probe_ff, **kwargs)
         else:
             self.im_probe.set_data(PE)
-            self.im_probe_ff.set_data(PE_ff)
-            if optimizable.npsm > 1:
+            # self.im_probe_ff.set_data(PE_ff)
+            if optimizable.npsm > 1 and optimizable.purityProbe == optimizable.purityProbe:
                 self.txt_purityProbe.set_text(
                     "Probe estimate\nPurity: %i" % (100 * optimizable.purityProbe) + "%"
                 )
@@ -150,7 +148,7 @@ class ObjectProbeErrorPlot(object):
                 error_estimate, "o-", mfc="none"
             )[0]
         else:
-            if len(error_estimate) > 1:
+            if len(error_estimate) > 1 and error_estimate[-1] == error_estimate[-1]:
                 self.error_metric_plot.set_data(
                     np.arange(len(error_estimate)) + 1, error_estimate
                 )
@@ -162,6 +160,7 @@ class ObjectProbeErrorPlot(object):
                     np.max(error_estimate) / np.min(error_estimate)
                 ) / np.log(len(error_estimate))
                 self.ax_error_metric.set_aspect(1 / data_aspect)
+                self.ax_error_metric.set_title(f'Error metric (it {len(error_estimate)})')
 
     def drawNow(self):
         """

@@ -97,11 +97,9 @@ class mPIE(BaseEngine):
         self.changeOptimizable(reconstruction)
 
         self._prepareReconstruction()
-
         # set object and probe buffers, in case object and probe are changed in the _prepareReconstruction() step
         self.reconstruction.objectBuffer = self.reconstruction.object.copy()
         self.reconstruction.probeBuffer = self.reconstruction.probe.copy()
-
         # actual reconstruction MPIE_engine
         self.pbar = tqdm.trange(
             self.numIterations, desc="mPIE", file=sys.stdout, leave=True
@@ -109,10 +107,8 @@ class mPIE(BaseEngine):
         for loop in self.pbar:
             # set position order
             self.setPositionOrder()
-
-            for positionLoop, positionIndex in enumerate(
-                tqdm.tqdm(self.positionIndices),
-            ):
+            self.pbar_pos = tqdm.tqdm(self.positionIndices, leave=False, desc='ptychogram', file=sys.stdout)
+            for positionLoop, positionIndex in enumerate(self.pbar_pos):
                 # get object patch, stored as self.probe
                 # self.reconstruction.make_probe(positionIndex)
 
@@ -135,7 +131,10 @@ class mPIE(BaseEngine):
                 # pg.QtGui.QGuiApplication.processEvents()
 
                 # object update
-                object_patch = self.objectPatchUpdate(objectPatch, DELTA)
+                if self.params.objectTVregSwitch and loop % self.params.objectTVfreq == 0:
+                    object_patch = self.objectPatchUpdate_TV(objectPatch, DELTA)
+                else:
+                    object_patch = self.objectPatchUpdate(objectPatch, DELTA)
 
                 if self.keepPatches:
                     self.patches[positionIndex, ..., sy, sx] = asNumpyArray(
@@ -145,11 +144,17 @@ class mPIE(BaseEngine):
                     self.reconstruction.object[..., sy, sx] = object_patch
 
                 # probe update
-                self.reconstruction.probe = self.probeUpdate(objectPatch, DELTA)
+                weight = 1
+                if self.params.weigh_probe_updates_by_intensity:
+                    weight = self.experimentalData.relative_intensity(positionIndex)
+                    # print(f'for position {positionIndex}, using weight {weight}')
+
+                self.reconstruction.probe = self.probeUpdate(objectPatch, DELTA, weight)
                 # self.reconstruction.push_probe_update(self.reconstruction.probe, positionIndex, self.experimentalData.ptychogram.shape[0])
 
                 if self.params.positionCorrectionSwitch:
-                    self.positionCorrection(objectPatch, positionIndex, sy, sx)
+                    shifter = self.positionCorrection(objectPatch, positionIndex, sy, sx)
+                    #self.pbar_pos.write(f'Corr: {shifter[0]*1e6:.2f} um x {shifter[1]*1e6:.2f} um')
 
                 # momentum updates
                 if np.random.rand(1) > 0.95:
@@ -232,7 +237,7 @@ class mPIE(BaseEngine):
             frac * DELTA, axis=2, keepdims=True
         )
 
-    def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
+    def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray, weight: float):
         """
         Todo add docstring
         :param objectPatch:
@@ -246,7 +251,7 @@ class mPIE(BaseEngine):
         frac = objectPatch.conj() / (
             self.alphaProbe * Omax + (1 - self.alphaProbe) * absO2
         )
-        r = self.reconstruction.probe + self.betaProbe * xp.sum(
+        r = self.reconstruction.probe + weight * self.betaProbe * xp.sum(
             frac * DELTA, axis=1, keepdims=True
         )
         return r

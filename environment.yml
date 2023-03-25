@@ -1,7 +1,7 @@
-name: fracpy_jul2022
+name: PtyLab
 dependencies:
   - numpy
-  - cupy
+  - conda-forge::cupy
   - h5py
   - matplotlib
   - scipy
@@ -15,6 +15,8 @@ dependencies:
   # optional
   - conda-forge::scikit-image
   - conda-forge::scikit-learn
-  - conda-forge::cupy
-  - conda-forge::cudatoolkit=11.4
-  - conda-forge::tensorflow-cpu
+  #- conda-forge::tensorflow-cpu
+  #- conda-forge::tensorflow-cpu
+  - pip
+#  - pip:
+#      tensorflow-cpu
