@@ -101,7 +101,6 @@ class OPR(BaseEngine):
             # get error metric
             self.getErrorMetrics()
 
-            # added this line
             if self.params.OPR_orthogonalize_modes:
                self.orthogonalizeIncoherentModes()
 
@@ -179,14 +178,10 @@ class OPR(BaseEngine):
         :param n_dim: Dimension of the lower dimensional sub space
         :return: reduced probe stack 
         """
-        plot_cycle = 10
-        plot = False
         n = self.reconstruction.Np
         nFrames = self.experimentalData.numFrames
 
         for i, mode in enumerate(self.OPR_modes):
-            # U, s, Vh = self.svd(probe_stack[:, :, i, :, :, :].reshape(n * n, nFrames))
-            # from cupyx.scipy.sparse.linalg import svds
 
             if self.params.OPR_tsvd_type == 'randomized':
                 U, s, Vh = self.rsvd(probe_stack[:, :, i, :, :,:].reshape(n*n, nFrames), n_dim)
@@ -223,7 +218,7 @@ class OPR(BaseEngine):
 
     def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray, weight: float, gimmel=0.1):
         """
-        Todo add docstring
+        Update the probe
         :param objectPatch: Slice of the object array
         :param DELTA:
         :return: updated probe
