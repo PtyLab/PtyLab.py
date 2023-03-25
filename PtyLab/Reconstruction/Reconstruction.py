@@ -405,11 +405,14 @@ class Reconstruction(object):
             int(self.Np),
             int(self.Np),
         )
+
         if self.initialProbe == 'recon':
             self.initialGuessProbe = self.loadResults(self.initialProbe_filename, datatype='probe')
         else:
             if force:
-                self.initialProbe = "circ"
+                self.initialGuessProbe = None
+            # if force:
+            #     self.initialProbe = "circ"
             self.initialGuessProbe = initialProbeOrObject(
                 self.shape_P, self.initialProbe, self
             ).astype(np.complex64)
