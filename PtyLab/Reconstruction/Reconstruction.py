@@ -149,7 +149,7 @@ class Reconstruction(object):
         elif self.data.operationMode == "FPM":
              self.logger.debug(f"Changing illumination-to-sample distance to {new_value}")
              self.zled = self._zo
-
+             
     def computeParameters(self):
         """
         compute parameters that can be altered by the user later.
