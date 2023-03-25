@@ -186,11 +186,12 @@ class BaseEngine(object):
             # predefine shifts
             rmax = 2
             dy, dx = np.mgrid[-rmax : rmax + 1, -rmax : rmax + 1]
+
             # self.rowShifts = dy.flatten()#np.array([-1, -1, -1, 0, 0, 0, 1, 1, 1])
             self.rowShifts = np.array([-1, -1, -1, 0, 0, 0, 1, 1, 1])
             # self.colShifts = dx.flatten()#np.array([-1, 0, 1, -1, 0, 1, -1, 0, 1])
             self.colShifts = np.array([-1, 0, 1, -1, 0, 1, -1, 0, 1])
-            self.startAtIteration = 20
+            self.startAtIteration = 1
             self.meanEncoder00 = np.mean(self.experimentalData.encoder[:, 0]).copy()
             self.meanEncoder01 = np.mean(self.experimentalData.encoder[:, 1]).copy()
 
@@ -1220,6 +1221,7 @@ class BaseEngine(object):
             # print('error:')
         # TODO: print info
 
+
     def positionCorrection(self, objectPatch, positionIndex, sy, sx):
         """
         Modified from pcPIE. Position correction is done by using positionCorrection and positionCorrectionUpdate
@@ -1229,6 +1231,7 @@ class BaseEngine(object):
         :param sx:
         :return:
         """
+
         xp = getArrayModule(objectPatch)
         if len(self.reconstruction.error) > self.startAtIteration:
             self.logger.debug("Calculating position correction")
@@ -1237,25 +1240,49 @@ class BaseEngine(object):
             cc = xp.zeros((len(self.rowShifts), 1))
 
             # use the real-space object (FFT for FPM)
+            O = self.reconstruction.object
+            Opatch = objectPatch
             if self.experimentalData.operationMode == "FPM":
                 O = fft2c(self.reconstruction.object)
                 Opatch = fft2c(objectPatch)
-            elif self.experimentalData.operationMode == "CPM":
-                O = self.reconstruction.object
-                Opatch = objectPatch
 
-            for shifts in range(len(self.rowShifts)):
-                tempShift = xp.roll(Opatch, self.rowShifts[shifts], axis=-2)
-                # shiftedImages[shifts, ...] = xp.roll(tempShift, self.colShifts[shifts], axis=-1)
-                shiftedImages = xp.roll(tempShift, self.colShifts[shifts], axis=-1)
-                cc[shifts] = xp.squeeze(
-                    xp.sum(shiftedImages.conj() * O[..., sy, sx], axis=(-2, -1))
-                )
-                del tempShift, shiftedImages
+
+            if self.params.positionCorrectionSwitch_radius < 2:
+                # do the direct one as it's a bit faster
+
+                for shifts in range(len(self.rowShifts)):
+                    tempShift = xp.roll(Opatch, self.rowShifts[shifts], axis=-2)
+                    # shiftedImages[shifts, ...] = xp.roll(tempShift, self.colShifts[shifts], axis=-1)
+                    shiftedImages = xp.roll(tempShift, self.colShifts[shifts], axis=-1)
+                    cc[shifts] = xp.squeeze(
+                        xp.sum(shiftedImages.conj() * O[..., sy, sx], axis=(-2, -1))
+                    )
+                    del tempShift, shiftedImages
+                    betaGrad = 1000
+                    r = 3
+            else:
+                # print('doing FT position correction')
+                ss = slice(-self.params.positionCorrectionSwitch_radius, self.params.positionCorrectionSwitch_radius+1)
+                rowShifts, colShifts = xp.mgrid[ss,ss]
+                self.rowShifts = rowShifts.flatten()
+                self.colShifts = colShifts.flatten()
+                FT_O = xp.fft.fft2(O[...,sy,sx] - O[...,sy, sx].mean())
+                FT_Op = xp.fft.fft2(Opatch - O.mean())
+                xcor = xp.fft.ifft2(FT_O * FT_Op.conj())
+                xcor = abs(xp.fft.fftshift(xcor))
+                N = xcor.shape[-1]
+                sy = slice(N//2-self.params.positionCorrectionSwitch_radius, N//2+self.params.positionCorrectionSwitch_radius + 1)
+                xcor = xcor[...,sy, sy]
+                cc = xcor.flatten()
+                betaGrad = 5
+                r = 10
+                #dy, dx = xp.unravel_index(xp.argmax(xcor), xcor.shape)
+                #dx = dx.get()
             # truncated cross - correlation
             # cc = xp.squeeze(xp.sum(shiftedImages.conj() * self.reconstruction.object[..., sy, sx], axis=(-2, -1)))
             cc = abs(cc)
-            betaGrad = 1000
+
+
             normFactor = xp.sum(Opatch.conj() * Opatch, axis=(-2, -1)).real
             grad_x = betaGrad * xp.sum(
                 (cc.T - xp.mean(cc)) / normFactor * xp.array(self.colShifts)
@@ -1263,7 +1290,8 @@ class BaseEngine(object):
             grad_y = betaGrad * xp.sum(
                 (cc.T - xp.mean(cc)) / normFactor * xp.array(self.rowShifts)
             )
-            r = 3
+            #r = np.clip(self.params.positionCorrectionSwitch_radius//5, 3, self.reconstruction.Np//10) # maximum shift in pixels?
+
             if abs(grad_x) > r:
                 grad_x = r * grad_x / abs(grad_x)
             if abs(grad_y) > r:
@@ -1551,8 +1579,8 @@ class BaseEngine(object):
                 allmerits=allmerits,
             )
 
-        if self.params.OPRP and loop % self.params.OPRP_tsvd_interval == 0:
-            self.reconstruction.probe_storage.tsvd()
+        # if self.params.OPRP and loop % self.params.OPRP_tsvd_interval == 0:
+        #     self.reconstruction.probe_storage.tsvd()
 
     def orthogonalization(self):
         """
@@ -1684,7 +1712,7 @@ class BaseEngine(object):
         yc = int(
             xp.around(xp.sum(xp.array(self.reconstruction.Yp, xp.float32) * P2) / demon)
         )
-        print('Center of mass:', yc, xc)
+        # print('Center of mass:', yc, xc)
         # shift only if necessary
         if xc**2 + yc**2 > 1:
             # self.reconstruction.probe_storage._push_hard(self.reconstruction.probe, 100)
