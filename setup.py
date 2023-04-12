@@ -2,7 +2,8 @@ from setuptools import setup
 
 setup(
     name="PtyLab",
-    version="0.0",
+    version="0.0.1",
+    python_requires='>=3.9',
     packages=[
         "PtyLab",
         "PtyLab.io",
@@ -21,10 +22,11 @@ setup(
         "h5py",
         "scipy",
         "scikit-image",
-        "tqdm",
-        # 'pytables',
         "scikit-learn",
-        # 'pyqt5',
-        # 'napari[all]',
+        "tqdm",
+        "pyqtgraph",
+        "cupy",
+        "tables",
+        "tensorflow-cpu"
     ],
 )
