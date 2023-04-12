@@ -1,22 +1,20 @@
 name: PtyLab
+channels:
+  - defaults
+  - conda-forge 
 dependencies:
+  - python=3.10
   - numpy
-  - conda-forge::cupy
+  - cupy
   - h5py
   - matplotlib
   - scipy
   - scikit-image
+  - scikit-learn
   - pyqtgraph
   - tqdm
-  - pytables
-  - matplotlib
-  - numpy
-  - h5py
-  # optional
-  - conda-forge::scikit-image
-  - conda-forge::scikit-learn
-  #- conda-forge::tensorflow-cpu
-  #- conda-forge::tensorflow-cpu
+  - tables
   - pip
-#  - pip:
-#      tensorflow-cpu
+  - ipython
+  - pip:
+    - tensorflow-cpu
