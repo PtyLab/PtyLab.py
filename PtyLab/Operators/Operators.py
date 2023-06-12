@@ -1,8 +1,10 @@
 import logging
-try: # pre 3.10
+
+try:  # pre 3.10
     from collections import Callable
 except ImportError:
     from collections.abc import Callable
+
 from functools import lru_cache
 
 try:
@@ -11,10 +13,10 @@ except ImportError:
     print("cupy not avialable")
 import numpy as np
 
-from PtyLab.Operators._propagation_kernels import __make_quad_phase
-from PtyLab.utils.utils import circ, fft2c, ifft2c
-from PtyLab.utils.gpuUtils import getArrayModule, isGpuArray
 from PtyLab import Params, Reconstruction
+from PtyLab.Operators._propagation_kernels import __make_quad_phase
+from PtyLab.utils.gpuUtils import getArrayModule, isGpuArray
+from PtyLab.utils.utils import circ, fft2c, ifft2c
 
 # how many kernels are kept in memory for every type of propagator? Higher can be faster but comes
 # at the expense of (GPU) memory.
@@ -179,9 +181,11 @@ def propagate_ASP(
     """
 
     if params.fftshiftSwitch:
-        raise ValueError("ASP propagator only works with fftshiftswitch == False")
+        raise ValueError(
+            "ASP propagator only works with fftshiftswitch == False")
     if reconstruction.nlambda > 1:
-        raise ValueError("For multi-wavelength, set polychromeASP instead of ASP")
+        raise ValueError(
+            "For multi-wavelength, set polychromeASP instead of ASP")
     if z is None:
         z = reconstruction.zo
     xp = getArrayModule(fields)
@@ -197,10 +201,11 @@ def propagate_ASP(
         isGpuArray(fields),
     )
     if fftflag:
-        transfer_function = xp.fft.ifftshift(transfer_function, axes=(-2,-1))
+        transfer_function = xp.fft.ifftshift(transfer_function, axes=(-2, -1))
     if inverse:
         transfer_function = transfer_function.conj()
-    result = ifft2c(fft2c(fields, fftshiftSwitch=fftflag) * transfer_function, fftshiftSwitch=fftflag)
+    result = ifft2c(fft2c(fields, fftshiftSwitch=fftflag) *
+                    transfer_function, fftshiftSwitch=fftflag)
     return reconstruction.esw, result
 
 
@@ -293,7 +298,7 @@ def propagate_twoStepPolychrome_inv(
     ]
     G = propagate_twoStepPolychrome(
         reconstruction.ESW, params, reconstruction, inverse=True, z=z
-    )[1] # tODO: What is G here? Why are we not returning reconstruction.esw?
+    )[1]  # tODO: What is G here? Why are we not returning reconstruction.esw?
     return G, F
 
 
@@ -551,7 +556,7 @@ def detector2object(fields, params: Params, reconstruction: Reconstruction):
     """
     if fields is None:
         fields = reconstruction.ESW
-    method: Callable[np.ndarray, Params, Reconstruction] = reverse_lookup_dictionary[
+    method: Callable[[np.ndarray, Params], Reconstruction] = reverse_lookup_dictionary[
         params.propagatorType.lower()
     ]
     return method(fields, params, reconstruction)
@@ -560,7 +565,7 @@ def detector2object(fields, params: Params, reconstruction: Reconstruction):
 def object2detector(fields, params: Params, reconstruction: Reconstruction):
     """Propagate a field from the object to the detector. Return the new object, do not update in-place."""
 
-    method: Callable[np.ndarray, Params, Reconstruction] = forward_lookup_dictionary[
+    method: Callable[[np.ndarray, Params], Reconstruction] = forward_lookup_dictionary[
         params.propagatorType.lower()
     ]
     if fields is None:
@@ -849,7 +854,8 @@ def __make_transferfunction_ASP(
     fftshiftSwitch, nosm, npsm, Np, zo, wavelength, Lp, nlambda, on_gpu
 ):
     if fftshiftSwitch:
-        raise ValueError("ASP propagatorType works only with fftshiftSwitch = False!")
+        raise ValueError(
+            "ASP propagatorType works only with fftshiftSwitch = False!")
     if nlambda > 1:
         raise ValueError(
             "For multi-wavelength, polychromeASP needs to be used instead of ASP"
@@ -908,7 +914,8 @@ def __make_transferfunction_polychrome_ASP(
 ) -> np.ndarray:
     spectralDensity = np.array(spectralDensity_as_tuple)
     if fftshiftSwitch:
-        raise ValueError("ASP propagatorType works only with fftshiftSwitch = False!")
+        raise ValueError(
+            "ASP propagatorType works only with fftshiftSwitch = False!")
     dummy = np.ones((nlambda, nosm, npsm, 1, Np, Np), dtype="complex64")
     transferFunction = np.array(
         [
@@ -1040,7 +1047,9 @@ def __make_cache_twoStepPolychrome(
                 [
                     [
                         __aspw_transfer_function(
-                            z=zo * (1 - spectralDensity[0] / spectralDensity[nlambda]),
+                            z=zo *
+                            (1 - spectralDensity[0] /
+                             spectralDensity[nlambda]),
                             wavelength=spectralDensity[nlambda],
                             N=Np,
                             L=Lp,
