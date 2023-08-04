@@ -27,7 +27,7 @@ cupy = { version = "^12.1.0", optional = true }
 
 
 [tool.poetry.extras]
-gpu = ["cupy", "tensorflow"]
+gpu = ["cupy"]
 
 [tool.poetry.group.dev.dependencies]
 ipykernel = "^6.25.0"
