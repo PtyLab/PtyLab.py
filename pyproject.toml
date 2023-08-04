@@ -21,12 +21,17 @@ tqdm = "^4.65.0"
 pyqtgraph = "^0.13.3"
 tables = "^3.8.0"
 bokeh = "^3.2.1"
+pyqt5 = "^5.15.9"
 tensorflow = { version = "2.13.0", optional = true }
 cupy = { version = "^12.1.0", optional = true }
 
 
 [tool.poetry.extras]
 gpu = ["cupy", "tensorflow"]
+
+[tool.poetry.group.dev.dependencies]
+ipykernel = "^6.25.0"
+black = "^23.7.0"
 
 [build-system]
 requires = ["poetry-core"]
