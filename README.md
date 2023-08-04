@@ -9,22 +9,19 @@ This repository contains the Python implementation.
 - test contains all the tests of PtyLab
  
 ## Getting Started
-- Clone and download the repository
-- run `setup.py` to install any dependencies with
-```
-pip install .
-```
-- If you are using Spyder click  ` Run-> Configuration per file -> Command line options: develop`
--  try running expample scripts in the `example_scripts` folder 
 
-## Development mode
-- Create a virtual environment using `environment.yml` file
-```
-conda env create -f environment.yml
-```
-
-- Install this package in development mode from `setup.py`
-```
+To get started, clone this package and install the dependencies
+```bash
+git clone git@github.com:PtyLab/PtyLab.py.git
+cd PtyLab.py
 pip install -e .
 ```
+
+To use GPU utilities, please do
+```bash
+pip install -e .[gpu]
+```
+
+- If you are using Spyder click  ` Run-> Configuration per file -> Command line options: develop`
+- Try running example scripts in the `example_scripts` folder 
 
