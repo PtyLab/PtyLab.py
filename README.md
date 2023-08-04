@@ -10,14 +10,23 @@ This repository contains the Python implementation.
  
 ## Getting Started
 
-To get started, clone this package and install the dependencies
+To get started, clone this package and go to the root folder
+
 ```bash
 git clone git@github.com:PtyLab/PtyLab.py.git
 cd PtyLab.py
+```
+
+To install this package and its dependencies in editable mode and in a virtual environment, for example using [virtualenv](https://pypi.org/project/virtualenv/), please do the following
+
+```bash
+virtualenv .venv
+source .venv/bin/activate
 pip install -e .
 ```
 
-To use GPU utilities, please do
+To use optional GPU utilities, please do the following
+
 ```bash
 pip install -e .[gpu]
 ```
