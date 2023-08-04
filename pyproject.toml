@@ -22,7 +22,7 @@ pyqtgraph = "^0.13.3"
 tables = "^3.8.0"
 bokeh = "^3.2.1"
 pyqt5 = "^5.15.9"
-tensorflow = { version = "2.13.0", optional = true }
+tensorflow = "2.13.0"
 cupy = { version = "^12.1.0", optional = true }
 
 
