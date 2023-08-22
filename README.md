@@ -4,7 +4,7 @@ This repository contains the Python implementation of PtyLab.
  
 ## Getting Started
 
-Under `[example_scripts](example_scripts/)` you can find typical use cases of using PtyLab for your reconstruction. 
+Under [example_scripts](example_scripts/) you can find typical use cases of using PtyLab for your reconstruction. 
 
 ### Installation
 
