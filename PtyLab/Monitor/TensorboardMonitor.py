@@ -482,8 +482,9 @@ class TensorboardMonitor(AbstractMonitor):
             )
 
     def __safe_upload_scalar(self, name, data, step, description=None):
-        if data == []:
-            return  # initialization, not required for tensorboard, ignore it
+        if isinstance(data, list):
+            if data == []:
+                return  # initialization, not required for tensorboard, ignore it
         data = asNumpyArray(data)
         try:
             # only take the last one in case of a list
