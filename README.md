@@ -14,10 +14,12 @@ To install the most recent PtyLab package from source and run on CPU
 pip install git+https://github.com/PtyLab/PtyLab.py.git@main
 ```
 
-If you want to utilize GPU for faster reconstruction, instead do,
+If you want to utilize GPU for faster reconstruction, please install `cupy` based on the version of your CUDA driver. Check the [installation instructions](https://docs.cupy.dev/en/latest/install.html) from their webpage. 
+
+For example if your CUDA version is between v11.2 - v11.8,
 
 ```bash
-pip install ptylab[gpu]@git+https://github.com/PtyLab/PtyLab.py.git@main
+pip install cupy-cuda11x
 ```
 
 ### Development
@@ -37,10 +39,6 @@ source .venv/bin/activate
 pip install -e .[dev]
 ```
 
-To use optional GPU utilities, you can change the flag and instead do the following:
-
-```bash
-pip install -e .[gpu-dev]
-```
+To install `cupy` in your virtual environment based on your CUDA driver, please refer to the same [link](https://docs.cupy.dev/en/latest/install.html) mentioned above.
 
 
