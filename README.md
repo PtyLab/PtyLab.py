@@ -18,9 +18,9 @@ pip install git+https://github.com/PtyLab/PtyLab.py.git@main
 
 This package uses `cupy` to utilize GPU for faster reconstruction. 
 
-> [!NOTE]
-> Please note the version of your CUDA driver before proceeding.
-
+> [!WARNING]
+> The system must have [CUDA 11.x or 12.x](https://docs.nvidia.com/cuda/#) installed. Please note the version before proceeding.
+ 
 - For CUDA v11.2 ~ 11.8 (x86_64 / aarch64):
 ```bash
 pip install ptylab[gpu11x]@git+https://github.com/PtyLab/PtyLab.py.git@main
