@@ -8,18 +8,27 @@ Under [example_scripts](example_scripts/) you can find typical use cases of usin
 
 ### Installation
 
-To install the most recent PtyLab package from source and run on CPU
+To install the most recent PtyLab package from source and run on CPU as a default action,
 
 ```bash
 pip install git+https://github.com/PtyLab/PtyLab.py.git@main
 ```
 
-If you want to utilize GPU for faster reconstruction, please install `cupy` based on the version of your CUDA driver. Check the [installation instructions](https://docs.cupy.dev/en/latest/install.html#installing-cupy-from-pypi) from their webpage. 
+#### Installation with optional dependencies
 
-For example if your CUDA version is between v11.2 - v11.8,
+This package uses `cupy` to utilize GPU for faster reconstruction. 
 
+> [!NOTE]
+> Please note the version of your CUDA driver before proceeding.
+
+- For CUDA v11.2 ~ 11.8 (x86_64 / aarch64):
 ```bash
-pip install cupy-cuda11x
+pip install ptylab[gpu11x]@git+https://github.com/PtyLab/PtyLab.py.git@main
+```
+
+- For CUDA v12.x (x86_64 / aarch64)
+```bash
+pip install ptylab[gpu12x]@git+https://github.com/PtyLab/PtyLab.py.git@main
 ```
 
 ### Development
@@ -36,9 +45,5 @@ To install this package and its dependencies in editable mode and in a virtual e
 ```bash
 virtualenv .venv
 source .venv/bin/activate
-pip install -e .[dev]
+pip install -e .[dev,gpu11x]  # `gpu12x` if CUDA v12.x
 ```
-
-To install `cupy` in your virtual environment based on your CUDA driver, please refer to the same [link](https://docs.cupy.dev/en/latest/install.html#installing-cupy-from-pypi) mentioned above.
-
-

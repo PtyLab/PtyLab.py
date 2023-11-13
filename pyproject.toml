@@ -26,9 +26,13 @@ tensorflow = "2.13.0"
 napari = {extras = ["all"], version = "^0.4.18"}
 black = { version = "^23.7.0", optional = true }
 ipykernel = { version = "^6.25.0", optional = true }
+cupy-cuda11x = { version = "^12.2.0", optional = true }
+cupy-cuda12x = { version = "^12.2.0", optional = true }
 
 [tool.poetry.extras]
 dev = ["black", "ipykernel"]
+gpu11x = ["cupy-cuda11x"]
+gpu12x = ["cupy-cuda12x"]
 
 [build-system]
 requires = ["poetry-core"]
