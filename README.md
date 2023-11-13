@@ -21,7 +21,7 @@ This package uses `cupy` to utilize GPU for faster reconstruction.
 > [!WARNING]
 > The system must have [CUDA 11.x or 12.x](https://docs.nvidia.com/cuda/#) installed. Please note the version before proceeding.
  
-- For CUDA v11.2 ~ 11.8 (x86_64 / aarch64):
+- For CUDA v11.2 - 11.8 (x86_64 / aarch64):
 ```bash
 pip install ptylab[gpu11x]@git+https://github.com/PtyLab/PtyLab.py.git@main
 ```
@@ -45,5 +45,11 @@ To install this package and its dependencies in editable mode and in a virtual e
 ```bash
 virtualenv .venv
 source .venv/bin/activate
+pip install -e .[dev]
+```
+
+If you want to utilize GPU with CUDA v11.2 - 11.8 installed in system, do the following instead,
+
+```bash
 pip install -e .[dev,gpu11x]  # `gpu12x` if CUDA v12.x
 ```
