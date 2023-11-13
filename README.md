@@ -58,7 +58,7 @@ pip install -e .[dev,gpu11x]  # `gpu12x` if CUDA v12.x
 
 If you use this package in your work, cite us as below. 
 
-```bash
+```tex
 @article{Loetgering:23,
         author = {Lars Loetgering and Mengqi Du and Dirk Boonzajer Flaes and Tomas Aidukas and Felix Wechsler and Daniel S. Penagos Molina and Max Rose and Antonios Pelekanidis and Wilhelm Eschen and J\"{u}rgen Hess and Thomas Wilhein and Rainer Heintzmann and Jan Rothhardt and Stefan Witte},
         journal = {Opt. Express},
