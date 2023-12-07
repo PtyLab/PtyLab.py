@@ -54,6 +54,22 @@ If you want to utilize GPU with CUDA v11.2 - 11.8 installed in system, do the fo
 pip install -e .[dev,gpu11x]  # `gpu12x` if CUDA v12.x
 ```
 
+#### Installation with conda
+
+If you prefer `conda` as a development medium, please create the environment as follows
+
+```bash
+conda create --name ptylab_venv python=3.10.13 # or python version satisfying ">=3.9, <3.12"
+conda activate ptylab_venv
+pip install -e .[dev]
+```
+
+To use GPU, it is preferable to use `conda-forge` channel to install `cupy` instead of `pip` as it is agnostic about the CUDA driver and toolkit version. This can be done within the `conda` environment as
+
+```bash
+conda install -c conda-forge cupy
+```
+
 ### Citation
 
 If you use this package in your work, cite us as below. 
