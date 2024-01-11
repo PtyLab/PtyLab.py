@@ -1,12 +1,12 @@
-## PtyLab
+# PtyLab.py
 
 PtyLab is an inverse modeling toolbox for Conventional (CP) and Fourier (FP) ptychography in a unified framework. For more information please check the [paper](https://opg.optica.org/oe/fulltext.cfm?uri=oe-31-9-13763&id=529026).
  
-### Getting Started
+## Getting Started
 
 Under [example_scripts](example_scripts/) you can find typical use cases of using PtyLab for your reconstruction. 
 
-### Installation
+## Installation
 
 To install the most recent PtyLab package from source and run on CPU as a default action,
 
@@ -14,7 +14,7 @@ To install the most recent PtyLab package from source and run on CPU as a defaul
 pip install git+https://github.com/PtyLab/PtyLab.py.git@main
 ```
 
-#### Installation with optional dependencies
+### Installation with optional dependencies
 
 This package uses `cupy` to utilize GPU for faster reconstruction. 
 
@@ -31,7 +31,7 @@ pip install ptylab[gpu11x]@git+https://github.com/PtyLab/PtyLab.py.git@main
 pip install ptylab[gpu12x]@git+https://github.com/PtyLab/PtyLab.py.git@main
 ```
 
-### Development
+## Development
 
 To get started, clone this package and go to the root folder
 
@@ -54,7 +54,7 @@ If you want to utilize GPU with CUDA v11.2 - 11.8 installed in system, do the fo
 pip install -e .[dev,gpu11x]  # `gpu12x` if CUDA v12.x
 ```
 
-#### Installation with conda
+### Development with conda
 
 If you prefer `conda` as a development medium, please create the environment as follows
 
@@ -70,7 +70,11 @@ To use GPU, it is preferable to use `conda-forge` channel to install `cupy` inst
 conda install -c conda-forge cupy
 ```
 
-### Citation
+> [!NOTE]
+> Dependencies are maintained in [pyproject.toml](pyproject.toml) using the python package manager [Poetry](https://python-poetry.org/). To change the versions of the existing dependencies or to add new dependencies, please use Poetry to do so as it comes with its own depedency resolver.  
+
+
+## Citation
 
 If you use this package in your work, cite us as below. 
 
