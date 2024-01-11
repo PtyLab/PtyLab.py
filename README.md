@@ -71,7 +71,7 @@ conda install -c conda-forge cupy
 ```
 
 > [!NOTE]
-> Dependencies are maintained in [pyproject.toml](pyproject.toml) using the python package manager [Poetry](https://python-poetry.org/). To change the versions of the existing dependencies or to add new dependencies, please use Poetry to do so as it comes with its own depedency resolver.  
+> Dependencies are maintained in [pyproject.toml](pyproject.toml) using the python package manager [Poetry](https://python-poetry.org/). To change the versions of the existing dependencies or to add new dependencies, please use Poetry to do so as it comes with its own dependency resolver, making sure nothing breaks. 
 
 
 ## Citation
