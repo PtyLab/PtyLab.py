@@ -4,7 +4,7 @@ PtyLab is an inverse modeling toolbox for Conventional (CP) and Fourier (FP) pty
  
 ## Getting Started
 
-Under [example_scripts](example_scripts/) you can find typical use cases of using PtyLab for your reconstruction. 
+Under [example_scripts](example_scripts/) and [jupyter_tutorials](jupyter_tutorials) you can find typical use cases of using PtyLab for your reconstruction. 
 
 ## Installation
 
