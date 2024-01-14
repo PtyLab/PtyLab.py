@@ -40,21 +40,7 @@ git clone git@github.com:PtyLab/PtyLab.py.git
 cd PtyLab.py
 ```
 
-To install this package and its dependencies in editable mode and in a virtual environment, for example using [virtualenv](https://pypi.org/project/virtualenv/), please do the following
-
-```bash
-virtualenv .venv
-source .venv/bin/activate
-pip install -e .[dev]
-```
-
-If you want to utilize GPU with CUDA v11.2 - 11.8 installed in system, do the following instead,
-
-```bash
-pip install -e .[dev,gpu11x]  # `gpu12x` if CUDA v12.x
-```
-
-### Development with conda
+### Development with `conda`
 
 If you prefer `conda` as a development medium, please create the environment as follows
 
@@ -70,9 +56,57 @@ To use GPU, it is preferable to use `conda-forge` channel to install `cupy` inst
 conda install -c conda-forge cupy
 ```
 
-> [!NOTE]
-> Dependencies are maintained in [pyproject.toml](pyproject.toml) using the python package manager [Poetry](https://python-poetry.org/). To change the versions of the existing dependencies or to add new dependencies, please use Poetry to do so as it comes with its own dependency resolver, making sure nothing breaks. 
+### Development with `virtualenv`
 
+To install this package and its dependencies in editable mode and in a virtual environment, for example using [virtualenv](https://pypi.org/project/virtualenv/), please do the following
+
+```bash
+virtualenv .venv
+source .venv/bin/activate
+pip install -e .[dev]
+```
+
+If you want to utilize GPU with CUDA v11.2 - 11.8 installed in system, do the following instead,
+
+```bash
+pip install -e .[dev,gpu11x]  # `gpu12x` if CUDA v12.x
+```
+
+> [!WARNING]
+> If you are a maintainer of the package and would like to modify/remove existing packages or add new ones, it's recommended to rely on [Poetry](https://python-poetry.org/), a python package manager to do so. It comes with its own dependency resolver, making sure nothing breaks. Please refer to the next section to get started with `poetry`.
+
+## Package management with `poetry`
+
+The build-system for managing `PtyLab.py` package (under [`pyproject.toml`](pyproject.toml)) is based on python package manager [Poetry](https://python-poetry.org/).
+
+To start off, please delete existing environments (`conda`/`virtualenv`) as `poetry` would also create a virtual environment by default. To install `poetry`, the simplest way is with [`pipx`](https://pypi.org/project/pipx/).
+
+```bash
+pip install pipx
+pipx install poetry
+```
+
+At the root of the repository (after cloning), you can now install `PtyLab.py` in its own virtual environment by simply doing,
+
+```bash
+poetry install
+```
+
+This will also create a `poetry.lock` file that contains the list of all the *pinned dependencies*.
+
+To install the optional packages from the fields `dev` or `gpu11x`, instead install as
+
+```bash
+poetry install --extras "dev gpu11x" # `gpu12x` if CUDA v12.x
+```
+
+To install new packages from [PyPI](https://pypi.org/project/pip/), instead of relying on `pip`, please do so with `poetry` as 
+
+```bash
+poetry add <package-name>
+``` 
+
+This will not just install the new package, but also resolve the existing environment and make sure no other dependencies break. Similarly, you can remove a package as `poetry remove <package-name>`. For more information, please rely on the [Poetry](https://python-poetry.org/) documentation. 
 
 ## Citation
 
