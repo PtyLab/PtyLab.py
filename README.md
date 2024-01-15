@@ -73,11 +73,9 @@ pip install -e .[dev,gpu11x]  # `gpu12x` if CUDA v12.x
 ```
 
 > [!WARNING]
-> If you are a maintainer of the package and would like to modify/remove existing packages or add new ones, it's recommended to rely on [Poetry](https://python-poetry.org/), a python package manager to do so. It comes with its own dependency resolver, making sure nothing breaks. Please refer to the next section to get started with `poetry`.
+> The build-system as given under [`pyproject.toml`](pyproject.toml) is based on [Poetry](https://python-poetry.org/), a python package manager. If you are a maintainer of `PtyLab.py` and would like to modify existing packages or add new ones, it's recommended to rely on `poetry` for development. It comes with its own dependency resolver, making sure nothing breaks. Please refer to the next section to get started with `poetry`.
 
 ## Package management with `poetry`
-
-The build-system for managing `PtyLab.py` package (under [`pyproject.toml`](pyproject.toml)) is based on python package manager [Poetry](https://python-poetry.org/).
 
 To start off, please delete existing environments (`conda`/`virtualenv`) as `poetry` would also create a virtual environment by default. To install `poetry`, the simplest way is with [`pipx`](https://pypi.org/project/pipx/).
 
@@ -94,13 +92,13 @@ poetry install
 
 This will also create a `poetry.lock` file that contains the list of all the *pinned dependencies*.
 
-To install the optional packages from the fields `dev` or `gpu11x`, instead install as
+To also install the optional packages from the fields `dev` or `gpu11x`, instead do,
 
 ```bash
 poetry install --extras "dev gpu11x" # `gpu12x` if CUDA v12.x
 ```
 
-To install new packages from [PyPI](https://pypi.org/project/pip/), instead of relying on `pip`, please do so with `poetry` as 
+If you want to install a new package from [PyPI](https://pypi.org/project/pip/), instead of relying on `pip`, please do so with `poetry` as 
 
 ```bash
 poetry add <package-name>
