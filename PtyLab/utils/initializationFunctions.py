@@ -3,6 +3,7 @@ import numpy as np
 from PtyLab.utils.utils import circ, fft2c, ifft2c
 from matplotlib import pyplot as plt
 from scipy.ndimage import gaussian_filter
+from scipy import ndimage
 from skimage.transform import rescale
 
 
@@ -26,33 +27,31 @@ def initialProbeOrObject(shape, type_of_init, data, logger: logging.Logger = Non
                 "been initialized. Skipping."
             )
         return type_of_init
-
-    if type_of_init not in ["circ", "rand", "gaussian", "ones", "upsampled"]:
-        raise NotImplementedError()
+    supported_shapes = ["circ", 'circ_smooth', "rand", "gaussian", "ones", "upsampled"]
+    if type_of_init not in supported_shapes:
+        raise NotImplementedError(f'Got {type_of_init} for shape. Supported shapes are: {supported_shapes}')
 
     if type_of_init == "ones":
         return np.ones(shape) + 0.001 * np.random.rand(*shape)
 
-    if type_of_init == "circ":
+    if type_of_init in ["circ", 'circ_smooth']:
         try:
             # BUG: This only works for the probe, not for the object
             pupil = circ(data.Xp, data.Yp, data.data.entrancePupilDiameter)
+            initial_field = np.ones(shape, dtype=np.complex64) + 0.001 * np.random.rand(*shape)
 
-            # pupil = circ(data.Xp, data.Yp, data.Xp.max()/2)
-            # soften the edges a bit
-            from scipy import ndimage
+            if 'smooth' in type_of_init:
+                dia_pixel = data.data.entrancePupilDiameter / data.dxo
+                pupil = ndimage.gaussian_filter(pupil.astype(np.float64), 0.1 * dia_pixel)
 
-            pupil = ndimage.gaussian_filter(
-                pupil.astype(np.float64), 0.05 * data.Xp.shape[-1]
-            )
-            return np.ones(shape, dtype=np.complex64) * pupil + 0.001 * np.random.rand(
-                *shape
-            )
+            initial_field *= pupil
+            return initial_field
 
         except AttributeError as e:
             raise AttributeError(
                 e, "probe/aperture/entrancePupilDiameter was not defined"
             )
+ 
 
     if type_of_init == "upsampled":
         low_res = ifft2c(np.sqrt(np.mean(data.data.ptychogram, 0)))

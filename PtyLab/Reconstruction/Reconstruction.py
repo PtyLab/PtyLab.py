@@ -149,7 +149,7 @@ class Reconstruction(object):
         elif self.data.operationMode == "FPM":
              self.logger.debug(f"Changing illumination-to-sample distance to {new_value}")
              self.zled = self._zo
-
+             
     def computeParameters(self):
         """
         compute parameters that can be altered by the user later.
@@ -339,17 +339,19 @@ class Reconstruction(object):
         """
         raise NotImplementedError()
 
-    def initializeObjectProbe(self):
+    def initializeObjectProbe(self, force=True):
 
         # initialize object and probe
-        self.initializeObject()
-        self.initializeProbe()
+        self.initializeObject(force=force)
+        self.initializeProbe(force=force)
 
         # set object and probe objects
         self.object = self.initialGuessObject.copy()
         self.probe = self.initialGuessProbe.copy()
 
-    def initializeObject(self, type_of_init=None):
+    def initializeObject(self, type_of_init=None, force=True):
+        if not force:
+            raise NotImplementedError()
         if type_of_init is not None:
             self.initialObject = type_of_init
         self.logger.info("Initial object set to %s", self.initialObject)
@@ -394,11 +396,14 @@ class Reconstruction(object):
             int(self.Np),
             int(self.Np),
         )
+
         if self.initialProbe == 'recon':
             self.initialGuessProbe = self.loadResults(self.initialProbe_filename, datatype='probe')
         else:
             if force:
-                self.initialProbe = "circ"
+                self.initialGuessProbe = None
+            # if force:
+            #     self.initialProbe = "circ"
             self.initialGuessProbe = initialProbeOrObject(
                 self.shape_P, self.initialProbe, self
             ).astype(np.complex64)
