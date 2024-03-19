@@ -2,7 +2,7 @@ from pathlib import Path
 import pathlib
 import matplotlib
 
-from PtyLab.io.readExample import examplePath
+from PtyLab.read_write.readExample import examplePath
 
 try:
     matplotlib.use("tkagg") # this is for people using pycharm pro
@@ -61,7 +61,7 @@ params.propagatorType = "Fresnel"  # ASP'#Fraunhofer'
 params.fftshiftSwitch = params.propagatorType in ["Fresnel", "Fraunhofer"]
 params.l2reg = False
 params.positionCorrectionSwitch = False
-params.positionOrder = "random"  # 'sequential' or 'random'
+params.positionOrder = "weigh_by_normalized_error"  # 'sequential', 'random' or 'weigh_by_error'
 params.positionCorrectionSwitch = False
 params.orthogonalizationSwitch = True
 # orthogonalize every ten iterations
@@ -69,8 +69,8 @@ params.orthogonalizationFrequency = 10
 params.intensityConstraint = "standard"
 
 # optional - use tensorboard monitor instead. To see the results, open tensorboard in the directory ./logs_tensorboard
-# from PtyLab.Monitor.TensorboardMonitor import TensorboardMonitor
-# monitor = TensorboardMonitor('./logs')
+from PtyLab.Monitor.TensorboardMonitor import TensorboardMonitor
+monitor = TensorboardMonitor('./logs')
 
 # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
 # now create an object to hold everything we're eventually interested in

@@ -127,12 +127,14 @@ class TensorboardMonitor(AbstractMonitor):
 
         axes['h'].hist(engine.counts_per_position / engine.counts_per_position.mean(),
                        bins=len(engine.counts_per_position) // 2)
+
         axes['h'].set_title('Visiting frequency')
         axes['h'].set_xlabel('Visit freq')
         for label in 'Hh':
             from matplotlib.ticker import MaxNLocator, FormatStrFormatter
             axes[label].yaxis.set_major_locator(MaxNLocator(5, integer=True))
             axes[label].yaxis.set_major_formatter(FormatStrFormatter('%.3d'))
+            axes[label].set_xlim(0, 3)
         # density of positions processed
         ax_density.set_title('# visiting freq.')
         cmap = matplotlib.colormaps['viridis'].copy()

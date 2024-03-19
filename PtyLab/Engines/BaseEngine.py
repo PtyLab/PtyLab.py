@@ -641,7 +641,7 @@ class BaseEngine(object):
             if self.params.positionOrder == 'weigh_by_normalized_error':
                 print('Weighing probability by normalized error')
                 print(probabilities.shape, self.experimentalData.energyAtPos.shape)
-                probabilities = probabilities * self.experimentalData.energyAtPos[:, None]
+                probabilities = probabilities * self.experimentalData.energyAtPos[:, None]**2
             probabilities = probabilities / probabilities.sum()
 
             N = self.experimentalData.numFrames
