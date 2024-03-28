@@ -1,13 +1,16 @@
 from pathlib import Path
 import pathlib
 import matplotlib
+import matplotlib.pyplot as plt
 
 from PtyLab.read_write.readExample import examplePath
 
 try:
-    matplotlib.use("tkagg") # this is for people using pycharm pro
+    matplotlib.use("QtAgg") # this is for people using pycharm pro
 except:
+    print('Could not load tkagg')
     pass
+plt.switch_backend("QtAgg")
 import PtyLab
 from PtyLab import Reconstruction
 from PtyLab import Engines
@@ -68,9 +71,11 @@ params.orthogonalizationSwitch = True
 params.orthogonalizationFrequency = 10
 params.intensityConstraint = "standard"
 
+
+
 # optional - use tensorboard monitor instead. To see the results, open tensorboard in the directory ./logs_tensorboard
 from PtyLab.Monitor.TensorboardMonitor import TensorboardMonitor
-monitor = TensorboardMonitor('./logs')
+#monitor = TensorboardMonitor('./logs')
 
 # now, all our experimental data is loaded into experimental_data and we don't have to worry about it anymore.
 # now create an object to hold everything we're eventually interested in
@@ -118,6 +123,11 @@ params.positionCorrectionSwitch = False
 params.probePowerCorrectionSwitch = True
 params.gpuSwitch = True
 
+# Position correction algorithms
+params.positionCorrectionSwitch = True
+params.positionCorrectionStartIteration = 5
+params.positionCorrectionSwitch_radius = 5
+params.PC_betaGrad = 1
 
 monitor.describe_parameters(params)
 # reconstruction.object *= 1
@@ -140,9 +150,9 @@ params.comStabilizationSwitch = False
 mPIE.reconstruct(experimentalData, reconstruction)
 
 # # to check - I don't have enough memory on my laptop
-from PtyLab.Engines import OPR_TV
+from PtyLab.Engines import OPR
 
-OPR = OPR_TV(reconstruction, experimentalData, params, monitor)
+OPR = OPR(reconstruction, experimentalData, params, monitor)
 OPR.numIterations = 1000
 params.OPR_modes = np.array([0, 1])
 params.n_subspace = 4

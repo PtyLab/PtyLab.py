@@ -1296,6 +1296,8 @@ class BaseEngine(object):
                         (cc.T - xp.mean(cc)) / normFactor * xp.array(self.rowShifts)
                     )
             else:
+                if self.params.PC_betaGrad > 10 and positionIndex == 0:
+                    self.logger.warning( f'Warning: Position correction search radius == {self.params.positionCorrectionSwitch_radius} and betagrad == {self.params.PC_betaGrad}. It is not recommended to set this over 10. ')
                 cc, grad_y, grad_x = calc_position_new(Opatch[0, 0, 0, 0, :, :], O[0, 0, 0, 0, sy, sx],
                                                        self.params.positionCorrectionSwitch_radius)
                 # r = np.clip(self.params.positionCorrectionSwitch_radius / 2, 1, 6)
