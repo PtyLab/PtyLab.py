@@ -20,7 +20,7 @@ fileName = "simu"
 # set physical properties
 
 wavelength = 632.8e-9
-zo = 5e-2
+zo = 8e-2
 nlambda = 1
 npsm = 1
 nosm = 1
@@ -28,8 +28,8 @@ nslice = 1
 binningFactor = 1
 
 # detector coordinates
-Nd = 2**7
-dxd = 2**11 / Nd * 4.5e-6
+Nd = 2**8
+dxd = 2**11 / Nd * 4.5e-6 * 1.8
 Ld = Nd * dxd
 
 # probe coordinates
@@ -50,13 +50,24 @@ Xo, Yo = np.meshgrid(xo, xo)
 # generate illumination
 # note: simulate focused beam
 # goal: 1:1 image iris through (low-NA) lens with focal length f onto an object
-f = 8e-3  # focal length of lens, creating a focused probe
+f = 5e-3  # focal length of lens, creating a focused probe
 probe_size = 150 * dxp
 pinhole = circ(Xp, Yp,probe_size )#Lp / 2)
 pinhole = convolve2d(pinhole, gaussian2D(5, 1).astype(np.float32), mode="same")
 
 # propagate to lens
 probe = aspw(pinhole, 2 * f, wavelength, Lp)[0]
+
+# get a rough estimate of the beam width
+from scipy.ndimage import extrema
+probe_size = np.sqrt(np.sum(abs(probe) > 0.2*abs(probe).mean())/np.pi/2) * dxp * 2
+print('Probe size: ', probe_size, probe_size / dxp)
+# plt.figure(1)
+# plt.imshow(abs(probe) > abs(probe).mean())
+# c = plt.Circle((Np/2, Np/2), probe_size/dxp/2, alpha=0.2)
+# plt.gca().add_patch(c)
+# plt.show()
+
 
 # multiply with quadratic phase and aperture
 aperture = circ(Xp, Yp, 3 * Lp / 4)
@@ -79,16 +90,16 @@ plt.title("probe intensity")
 plt.show(block=False)
 
 # generate object
-d = 1e-3  # the smaller this parameter the larger the spatial frequencies in the simulated object
-b = 33  # topological charge (feel free to play with this number)
+d = 1e-1  # the smaller this parameter the larger the spatial frequencies in the simulated object
+b = 10  # topological charge (feel free to play with this number)
 theta, rho = cart2pol(Xo, Yo)
 t = (1 + np.sign(np.sin(b * theta + 2 * np.pi * (rho / d) ** 2))) / 2
 # phaseFun = np.exp(1.j * np.arctan2(Yo, Xo))
-# phaseFun = 1
-phaseFun = np.exp(1.0j * (theta + 2 * np.pi * (rho / d) ** 2))
-t = t * circ(Xo, Yo, Lo) * (1 - circ(Xo, Yo, 200 * dxo)) * phaseFun + circ(
-    Xo, Yo, 130 * dxo
-)
+phaseFun = 1
+# phaseFun = np.exp(0.5j * b * theta)#(theta + 2 * np.pi * (rho / d) ** 2))
+#t = t * circ(Xo, Yo, Lo) * (1 - circ(Xo, Yo, 100 * dxo)) * phaseFun + circ(
+#    Xo, Yo, 50 * dxo
+#)
 obj = convolve2d(t, gaussian2D(5, 3), mode="same")  # smooth edges
 object = obj * phaseFun
 
@@ -98,24 +109,28 @@ hsvplot(np.squeeze(object), ax=ax)
 ax.set_title("complex probe")
 plt.show(block=False)
 
+beamSize = (
+    np.sqrt(np.sum((Xp**2 + Yp**2) * np.abs(probe) ** 2) / np.sum(abs(probe) ** 2))
+    * 2.355
+)
 # generate positions
 # generate non-uniform Fermat grid
 # parameters
-numPoints = 400  # number of points
-radius = 150  # radius of final scan grid (in pixels)
+numPoints = 50  # number of points
+radius = 850  # radius of final scan grid (in pixels)
 p = 1  # p = 1 is standard Fermat;  p > 1 yields more points towards the center of grid
 R, C = GenerateNonUniformFermat(numPoints, radius=radius, power=p)
 R = R.astype(float)
 C = C.astype(float)
 
 distances = np.sqrt(np.diff(R) ** 2 + np.diff(C) ** 2) * dxo
-averageDistance = np.mean(distances) * 1e6
+averageDistance = np.mean(distances[:3]) * 1e6
 
 # ensure the overlap
-overlap = 0.8
+overlap = 0.65
 # beam diameter
-R = R / averageDistance * overlap * probe_size  / dxp
-C = C / averageDistance * overlap * probe_size / dxp
+R = R / averageDistance * (1-overlap) * beamSize  * 1e6
+C = C / averageDistance * (1-overlap) * beamSize * 1e6
 # scale it to entrancePupilDiameterSize
 # overlap 0.8
 # show scan grid
@@ -143,14 +158,12 @@ print("generate positions(" + str(numFrames) + ")")
 
 # calculate estimated overlap
 # expected beam size, required to calculate overlap (expect Gaussian-like beam, derive from second moment)
-beamSize = (
-    np.sqrt(np.sum((Xp**2 + Yp**2) * np.abs(probe) ** 2) / np.sum(abs(probe) ** 2))
-    * 2.355
-)
+
+print(f'beam size: {beamSize}')
 distances = np.sqrt(np.diff(R) ** 2 + np.diff(C) ** 2) * dxo
 averageDistance = np.mean(distances) * 1e6
 print("average step size:%.1f (um)" % averageDistance)
-print(f"probe diameter: {beamSize*1e6:.2f}")
+print(f"probe diameter: {beamSize*1e6:.2f} um")
 print("number of scan points: %d" % numFrames)
 
 # show scan grid on object
@@ -161,8 +174,8 @@ hsvplot(np.squeeze(object), ax=ax1)
 pos_pix = positions + Np // 2
 dia_pix = beamSize / dxo
 ax1.plot(
-    pos_pix[:, -1],
     pos_pix[:, -2],
+    pos_pix[:, -1],
     "ro",
     alpha=0.9,
 )

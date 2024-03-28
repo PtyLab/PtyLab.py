@@ -124,7 +124,7 @@ monitor.probeZoom = None  # 0.5   # control probe plot FoV
 # Params = Params()
 ## main parameters
 params.positionOrder = "random"  # 'sequential' or 'random'
-params.propagatorType = "ASP"  # Fresnel'# 'Fresnel' #aunhofer'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
+params.propagatorType = "Fraunhofer"  # Fresnel'# 'Fresnel' #aunhofer'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
 
 params.positionCorrectionSwitch = False
 params.modulusEnforcedProbeSwitch = False
@@ -163,8 +163,10 @@ mPIE = Engines.mPIE(reconstruction, experimentalData, params, monitor)
 mPIE.numIterations = 50
 
 # you can now run simple scripts, such as:
-for i in range(1, 8):
+for i in range(0, 8):
     # turn on autofocusing and then l2 regularization, iterate both for about 50 iterations
+    # params.TV_autofocus_metric = 'STD'
+    params.TV_autofocus_intensityonly = True
     params.TV_autofocus = i % 2 == 1
     params.l2reg = i % 2 == 0
 
