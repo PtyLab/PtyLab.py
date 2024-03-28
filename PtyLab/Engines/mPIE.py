@@ -90,8 +90,14 @@ class mPIE(BaseEngine):
 
         self.reconstruction.probeWindow = np.abs(self.reconstruction.probe)
 
-    def reconstruct(self, experimentalData=None, reconstruction=None, tqdm_=tqdm):
-        """Reconstruct object. If experimentalData is given, it replaces the current data. Idem for reconstruction."""
+    def reconstruct(self, experimentalData=None, reconstruction=None, tqdm_=tqdm,
+                    vis_after_each_fun=None):
+        """Reconstruct object. If experimentalData is given, it replaces the current data. Idem for reconstruction.
+
+        vis_after_each_fun can be a callable that can give an update. Needs to accept the following signature:
+            vis_after_each_fun(i, reconstruction) where i is the iteration number.
+
+        """
 
         self.changeExperimentalData(experimentalData)
         self.changeOptimizable(reconstruction)
@@ -161,7 +167,8 @@ class mPIE(BaseEngine):
                     self.objectMomentumUpdate()
                     self.probeMomentumUpdate()
                 # yield positionLoop, positionIndex
-
+            if callable(vis_after_each_fun):
+                vis_after_each_fun(loop, self.reconstruction)
             # get error metric
             self.getErrorMetrics()
             # yield 1,1
