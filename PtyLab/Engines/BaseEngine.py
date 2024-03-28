@@ -1,3 +1,6 @@
+import cupyx.scipy.ndimage
+from cupyx.scipy import ndimage
+
 from PtyLab.Reconstruction.Reconstruction import calculate_pixel_positions
 from PtyLab import Operators
 import numpy as np
@@ -87,7 +90,7 @@ class BaseEngine(object):
         self.betaObject = 0.25
         self.reconstruction: Reconstruction = reconstruction
         self.experimentalData: ExperimentalData = experimentalData
-        self.params = params
+        self.params: Params = params
         self.monitor = monitor
         self.monitor.reconstruction = reconstruction
 
@@ -179,7 +182,9 @@ class BaseEngine(object):
     def _initializePCParameters(self):
         if self.params.positionCorrectionSwitch:
             # additional pcPIE parameters as they appear in Matlab
-            self.daleth = 0.5  # feedback
+            if not hasattr(self,  'daleth'):
+                print('Initializing daleth')
+                self.daleth = 0.5  # feedback
             self.beth = 0.9  # friction
             self.adaptStep = 1  # adaptive step size
             self.D = np.zeros(
@@ -192,7 +197,7 @@ class BaseEngine(object):
             self.rowShifts = np.array([-1, -1, -1, 0, 0, 0, 1, 1, 1])
             # self.colShifts = dx.flatten()#np.array([-1, 0, 1, -1, 0, 1, -1, 0, 1])
             self.colShifts = np.array([-1, 0, 1, -1, 0, 1, -1, 0, 1])
-            self.startAtIteration = 20
+            self.startAtIteration = self.params.positionCorrectionStartIteration
             self.meanEncoder00 = np.mean(self.experimentalData.encoder[:, 0]).copy()
             self.meanEncoder01 = np.mean(self.experimentalData.encoder[:, 1]).copy()
 
@@ -1276,52 +1281,45 @@ class BaseEngine(object):
                         xp.sum(shiftedImages.conj() * O[..., sy, sx], axis=(-2, -1))
                     )
                     del tempShift, shiftedImages
-                    betaGrad = 1000
+                    #betaGrad = 1000
                     r = 3
+                betaGrad = self.params.PC_betaGrad
+                # center of mass estimate?
+                normFactor = xp.sum(Opatch.conj() * Opatch, axis=(-2, -1)).real
+                grad_x = betaGrad * xp.sum(
+                    (cc.T - xp.mean(cc)) / normFactor * xp.array(self.colShifts)
+                )
+                grad_y = betaGrad * xp.sum(
+                    (cc.T - xp.mean(cc)) / normFactor * xp.array(self.rowShifts)
+                )
             else:
-                # print('doing FT position correction')
-                ss = slice(-self.params.positionCorrectionSwitch_radius, self.params.positionCorrectionSwitch_radius+1)
-                rowShifts, colShifts = xp.mgrid[ss,ss]
-                self.rowShifts = rowShifts.flatten()
-                self.colShifts = colShifts.flatten()
-                O1 = O[...,sy,sx]
-                O1 = O1 - O1.mean()
 
-                O2 = Opatch.copy()#[..., sy, sx]
-                O2 = O2 - O2.mean()
+                cc, grad_y, grad_x = calc_position_new(Opatch[0,0,0,0,:,:], O[0,0,0,0,sy, sx],
+                                                             self.params.positionCorrectionSwitch_radius)
+                #r = np.clip(self.params.positionCorrectionSwitch_radius / 2, 1, 6)
+                r = 6
+                betaGrad = self.params.PC_betaGrad
+                grad_y = betaGrad * grad_y
+                grad_x = betaGrad * grad_x
 
-                FT_O = xp.fft.fft2(O1)
-                FT_Op = xp.fft.fft2(O2)
-                xcor = xp.fft.ifft2(FT_O * FT_Op.conj())
-                xcor = abs(xp.fft.fftshift(xcor))
-                N = xcor.shape[-1]
-                sy = slice(N//2-self.params.positionCorrectionSwitch_radius, N//2+self.params.positionCorrectionSwitch_radius + 1)
-                xcor = xcor[...,sy, sy]
-                cc = xcor.flatten()
-                betaGrad = 1000
-                r = 10
-                #dy, dx = xp.unravel_index(xp.argmax(xcor), xcor.shape)
-                #dx = dx.get()
             # truncated cross - correlation
             # cc = xp.squeeze(xp.sum(shiftedImages.conj() * self.reconstruction.object[..., sy, sx], axis=(-2, -1)))
             cc = abs(cc)
-            betaGrad = 1000
-            normFactor = xp.sum(Opatch.conj() * Opatch, axis=(-2, -1)).real
-            grad_x = betaGrad * xp.sum(
-                (cc.T - xp.mean(cc)) / normFactor * xp.array(self.colShifts)
-            )
-            grad_y = betaGrad * xp.sum(
-                (cc.T - xp.mean(cc)) / normFactor * xp.array(self.rowShifts)
-            )
-            #r = np.clip(self.params.positionCorrectionSwitch_radius//5, 3, self.reconstruction.Np//10) # maximum shift in pixels?
 
+
+            #r = np.clip(self.params.positionCorrectionSwitch_radius//5, 3, self.reconstruction.Np//10) # maximum shift in pixels?
+            grad_y = asNumpyArray(grad_y)
+            grad_x = asNumpyArray(grad_x)
+            #
+            if np.random.rand() > 0.999:
+                self.logger.error(f'Position update before clip: {positionIndex} changes by {(grad_y, grad_x)} (amp {betaGrad})')
             if abs(grad_x) > r:
                 grad_x = r * grad_x / abs(grad_x)
             if abs(grad_y) > r:
                 grad_y = r * grad_y / abs(grad_y)
-            grad_y = asNumpyArray(grad_y)
-            grad_x = asNumpyArray(grad_x)
             delta_p = self.daleth * np.array([grad_y, grad_x])
+
+            #self.logger.error(f'Position update after clip: {positionIndex} changes by {delta_p}')
             self.D[positionIndex, :] = (
                 delta_p
                 + self.beth * self.D[positionIndex, :]
@@ -1717,7 +1715,7 @@ class BaseEngine(object):
         Perform center of mass stabilization (center the probe)
         :return:
         """
-        self.logger.info("Doing probe com stabilization")
+
         xp = getArrayModule(self.reconstruction.probe)
         # calculate center of mass of the probe (for multislice cases, the probe for the last slice is used)
         P2 = xp.sum(
@@ -1731,9 +1729,14 @@ class BaseEngine(object):
         yc = int(
             xp.around(xp.sum(xp.array(self.reconstruction.Yp, xp.float32) * P2) / demon)
         )
+        self.logger.info(f'Checking COM stabilization. Shift: {xc}, {yc}, R={cp.hypot(xc, yc)}. Max radius: {self.params.comStabilization_minradius}')
+
+
+
         # print('Center of mass:', yc, xc)
         # shift only if necessary
-        if xc**2 + yc**2 > 1:
+        if xc**2 + yc**2 > self.params.comStabilization_minradius**2:
+            self.logger.info("Doing probe com stabilization")
             # self.reconstruction.probe_storage._push_hard(self.reconstruction.probe, 100)
             # self.reconstruction.probe_storage.roll(-yc, -xc)
 
@@ -1843,3 +1846,25 @@ class BaseEngine(object):
         TV_update = grad_TV(objectPatch, epsilon=1e-2)
         lam = self.params.objectTVregStepSize
         return objectPatch + self.betaObject * xp.sum(frac * DELTA, axis=(0,2,3), keepdims=True) + lam * self.betaObject * TV_update
+
+
+def calc_position_new(Opatch, O, rmax=5):
+    xp = getArrayModule(Opatch)
+    O = O / xp.linalg.norm(O)
+    Opatch = Opatch / xp.linalg.norm(Opatch)
+
+    O_ft = xp.fft.fft2(O)
+    Op_ft = xp.fft.fft2(Opatch)
+    xcor = xp.fft.ifft2(O_ft * Op_ft.conj())
+    xcor = xp.fft.fftshift(xcor)
+    xcor = abs(xcor)
+
+    # print(np.unravel_index(xcor.argmax(), xcor.shape))
+    # plt.imshow(abs(xcor.get()))#print(np.argmax(xcor.get()))
+    N = xcor.shape[-1]
+    ss = slice(N // 2 - rmax, N // 2 - rmax + 2 * rmax + 1)
+    cc = xcor[ss, ss]
+    cc_shape = cp.array(cc.shape)[::-1]
+    centerpix = cc_shape // 2 + (1 - (cc_shape % 2))
+    grad_y, grad_x = cp.array(ndimage.center_of_mass(cc)) - centerpix
+    return cc, grad_y, grad_x
