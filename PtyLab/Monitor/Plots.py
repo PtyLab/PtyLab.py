@@ -57,7 +57,7 @@ class ObjectProbeErrorPlot(object):
         self.ax_error_metric.set_title("Error metric")
         self.ax_error_metric.grid(True)
         self.ax_error_metric.grid(
-            b=True, which="minor", color="#999999", linestyle="-", alpha=0.2
+            animated=True, which="minor", color="#999999", linestyle="-", alpha=0.2
         )
         self.ax_error_metric.set_xlabel("iterations")
         self.ax_error_metric.set_ylabel("error")

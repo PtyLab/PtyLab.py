@@ -61,7 +61,10 @@ def find_range(A, n_samples, n_subspace_iters=None):
     """
     xp = getArrayModule(A)
     m, n = A.shape
-    O = xp.random.randn(n, n_samples) + 1j * xp.random.randn(n, n_samples)
+    O = 1j*xp.random.normal(0,1.0, size=(n, n_samples))
+    O +=xp.random.normal(0,1.0, size=(n, n_samples))
+    O = O.astype(xp.complex64)
+    #O = xp.random.randn(n, n_samples) + 1j * xp.random.randn(n, n_samples)
     Y = A @ O
 
     if n_subspace_iters:

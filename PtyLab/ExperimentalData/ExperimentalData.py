@@ -1,26 +1,21 @@
-from PtyLab.utils.gpuUtils import transfer_fields_to_cpu, transfer_fields_to_gpu
 import numpy as np
+from PtyLab.utils.gpuUtils import (transfer_fields_to_cpu,
+                                   transfer_fields_to_gpu)
 
 try:
     import pyqtgraph as pg
 except ImportError:
     print("Cannot use pyqtgraph")
-import matplotlib.pyplot as plt
-
 # from pathlib import Path
 import logging
 
+import matplotlib.pyplot as plt
 # import tables
-from PtyLab.read_write import readHdf5
-
-# from PtyLab.read_write import readExample
-from PtyLab.utils.visualisation import show3Dslider
-from PtyLab.utils.visualisation import setColorMap
-from PtyLab.utils.gpuUtils import (
-    getArrayModule,
-    transfer_fields_to_gpu,
-    transfer_fields_to_cpu,
-)
+from PtyLab.io import readHdf5
+from PtyLab.utils.gpuUtils import (getArrayModule, transfer_fields_to_cpu,
+                                   transfer_fields_to_gpu)
+# from PtyLab.io import readExample
+from PtyLab.utils.visualisation import setColorMap, show3Dslider
 
 
 class ExperimentalData:
@@ -105,7 +100,7 @@ class ExperimentalData:
 
         if not os.path.exists(filename) and str(filename).startswith("example:"):
             self.filename = filename
-            from PtyLab.read_write.readExample import examplePath
+            from PtyLab.io.readExample import examplePath
 
             self.filename = examplePath(
                 filename
@@ -226,7 +221,7 @@ class ExperimentalData:
         xp = getArrayModule(self.ptychogram)
         print(f"Min max ptychogram: {np.min(self.ptychogram)}, {self.ptychogram.max()}")
         log_ptychogram = xp.log10(
-            xp.swapaxes(np.clip(self.ptychogram.astype(np.float), 0, None), 1, 2) + 1
+            xp.swapaxes(np.clip(self.ptychogram.astype(np.float32), 0, None), 1, 2) + 1
         )
         print(f"Min max ptychogram: {np.min(log_ptychogram)}, {log_ptychogram.max()}")
         show3Dslider(log_ptychogram)

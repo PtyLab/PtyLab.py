@@ -1,5 +1,4 @@
-import cupyx.scipy.ndimage
-from cupyx.scipy import ndimage
+
 
 from PtyLab.Reconstruction.Reconstruction import calculate_pixel_positions
 from PtyLab import Operators
@@ -29,6 +28,8 @@ from PtyLab.utils.random_sampling import choose_with_arbitrary_histogram
 try:
     import cupy as cp
     from cupyx.scipy.ndimage import fourier_gaussian as fourier_gaussian_gpu
+    import cupyx.scipy.ndimage
+    from cupyx.scipy import ndimage
 except ImportError:
     from scipy.ndimage import fourier_gaussian as fourier_gaussian_gpu
     cp = None
@@ -193,6 +194,7 @@ class BaseEngine(object):
             # predefine shifts
             rmax = 2
             dy, dx = np.mgrid[-rmax : rmax + 1, -rmax : rmax + 1]
+
             # self.rowShifts = dy.flatten()#np.array([-1, -1, -1, 0, 0, 0, 1, 1, 1])
             self.rowShifts = np.array([-1, -1, -1, 0, 0, 0, 1, 1, 1])
             # self.colShifts = dx.flatten()#np.array([-1, 0, 1, -1, 0, 1, -1, 0, 1])
@@ -658,9 +660,6 @@ class BaseEngine(object):
                 # self.positionIndices[N:] = self.positionIndices[:N]
                 self.positionIndices = choose_with_arbitrary_histogram(N, np.clip(probabilities, 0.1/N, 3/N))
                 np.random.shuffle(self.positionIndices)
-
-            # print(self.counts_per_position)
-
 
         # order by illumiantion angles. Use smallest angles first
         # (i.e. start with brightfield data first, then add the low SNR
@@ -1258,6 +1257,7 @@ class BaseEngine(object):
         :param sx:
         :return:
         """
+
         xp = getArrayModule(objectPatch)
         if len(self.reconstruction.error) > self.startAtIteration:
             self.logger.debug("Calculating position correction")
@@ -1272,7 +1272,12 @@ class BaseEngine(object):
                 O = fft2c(self.reconstruction.object)
                 Opatch = fft2c(objectPatch)
 
+
+
+
             if self.params.positionCorrectionSwitch_radius < 2:
+                # do the direct one as it's a bit faster
+
                 for shifts in range(len(self.rowShifts)):
                     tempShift = xp.roll(Opatch, self.rowShifts[shifts], axis=-2)
                     # shiftedImages[shifts, ...] = xp.roll(tempShift, self.colShifts[shifts], axis=-1)
@@ -1281,45 +1286,35 @@ class BaseEngine(object):
                         xp.sum(shiftedImages.conj() * O[..., sy, sx], axis=(-2, -1))
                     )
                     del tempShift, shiftedImages
-                    #betaGrad = 1000
+                    betaGrad = self.params.PC_betaGrad
                     r = 3
-                betaGrad = self.params.PC_betaGrad
-                # center of mass estimate?
-                normFactor = xp.sum(Opatch.conj() * Opatch, axis=(-2, -1)).real
-                grad_x = betaGrad * xp.sum(
-                    (cc.T - xp.mean(cc)) / normFactor * xp.array(self.colShifts)
-                )
-                grad_y = betaGrad * xp.sum(
-                    (cc.T - xp.mean(cc)) / normFactor * xp.array(self.rowShifts)
-                )
+                    normFactor = xp.sum(Opatch.conj() * Opatch, axis=(-2, -1)).real
+                    grad_x = betaGrad * xp.sum(
+                        (cc.T - xp.mean(cc)) / normFactor * xp.array(self.colShifts)
+                    )
+                    grad_y = betaGrad * xp.sum(
+                        (cc.T - xp.mean(cc)) / normFactor * xp.array(self.rowShifts)
+                    )
             else:
-
-                cc, grad_y, grad_x = calc_position_new(Opatch[0,0,0,0,:,:], O[0,0,0,0,sy, sx],
-                                                             self.params.positionCorrectionSwitch_radius)
-                #r = np.clip(self.params.positionCorrectionSwitch_radius / 2, 1, 6)
+                cc, grad_y, grad_x = calc_position_new(Opatch[0, 0, 0, 0, :, :], O[0, 0, 0, 0, sy, sx],
+                                                       self.params.positionCorrectionSwitch_radius)
+                # r = np.clip(self.params.positionCorrectionSwitch_radius / 2, 1, 6)
                 r = 6
                 betaGrad = self.params.PC_betaGrad
                 grad_y = betaGrad * grad_y
                 grad_x = betaGrad * grad_x
-
             # truncated cross - correlation
             # cc = xp.squeeze(xp.sum(shiftedImages.conj() * self.reconstruction.object[..., sy, sx], axis=(-2, -1)))
             cc = abs(cc)
-
-
-            #r = np.clip(self.params.positionCorrectionSwitch_radius//5, 3, self.reconstruction.Np//10) # maximum shift in pixels?
             grad_y = asNumpyArray(grad_y)
             grad_x = asNumpyArray(grad_x)
-            #
-            if np.random.rand() > 0.999:
-                self.logger.error(f'Position update before clip: {positionIndex} changes by {(grad_y, grad_x)} (amp {betaGrad})')
             if abs(grad_x) > r:
                 grad_x = r * grad_x / abs(grad_x)
             if abs(grad_y) > r:
                 grad_y = r * grad_y / abs(grad_y)
+            if np.random.rand() > 0.999:
+                self.logger.error(f'Position update before clip: {positionIndex} changes by {(grad_y, grad_x)} (amp {betaGrad})')
             delta_p = self.daleth * np.array([grad_y, grad_x])
-
-            #self.logger.error(f'Position update after clip: {positionIndex} changes by {delta_p}')
             self.D[positionIndex, :] = (
                 delta_p
                 + self.beth * self.D[positionIndex, :]
@@ -1596,8 +1591,8 @@ class BaseEngine(object):
                 allmerits=allmerits,
             )
 
-        if self.params.OPRP and loop % self.params.OPRP_tsvd_interval == 0:
-            self.reconstruction.probe_storage.tsvd()
+        # if self.params.OPRP and loop % self.params.OPRP_tsvd_interval == 0:
+        #     self.reconstruction.probe_storage.tsvd()
 
     def orthogonalization(self):
         """
@@ -1730,9 +1725,6 @@ class BaseEngine(object):
             xp.around(xp.sum(xp.array(self.reconstruction.Yp, xp.float32) * P2) / demon)
         )
         self.logger.info(f'Checking COM stabilization. Shift: {xc}, {yc}, R={cp.hypot(xc, yc)}. Max radius: {self.params.comStabilization_minradius}')
-
-
-
         # print('Center of mass:', yc, xc)
         # shift only if necessary
         if xc**2 + yc**2 > self.params.comStabilization_minradius**2:

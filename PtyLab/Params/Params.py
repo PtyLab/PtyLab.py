@@ -127,10 +127,27 @@ class Params(object):
         # map a change in positions to a change in z. Experimental, do not use
         self.map_position_to_z_change = False
 
-        # OPR modes
-        self.OPRP = False
+        # Default values of all OPR parameters
+        # Index of the incoherent probe modes that are linked in a subspace.
         self.OPR_modes = np.array([0])
-        self.n_subspace = 4
+        # Size of the subspace which is used for the truncated SVD
+        self.OPR_subspace = 4
+        # Feedback parameter of the OPR modes. The higher the more the probes are allowed
+        # to evolve freely. Value range: [0, 1]
+        self.OPR_alpha = 0.05
+        # Every x iterations the tv constraint is used
+        # CURRENTLY not implementd
+        self.OPR_tv_freq = 5
+        # feedback parameter for the tv constraint
+        # CURRENTLY not implementd
+        self.OPR_tv = False
+        # truncated SVD to chose, either standard numpy svd or randomized tsvd, which
+        # saves some computational time
+        self.OPR_tsvd_type = 'numpy' # numpy or randomized
+        # Switch to orthogonolize all incoherent probe modes
+        self.OPR_orthogonalize_modes = True
+        # If set True only slowly changing probes are allowed
+        self.OPR_neighbor_constraint = False
 
         # SHG stuff
         self.SHG_probe = False
