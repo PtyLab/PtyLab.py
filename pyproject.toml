@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "ptylab"
-version = "0.1.0"
+version = "0.1.1"
 description = "A cross-platform, open-source inverse modeling toolbox for conventional and Fourier ptychography"
 authors = ["Lars Loetgering <lars.loetgering@fulbrightmail.org>", "PtyLab Team"]
 license = "MIT"
