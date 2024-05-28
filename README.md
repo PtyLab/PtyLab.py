@@ -40,12 +40,10 @@ git clone git@github.com:PtyLab/PtyLab.py.git
 cd PtyLab.py
 ```
 
-### Development with `conda`
-
-If you prefer `conda` as a development medium, please create the environment as follows
+please create a virtual environment (preferably with `conda`) and install the dependencies including the development dependencies as specified with the `dev` flag. 
 
 ```bash
-conda create --name ptylab_venv python=3.10.13 # or python version satisfying ">=3.9, <3.12"
+conda create --name ptylab_venv python=3.11.5 # or python version satisfying ">=3.9, <3.12"
 conda activate ptylab_venv
 pip install -e .[dev]
 ```
@@ -56,41 +54,26 @@ To use GPU, it is preferable to use `conda-forge` channel to install `cupy` inst
 conda install -c conda-forge cupy
 ```
 
-### Development with `virtualenv`
-
-To install this package and its dependencies in editable mode and in a virtual environment, for example using [virtualenv](https://pypi.org/project/virtualenv/), please do the following
-
-```bash
-virtualenv .venv
-source .venv/bin/activate
-pip install -e .[dev]
-```
-
-If you want to utilize GPU with CUDA v11.2 - 11.8 installed in system, do the following instead,
-
-```bash
-pip install -e .[dev,gpu11x]  # `gpu12x` if CUDA v12.x
-```
-
 > [!WARNING]
 > The build-system as given under [`pyproject.toml`](pyproject.toml) is based on [Poetry](https://python-poetry.org/), a python package manager. If you are a maintainer of `PtyLab.py` and would like to modify existing packages or add new ones, it's recommended to rely on `poetry` for development. It comes with its own dependency resolver, making sure nothing breaks. Please refer to the next section to get started with `poetry`.
 
-## Package management with `poetry`
+## Package management with `poetry` and `conda`
 
-To start off, please delete existing environments (`conda`/`virtualenv`) as `poetry` would also create a virtual environment by default. To install `poetry`, the simplest way is with [`pipx`](https://pypi.org/project/pipx/).
+If there is no existing `conda` environment, please create one and install `poetry` within the environment.
 
 ```bash
-pip install pipx
-pipx install poetry
+conda create --name ptylab_venv python=3.11.5 # or python version satisfying ">=3.9, <3.12"
+conda install poetry
 ```
 
-At the root of the repository (after cloning), you can now install `PtyLab.py` in its own virtual environment by simply doing,
+Within the `conda` virtual environment, you can now install `PtyLab.py` and its depedencies with poetry,
 
 ```bash
+conda activate ptylab_venv
 poetry install
 ```
 
-This will also create a `poetry.lock` file that contains the list of all the *pinned dependencies*.
+This will also create a `poetry.lock` file that contains the list of all the *pinned dependencies* as given under `pyproject.toml`. Sometimes Poetry fails to install a dependency as it tries to be compatible with all OS platforms. In this case, please install that failed dependency with `pip`.
 
 To also install the optional packages from the fields `dev` or `gpu11x`, instead do,
 
@@ -98,7 +81,7 @@ To also install the optional packages from the fields `dev` or `gpu11x`, instead
 poetry install --extras "dev gpu11x" # `gpu12x` if CUDA v12.x
 ```
 
-If you want to install a new package from [PyPI](https://pypi.org/project/pip/), instead of relying on `pip`, please do so with `poetry` as 
+If you want to install a new package from [PyPI](https://pypi.org/project/pip/), instead of relying on `pip`, please do so with `poetry` instead
 
 ```bash
 poetry add <package-name>
