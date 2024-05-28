@@ -55,18 +55,18 @@ conda install -c conda-forge cupy
 ```
 
 > [!WARNING]
-> The build-system as given under [`pyproject.toml`](pyproject.toml) is based on [Poetry](https://python-poetry.org/), a python package manager. If you are a maintainer of `PtyLab.py` and would like to modify existing packages or add new ones, it's recommended to rely on `poetry` for development. It comes with its own dependency resolver, making sure nothing breaks. Please refer to the next section to get started with `poetry`.
+> The build-system as given under [`pyproject.toml`](pyproject.toml) is based on [Poetry](https://python-poetry.org/), a python package manager. If you are a maintainer of `PtyLab.py` and would like to modify existing packages or add new ones, it's recommended to rely on Poetry for development. It comes with its own dependency resolver, making sure nothing breaks. Please refer to the next section to get started with `poetry`.
 
-## Package management with `poetry` and `conda`
+## Package management with conda and poetry
 
-If there is no existing `conda` environment, please create one and install `poetry` within the environment.
+If there is no existing conda environment, please create one and install `poetry` within the environment.
 
 ```bash
 conda create --name ptylab_venv python=3.11.5 # or python version satisfying ">=3.9, <3.12"
 conda install poetry
 ```
 
-Within the `conda` virtual environment, you can now install `PtyLab.py` and its depedencies with poetry,
+Within the conda virtual environment, you can now install `PtyLab.py` and its depedencies with poetry,
 
 ```bash
 conda activate ptylab_venv
@@ -81,7 +81,7 @@ To also install the optional packages from the fields `dev` or `gpu11x`, instead
 poetry install --extras "dev gpu11x" # `gpu12x` if CUDA v12.x
 ```
 
-If you want to install a new package from [PyPI](https://pypi.org/project/pip/), instead of relying on `pip`, please do so with `poetry` instead
+If you want to install a new package from [PyPI](https://pypi.org/project/pip/), please do so with `poetry`.
 
 ```bash
 poetry add <package-name>
