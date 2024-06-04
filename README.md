@@ -29,10 +29,21 @@ pip install -e .[dev]
 
 To use the GPU, `cupy` can be additionally installed in this environment.
 
-## Getting Started
+## Usage
 
-Under [example_scripts](example_scripts/) and [jupyter_tutorials](jupyter_tutorials) you can find typical use cases of using PtyLab for your reconstruction. 
-/TODO: Add more details which are specific and easier to navigate to.
+The simplest way to get started is by simulating some ptychography data. Assuming you are at the root directory and within the environment, please execute the following command.
+
+```bash
+python example_scripts/simulateData.py
+```
+This will store the data under the [example_data](example_data) directory as `simu.hdf5`. To reconstruct this data and store as `recon.hdf5` in the same directory,
+
+```bash
+python example_scripts/exampleReconstructionCPM.py --f example_data/simu.hdf5
+```
+To use GPU, the above command can be appended with `--gpu` flag.
+
+Under [example_scripts](example_scripts/) and [jupyter_tutorials](jupyter_tutorials), you can find examples for typical use cases. 
 
 ## Package management with conda and poetry
 
