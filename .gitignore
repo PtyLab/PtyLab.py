@@ -5,3 +5,5 @@
 *.vscode
 *.venv
 *.lock
+logs_tensorboard
+*.hdf5
