@@ -3,7 +3,6 @@ name = "ptylab"
 version = "0.1.2"
 description = "A cross-platform, open-source inverse modeling toolbox for conventional and Fourier ptychography"
 authors = ["Lars Loetgering <lars.loetgering@fulbrightmail.org>", "PtyLab Team"]
-license = "MIT"
 readme = "README.md"
 packages = [
     { include = "PtyLab" }
