@@ -48,7 +48,7 @@ Under [example_scripts](example_scripts/) and [jupyter_tutorials](jupyter_tutori
 
 ## Package management with conda and poetry
 
-> [!WARNING]
+> [!NOTE]
 > The build-system as given under [`pyproject.toml`](pyproject.toml) is based on [Poetry](https://python-poetry.org/), a Python package manager. If you are a maintainer of `PtyLab.py` and would like to modify existing packages or add new ones, relying on Poetry for development is recommended. It comes with its own dependency resolver, making sure nothing breaks.
 
 If there is no existing conda environment, please create one and install `poetry` within the environment.
