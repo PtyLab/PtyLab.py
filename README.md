@@ -29,7 +29,7 @@ pip install -e .[dev]
 
 To use the GPU, `cupy` can be additionally installed in this environment.
 
-## Usage
+## Getting started
 
 The simplest way to get started is by simulating some ptychography data. Assuming you are at the root directory and within the environment, please execute the following command.
 
