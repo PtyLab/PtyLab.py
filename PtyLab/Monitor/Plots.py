@@ -1,13 +1,10 @@
 import warnings
 
-from matplotlib.image import AxesImage
 import matplotlib as mpl
 import numpy as np
 from IPython.display import display, update_display
 from matplotlib import pyplot as plt
-import numpy as np
-from PtyLab.utils import gpuUtils
-from PtyLab.utils.visualisation import modeTile, complexPlot, complex2rgb
+from matplotlib.image import AxesImage
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from PtyLab.utils import gpuUtils
