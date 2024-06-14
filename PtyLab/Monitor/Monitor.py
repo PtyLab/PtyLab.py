@@ -1,3 +1,4 @@
+import warnings
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -5,8 +6,10 @@ import matplotlib.pyplot as plt
 # import napari
 from matplotlib.colors import LogNorm
 import numpy as np
-from .Plots import ObjectProbeErrorPlot, DiffractionDataPlot
-from PtyLab.utils.visualisation import setColorMap, complex2rgb
+
+from PtyLab.utils.visualisation import complex2rgb, setColorMap
+
+from .Plots import DiffractionDataPlot, ObjectProbeErrorPlot, is_inline
 
 
 class AbstractMonitor(object):
@@ -211,10 +214,16 @@ class Monitor(AbstractMonitor):
             amplitudeScalingFactor=self.probePlotContrast,
         )
         self.defaultMonitor.update_z(zo)
+        if is_inline() and self.figureUpdateFrequency < 5:
+            warnings.warn(
+                "For faster reconstruction with inline backend, set `monitor.figureUpdateFrequency = 5` or higher."
+            )
         self.defaultMonitor.drawNow()
 
         if self.screenshot_directory is not None:
-            self.defaultMonitor.figure.savefig(Path(self.screenshot_directory) / f'{len(error)}.png')
+            self.defaultMonitor.figure.savefig(
+                Path(self.screenshot_directory) / f"{len(error)}.png"
+            )
 
     def describe_parameters(self, *args, **kwargs):
         pass
@@ -229,6 +238,10 @@ class Monitor(AbstractMonitor):
         )
         # self.diffractionDataMonitor.updateIestimated(Iestimated, cmap=self.cmapDiffraction)
         # self.diffractionDataMonitor.updateImeasured(Imeasured, cmap=self.cmapDiffraction)
+        if is_inline():
+            warnings.warn(
+                'For faster reconstruction use an interactive backend such as qt5Agg or tkagg or set `monitor.verboseLevel = "low"`. '
+            )
         self.diffractionDataMonitor.drawNow()
 
 
