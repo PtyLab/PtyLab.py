@@ -2,10 +2,8 @@ import warnings
 from pathlib import Path
 
 import matplotlib.pyplot as plt
-
-# import napari
-from matplotlib.colors import LogNorm
 import numpy as np
+from matplotlib.colors import LogNorm
 
 from PtyLab.utils.visualisation import complex2rgb, setColorMap
 
@@ -277,6 +275,11 @@ class DummyMonitor(object):
 
 
 class NapariMonitor(DummyMonitor):
+    try:
+        import napari
+    except ImportError:
+        print("Install napari for this implementation")
+
     def initializeVisualisation(self):
         self.viewer = napari.Viewer()
         self.viewer.show()
