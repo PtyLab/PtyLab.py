@@ -155,9 +155,9 @@ class Monitor(AbstractMonitor):
 
     def __init__(self):
         # settings for visualization
-        self.figureUpdateFrequency = 1
+        self._figureUpdateFrequency = 1
         self.objectPlot = "complex"
-        self.verboseLevel = "low"
+        self._verboseLevel = "low"
         self.objectZoom = 1
         self.probeZoom = 1
         self.objectPlotContrast = 1
@@ -166,6 +166,34 @@ class Monitor(AbstractMonitor):
         self.cmapDiffraction = setColorMap()
         self.defaultMonitor = None
         self.screenshot_directory = None
+        self.diffractionDataMonitor = None
+
+    @property
+    def figureUpdateFrequency(self):
+        return self._figureUpdateFrequency
+
+    @figureUpdateFrequency.setter
+    def figureUpdateFrequency(self, value):
+        self._figureUpdateFrequency = value
+        if is_inline() and self.figureUpdateFrequency < 5:
+            warnings.simplefilter("always", UserWarning)
+            warnings.warn(
+                "For faster reconstruction with inline backend, set `monitor.figureUpdateFrequency = 5` or higher."
+            )
+
+    @property
+    def verboseLevel(self):
+        return self._verboseLevel
+
+    @verboseLevel.setter
+    def verboseLevel(self, value):
+        self._verboseLevel = value
+        if is_inline() and self._verboseLevel == "high":
+            warnings.simplefilter("always", UserWarning)
+            warnings.warn(
+                "For diffraction data plot, preferably use an interactive matplotlib backend or"
+                'set `monitor.verboseLevel = "low"`. '
+            )
 
     def initializeMonitors(self):
         """
@@ -212,10 +240,6 @@ class Monitor(AbstractMonitor):
             amplitudeScalingFactor=self.probePlotContrast,
         )
         self.defaultMonitor.update_z(zo)
-        if is_inline() and self.figureUpdateFrequency < 5:
-            warnings.warn(
-                "For faster reconstruction with inline backend, set `monitor.figureUpdateFrequency = 5` or higher."
-            )
         self.defaultMonitor.drawNow()
 
         if self.screenshot_directory is not None:
@@ -236,10 +260,6 @@ class Monitor(AbstractMonitor):
         )
         # self.diffractionDataMonitor.updateIestimated(Iestimated, cmap=self.cmapDiffraction)
         # self.diffractionDataMonitor.updateImeasured(Imeasured, cmap=self.cmapDiffraction)
-        if is_inline():
-            warnings.warn(
-                'For faster reconstruction use an interactive backend such as qt5Agg or tkagg or set `monitor.verboseLevel = "low"`. '
-            )
         self.diffractionDataMonitor.drawNow()
 
 
