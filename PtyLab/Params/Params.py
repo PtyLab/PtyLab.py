@@ -9,13 +9,16 @@ def set_gpuSwitch():
 
         if cupy.cuda.is_available():
             print(
-                "cupy and cuda available, switching to GPU for faster reconstructions"
+                "cupy and cuda available, switching to GPU for faster reconstruction."
             )
             return True
         else:
+            print(
+                "cuda unavailable or incompatible, switching to CPU for reconstruction."
+            )
             return False
-    except ImportError:
-        print("cupy unavailable, switching to CPU for reconstruction")
+    except:
+        print("cupy unavailable, switching to CPU for reconstruction.")
         return False
 
 
@@ -164,6 +167,3 @@ class Params(object):
 
         # SHG stuff
         self.SHG_probe = False
-
-
-params = Params()
