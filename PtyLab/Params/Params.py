@@ -15,6 +15,7 @@ def set_gpuSwitch():
         else:
             return False
     except ImportError:
+        print("cupy unavailable, switching to CPU for reconstruction")
         return False
 
 
@@ -163,3 +164,6 @@ class Params(object):
 
         # SHG stuff
         self.SHG_probe = False
+
+
+params = Params()
