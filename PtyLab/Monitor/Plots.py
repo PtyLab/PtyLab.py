@@ -2,7 +2,7 @@ import warnings
 
 import matplotlib as mpl
 import numpy as np
-from IPython.display import display, update_display
+from IPython.display import clear_output, display
 from matplotlib import pyplot as plt
 from matplotlib.image import AxesImage
 from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -196,11 +196,13 @@ class ObjectProbeErrorPlot(object):
 
     def drawNowIpython(self):
         if self.firstrun:
-            display(self.figure, display_id=str(self.figNum))
-            self.display_id = str(self.figNum)  # Store the display ID
+            self.display_id = display(self.figure, display_id=True)
             self.firstrun = False
         else:
-            update_display(self.figure, display_id=self.display_id)
+            clear_output(wait=True)
+            self.display_id = display(
+                self.figure, display_id=self.display_id.display_id
+            )
         self.canvas.draw_idle()
         self.canvas.flush_events()
 
@@ -304,12 +306,13 @@ class DiffractionDataPlot(object):
 
     def drawNowIpython(self):
         if self.firstrun:
-            display(self.figure, display_id=str(self.figNum))
-            self.display_id = str(self.figNum)
+            self.display_id = display(self.figure, display_id=True)
             self.firstrun = False
         else:
-            update_display(self.figure, display_id=self.display_id)
-
+            clear_output(wait=True)
+            self.display_id = display(
+                self.figure, display_id=self.display_id.display_id
+            )
         self.canvas.draw_idle()
         self.canvas.flush_events()
 
