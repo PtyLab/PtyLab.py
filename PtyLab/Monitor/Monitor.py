@@ -178,7 +178,7 @@ class Monitor(AbstractMonitor):
         if is_inline() and self.figureUpdateFrequency < 5:
             warnings.simplefilter("always", UserWarning)
             warnings.warn(
-                "For faster reconstruction with inline backend, set `monitor.figureUpdateFrequency = 5` or higher."
+                "For faster update of the reconstruction plot, set `monitor.figureUpdateFrequency = 5` or higher."
             )
 
     @property
@@ -192,7 +192,7 @@ class Monitor(AbstractMonitor):
             warnings.simplefilter("always", UserWarning)
             warnings.warn(
                 "For diffraction data plot, preferably use an interactive matplotlib backend or"
-                'set `monitor.verboseLevel = "low"`. '
+                ' set `monitor.verboseLevel = "low"`. '
             )
 
     def initializeMonitors(self):
