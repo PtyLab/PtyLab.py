@@ -1,12 +1,10 @@
 from pathlib import Path
 
-import matplotlib.pyplot as plt
-
-# import napari
-from matplotlib.colors import LogNorm
 import numpy as np
-from .Plots import ObjectProbeErrorPlot, DiffractionDataPlot
-from PtyLab.utils.visualisation import setColorMap, complex2rgb
+
+from PtyLab.utils.visualisation import complex2rgb, setColorMap
+
+from .Plots import DiffractionDataPlot, ObjectProbeErrorPlot
 
 
 class AbstractMonitor(object):
@@ -264,10 +262,18 @@ class DummyMonitor(object):
 
 
 class NapariMonitor(DummyMonitor):
+            
     def initializeVisualisation(self):
-        self.viewer = napari.Viewer()
-        self.viewer.show()
-
+        # currently a hacky way for this class, these napari implementations must 
+        # later be moved an optional sub-package. 
+        try:
+            import napari
+            self.viewer = napari.Viewer()
+            self.viewer.show()
+        except ImportError:
+            msg = "Install napari to access this `NapariMonitor` implementation"
+            raise ImportError(msg)
+        
         self.viewer.add_image(name="object estimate", data=np.random.rand(100, 100))
         self.viewer.add_image(name="probe estimate", data=np.random.rand(100, 100))
 
