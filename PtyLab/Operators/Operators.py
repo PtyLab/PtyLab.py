@@ -10,8 +10,9 @@ from functools import lru_cache
 try:
     import cupy as cp
 except ImportError:
+    pass
     # print("Cupy not available, will not be able to run GPU based computation")
-    import numpy as np
+import numpy as np
 
 from PtyLab import Params, Reconstruction
 from PtyLab.Operators._propagation_kernels import __make_quad_phase
