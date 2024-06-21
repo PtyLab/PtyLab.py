@@ -13,15 +13,15 @@ except ImportError:
 import logging
 import sys
 
-from fracPy.Engines.BaseEngine import BaseEngine
-from fracPy.ExperimentalData.ExperimentalData import ExperimentalData
-from fracPy.Monitor.Monitor import Monitor
-from fracPy.Operators.Operators import aspw
-from fracPy.Params.Params import Params
+from PtyLab.Engines.BaseEngine import BaseEngine
+from PtyLab.ExperimentalData.ExperimentalData import ExperimentalData
+from PtyLab.Monitor.Monitor import Monitor
+from PtyLab.Operators.Operators import aspw
+from PtyLab.Params.Params import Params
 
 # fracPy imports
-from fracPy.Reconstruction.Reconstruction import Reconstruction
-from fracPy.utils.gpuUtils import asNumpyArray, getArrayModule
+from PtyLab.Reconstruction.Reconstruction import Reconstruction
+from PtyLab.utils.gpuUtils import asNumpyArray, getArrayModule
 
 
 class e3PIE(BaseEngine):
