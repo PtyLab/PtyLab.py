@@ -174,10 +174,6 @@ class Params(object):
 
     @property
     def gpuSwitch(self):
-        return self._gpuSwitch
-
-    @property
-    def gpuSwitch(self):
         """Get the GPU switch state."""
         return self._gpuSwitch
 
