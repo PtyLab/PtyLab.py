@@ -21,6 +21,7 @@ def _check_gpu_availability(verbose=False):
         if verbose:
             logger.info("cupy is unavailable, switching to CPU")
         return False
+
     if verbose:
         logger.info("CUDA is unavailable, switching to CPU")
     return False
@@ -173,16 +174,16 @@ class Params(object):
         self.SHG_probe = False
 
     @property
-    def gpu_switch(self):
+    def gpuSwitch(self):
         return self._gpuSwitch
 
     @property
-    def gpu_switch(self):
+    def gpuSwitch(self):
         """Get the GPU switch state."""
         return self._gpuSwitch
 
-    @gpu_switch.setter
-    def gpu_switch(self, value: bool):
+    @gpuSwitch.setter
+    def gpuSwitch(self, value: bool):
         """Set the GPU switch state with appropriate checks."""
         if value:
             if _check_gpu_availability():
