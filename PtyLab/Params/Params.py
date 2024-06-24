@@ -1,10 +1,11 @@
+# %%
 import logging
 
 import numpy as np
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("Params")
+logger = logging.getLogger("GPU")
 
 
 def _check_gpu_availability(verbose=False):
@@ -16,14 +17,16 @@ def _check_gpu_availability(verbose=False):
             if verbose:
                 logger.info("cupy and CUDA available, switching to GPU")
             return True
+            
+    except AttributeError:
+        if verbose:
+            logger.info("CUDA is unavailable, switching to CPU")
+        return False
+    
     except ImportError:
         if verbose:
             logger.info("cupy is unavailable, switching to CPU")
         return False
-
-    if verbose:
-        logger.info("CUDA is unavailable, switching to CPU")
-    return False
 
 
 class Params(object):
@@ -182,7 +185,7 @@ class Params(object):
         """Set the GPU switch state with appropriate checks."""
         if value:
             if _check_gpu_availability():
-                # gpuSwitch is already True, nothing to do
+                # gpuSwitch is already True and GPU is available, nothing to do
                 pass
             else:
                 msg = "cuda unavailable or incompatible, please set `self.gpuSwitch = False`"
