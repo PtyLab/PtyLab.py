@@ -15,10 +15,22 @@ import argparse
 import numpy as np
 
 """ 
-ptycho data reconstructor 
-change data visualization and initialization options manually for now
+Ptychographic dataset reconstruction example.
+
+This is the file that you can start from to learn PtyLab.py, and that you can copy and adopt to your own needs.
+
+For beginner programmers: 
+
+The first lines just give this file the ability to be run as a program, as
+
+```$ python exampleReconstructionCPM.py --file <filename>``` 
+
+If that's not what you want, just disable the line parser.parse_args(), and set fileName and gpu_switch directly.
+
+
 """
 
+##
 # set argparser options
 parser = argparse.ArgumentParser(description="Conventional ptychography reconstruction")
 parser.add_argument(
