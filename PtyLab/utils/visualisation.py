@@ -67,7 +67,8 @@ def complex2rgb(u, amplitudeScalingFactor=1, force_numpy=True, center_phase=Fals
         amplitudeScalingFactor = ASF
     else:
         ASF = amplitudeScalingFactor
-    if ASF != 1:
+    
+    if ASF != 1 and amplitudeScalingFactor != "2sigma":
         v[v > amplitudeScalingFactor * np.max(v)] = amplitudeScalingFactor * np.max(v)
     v = v / (xp.max(v) + xp.finfo(float).eps) * (2**8 - 1)
 
