@@ -16,12 +16,12 @@ def _check_gpu_availability(verbose=False):
             if verbose:
                 logger.info("cupy and CUDA available, switching to GPU")
             return True
-            
+
     except AttributeError:
         if verbose:
             logger.info("CUDA is unavailable, switching to CPU")
         return False
-    
+
     except ImportError:
         if verbose:
             logger.info("cupy is unavailable, switching to CPU")
@@ -184,11 +184,11 @@ class Params(object):
         """Set the GPU switch state with appropriate checks."""
         if value:
             if _check_gpu_availability():
-                # if gpuSwitch set to True and GPU is available, either nothing or 
+                # if gpuSwitch set to True and GPU is available, either nothing or
                 # set again to True if False
                 self._gpuSwitch = value
             else:
-                msg = "cuda unavailable or incompatible, please set `self.gpuSwitch = False`"
+                msg = "cuda/cupy unavailable or incompatible, cannot set `self.gpuSwitch = True`"
                 raise AttributeError(msg)
         else:
             if _check_gpu_availability():
@@ -199,4 +199,3 @@ class Params(object):
                 # gpuSwitch is already False and GPU is not available, nothing to do
                 pass
             self._gpuSwitch = value
-            
