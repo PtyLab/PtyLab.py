@@ -608,7 +608,7 @@ class BaseEngine(object):
         if not hasattr(self.params, "gpuFlag"):
             self.params.gpuFlag = 0
 
-        if self.params.gpuSwitch:
+        if self.params._gpuSwitch:
             if cp is None:
                 raise ImportError(
                     "Could not import cupy, therefore no GPU reconstruction is possible. To reconstruct, set the params.gpuSwitch to False."
