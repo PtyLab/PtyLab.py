@@ -193,6 +193,6 @@ class Params(object):
         else:
             self._gpuSwitch = value
             if _check_gpu_availability():
-                logger.warn(
+                logger.warning(
                     "Disabling GPU switch. If this is unwanted, please set `self.gpuSwitch = True`"
                 )
