@@ -1,10 +1,11 @@
+import warnings
 from pathlib import Path
 
 import numpy as np
 
 from PtyLab.utils.visualisation import complex2rgb, setColorMap
 
-from .Plots import DiffractionDataPlot, ObjectProbeErrorPlot
+from .Plots import DiffractionDataPlot, ObjectProbeErrorPlot, is_inline
 
 
 class AbstractMonitor(object):
@@ -152,9 +153,9 @@ class Monitor(AbstractMonitor):
 
     def __init__(self):
         # settings for visualization
-        self.figureUpdateFrequency = 1
+        self._figureUpdateFrequency = 1
         self.objectPlot = "complex"
-        self.verboseLevel = "low"
+        self._verboseLevel = "low"
         self.objectZoom = 1
         self.probeZoom = 1
         self.objectPlotContrast = 1
@@ -163,6 +164,34 @@ class Monitor(AbstractMonitor):
         self.cmapDiffraction = setColorMap()
         self.defaultMonitor = None
         self.screenshot_directory = None
+        self.diffractionDataMonitor = None
+
+    @property
+    def figureUpdateFrequency(self):
+        return self._figureUpdateFrequency
+
+    @figureUpdateFrequency.setter
+    def figureUpdateFrequency(self, value):
+        self._figureUpdateFrequency = value
+        if is_inline() and self.figureUpdateFrequency < 5:
+            warnings.simplefilter("always", UserWarning)
+            warnings.warn(
+                "For faster update of the reconstruction plot, set `monitor.figureUpdateFrequency = 5` or higher."
+            )
+
+    @property
+    def verboseLevel(self):
+        return self._verboseLevel
+
+    @verboseLevel.setter
+    def verboseLevel(self, value):
+        self._verboseLevel = value
+        if is_inline() and self._verboseLevel == "high":
+            warnings.simplefilter("always", UserWarning)
+            warnings.warn(
+                "For diffraction data plot, preferably use an interactive matplotlib backend or"
+                ' set `monitor.verboseLevel = "low"`. '
+            )
 
     def initializeMonitors(self):
         """
@@ -212,7 +241,9 @@ class Monitor(AbstractMonitor):
         self.defaultMonitor.drawNow()
 
         if self.screenshot_directory is not None:
-            self.defaultMonitor.figure.savefig(Path(self.screenshot_directory) / f'{len(error)}.png')
+            self.defaultMonitor.figure.savefig(
+                Path(self.screenshot_directory) / f"{len(error)}.png"
+            )
 
     def describe_parameters(self, *args, **kwargs):
         pass
@@ -262,18 +293,19 @@ class DummyMonitor(object):
 
 
 class NapariMonitor(DummyMonitor):
-            
+
     def initializeVisualisation(self):
-        # currently a hacky way for this class, these napari implementations must 
-        # later be moved an optional sub-package. 
+        # currently a hacky way for this class, these napari implementations must
+        # later be moved an optional sub-package.
         try:
             import napari
+
             self.viewer = napari.Viewer()
             self.viewer.show()
         except ImportError:
             msg = "Install napari to access this `NapariMonitor` implementation"
             raise ImportError(msg)
-        
+
         self.viewer.add_image(name="object estimate", data=np.random.rand(100, 100))
         self.viewer.add_image(name="probe estimate", data=np.random.rand(100, 100))
 
