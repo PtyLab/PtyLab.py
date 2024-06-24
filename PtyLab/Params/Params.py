@@ -1,5 +1,25 @@
 import logging
+
 import numpy as np
+
+
+def set_gpuSwitch():
+    try:
+        import cupy
+
+        if cupy.cuda.is_available():
+            print(
+                "cupy and cuda available, switching to GPU for faster reconstruction."
+            )
+            return True
+        else:
+            print(
+                "cuda unavailable or incompatible, switching to CPU for reconstruction."
+            )
+            return False
+    except:
+        print("cupy unavailable, switching to CPU for reconstruction.")
+        return False
 
 
 class Params(object):
@@ -38,7 +58,7 @@ class Params(object):
         self.adaptiveMomentumAcceleration = False  # default False, it is turned on in the individual Engines that use momentum
 
         ## Specific reconstruction settings that are the same for all Engines
-        self.gpuSwitch = False
+        self.gpuSwitch = set_gpuSwitch()
         # This only makes sense on a GPU, not there yet
         self.saveMemory = False
         self.probeUpdateStart = 1
@@ -123,10 +143,10 @@ class Params(object):
         # map a change in positions to a change in z. Experimental, do not use
         self.map_position_to_z_change = False
 
-        # Default values of all OPR parameters 
+        # Default values of all OPR parameters
         # Index of the incoherent probe modes that are linked in a subspace.
-        self.OPR_modes = np.array([0]) 
-        # Size of the subspace which is used for the truncated SVD 
+        self.OPR_modes = np.array([0])
+        # Size of the subspace which is used for the truncated SVD
         self.OPR_subspace = 4
         # Feedback parameter of the OPR modes. The higher the more the probes are allowed
         # to evolve freely. Value range: [0, 1]
@@ -136,10 +156,10 @@ class Params(object):
         self.OPR_tv_freq = 5
         # feedback parameter for the tv constraint
         # CURRENTLY not implementd
-        self.OPR_tv = False 
-        # truncated SVD to chose, either standard numpy svd or randomized tsvd, which 
+        self.OPR_tv = False
+        # truncated SVD to chose, either standard numpy svd or randomized tsvd, which
         # saves some computational time
-        self.OPR_tsvd_type = 'numpy' # numpy or randomized
+        self.OPR_tsvd_type = "numpy"  # numpy or randomized
         # Switch to orthogonolize all incoherent probe modes
         self.OPR_orthogonalize_modes = True
         # If set True only slowly changing probes are allowed
