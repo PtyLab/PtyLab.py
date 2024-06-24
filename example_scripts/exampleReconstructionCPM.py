@@ -2,8 +2,10 @@
 import logging
 from pathlib import Path
 
+import matplotlib
 import matplotlib.pyplot as plt
 
+matplotlib.use("qt5agg")
 import PtyLab
 from PtyLab import Engines
 from PtyLab.Engines.BaseEngine import smooth_amplitude
@@ -49,10 +51,14 @@ gpu_switch = args.gpu
 experimentalData, reconstruction, params, monitor, ePIE_engine = PtyLab.easyInitialize(
     fileName, operationMode="CPM"
 )
-# optional - use tensorboard monitor instead. To see the results, open tensorboard in the directory ./logs_tensorboard
-from PtyLab.Monitor.TensorboardMonitor import TensorboardMonitor
 
-monitor = TensorboardMonitor()
+# optional - use tensorboard monitor instead. To see the results, open tensorboard in the directory ./logs_tensorboard
+tensorboard_monitor = False
+if tensorboard_monitor:
+    from PtyLab.Monitor.TensorboardMonitor import TensorboardMonitor
+
+    monitor = TensorboardMonitor()
+
 
 # turn these two lines on to see the autofocusing in action
 # experimentalData.zo = experimentalData.zo + 1e-2
@@ -184,7 +190,7 @@ for i in range(1, 8):
     params.TV_autofocus = i % 2 == 1
     params.l2reg = i % 2 == 0
 
-    mPIE.reconstruct(experimentalData, reconstruction)
+    mPIE.reconstruct()
     reconstruction.saveResults(f"{getExampleDataFolder()}/recon.hdf5", squeeze=False)
 
 plt.show()
