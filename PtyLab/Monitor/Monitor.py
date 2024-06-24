@@ -1,12 +1,13 @@
+import warnings
 from pathlib import Path
 
 import matplotlib.pyplot as plt
-
-# import napari
-from matplotlib.colors import LogNorm
 import numpy as np
-from .Plots import ObjectProbeErrorPlot, DiffractionDataPlot
-from PtyLab.utils.visualisation import setColorMap, complex2rgb
+from matplotlib.colors import LogNorm
+
+from PtyLab.utils.visualisation import complex2rgb, setColorMap
+
+from .Plots import DiffractionDataPlot, ObjectProbeErrorPlot, is_inline
 
 
 class AbstractMonitor(object):
@@ -154,9 +155,9 @@ class Monitor(AbstractMonitor):
 
     def __init__(self):
         # settings for visualization
-        self.figureUpdateFrequency = 1
+        self._figureUpdateFrequency = 1
         self.objectPlot = "complex"
-        self.verboseLevel = "low"
+        self._verboseLevel = "low"
         self.objectZoom = 1
         self.probeZoom = 1
         self.objectPlotContrast = 1
@@ -165,6 +166,34 @@ class Monitor(AbstractMonitor):
         self.cmapDiffraction = setColorMap()
         self.defaultMonitor = None
         self.screenshot_directory = None
+        self.diffractionDataMonitor = None
+
+    @property
+    def figureUpdateFrequency(self):
+        return self._figureUpdateFrequency
+
+    @figureUpdateFrequency.setter
+    def figureUpdateFrequency(self, value):
+        self._figureUpdateFrequency = value
+        if is_inline() and self.figureUpdateFrequency < 5:
+            warnings.simplefilter("always", UserWarning)
+            warnings.warn(
+                "For faster update of the reconstruction plot, set `monitor.figureUpdateFrequency = 5` or higher."
+            )
+
+    @property
+    def verboseLevel(self):
+        return self._verboseLevel
+
+    @verboseLevel.setter
+    def verboseLevel(self, value):
+        self._verboseLevel = value
+        if is_inline() and self._verboseLevel == "high":
+            warnings.simplefilter("always", UserWarning)
+            warnings.warn(
+                "For diffraction data plot, preferably use an interactive matplotlib backend or"
+                ' set `monitor.verboseLevel = "low"`. '
+            )
 
     def initializeMonitors(self):
         """
@@ -214,7 +243,9 @@ class Monitor(AbstractMonitor):
         self.defaultMonitor.drawNow()
 
         if self.screenshot_directory is not None:
-            self.defaultMonitor.figure.savefig(Path(self.screenshot_directory) / f'{len(error)}.png')
+            self.defaultMonitor.figure.savefig(
+                Path(self.screenshot_directory) / f"{len(error)}.png"
+            )
 
     def describe_parameters(self, *args, **kwargs):
         pass
@@ -264,6 +295,11 @@ class DummyMonitor(object):
 
 
 class NapariMonitor(DummyMonitor):
+    try:
+        import napari
+    except ImportError:
+        print("Install napari for this implementation")
+
     def initializeVisualisation(self):
         self.viewer = napari.Viewer()
         self.viewer.show()
