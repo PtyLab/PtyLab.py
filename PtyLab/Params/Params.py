@@ -1,4 +1,3 @@
-# %%
 import logging
 
 import numpy as np
@@ -184,15 +183,18 @@ class Params(object):
     def gpuSwitch(self, value: bool):
         """Set the GPU switch state with appropriate checks."""
         if value:
-            if _check_gpu_availability():
+            if self._gpuSwitch:
                 # gpuSwitch is already True and GPU is available, nothing to do
                 pass
             else:
                 msg = "cuda unavailable or incompatible, please set `self.gpuSwitch = False`"
                 raise AttributeError(msg)
         else:
-            self._gpuSwitch = value
-            if _check_gpu_availability():
+            if self._gpuSwitch:
                 logger.warning(
                     "Disabling GPU switch. If this is unwanted, please set `self.gpuSwitch = True`"
                 )
+                self._gpuSwitch = value
+            else:
+                # gpuSwitch is already False and GPU is not available, nothing to do
+                pass
