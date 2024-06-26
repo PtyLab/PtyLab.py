@@ -15,15 +15,3 @@ from .OPR import OPR
 from .pcPIE import pcPIE
 from .qNewton import qNewton
 from .zPIE import zPIE
-
-try:
-    import cupy
-
-    if cupy.cuda.is_available():
-        print("cupy and cuda available, cannot use GPU for faster reconstruction.")
-    else:
-        print(
-            "cuda unavailable or incompatible, cannot use GPU for faster reconstruction."
-        )
-except:
-    print("cupy unavailable, cannot use GPU for faster reconstruction.")
