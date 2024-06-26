@@ -1,24 +1,26 @@
 import numpy as np
-from matplotlib import pyplot as plt
 import tqdm
+from matplotlib import pyplot as plt
 
 try:
     import cupy as cp
 except ImportError:
-    print("Cupy not available, will not be able to run GPU based computation")
+    # print("Cupy not available, will not be able to run GPU based computation")
     # Still define the name, we'll take care of it later but in this way it's still possible
     # to see that gPIE exists for example.
     cp = None
 
-# PtyLab imports
-from PtyLab.Reconstruction.Reconstruction import Reconstruction
+import logging
+
 from PtyLab.Engines.BaseEngine import BaseEngine
 from PtyLab.ExperimentalData.ExperimentalData import ExperimentalData
-from PtyLab.Params.Params import Params
-from PtyLab.utils.gpuUtils import getArrayModule, asNumpyArray
 from PtyLab.Monitor.Monitor import Monitor
 from PtyLab.Operators.Operators import aspw
-import logging
+from PtyLab.Params.Params import Params
+
+# PtyLab imports
+from PtyLab.Reconstruction.Reconstruction import Reconstruction
+from PtyLab.utils.gpuUtils import asNumpyArray, getArrayModule
 
 
 class e3PIE(BaseEngine):
@@ -110,22 +112,22 @@ class e3PIE(BaseEngine):
                 for loopTemp in range(self.reconstruction.nslice - 1):
                     sliceLoop = self.reconstruction.nslice - 1 - loopTemp
                     # compute and update current object slice
-                    self.reconstruction.object[
-                        ..., sliceLoop, sy, sx
-                    ] = self.objectPatchUpdate(
-                        objectPatch[:, :, :, sliceLoop, ...],
-                        DELTA,
-                        self.reconstruction.probe[:, :, :, sliceLoop, ...],
+                    self.reconstruction.object[..., sliceLoop, sy, sx] = (
+                        self.objectPatchUpdate(
+                            objectPatch[:, :, :, sliceLoop, ...],
+                            DELTA,
+                            self.reconstruction.probe[:, :, :, sliceLoop, ...],
+                        )
                     )
                     # eswTemp update (here probe incident on last slice)
                     beth = 1  # todo, why need beth, not betaProbe, changable?
-                    self.reconstruction.probe[
-                        :, :, :, sliceLoop, ...
-                    ] = self.probeUpdate(
-                        objectPatch[:, :, :, sliceLoop, ...],
-                        DELTA,
-                        self.reconstruction.probe[:, :, :, sliceLoop, ...],
-                        beth,
+                    self.reconstruction.probe[:, :, :, sliceLoop, ...] = (
+                        self.probeUpdate(
+                            objectPatch[:, :, :, sliceLoop, ...],
+                            DELTA,
+                            self.reconstruction.probe[:, :, :, sliceLoop, ...],
+                            beth,
+                        )
                     )
 
                     # back-propagate and calculate gradient term

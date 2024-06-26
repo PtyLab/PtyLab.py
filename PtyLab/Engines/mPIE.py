@@ -4,22 +4,25 @@ from matplotlib import pyplot as plt
 try:
     import cupy as cp
 except ImportError:
-    print("Cupy not available, will not be able to run GPU based computation")
+    # print("Cupy not available, will not be able to run GPU based computation")
     # Still define the name, we'll take care of it later but in this way it's still possible
     # to see that gPIE exists for example.
     cp = None
 
-# PtyLab imports
-from PtyLab.Reconstruction.Reconstruction import Reconstruction
+import logging
+import sys
+
+import tqdm
+
 from PtyLab.Engines.BaseEngine import BaseEngine
 from PtyLab.ExperimentalData.ExperimentalData import ExperimentalData
-from PtyLab.Params.Params import Params
-from PtyLab.utils.gpuUtils import getArrayModule, asNumpyArray
 from PtyLab.Monitor.Monitor import Monitor
+from PtyLab.Params.Params import Params
+
+# PtyLab imports
+from PtyLab.Reconstruction.Reconstruction import Reconstruction
+from PtyLab.utils.gpuUtils import asNumpyArray, getArrayModule
 from PtyLab.utils.utils import fft2c, ifft2c
-import logging
-import tqdm
-import sys
 
 
 class mPIE(BaseEngine):
@@ -107,7 +110,9 @@ class mPIE(BaseEngine):
         for loop in self.pbar:
             # set position order
             self.setPositionOrder()
-            self.pbar_pos = tqdm.tqdm(self.positionIndices, leave=False, desc='ptychogram', file=sys.stdout)
+            self.pbar_pos = tqdm.tqdm(
+                self.positionIndices, leave=False, desc="ptychogram", file=sys.stdout
+            )
             for positionLoop, positionIndex in enumerate(self.pbar_pos):
                 # get object patch, stored as self.probe
                 # self.reconstruction.make_probe(positionIndex)
@@ -131,7 +136,10 @@ class mPIE(BaseEngine):
                 # pg.QtGui.QGuiApplication.processEvents()
 
                 # object update
-                if self.params.objectTVregSwitch and loop % self.params.objectTVfreq == 0:
+                if (
+                    self.params.objectTVregSwitch
+                    and loop % self.params.objectTVfreq == 0
+                ):
                     object_patch = self.objectPatchUpdate_TV(objectPatch, DELTA)
                 else:
                     object_patch = self.objectPatchUpdate(objectPatch, DELTA)
@@ -153,8 +161,10 @@ class mPIE(BaseEngine):
                 # self.reconstruction.push_probe_update(self.reconstruction.probe, positionIndex, self.experimentalData.ptychogram.shape[0])
 
                 if self.params.positionCorrectionSwitch:
-                    shifter = self.positionCorrection(objectPatch, positionIndex, sy, sx)
-                    #self.pbar_pos.write(f'Corr: {shifter[0]*1e6:.2f} um x {shifter[1]*1e6:.2f} um')
+                    shifter = self.positionCorrection(
+                        objectPatch, positionIndex, sy, sx
+                    )
+                    # self.pbar_pos.write(f'Corr: {shifter[0]*1e6:.2f} um x {shifter[1]*1e6:.2f} um')
 
                 # momentum updates
                 if np.random.rand(1) > 0.95:

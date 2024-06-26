@@ -1,110 +1,77 @@
 # PtyLab.py
+![Python 3.9+](https://img.shields.io/badge/python-3.9+-green.svg)
 
 PtyLab is an inverse modeling toolbox for Conventional (CP) and Fourier (FP) ptychography in a unified framework. For more information please check the [paper](https://opg.optica.org/oe/fulltext.cfm?uri=oe-31-9-13763&id=529026).
  
-## Getting Started
-
-Under [example_scripts](example_scripts/) and [jupyter_tutorials](jupyter_tutorials) you can find typical use cases of using PtyLab for your reconstruction. 
-
 ## Installation
 
-To install the most recent PtyLab package from source and run on CPU as a default action,
+To install the package from source,
 
 ```bash
-pip install git+https://github.com/PtyLab/PtyLab.py.git@main
+pip install git+https://github.com/PtyLab/PtyLab.py.git
 ```
 
-### Installation with optional dependencies
+This package uses `cupy` to utilize GPU for faster reconstruction. Please check their [instructions](https://docs.cupy.dev/en/stable/install.html) for installing this dependency.
 
-This package uses `cupy` to utilize GPU for faster reconstruction. 
-
-> [!WARNING]
-> The system must have [CUDA 11.x or 12.x](https://docs.nvidia.com/cuda/#) installed. Please note the version before proceeding.
+### Development
  
-- For CUDA v11.2 - 11.8 (x86_64 / aarch64):
-```bash
-pip install ptylab[gpu11x]@git+https://github.com/PtyLab/PtyLab.py.git@main
-```
-
-- For CUDA v12.x (x86_64 / aarch64)
-```bash
-pip install ptylab[gpu12x]@git+https://github.com/PtyLab/PtyLab.py.git@main
-```
-
-## Development
-
-To get started, clone this package and go to the root folder
-
+Please clone this repository and navigate to the root folder
 ```bash
 git clone git@github.com:PtyLab/PtyLab.py.git
 cd PtyLab.py
 ```
 
-### Development with `conda`
-
-If you prefer `conda` as a development medium, please create the environment as follows
-
+Inside a virtual environment (preferably with conda), please install `ptylab` and its dependencies:
 ```bash
-conda create --name ptylab_venv python=3.10.13 # or python version satisfying ">=3.9, <3.12"
+conda create --name ptylab_venv python=3.11.5 # or python version satisfying ">=3.9, <3.12"
 conda activate ptylab_venv
 pip install -e .[dev]
 ```
 
-To use GPU, it is preferable to use `conda-forge` channel to install `cupy` instead of `pip` as it is agnostic about the CUDA driver and toolkit version. This can be done within the `conda` environment as
+To use the GPU, `cupy` can be additionally installed in this environment.
 
 ```bash
 conda install -c conda-forge cupy
 ```
 
-### Development with `virtualenv`
+## Getting started
 
-To install this package and its dependencies in editable mode and in a virtual environment, for example using [virtualenv](https://pypi.org/project/virtualenv/), please do the following
+The simplest way to get started is by simulating some ptychography data. Assuming you are at the root directory and within the environment, please execute the following command.
 
 ```bash
-virtualenv .venv
-source .venv/bin/activate
-pip install -e .[dev]
+python example_scripts/simulateData.py
 ```
-
-If you want to utilize GPU with CUDA v11.2 - 11.8 installed in system, do the following instead,
+This will store the data under the [example_data](example_data) directory as `simu.hdf5`. To reconstruct this data and store as `recon.hdf5` in the same directory,
 
 ```bash
-pip install -e .[dev,gpu11x]  # `gpu12x` if CUDA v12.x
+python example_scripts/exampleReconstructionCPM.py --f example_data/simu.hdf5
 ```
+To use GPU, the above command can be appended with `--gpu` flag.
 
-> [!WARNING]
-> The build-system as given under [`pyproject.toml`](pyproject.toml) is based on [Poetry](https://python-poetry.org/), a python package manager. If you are a maintainer of `PtyLab.py` and would like to modify existing packages or add new ones, it's recommended to rely on `poetry` for development. It comes with its own dependency resolver, making sure nothing breaks. Please refer to the next section to get started with `poetry`.
+Under [example_scripts](example_scripts/) and [jupyter_tutorials](jupyter_tutorials), you can find examples for typical use cases. 
 
-## Package management with `poetry`
+## Package management with conda and poetry
 
-To start off, please delete existing environments (`conda`/`virtualenv`) as `poetry` would also create a virtual environment by default. To install `poetry`, the simplest way is with [`pipx`](https://pypi.org/project/pipx/).
+> [!NOTE]
+> The build-system as given under [`pyproject.toml`](pyproject.toml) is based on [Poetry](https://python-poetry.org/), a Python package manager. If you are a maintainer of PtyLab.py and would like to modify existing packages or add new ones, relying on Poetry for development is recommended. It comes with its own dependency resolver, making sure nothing breaks.
 
-```bash
-pip install pipx
-pipx install poetry
-```
+First clone this repository and create a conda environment as explained in the [development](#development) section. Install `poetry` from this [installation guide](https://python-poetry.org/docs/#installing-with-pipx). 
 
-At the root of the repository (after cloning), you can now install `PtyLab.py` in its own virtual environment by simply doing,
+At the root of the repository, activate the conda environment  and install `ptylab` and its depedencies with `poetry`.
 
 ```bash
+conda activate ptylab_venv
 poetry install
 ```
+This will also create a `poetry.lock` file that contains the list of all the *pinned dependencies* as given under `pyproject.toml`.
 
-This will also create a `poetry.lock` file that contains the list of all the *pinned dependencies*.
-
-To also install the optional packages from the fields `dev` or `gpu11x`, instead do,
-
-```bash
-poetry install --extras "dev gpu11x" # `gpu12x` if CUDA v12.x
-```
-
-If you want to install a new package from [PyPI](https://pypi.org/project/pip/), instead of relying on `pip`, please do so with `poetry` as 
+If you want to install a new package from [PyPI](https://pypi.org/project/pip/), please do so with `poetry`.
 
 ```bash
 poetry add <package-name>
 ``` 
 
-This will not just install the new package, but also resolve the existing environment and make sure no other dependencies break. Similarly, you can remove a package as `poetry remove <package-name>`. For more information, please rely on the [Poetry](https://python-poetry.org/) documentation. 
+This will not just install the new package, but also resolve the existing environment and make sure no other dependencies break. Similarly, you can remove a package as `poetry remove <package-name>`. For more information, please rely on their [documentation](https://python-poetry.org/docs/basic-usage/). 
 
 ## Citation
 

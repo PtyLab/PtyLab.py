@@ -1,28 +1,32 @@
-import numpy as np
-from matplotlib import pyplot as plt
-import tqdm
 from typing import Any
+
+import numpy as np
+import tqdm
+from matplotlib import pyplot as plt
 from scipy.interpolate import interp2d
+
 from PtyLab.utils.visualisation import hsvplot
 
 try:
     import cupy as cp
 except ImportError:
-    print("Cupy not available, will not be able to run GPU based computation")
+    # print("Cupy not available, will not be able to run GPU based computation")
     # Still define the name, we'll take care of it later but in this way it's still possible
     # to see that gPIE exists for example.
     cp = None
 
-# PtyLab imports
-from PtyLab.Reconstruction.Reconstruction import Reconstruction
-from PtyLab.Engines.BaseEngine import BaseEngine
-from PtyLab.ExperimentalData.ExperimentalData import ExperimentalData
-from PtyLab.Params.Params import Params
-from PtyLab.utils.gpuUtils import getArrayModule, asNumpyArray
-from PtyLab.Monitor.Monitor import Monitor
-from PtyLab.Operators.Operators import aspw
 import logging
 import sys
+
+from PtyLab.Engines.BaseEngine import BaseEngine
+from PtyLab.ExperimentalData.ExperimentalData import ExperimentalData
+from PtyLab.Monitor.Monitor import Monitor
+from PtyLab.Operators.Operators import aspw
+from PtyLab.Params.Params import Params
+
+# PtyLab imports
+from PtyLab.Reconstruction.Reconstruction import Reconstruction
+from PtyLab.utils.gpuUtils import asNumpyArray, getArrayModule
 
 
 class aPIE(BaseEngine):
