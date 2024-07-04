@@ -242,7 +242,7 @@ class Monitor(AbstractMonitor):
 
         if self.screenshot_directory is not None:
             self.defaultMonitor.figure.savefig(
-                Path(self.screenshot_directory) / f"{len(error)}.png"
+                Path(self.screenshot_directory) / f"frame_{len(error)}.png"
             )
 
     def describe_parameters(self, *args, **kwargs):
