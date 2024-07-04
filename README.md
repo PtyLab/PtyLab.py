@@ -3,7 +3,14 @@
 
 PtyLab is an inverse modeling toolbox for Conventional (CP) and Fourier (FP) ptychography in a unified framework. For more information please check the [paper](https://opg.optica.org/oe/fulltext.cfm?uri=oe-31-9-13763&id=529026).
 
+## Getting started
+
+The simplest way to get started is to check the below demo in colab
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github.com/PtyLab/PtyLab.py/blob/main/demo.ipynb)
 ![demo](assets/recon.gif)
+
+To explore more use cases of PtyLab, check the [example_scripts](example_scripts) and [jupyter_tutorials](jupyter_tutorials) directories. However, please install the package first as described in the below sections.
 
 ## Installation
 
@@ -35,22 +42,6 @@ To use the GPU, `cupy` can be additionally installed in this environment.
 ```bash
 conda install -c conda-forge cupy
 ```
-
-## Getting started
-
-The simplest way to get started is by simulating some ptychography data. Assuming you are at the root directory and within the environment, please execute the following command.
-
-```bash
-python example_scripts/simulateData.py
-```
-This will store the data under the [example_data](example_data) directory as `simu.hdf5`. To reconstruct this data and store as `recon.hdf5` in the same directory,
-
-```bash
-python example_scripts/exampleReconstructionCPM.py --f example_data/simu.hdf5
-```
-To use GPU, the above command can be appended with `--gpu` flag.
-
-Under [example_scripts](example_scripts/) and [jupyter_tutorials](jupyter_tutorials), you can find examples for typical use cases. 
 
 ## Package management with conda and poetry
 
