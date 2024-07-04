@@ -5,7 +5,7 @@ PtyLab is an inverse modeling toolbox for Conventional (CP) and Fourier (FP) pty
 
 ## Getting started
 
-The simplest way to get started is to check the below demo in colab
+The simplest way to get started is to check the below demo in Google Colab.
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github.com/PtyLab/PtyLab.py/blob/main/demo.ipynb)
 ![demo](assets/recon.gif)
