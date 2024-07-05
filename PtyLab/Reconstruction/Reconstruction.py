@@ -116,7 +116,7 @@ class Reconstruction(object):
         elif self.data.operationMode == "FPM":
             listOfReconstructionProperties = self.listOfReconstructionPropertiesFPM
         for key in listOfReconstructionProperties:
-            self.logger.error("Copying attribute %s", key)
+            self.logger.info("Copying attribute %s", key)
             # setattr(self, key, copy(np.array(getattr(data, key))))
             setattr(self, key, copy(getattr(data, key)))
 
