@@ -10,7 +10,8 @@ from functools import lru_cache
 try:
     import cupy as cp
 except ImportError:
-    print("cupy not avialable")
+    pass
+    # print("Cupy not available, will not be able to run GPU based computation")
 import numpy as np
 
 from PtyLab import Params, Reconstruction
@@ -152,8 +153,12 @@ def propagate_fresnel_inv(
 
 
 def propagate_ASP(
-    fields, params: Params, reconstruction: Reconstruction, inverse=False, z=None,
-        fftflag=True,
+    fields,
+    params: Params,
+    reconstruction: Reconstruction,
+    inverse=False,
+    z=None,
+    fftflag=True,
 ):
     """
     Propagate using the angular spectrum method
@@ -181,11 +186,9 @@ def propagate_ASP(
     """
 
     if params.fftshiftSwitch:
-        raise ValueError(
-            "ASP propagator only works with fftshiftswitch == False")
+        raise ValueError("ASP propagator only works with fftshiftswitch == False")
     if reconstruction.nlambda > 1:
-        raise ValueError(
-            "For multi-wavelength, set polychromeASP instead of ASP")
+        raise ValueError("For multi-wavelength, set polychromeASP instead of ASP")
     if z is None:
         z = reconstruction.zo
     xp = getArrayModule(fields)
@@ -204,8 +207,10 @@ def propagate_ASP(
         transfer_function = xp.fft.ifftshift(transfer_function, axes=(-2, -1))
     if inverse:
         transfer_function = transfer_function.conj()
-    result = ifft2c(fft2c(fields, fftshiftSwitch=fftflag) *
-                    transfer_function, fftshiftSwitch=fftflag)
+    result = ifft2c(
+        fft2c(fields, fftshiftSwitch=fftflag) * transfer_function,
+        fftshiftSwitch=fftflag,
+    )
     return reconstruction.esw, result
 
 
@@ -298,7 +303,9 @@ def propagate_twoStepPolychrome_inv(
     ]
     G = propagate_twoStepPolychrome(
         reconstruction.ESW, params, reconstruction, inverse=True, z=z
-    )[1]  # tODO: What is G here? Why are we not returning reconstruction.esw?
+    )[
+        1
+    ]  # tODO: What is G here? Why are we not returning reconstruction.esw?
     return G, F
 
 
@@ -417,29 +424,29 @@ def propagate_scaledPolychromeASP_inv(
     fields, params: Params, reconstruction: Reconstruction, z=None
 ):
     """
-     Reverse Scaled angular spectrum for multiple wavelengths.
+    Reverse Scaled angular spectrum for multiple wavelengths.
 
-     Parameters
-     ----------
-     fields: np.ndarray
-         Field to propagate
-     params: Params
-         Parameters
-     reconstruction: Reconstruction
-     inverse: bool
-         Reverse propagation
-     z: float
-         Propagation distance
+    Parameters
+    ----------
+    fields: np.ndarray
+        Field to propagate
+    params: Params
+        Parameters
+    reconstruction: Reconstruction
+    inverse: bool
+        Reverse propagation
+    z: float
+        Propagation distance
 
-     Returns
-     -------
-     reconstruction.esw, propagated field:
-         Exit surface wave and the propagated field
+    Returns
+    -------
+    reconstruction.esw, propagated field:
+        Exit surface wave and the propagated field
 
-     Returns
-     -------
+    Returns
+    -------
 
-     """
+    """
     return propagate_scaledPolychromeASP(
         fields, params, reconstruction, inverse=True, z=z
     )
@@ -449,29 +456,29 @@ def propagate_polychromeASP(
     fields, params: Params, reconstruction: Reconstruction, inverse=False, z=None
 ):
     """
-     ASP propagation  for multiple wavelengths.
+    ASP propagation  for multiple wavelengths.
 
-     Parameters
-     ----------
-     fields: np.ndarray
-         Field to propagate
-     params: Params
-         Parameters
-     reconstruction: Reconstruction
-     inverse: bool
-         Reverse propagation
-     z: float
-         Propagation distance
+    Parameters
+    ----------
+    fields: np.ndarray
+        Field to propagate
+    params: Params
+        Parameters
+    reconstruction: Reconstruction
+    inverse: bool
+        Reverse propagation
+    z: float
+        Propagation distance
 
-     Returns
-     -------
-     reconstruction.esw, propagated field:
-         Exit surface wave and the propagated field
+    Returns
+    -------
+    reconstruction.esw, propagated field:
+        Exit surface wave and the propagated field
 
-     Returns
-     -------
+    Returns
+    -------
 
-     """
+    """
     if z is None:
         z = reconstruction.zo
     transfer_function = __make_transferfunction_polychrome_ASP(
@@ -524,26 +531,26 @@ def propagate_identity(
 
 def propagate_polychromeASP_inv(fields, params, reconstruction, z=None):
     """
-     inverse scaled angular spectrum for multiple wavelengths.
+    inverse scaled angular spectrum for multiple wavelengths.
 
-     Parameters
-     ----------
-     fields: np.ndarray
-         Field to propagate
-     params: Params
-         Parameters
-     reconstruction: Reconstruction
-     inverse: bool
-         Reverse propagation
-     z: float
-         Propagation distance
+    Parameters
+    ----------
+    fields: np.ndarray
+        Field to propagate
+    params: Params
+        Parameters
+    reconstruction: Reconstruction
+    inverse: bool
+        Reverse propagation
+    z: float
+        Propagation distance
 
-     Returns
-     -------
-     reconstruction.esw, propagated field:
-         Exit surface wave and the propagated field
+    Returns
+    -------
+    reconstruction.esw, propagated field:
+        Exit surface wave and the propagated field
 
-     """
+    """
     return propagate_polychromeASP(fields, params, reconstruction, inverse=True, z=z)
 
 
@@ -814,9 +821,7 @@ def fresnelPropagator(u, z, wavelength, L):
     [Qy, Qx] = xp.meshgrid(q, q)
 
     # quadratic phase terms
-    Q1 = xp.exp(
-        1j * k / (2 * z) * (X**2 + Y**2)
-    )  # quadratic phase inside the integral
+    Q1 = xp.exp(1j * k / (2 * z) * (X**2 + Y**2))  # quadratic phase inside the integral
     Q2 = xp.exp(1j * k / (2 * z) * (Qx**2 + Qy**2))
 
     # pre-factor
@@ -854,8 +859,7 @@ def __make_transferfunction_ASP(
     fftshiftSwitch, nosm, npsm, Np, zo, wavelength, Lp, nlambda, on_gpu
 ):
     if fftshiftSwitch:
-        raise ValueError(
-            "ASP propagatorType works only with fftshiftSwitch = False!")
+        raise ValueError("ASP propagatorType works only with fftshiftSwitch = False!")
     if nlambda > 1:
         raise ValueError(
             "For multi-wavelength, polychromeASP needs to be used instead of ASP"
@@ -914,8 +918,7 @@ def __make_transferfunction_polychrome_ASP(
 ) -> np.ndarray:
     spectralDensity = np.array(spectralDensity_as_tuple)
     if fftshiftSwitch:
-        raise ValueError(
-            "ASP propagatorType works only with fftshiftSwitch = False!")
+        raise ValueError("ASP propagatorType works only with fftshiftSwitch = False!")
     dummy = np.ones((nlambda, nosm, npsm, 1, Np, Np), dtype="complex64")
     transferFunction = np.array(
         [
@@ -923,7 +926,11 @@ def __make_transferfunction_polychrome_ASP(
                 [
                     [
                         __aspw_transfer_function(
-                            zo, spectralDensity[nlambda], Np, Lp, False,
+                            zo,
+                            spectralDensity[nlambda],
+                            Np,
+                            Lp,
+                            False,
                         )
                         for nslice in range(1)
                     ]
@@ -1047,9 +1054,7 @@ def __make_cache_twoStepPolychrome(
                 [
                     [
                         __aspw_transfer_function(
-                            z=zo *
-                            (1 - spectralDensity[0] /
-                             spectralDensity[nlambda]),
+                            z=zo * (1 - spectralDensity[0] / spectralDensity[nlambda]),
                             wavelength=spectralDensity[nlambda],
                             N=Np,
                             L=Lp,

@@ -1,32 +1,64 @@
+# matplotlib.use("tkagg")
+import logging
 from pathlib import Path
 
 import matplotlib
+import matplotlib.pyplot as plt
 
-from PtyLab.Engines.BaseEngine import smooth_amplitude
-
-matplotlib.use("tkagg")
+matplotlib.use("qt5agg")
 import PtyLab
-from PtyLab.io import getExampleDataFolder
 from PtyLab import Engines
-import logging
+from PtyLab.Engines.BaseEngine import smooth_amplitude
+from PtyLab.io import getExampleDataFolder
 
 logging.basicConfig(level=logging.INFO)
+import argparse
+
 import numpy as np
 
-
 """ 
-ptycho data reconstructor 
-change data visualization and initialization options manually for now
+Ptychographic dataset reconstruction example.
+
+This is the file that you can start from to learn PtyLab.py, and that you can copy and adopt to your own needs.
+
+For beginner programmers: 
+
+The first lines just give this file the ability to be run as a program, as
+
+```$ python exampleReconstructionCPM.py --file <filename>``` 
+
+If that's not what you want, just disable the line parser.parse_args(), and set fileName and gpu_switch directly.
+
+
 """
 
-fileName = "example:simulation_cpm"  # simu.hdf5 or Lenspaper.hdf5
+##
+# set argparser options
+parser = argparse.ArgumentParser(description="Conventional ptychography reconstruction")
+parser.add_argument(
+    "--file",
+    type=str,
+    help="Path to the file",
+    default=f"{getExampleDataFolder()}/simu.hdf5",
+)
+parser.add_argument("--gpu", action="store_true", help="GPU switch")
+# Parse the arguments from the command line
+args = parser.parse_args()
+fileName = args.file
+gpu_switch = args.gpu
 
+# load the experimental data
 experimentalData, reconstruction, params, monitor, ePIE_engine = PtyLab.easyInitialize(
     fileName, operationMode="CPM"
 )
+
 # optional - use tensorboard monitor instead. To see the results, open tensorboard in the directory ./logs_tensorboard
-from PtyLab.Monitor.TensorboardMonitor import TensorboardMonitor
-monitor = TensorboardMonitor()
+tensorboard_monitor = False
+if tensorboard_monitor:
+    from PtyLab.Monitor.TensorboardMonitor import TensorboardMonitor
+
+    monitor = TensorboardMonitor()
+
 
 # turn these two lines on to see the autofocusing in action
 # experimentalData.zo = experimentalData.zo + 1e-2
@@ -46,7 +78,6 @@ reload_object = False
 # change the number of pixels in the object
 reconstruction.No = int(reconstruction.No * 0.9)
 
-
 params.TV_autofocus = False
 params.TV_autofocus_stepsize = 50
 params.TV_autofocus_intensityonly = False
@@ -58,11 +89,9 @@ params.TV_autofocus_roi = [[0.3, 0.7], [0.3, 0.7]]  # [[0.45, 0.5], [0.6, 0.65]]
 params.TV_autofocus_min_z = experimentalData.zo - 2e-2
 params.TV_autofocus_max_z = experimentalData.zo + 5e-2
 
-
 params.l2reg = False
 params.l2reg_probe_aleph = 1e-2
 params.l2reg_object_aleph = 1e-2
-
 
 params.positionCorrectionSwitch = False
 
@@ -74,7 +103,6 @@ reconstruction.nlambda = (
     1  # len(experimentalData.spectralDensity) # Number of wavelength
 )
 reconstruction.nslice = 1  # Number of object slice
-
 
 reconstruction.initialProbe = "circ"
 print(reconstruction.entrancePupilDiameter)
@@ -107,9 +135,7 @@ if reload_object:
     except (FileNotFoundError, RuntimeError):
         print("Cannot re-use last probe")
 
-
 reconstruction.describe_reconstruction()
-
 
 monitor.figureUpdateFrequency = 1
 monitor.objectPlot = "complex"  # 'complex'  # complex abs angle
@@ -145,12 +171,10 @@ params.couplingAleph = 1
 params.positionCorrectionSwitch = False
 params.probePowerCorrectionSwitch = True
 
-
 ## computation stuff - how do we want to reconstruct?
-params.gpuSwitch = True
+params.gpuSwitch = gpu_switch
 # this speeds up some propagators but not all of them are implemented
 params.fftshiftSwitch = False
-
 
 params.intensityConstraint = "standard"  # standard fluctuation exponential poission
 
@@ -166,5 +190,7 @@ for i in range(1, 8):
     params.TV_autofocus = i % 2 == 1
     params.l2reg = i % 2 == 0
 
-    mPIE.reconstruct(experimentalData, reconstruction)
-    reconstruction.saveResults("last.hdf5", squeeze=False)
+    mPIE.reconstruct()
+    reconstruction.saveResults(f"{getExampleDataFolder()}/recon.hdf5", squeeze=False)
+
+plt.show()

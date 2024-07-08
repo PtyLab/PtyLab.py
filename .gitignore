@@ -5,5 +5,5 @@
 *.vscode
 *.venv
 *.lock
-example_data/*
-!example_data/how_to_get_files.md
+logs_tensorboard
+*.hdf5
