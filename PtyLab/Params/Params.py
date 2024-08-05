@@ -2,30 +2,12 @@ import logging
 
 import numpy as np
 
+
+from PtyLab.utils.gpuUtils import _check_gpu_availability
+
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("GPU")
-
-
-def _check_gpu_availability(verbose=False):
-    """Check if GPU and cupy are available."""
-    try:
-        import cupy
-
-        if cupy.cuda.is_available():
-            if verbose:
-                logger.info("cupy and CUDA available, switching to GPU")
-            return True
-
-    except AttributeError:
-        if verbose:
-            logger.info("CUDA is unavailable, switching to CPU")
-        return False
-
-    except ImportError:
-        if verbose:
-            logger.info("cupy is unavailable, switching to CPU")
-        return False
 
 
 class Params(object):

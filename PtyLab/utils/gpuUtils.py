@@ -4,12 +4,33 @@ from typing import List
 
 import numpy as np
 
-try:
-    import cupy as cp
 
-    CP_AVAILABLE = True
-except ImportError:
-    CP_AVAILABLE = False
+def _check_gpu_availability(verbose=False):
+    """Check if GPU and cupy are available."""
+    try:
+        import cupy
+
+        if cupy.cuda.is_available():
+            if verbose:
+                logging.info("cupy and CUDA available, switching to GPU")
+            return True
+
+    except AttributeError:
+        if verbose:
+            logging.info("CUDA is unavailable, switching to CPU")
+        return False
+
+    except ImportError:
+        if verbose:
+            logging.info("cupy is unavailable, switching to CPU")
+        return False
+
+
+CP_AVAILABLE = True if _check_gpu_availability() else False
+
+if CP_AVAILABLE:
+    import cupy as cp
+else:
     cp = np
 
 
@@ -22,6 +43,7 @@ def getArrayModule(*args, **kwargs):
     :param kwargs:
     :return:
     """
+
     if CP_AVAILABLE:
         return cp.get_array_module(*args, **kwargs)
     else:
@@ -43,7 +65,11 @@ def asNumpyArray(ary) -> np.ndarray:
     :return: cpu-version of ary
 
     """
+    CP_AVAILABLE = True if _check_gpu_availability() else False
+
     if CP_AVAILABLE:
+        import cupy as cp
+
         return cp.asnumpy(ary)
     else:
         return ary
@@ -100,4 +126,5 @@ def transfer_fields_to_cpu(self: object, fields: List[str], logger: logging.Logg
             setattr(self, field, asNumpyArray(attribute))
             self.logger.debug(f"Moved {field} to CPU")
         else:
+            self.logger.debug(f"Skipped {field} as it is not defined")
             self.logger.debug(f"Skipped {field} as it is not defined")
