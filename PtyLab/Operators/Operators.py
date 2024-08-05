@@ -1278,6 +1278,7 @@ def clear_cache(logger: logging.Logger = None):
         __make_cache_twoStepPolychrome,
         __make_transferfunction_polychrome_ASP,
         __make_transferfunction_scaledPolychromeASP,
+        __off_axis_sas_transfer_function,
     ]
     for method in list_of_methods:
         if logger is not None:
