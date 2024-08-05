@@ -65,11 +65,8 @@ def asNumpyArray(ary) -> np.ndarray:
     :return: cpu-version of ary
 
     """
-    CP_AVAILABLE = True if _check_gpu_availability() else False
 
     if CP_AVAILABLE:
-        import cupy as cp
-
         return cp.asnumpy(ary)
     else:
         return ary
