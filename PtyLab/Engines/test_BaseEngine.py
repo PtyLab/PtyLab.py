@@ -1,15 +1,17 @@
-from unittest import TestCase
-import unittest
 import logging
+import unittest
+from unittest import TestCase
+
 import numpy as np
 
-logging.basicConfig(level=logging.DEBUG)
 import PtyLab
 
 try:
     import cupy as cp
 except ImportError:
     cp = None
+
+logging.basicConfig(level=logging.DEBUG)
 
 
 class TestBaseEngine(TestCase):
@@ -43,16 +45,44 @@ class TestBaseEngine(TestCase):
         self.ePIE_engine._move_data_to_gpu()
         assert type(self.ePIE_engine.reconstruction.object) is cp.ndarray
 
-
     def test_position_correction(self):
         import time
-        rowShifts = np.array([-2, -2, -2, -2, -2, -1, -1, -1, -1, -1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2])
+
+        rowShifts = np.array(
+            [
+                -2,
+                -2,
+                -2,
+                -2,
+                -2,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                0,
+                0,
+                0,
+                0,
+                0,
+                1,
+                1,
+                1,
+                1,
+                1,
+                2,
+                2,
+                2,
+                2,
+                2,
+            ]
+        )
         # self.colShifts = dx.flatten()#np.array([-1, 0, 1, -1, 0, 1, -1, 0, 1])
-        colShifts = np.array([-2, -1,  0,  1,  2] * 5)
+        colShifts = np.array([-2, -1, 0, 1, 2] * 5)
         xp = cp
 
-        Opatch = xp.random.rand(513,513)
-        O = xp.roll(Opatch, axis=(-2,-1), shift=(1,-1))
+        Opatch = xp.random.rand(513, 513)
+        O = xp.roll(Opatch, axis=(-2, -1), shift=(1, -1))
 
         t0 = time.time()
         for i in range(100):
@@ -61,14 +91,12 @@ class TestBaseEngine(TestCase):
                 tempShift = xp.roll(Opatch, rowShifts[shifts], axis=-2)
                 # shiftedImages[shifts, ...] = xp.roll(tempShift, self.colShifts[shifts], axis=-1)
                 shiftedImages = xp.roll(tempShift, colShifts[shifts], axis=-1)
-                cc[shifts] = xp.squeeze(
-                    xp.sum(shiftedImages.conj() * O, axis=(-2, -1))
-                )
+                cc[shifts] = xp.squeeze(xp.sum(shiftedImages.conj() * O, axis=(-2, -1)))
                 del tempShift, shiftedImages
             cc = abs(cc)
-            cc = cc.reshape(5,5).get()
+            cc = cc.reshape(5, 5).get()
         t1 = time.time()
-        print('CC: ', t1 - t0)
+        print("CC: ", t1 - t0)
 
         # new code
         # time it
@@ -78,20 +106,17 @@ class TestBaseEngine(TestCase):
             rowShifts, colShifts = xp.mgrid[-2:3, -2:3]
             rowShifts = rowShifts.flatten()
             colShifts = colShifts.flatten()
-            print(dy, dx)
             FT_O = xp.fft.fft2(O)
             FT_Op = xp.fft.fft2(Opatch)
-            xcor = xp.fft.ifft2(FT_O*FT_Op.conj())
+            xcor = xp.fft.ifft2(FT_O * FT_Op.conj())
             xcor = abs(xp.fft.fftshift(xcor))
             dy, dx = xp.unravel_index(xp.argmax(xcor), xcor.shape)
             dx = dx.get()
         t1 = time.time()
-        print('FT: ', t1-t0)
+        print("FT: ", t1 - t0)
         N = xcor.shape[-1]
-        sy = slice(N//2-len(cc)//2, N//2-len(cc)//2+len(cc))
-        print(' Xcor:')
+        sy = slice(N // 2 - len(cc) // 2, N // 2 - len(cc) // 2 + len(cc))
+        print(" Xcor:")
         print(xcor[sy, sy])
 
         xp.testing.assert_allclose(xcor[sy, sy], cc)
-
-
