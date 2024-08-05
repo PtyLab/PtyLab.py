@@ -13,6 +13,8 @@ except ImportError:
     pass
     # print("Cupy not available, will not be able to run GPU based computation")
 import numpy as np
+from scipy.signal import convolve2d
+from scipy.signal.windows import gaussian
 
 from PtyLab import Params, Reconstruction
 from PtyLab.Operators._propagation_kernels import __make_quad_phase
@@ -553,10 +555,11 @@ def propagate_off_axis_sas(
     fields: np.ndarray,
     params: Params,
     reconstruction: Reconstruction,
-    z: float,
+    z: float = None,
 ):
     """
-    Scaled angular spectrum for multiple wavelengths.
+    Scalable Off-axis Angular Spectrum (SOAS) Propagation method that assumes that the source and
+    destination planes are coplanar, but off-axis.
 
     Parameters
     ----------
@@ -574,9 +577,59 @@ def propagate_off_axis_sas(
     reconstruction.esw, propagated field:
         Exit surface wave and the propagated field
     """
-    # TODO: Implementing this following similar implementation strategy as above.
+
+    if params.fftshiftSwitch:
+        raise ValueError(
+            "Scalable off-axis angular spectrum propagator only works with fftshiftswitch == False"
+        )
 
     xp = getArrayModule(fields)
+
+    # pad the original field with zeros to be twice it's size
+    rows, cols = fields.shape
+    fields_padded = xp.pad(
+        fields,
+        ((rows // 2, rows // 2), (cols // 2, cols // 2)),
+        "constant",
+        constant_values=0,
+    )
+
+    # reconstruction parameters
+    Np = reconstruction.Np
+    dxp = reconstruction.dxp
+    wavelength = reconstruction.wavelength
+    z = reconstruction.zo if z is None else z
+    theta = reconstruction.theta
+    Lp = reconstruction.Lp
+
+    # quadratic phase Q2 (currently zo, but this can be z2 and z1 separated)
+    quad_phase = __make_quad_phase(z, wavelength, Np, dxp, params.gpuSwitch)
+
+    # precompensated transfer function
+    H_precomp = __off_axis_sas_transfer_function(
+        wavelength, Lp, Np, theta, z, params.gpuSwitch
+    )
+    # field propagation
+    psi_precomp = ifft2c(H_precomp * fft2c(fields_padded))
+
+    def _crop_field(field, scale=2):
+        """crops the field with a given scale factor"""
+        # new shape of the field
+        im_shape = field.shape
+        new_shape = np.array(im_shape // scale, dtype=int)
+
+        # crop the field
+        dy, dx = im_shape - new_shape
+        slicey = slice(dy // 2, im_shape[0] - dy // 2)
+        slicex = slice(dx // 2, im_shape[1] - dx // 2)
+
+        new_field = field.copy()
+        return new_field[slicey, slicex]
+
+    # crop the field by a factor of 2 (as it was originally padded by 2)
+    propagated_field = _crop_field(fft2c(quad_phase * psi_precomp), scale=2)
+
+    return reconstruction.esw, propagated_field
 
 
 @lru_cache(cache_size)
@@ -586,10 +639,130 @@ def __make_transferfunction_off_axis_sas():
 
 
 @lru_cache(cache_size)
-def __off_axis_sas_transfer_function():
+def __off_axis_sas_transfer_function(wavelength, Lp, Np, theta, zo, on_gpu):
+    """Precompensation transfer function for scalable off-axis transfer function.
+
+    Parameters
+    ----------
+    wavelength : float
+        wavelength
+    Lp : float
+        Physical size
+    Np : float
+        _description_
+    theta : tuple / scalar
+        Theta (angle in degrees) in the x-y plane.
+    zo : float
+        propagation distance
+    on_gpu : bool
+        checks if the array is on GPU or not.
+
+    Returns
+    -------
+    np.ndarray
+        precompensated transfer function `H_precomp`
+    """
     # TODO: Implementing the parts that can be cached for off_axis SAS. See `__aspw_transfer_function` for example.
     # TODO: Test with and without this caching mechanism.
-    pass
+
+    # cp/np array
+    xp = cp if on_gpu else np
+
+    # Fourier grid
+    df = 1 / Lp
+    f = xp.arange(-Np / 2, Np / 2) * df
+    Fx, Fy = xp.meshgrid(f, f)
+
+    # off-axis sines and tangents (theta in degrees)
+    thetax, thetay = theta
+    # TODO: theta is defined with regards to aPIE, however, it is usually a scalar
+    # float, perhaps we should specify it as a tuple (thetax,thetay) - or something
+    # better? or simply create a new attribute?
+    sx = xp.sin(xp.radians(thetax))
+    sy = xp.sin(xp.radians(thetay))
+    tx = xp.tan(xp.radians(thetax))
+    ty = xp.tan(xp.radians(thetay))
+
+    # transfer function
+    # eq. 12 includes chi parameter under square root
+    chi = (
+        1 / wavelength**2
+        - (Fx + (sx / wavelength)) ** 2
+        - (Fy + (sy / wavelength)) ** 2
+    )
+    sqrt_chi = np.sqrt(np.maximum(0, chi))
+
+    # creating a bandpass filter
+
+    def _create_bandpass_filter(smooth_filter=True):
+        # zo = z1 in the first line and zo = z2 in the second line
+        eps = 1e-10
+        Omegax = zo * (tx - (Fx + sx / wavelength) / (sqrt_chi + eps))
+        Omegax += wavelength * zo * Fx
+
+        # zo = z1 in the first line and zo = z2 in the second line
+        Omegay = zo * (ty - (Fy + sy / wavelength) / (sqrt_chi + eps))
+        Omegay += wavelength * zo * Fy
+
+        sampling_rate = 2
+        criteria_x = df <= xp.abs(1 / (sampling_rate * Omegax + eps))
+        criteria_y = df <= xp.abs(1 / (sampling_rate * Omegay + eps))
+
+        # Fourier Bandpass filter (W is a mask below)
+        W_mask = xp.logical_and(criteria_x, criteria_y)
+
+        # Gaussian kernel
+        gauss_1d = gaussian(8, 2)
+        gauss_1d /= xp.sum(gauss_1d)
+        kernel_gauss = xp.outer(gauss_1d, gauss_1d)
+
+        # smooth the bandpass filter corners with a Gaussian kernel
+        bandpass_filter = (
+            convolve2d(W_mask, kernel_gauss, mode="same") if smooth_filter else W_mask
+        )
+
+        return bandpass_filter
+
+    # Pre-compensation transfer function
+
+    # implements the angular spectrum transfer function (see eq. 23, part of the precompensation factor)
+    # zo is z1 in the document.
+    H_AS = np.exp(1j * 2 * np.pi * zo * sqrt_chi)
+
+    # Fresnel transfer function
+    H_Fr = np.exp(
+        -1j
+        * np.pi
+        * zo
+        / wavelength
+        * ((wavelength * Fx) ** 2 + (wavelength * Fy) ** 2)
+    )
+
+    # off-axis consideration of the transfer function
+    H_offaxis = np.exp(1j * 2 * np.pi * zo * (tx * Fx + ty * Fy))
+
+    # precompensation transfer function
+    # eq. 23, part of the precompensation factor
+    # zo is z1 in the document.
+    H_AS = np.exp(1j * 2 * np.pi * zo * sqrt_chi)
+
+    # Fresnel transfer function
+    H_Fr = np.exp(
+        -1j
+        * np.pi
+        * zo
+        / wavelength
+        * ((wavelength * Fx) ** 2 + (wavelength * Fy) ** 2)
+    )
+
+    # off-axis consideration of the transfer function
+    H_offaxis = np.exp(1j * 2 * np.pi * zo * (tx * Fx + ty * Fy))
+
+    # precompensation with bandpass filter
+    bandpass_filter = _create_bandpass_filter(smooth_filter=True)
+    H_precomp = H_AS * xp.conj(H_Fr) * H_offaxis * bandpass_filter
+
+    return H_precomp
 
 
 def detector2object(fields, params: Params, reconstruction: Reconstruction):
