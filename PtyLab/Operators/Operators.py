@@ -551,6 +551,27 @@ def propagate_polychromeASP_inv(fields, params, reconstruction, z=None):
     return propagate_polychromeASP(fields, params, reconstruction, inverse=True, z=z)
 
 
+def _iterate_6d_fields(fields):
+    """Efficiently iterating via a generator for the 6D field array
+    (nlambda, nosm, npsm, nslice, Np, Np).
+
+    Parameters
+    ----------
+    fields : np.ndarray
+
+
+    Yields
+    ------
+    tuple
+        returns a tuple of indices over the array
+    """
+    for i_nlambda in range(fields.shape[0]):
+        for j_nosm in range(fields.shape[1]):
+            for k_npsm in range(fields.shape[2]):
+                for l_nslice in range(fields.shape[3]):
+                    yield (i_nlambda, j_nosm, k_npsm, l_nslice)
+
+
 def propagate_off_axis_sas(
     fields: np.ndarray,
     params: Params,
@@ -578,64 +599,122 @@ def propagate_off_axis_sas(
         Exit surface wave and the propagated field
     """
 
-    if params.fftshiftSwitch:
-        raise ValueError(
-            "Scalable off-axis angular spectrum propagator only works with fftshiftswitch == False"
-        )
-
     xp = getArrayModule(fields)
 
-    # pad the original field with zeros to be twice it's size
-    rows, cols = fields.shape
-    fields_padded = xp.pad(
-        fields,
-        ((rows // 2, rows // 2), (cols // 2, cols // 2)),
-        "constant",
-        constant_values=0,
+    # pad the original field (last 2 dimensions) with zeros to be twice it's size
+    # no padding in the first 4 dimensions
+    rows, cols = fields.shape[-2:]
+    pad_factor = 2
+    pad_width = (
+        (0, 0),
+        (0, 0),
+        (0, 0),
+        (0, 0),
+        (rows // pad_factor, rows // pad_factor),
+        (cols // pad_factor, cols // pad_factor),
     )
+    fields_padded = xp.pad(fields, pad_width, "constant")
 
     # reconstruction parameters
     Np = reconstruction.Np
     dxp = reconstruction.dxp
     wavelength = reconstruction.wavelength
     z = reconstruction.zo if z is None else z
-    theta = reconstruction.theta
-    Lp = reconstruction.Lp
 
     # quadratic phase Q2 (currently zo, but this can be z2 and z1 separated)
-    quad_phase = __make_quad_phase(z, wavelength, Np, dxp, params.gpuSwitch)
+    quad_phase = __make_quad_phase(
+        z, wavelength, Np * pad_factor, dxp, params.gpuSwitch
+    )
 
     # precompensated transfer function
-    H_precomp = __off_axis_sas_transfer_function(
-        wavelength, Lp, Np, theta, z, params.gpuSwitch
+    H_precomp = __make_transferfunction_off_axis_sas(
+        params, reconstruction, pad_factor, z
     )
+
     # field propagation
     psi_precomp = ifft2c(H_precomp * fft2c(fields_padded))
-
-    def _crop_field(field, scale=2):
-        """crops the field with a given scale factor"""
-        # new shape of the field
-        im_shape = field.shape
-        new_shape = np.array(im_shape // scale, dtype=int)
-
-        # crop the field
-        dy, dx = im_shape - new_shape
-        slicey = slice(dy // 2, im_shape[0] - dy // 2)
-        slicex = slice(dx // 2, im_shape[1] - dx // 2)
-
-        new_field = field.copy()
-        return new_field[slicey, slicex]
+    prop_fields = fft2c(quad_phase * psi_precomp)
 
     # crop the field by a factor of 2 (as it was originally padded by 2)
-    propagated_field = _crop_field(fft2c(quad_phase * psi_precomp), scale=2)
+    rows_padded, cols_padded = prop_fields.shape[-2:]
+    start_h, start_w = (
+        (rows_padded - rows) // 2,
+        (cols_padded - cols) // 2,
+    )
+    slicey, slicex = (
+        slice(start_h, start_h + rows),
+        slice(start_w, start_w + cols),
+    )
+    prop_fields = prop_fields[..., slicey, slicex]
 
-    return reconstruction.esw, propagated_field
+    return reconstruction.esw, prop_fields
 
 
 @lru_cache(cache_size)
-def __make_transferfunction_off_axis_sas():
-    # TODO: Allows for varying nlamdba, nosm, npsm, see ``__make_transferfunction_ASP``
-    pass
+def __make_transferfunction_off_axis_sas(
+    params: Params,
+    reconstruction: Reconstruction,
+    pad_factor: int,
+    zo: float = None,
+):
+    """
+    Allows for a 6-dimensional (nlambda, nosm, npsm, nslice, Np, Np) array when computing the transfer function
+    for a scalable off-axis angular spectrum propagator.
+
+    Parameters
+    ----------
+    params: Params
+        Instance of the Params class
+    reconstruction: Reconstruction
+        Instance of the Reconstruction class.
+    z: float
+        Propagation distance
+
+    Returns
+    -------
+    np.ndarray or cp.ndarray
+        The calculated transfer function with shape (nlambda, nosm, npsm, nslice, Np, Np).
+    """
+
+    fftshiftSwitch = params.fftshiftSwitch
+    Np = reconstruction.Np  # Pixel size along each dimension.
+    wavelength = reconstruction.wavelength  # Wavelength used in the scanning probe.
+    theta = reconstruction.theta
+    Lp = reconstruction.Lp  # length of the sample.
+    nosm = reconstruction.nosm  # no. of spatial modes for the object.
+    npsm = reconstruction.npsm  # no. of spatial modes for the probe.
+    nlambda = reconstruction.nlambda  # no. of wavelengths for multi-wavelength.
+    nslice = reconstruction.nslice  # no. of slices for multi-slice operation
+    on_gpu = params.gpuSwitch  # switch to use GPU acceleration.
+
+    # distance from the center of the sample to the probe.
+    zo = reconstruction.zo if zo is None else zo
+
+    # ensuring some checks
+    if fftshiftSwitch:
+        raise ValueError("ASP propagatorType works only with fftshiftSwitch = False!")
+
+    if nlambda > 1:
+        raise ValueError("Currently for multi-wavelength, off-axis SAS does not work")
+
+    if nslice > 1:
+        raise ValueError(
+            " Currently off-axis SAS not valid for multi-slice ptychography"
+        )
+
+    # Array shape (nlambda, nosm, npsm, nslice, Np, Np)
+    transfer_function = np.zeros(
+        (nlambda, nosm, npsm, nslice, Np * pad_factor, Np * pad_factor),
+        dtype="complex64",
+    )
+    for inds in _iterate_6d_fields(transfer_function):
+        transfer_function[*inds] = __off_axis_sas_transfer_function(
+            wavelength, Lp, pad_factor * Np, theta, zo, on_gpu
+        )
+
+    return (
+        cp.array(transfer_function) if on_gpu and cp is not None else transfer_function
+    )
 
 
 @lru_cache(cache_size)
@@ -662,7 +741,6 @@ def __off_axis_sas_transfer_function(wavelength, Lp, Np, theta, zo, on_gpu):
     np.ndarray
         precompensated transfer function `H_precomp`
     """
-    # TODO: Implementing the parts that can be cached for off_axis SAS. See `__aspw_transfer_function` for example.
     # TODO: Test with and without this caching mechanism.
 
     # cp/np array
@@ -694,9 +772,8 @@ def __off_axis_sas_transfer_function(wavelength, Lp, Np, theta, zo, on_gpu):
 
     # creating a bandpass filter
 
-    def _create_bandpass_filter(smooth_filter=True):
+    def _create_bandpass_filter(smooth_filter=True, eps=1e-10):
         # zo = z1 in the first line and zo = z2 in the second line
-        eps = 1e-10
         Omegax = zo * (tx - (Fx + sx / wavelength) / (sqrt_chi + eps))
         Omegax += wavelength * zo * Fx
 
@@ -727,39 +804,18 @@ def __off_axis_sas_transfer_function(wavelength, Lp, Np, theta, zo, on_gpu):
 
     # implements the angular spectrum transfer function (see eq. 23, part of the precompensation factor)
     # zo is z1 in the document.
-    H_AS = np.exp(1j * 2 * np.pi * zo * sqrt_chi)
+    H_AS = complexexp(2 * np.pi * zo * sqrt_chi)
 
     # Fresnel transfer function
-    H_Fr = np.exp(
-        -1j
-        * np.pi
-        * zo
-        / wavelength
-        * ((wavelength * Fx) ** 2 + (wavelength * Fy) ** 2)
+    H_Fr = complexexp(
+        -np.pi * zo / wavelength * ((wavelength * Fx) ** 2 + (wavelength * Fy) ** 2)
     )
 
     # off-axis consideration of the transfer function
-    H_offaxis = np.exp(1j * 2 * np.pi * zo * (tx * Fx + ty * Fy))
-
-    # precompensation transfer function
-    # eq. 23, part of the precompensation factor
-    # zo is z1 in the document.
-    H_AS = np.exp(1j * 2 * np.pi * zo * sqrt_chi)
-
-    # Fresnel transfer function
-    H_Fr = np.exp(
-        -1j
-        * np.pi
-        * zo
-        / wavelength
-        * ((wavelength * Fx) ** 2 + (wavelength * Fy) ** 2)
-    )
-
-    # off-axis consideration of the transfer function
-    H_offaxis = np.exp(1j * 2 * np.pi * zo * (tx * Fx + ty * Fy))
+    H_offaxis = complexexp(2 * np.pi * zo * (tx * Fx + ty * Fy))
 
     # precompensation with bandpass filter
-    bandpass_filter = _create_bandpass_filter(smooth_filter=True)
+    bandpass_filter = _create_bandpass_filter(smooth_filter=True, eps=1e-10)
     H_precomp = H_AS * xp.conj(H_Fr) * H_offaxis * bandpass_filter
 
     return H_precomp
@@ -1054,7 +1110,7 @@ def __make_transferfunction_ASP(
             "For multi-wavelength, polychromeASP needs to be used instead of ASP"
         )
 
-    dummy = np.ones((1, nosm, npsm, 1, Np, Np), dtype="complex64")
+    # dummy = np.ones((1, nosm, npsm, 1, Np, Np), dtype="complex64")
     _transferFunction = np.array(
         [
             [
@@ -1278,7 +1334,7 @@ def clear_cache(logger: logging.Logger = None):
         __make_cache_twoStepPolychrome,
         __make_transferfunction_polychrome_ASP,
         __make_transferfunction_scaledPolychromeASP,
-        __off_axis_sas_transfer_function,
+        __make_transferfunction_off_axis_sas,
     ]
     for method in list_of_methods:
         if logger is not None:
