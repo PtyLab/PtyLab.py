@@ -179,7 +179,7 @@ def test_off_axis_sas(test_device: str = "CPU", nruns: int = 10):
                 t1 = time.time()
                 print(i, 1e3 * (t1 - t0), "ms")
         else:
-            print("No GPU hardware found, please set test_device = 'CPU' ")
+            print("\nNo GPU hardware found, please set test_device = 'CPU' ")
 
     elif test_device == "CPU":
         params.gpuSwitch = False
@@ -193,7 +193,7 @@ def test_off_axis_sas(test_device: str = "CPU", nruns: int = 10):
             t1 = time.time()
             print(f"Run {i}: {1e3 * (t1 - t0):.3f} ms")
     else:
-        raise SyntaxError("Set test_device = 'CPU' or 'GPU' ")
+        raise SyntaxError("\nSet test_device = 'CPU' or 'GPU' ")
 
 
 test_off_axis_sas(test_device="CPU")
