@@ -2,8 +2,7 @@ import logging
 
 import numpy as np
 
-
-from PtyLab.utils.gpuUtils import _check_gpu_availability
+from PtyLab.utils.gpuUtils import check_gpu_availability
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -46,7 +45,7 @@ class Params(object):
         self.adaptiveMomentumAcceleration = False  # default False, it is turned on in the individual Engines that use momentum
 
         ## Specific reconstruction settings that are the same for all Engines
-        self._gpuSwitch = _check_gpu_availability(verbose=True)
+        self._gpuSwitch = check_gpu_availability(verbose=True)
         # This only makes sense on a GPU, not there yet
         self.saveMemory = False
         self.probeUpdateStart = 1
@@ -165,7 +164,7 @@ class Params(object):
     def gpuSwitch(self, value: bool):
         """Set the GPU switch state with appropriate checks."""
         if value:
-            if _check_gpu_availability():
+            if check_gpu_availability():
                 # if gpuSwitch set to True and GPU is available, either nothing or
                 # set again to True if False
                 self._gpuSwitch = value
@@ -173,7 +172,7 @@ class Params(object):
                 msg = "cuda/cupy unavailable or incompatible, cannot set `self.gpuSwitch = True`"
                 raise AttributeError(msg)
         else:
-            if _check_gpu_availability():
+            if check_gpu_availability():
                 logger.warning(
                     "Disabling GPU switch. If this is unwanted, please set `self.gpuSwitch = True`"
                 )
