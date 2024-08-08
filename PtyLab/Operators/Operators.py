@@ -17,7 +17,9 @@ import numpy as np
 from PtyLab import Params, Reconstruction
 from PtyLab.Operators._propagation_kernels import __make_quad_phase
 from PtyLab.Operators.off_axis_sas import (
-    __make_transferfunction_off_axis_sas, propagate_off_axis_sas)
+    __make_transferfunction_off_axis_sas,
+    propagate_off_axis_sas,
+)
 from PtyLab.Operators.propagator_utils import complexexp
 from PtyLab.utils.gpuUtils import getArrayModule, isGpuArray
 from PtyLab.utils.utils import circ, fft2c, ifft2c
@@ -551,6 +553,7 @@ def propagate_polychromeASP_inv(fields, params, reconstruction, z=None):
     """
     return propagate_polychromeASP(fields, params, reconstruction, inverse=True, z=z)
 
+
 def detector2object(fields, params: Params, reconstruction: Reconstruction):
     """
     Implements detector2object.m. Returns a propagated version of the field.
@@ -1063,7 +1066,7 @@ forward_lookup_dictionary = {
     "scaledpolychromeasp": propagate_scaledPolychromeASP,
     "twosteppolychrome": propagate_twoStepPolychrome,
     "identity": propagate_identity,
-    "oasas": propagate_off_axis_sas,
+    "offaxissas": propagate_off_axis_sas,
 }
 
 
@@ -1076,5 +1079,5 @@ reverse_lookup_dictionary = {
     "scaledpolychromeasp": propagate_scaledPolychromeASP_inv,
     "twosteppolychrome": propagate_twoStepPolychrome_inv,
     "identity": propagate_identity,
-    "oasas": propagate_off_axis_sas,
+    "offaxissas": propagate_off_axis_sas,
 }

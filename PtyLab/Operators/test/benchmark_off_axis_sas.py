@@ -15,7 +15,7 @@ def load_data(path="example:simulation_cpm"):
     reconstruction.initializeObjectProbe()
     reconstruction.esw = 2
     reconstruction.theta = (40, 0)
-    
+
     return reconstruction, params
 
 
@@ -29,27 +29,31 @@ def benchmark_runs(test_device: str = "CPU", nruns: int = 10):
     nruns : int, optional
         No. of runs for each propagator
     """
-    
+
     # load data
     reconstruction, params = load_data(path="example:simulation_cpm")
-    
+
     if test_device == "GPU":
         if params.gpuSwitch:
             reconstruction._move_data_to_gpu()
-            run_propagator_func = lambda: propagate_off_axis_sas(reconstruction.probe, params, reconstruction)
-            
+
+            def run_propagator_func():
+                return propagate_off_axis_sas(
+                    reconstruction.probe, params, reconstruction
+                )
+
             # Warm-up run
             t0 = time.time()
             _ = run_propagator_func()
             t1 = time.time()
-            
+
             print(f"\nGPU warm-up run time: {1e3 * (t1 - t0):.3f} ms")
-            
+
             # Using CuPy's benchmark function
             print("\nGPU Benchmark Results:")
             result = benchmark(run_propagator_func, n_repeat=nruns)
             print(result)
-            
+
             # Manual timing for comparison
             print("\nGPU run times:")
             for i in range(nruns):
@@ -62,18 +66,18 @@ def benchmark_runs(test_device: str = "CPU", nruns: int = 10):
                     print(f"Run {i}: {elapsed:.3f} ms")
         else:
             print("\nNo GPU hardware found, please set test_device = 'CPU'")
-    
+
     elif test_device == "CPU":
         params.gpuSwitch = False
         reconstruction._move_data_to_cpu()
-        
+
         print("\nCPU run times:")
         for i in range(nruns):
             t0 = time.time()
             propagate_off_axis_sas(reconstruction.probe, params, reconstruction)
             t1 = time.time()
             print(f"Run {i}: {1e3 * (t1 - t0):.3f} ms")
-    
+
     else:
         raise ValueError("Set test_device to 'CPU' or 'GPU'")
 

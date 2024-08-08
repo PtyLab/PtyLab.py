@@ -6,17 +6,16 @@ from scipy.signal import convolve2d
 from PtyLab import Params, Reconstruction
 from PtyLab.Operators._propagation_kernels import __make_quad_phase
 from PtyLab.Operators.propagator_utils import (complexexp, convolve2d,
-                                             gaussian2D, iterate_6d_fields)
+                                               gaussian2D, iterate_6d_fields)
 from PtyLab.utils.gpuUtils import getArrayModule
 from PtyLab.utils.utils import fft2c, ifft2c
 
 try:
     import cupy as cp
 except ImportError:
-    pass
+    cp = None
 
 CACHE_SIZE = 5
-
 
 def propagate_off_axis_sas(
     fields,
@@ -197,11 +196,12 @@ def __off_axis_sas_transfer_function(wavelength, Lp, Np, theta, zo, on_gpu):
     f = xp.arange(-Np / 2, Np / 2) * df
     Fx, Fy = xp.meshgrid(f, f)
 
-    # off-axis sines and tangents (theta in degrees)
-    thetax, thetay = theta
     # TODO: theta is defined with regards to aPIE, however, it is usually a scalar
     # float, perhaps we should specify it as a tuple (thetax,thetay) - or something
     # better? or simply create a new attribute?
+    
+    # off-axis sines and tangents (theta in degrees)
+    thetax, thetay = theta
     sx = xp.sin(xp.radians(thetax))
     sy = xp.sin(xp.radians(thetay))
     tx = xp.tan(xp.radians(thetax))
