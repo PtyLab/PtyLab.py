@@ -10,7 +10,6 @@ except:
     pass
 
 
-
 def load_data(path="example:simulation_cpm"):
     experimentalData, reconstruction, params, monitor, engine = easyInitialize(path)
     reconstruction.initializeObjectProbe()
@@ -19,48 +18,8 @@ def load_data(path="example:simulation_cpm"):
     
     return reconstruction, params
 
-def test_off_axis_sas(test_device: str = "CPU", nruns: int = 10):
-    """Checks if the off-axis SAS implementation works with some run-times.
 
-    Parameters
-    ----------
-    test_device : str, optional
-        Specify hardware either as "CPU" or "GPU", by default "CPU"
-    nruns : int, optional
-        No. of runs for each propagator
-    """
-    
-    # load data
-    reconstruction, params = load_data(path="example:simulation_cpm")
-
-    if test_device == "GPU":
-        if params.gpuSwitch:
-            reconstruction._move_data_to_gpu()
-
-            print("\nGPU Runs:")
-            for i in range(nruns):
-                t0 = time.time()
-                _ = propagate_off_axis_sas(reconstruction.probe, params, reconstruction)
-                t1 = time.time()
-                print(f"Run {i}: {1e3 * (t1 - t0):.3f} ms")
-        else:
-            print("\nNo GPU hardware found, please set test_device = 'CPU' ")
-
-    elif test_device == "CPU":
-        params.gpuSwitch = False
-        reconstruction._move_data_to_cpu()
-
-        print("\nCPU Runs:")
-        for i in range(nruns):
-            t0 = time.time()
-            _ = propagate_off_axis_sas(reconstruction.probe, params, reconstruction)
-            t1 = time.time()
-            print(f"Run {i}: {1e3 * (t1 - t0):.3f} ms")
-    else:
-        raise SyntaxError("\nSet test_device = 'CPU' or 'GPU' ")
-
-
-def benchmark_off_axis_sas(test_device: str = "CPU", nruns: int = 10):
+def benchmark_runs(test_device: str = "CPU", nruns: int = 10):
     """Checks if the off-axis SAS implementation works with some run-times.
 
     Parameters
@@ -78,6 +37,13 @@ def benchmark_off_axis_sas(test_device: str = "CPU", nruns: int = 10):
         if params.gpuSwitch:
             reconstruction._move_data_to_gpu()
             run_propagator_func = lambda: propagate_off_axis_sas(reconstruction.probe, params, reconstruction)
+            
+            # Warm-up run
+            t0 = time.time()
+            _ = run_propagator_func()
+            t1 = time.time()
+            
+            print(f"\nGPU warm-up run time: {1e3 * (t1 - t0):.3f} ms")
             
             # Using CuPy's benchmark function
             print("\nGPU Benchmark Results:")
@@ -112,5 +78,4 @@ def benchmark_off_axis_sas(test_device: str = "CPU", nruns: int = 10):
         raise ValueError("Set test_device to 'CPU' or 'GPU'")
 
 
-test_off_axis_sas(test_device="GPU", nruns=10)
-benchmark_off_axis_sas(test_device="GPU", nruns=10)
+benchmark_runs(test_device="GPU", nruns=10)
