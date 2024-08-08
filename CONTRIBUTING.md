@@ -8,7 +8,13 @@ At the root of the repository, activate the conda environment and install `ptyla
 
 ```bash
 conda activate ptylab_venv
-poetry install -E dev
+poetry install --all-extras
+```
+
+For installing cupy for GPU usage, the optional `gpu-cuda11x` or `gpu-cuda12x` flag can be specified based on your [CUDA toolkit version](https://docs.cupy.dev/en/stable/install.html). 
+
+```bash
+poetry install --all-extras --with gpu-cuda11x # or gpu-cuda12x
 ```
 
 This will also create a `poetry.lock` file that contains the list of all the *pinned dependencies* as given under `pyproject.toml`.
