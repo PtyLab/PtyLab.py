@@ -21,7 +21,8 @@ pyqtgraph = "^0.13.3"
 tables = "^3.8.0"
 bokeh = "^3.2.1"
 tensorflow = "^2.14.0"
-pyqt5 = "^5.15.10"
+PyQt5 = "^5.15.10"
+PyQt5-Qt5 = "5.15.2"
 black = { version = "^23.7.0", optional = true }
 ipykernel = { version = "^6.25.0", optional = true }
 
