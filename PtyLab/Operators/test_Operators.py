@@ -5,18 +5,12 @@ import numpy as np
 from numpy.testing import assert_allclose
 
 from PtyLab import easyInitialize
-from PtyLab.Operators.Operators import (
-    aspw,
-    aspw_cached,
-    forward_lookup_dictionary,
-    object2detector,
-    propagate_ASP,
-    propagate_fresnel,
-    propagate_off_axis_sas,
-    propagate_scaledASP,
-    propagate_scaledPolychromeASP,
-    propagate_twoStepPolychrome,
-)
+from PtyLab.Operators.Operators import (aspw, aspw_cached,
+                                        forward_lookup_dictionary,
+                                        object2detector, propagate_ASP,
+                                        propagate_fresnel, propagate_scaledASP,
+                                        propagate_scaledPolychromeASP,
+                                        propagate_twoStepPolychrome)
 
 
 def test_caching_aspw():
@@ -148,52 +142,3 @@ class TestASP(TestCase):
         P1 = propagate_ASP(a, params, reconstruction, z=1e-3, fftflag=False)[1]
         P2 = propagate_ASP(a, params, reconstruction, z=1e-3, fftflag=True)[1]
         assert_allclose(P1, P2)
-
-
-def test_off_axis_sas(test_device: str = "CPU", nruns: int = 10):
-    """Checks if Fresnel based propagators are bug-free.
-
-    Parameters
-    ----------
-    test_device : str, optional
-        Specify hardware either as "CPU" or "GPU", by default "CPU"
-    nruns : int, optional
-        No. of runs for each propagator
-    """
-
-    experimentalData, reconstruction, params, monitor, engine = easyInitialize(
-        "example:simulation_cpm"
-    )
-
-    reconstruction.initializeObjectProbe()
-    reconstruction.esw = 2
-    reconstruction.theta = (40, 0)
-
-    if test_device == "GPU":
-        if params.gpuSwitch:
-            reconstruction._move_data_to_gpu()
-
-            for i in range(nruns):
-                t0 = time.time()
-                _ = propagate_off_axis_sas(reconstruction.probe, params, reconstruction)
-                t1 = time.time()
-                print(i, 1e3 * (t1 - t0), "ms")
-        else:
-            print("\nNo GPU hardware found, please set test_device = 'CPU' ")
-
-    elif test_device == "CPU":
-        params.gpuSwitch = False
-        reconstruction._move_data_to_cpu()
-
-        print("\n---------------")
-        print(f"{propagate_off_axis_sas.__name__}\n")
-        for i in range(nruns):
-            t0 = time.time()
-            _ = propagate_off_axis_sas(reconstruction.probe, params, reconstruction)
-            t1 = time.time()
-            print(f"Run {i}: {1e3 * (t1 - t0):.3f} ms")
-    else:
-        raise SyntaxError("\nSet test_device = 'CPU' or 'GPU' ")
-
-
-test_off_axis_sas(test_device="CPU")
