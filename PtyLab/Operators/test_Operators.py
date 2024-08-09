@@ -5,12 +5,17 @@ import numpy as np
 from numpy.testing import assert_allclose
 
 from PtyLab import easyInitialize
-from PtyLab.Operators.Operators import (aspw, aspw_cached,
-                                        forward_lookup_dictionary,
-                                        object2detector, propagate_ASP,
-                                        propagate_fresnel, propagate_scaledASP,
-                                        propagate_scaledPolychromeASP,
-                                        propagate_twoStepPolychrome)
+from PtyLab.Operators.Operators import (
+    aspw,
+    aspw_cached,
+    forward_lookup_dictionary,
+    object2detector,
+    propagate_ASP,
+    propagate_fresnel,
+    propagate_scaledASP,
+    propagate_scaledPolychromeASP,
+    propagate_twoStepPolychrome,
+)
 
 
 def test_caching_aspw():
@@ -67,6 +72,7 @@ def _doit(reconstruction, params):
     for operator_name in forward_lookup_dictionary:
         params.propagatorType = operator_name
         reconstruction.esw = reconstruction.probe
+        reconstruction.theta = (40, 0)  # for off-axis sas
         print("\n")
         import time
 
@@ -142,3 +148,6 @@ class TestASP(TestCase):
         P1 = propagate_ASP(a, params, reconstruction, z=1e-3, fftflag=False)[1]
         P2 = propagate_ASP(a, params, reconstruction, z=1e-3, fftflag=True)[1]
         assert_allclose(P1, P2)
+
+
+test_object2detector()
