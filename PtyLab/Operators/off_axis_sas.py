@@ -1,12 +1,15 @@
 from functools import lru_cache
 
 import numpy as np
-from scipy.signal import convolve2d
 
 from PtyLab import Params, Reconstruction
 from PtyLab.Operators._propagation_kernels import __make_quad_phase
-from PtyLab.Operators.propagator_utils import (complexexp, convolve2d,
-                                               gaussian2D, iterate_6d_fields)
+from PtyLab.Operators.propagator_utils import (
+    complexexp,
+    convolve2d,
+    gaussian2D,
+    iterate_6d_fields,
+)
 from PtyLab.utils.gpuUtils import getArrayModule
 from PtyLab.utils.utils import fft2c, ifft2c
 
@@ -16,6 +19,7 @@ except ImportError:
     cp = None
 
 CACHE_SIZE = 5
+
 
 def propagate_off_axis_sas(
     fields,
@@ -72,7 +76,7 @@ def propagate_off_axis_sas(
 
     # precompensated transfer function
     H_precomp = __make_transferfunction_off_axis_sas(
-        params, reconstruction, pad_factor, z
+        params, reconstruction, pad_factor, params.gpuSwitch, z
     )
 
     # field propagation
@@ -99,6 +103,7 @@ def __make_transferfunction_off_axis_sas(
     params: Params,
     reconstruction: Reconstruction,
     pad_factor: int,
+    on_gpu: bool,
     zo: float = None,
 ):
     """
@@ -129,10 +134,8 @@ def __make_transferfunction_off_axis_sas(
     npsm = reconstruction.npsm  # no. of spatial modes for the probe.
     nlambda = reconstruction.nlambda  # no. of wavelengths for multi-wavelength.
     nslice = reconstruction.nslice  # no. of slices for multi-slice operation
-    on_gpu = params.gpuSwitch  # switch to use GPU acceleration.
-
     xp = cp if on_gpu else np
-    
+
     # distance from the center of the sample to the probe.
     zo = reconstruction.zo if zo is None else zo
 
@@ -161,7 +164,6 @@ def __make_transferfunction_off_axis_sas(
     return transfer_function
 
 
-
 @lru_cache(CACHE_SIZE)
 def __off_axis_sas_transfer_function(wavelength, Lp, Np, theta, zo, on_gpu):
     """Precompensation transfer function for scalable off-axis transfer function.
@@ -186,7 +188,6 @@ def __off_axis_sas_transfer_function(wavelength, Lp, Np, theta, zo, on_gpu):
     np.ndarray
         precompensated transfer function `H_precomp`
     """
-    # TODO: Test with and without this caching mechanism.
 
     # cp/np array
     xp = cp if on_gpu else np
@@ -199,7 +200,7 @@ def __off_axis_sas_transfer_function(wavelength, Lp, Np, theta, zo, on_gpu):
     # TODO: theta is defined with regards to aPIE, however, it is usually a scalar
     # float, perhaps we should specify it as a tuple (thetax,thetay) - or something
     # better? or simply create a new attribute?
-    
+
     # off-axis sines and tangents (theta in degrees)
     thetax, thetay = theta
     sx = xp.sin(xp.radians(thetax))
@@ -215,7 +216,7 @@ def __off_axis_sas_transfer_function(wavelength, Lp, Np, theta, zo, on_gpu):
         - (Fy + (sy / wavelength)) ** 2
     )
     sqrt_chi = np.sqrt(np.maximum(0, chi))
-    
+
     def _create_bandpass_filter(smooth_filter=True, eps=1e-10):
         # zo = z1 in the first line and zo = z2 in the second line
         Omegax = zo * (tx - (Fx + sx / wavelength) / (sqrt_chi + eps))
@@ -231,14 +232,14 @@ def __off_axis_sas_transfer_function(wavelength, Lp, Np, theta, zo, on_gpu):
 
         # Fourier Bandpass filter (W is a mask below)
         W_mask = xp.logical_and(criteria_x, criteria_y)
-    
+
         # smooth the bandpass filter corners with a Gaussian kernel
         if smooth_filter:
             kernel_gauss = gaussian2D(8, 2, on_gpu)
             bandpass_filter = convolve2d(W_mask, kernel_gauss, on_gpu, mode="same")
         else:
             bandpass_filter = W_mask
-        
+
         return bandpass_filter
 
     # Pre-compensation transfer function
