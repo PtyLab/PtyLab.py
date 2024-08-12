@@ -125,10 +125,21 @@ def __make_transferfunction_off_axis_sas(
         The calculated transfer function with shape (nlambda, nosm, npsm, nslice, Np, Np).
     """
 
+    # convert theta to a tuple of two floats.
+    #   - If theta is a single number, return (float(number), 0.0)
+    #   - If theta is a tuple of two numbers, convert both to float
+    #   - Raise ValueError for invalid theta
+    theta = reconstruction.theta
+    if isinstance(theta, (int, float)):
+        theta = (float(theta), 0.0)
+    elif isinstance(theta, tuple) and len(theta) == 2:
+        theta = (float(theta[0]), float(theta[1]))
+    else:
+        raise ValueError("theta must be a number or a tuple of two numbers")
+
     fftshiftSwitch = params.fftshiftSwitch
     Np = reconstruction.Np  # Pixel size along each dimension.
     wavelength = reconstruction.wavelength  # Wavelength used in the scanning probe.
-    theta = reconstruction.theta
     Lp = reconstruction.Lp  # length of the sample.
     nosm = reconstruction.nosm  # no. of spatial modes for the object.
     npsm = reconstruction.npsm  # no. of spatial modes for the probe.
@@ -196,10 +207,6 @@ def __off_axis_sas_transfer_function(wavelength, Lp, Np, theta, zo, on_gpu):
     df = 1 / Lp
     f = xp.arange(-Np / 2, Np / 2) * df
     Fx, Fy = xp.meshgrid(f, f)
-
-    # TODO: theta is defined with regards to aPIE, however, it is usually a scalar
-    # float, perhaps we should specify it as a tuple (thetax,thetay) - or something
-    # better? or simply create a new attribute?
 
     # off-axis sines and tangents (theta in degrees)
     thetax, thetay = theta
