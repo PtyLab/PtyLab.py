@@ -4,12 +4,8 @@ import numpy as np
 
 from PtyLab import Params, Reconstruction
 from PtyLab.Operators._propagation_kernels import __make_quad_phase
-from PtyLab.Operators.propagator_utils import (
-    complexexp,
-    convolve2d,
-    gaussian2D,
-    iterate_6d_fields,
-)
+from PtyLab.Operators.propagator_utils import (complexexp, convolve2d,
+                                               gaussian2D, iterate_6d_fields)
 from PtyLab.utils.gpuUtils import getArrayModule
 from PtyLab.utils.utils import fft2c, ifft2c
 
@@ -51,8 +47,16 @@ def propagate_off_axis_sas(
     xp = getArrayModule(fields)
     # pad the original field (last 2 dimensions) with zeros to be twice it's size
     # no padding in the first 4 dimensions
+    
+    # ideally pad factor is 2, however can be modiefied by user.
+    # NOTE: Hacky way of getting this, as the Reconstruction class is not flexible enough,
+    # to add more attributes (constrained by the design of PtyLab). 
+    try:
+        pad_factor = reconstruction.pad_factor
+    except AttributeError:
+        pad_factor = 2
+        
     rows, cols = fields.shape[-2:]
-    pad_factor = 2
     pad_width = (
         (0, 0),
         (0, 0),
@@ -67,16 +71,23 @@ def propagate_off_axis_sas(
     Np = reconstruction.Np
     dxp = reconstruction.dxp
     wavelength = reconstruction.wavelength
-    z = reconstruction.zo if z is None else z
-
+    
+    # specifying z1 (aspw) and z2 (Fresnel) propagator for relaxing 
+    # sampling requirements. Similar issue as the NOTE on pad_factor above.
+    z1 = reconstruction.zo if z is None else z
+    try:
+        z2 = reconstruction.z2
+    except AttributeError:
+        z2 = z1
+        
     # quadratic phase Q2 (currently zo, but this can be z2 and z1 separated)
     quad_phase = __make_quad_phase(
-        z, wavelength, Np * pad_factor, dxp, params.gpuSwitch
+        z2, wavelength, Np * pad_factor, dxp, params.gpuSwitch
     )
 
     # precompensated transfer function
     H_precomp = __make_transferfunction_off_axis_sas(
-        params, reconstruction, pad_factor, params.gpuSwitch, z
+        params, reconstruction, pad_factor, params.gpuSwitch, z1, z2
     )
 
     # field propagation
@@ -104,7 +115,8 @@ def __make_transferfunction_off_axis_sas(
     reconstruction: Reconstruction,
     pad_factor: int,
     on_gpu: bool,
-    zo: float = None,
+    z1: float,
+    z2: float
 ):
     """
     Allows for a 6-dimensional (nlambda, nosm, npsm, nslice, Np, Np) array when computing the transfer function
@@ -135,7 +147,7 @@ def __make_transferfunction_off_axis_sas(
     elif isinstance(theta, tuple) and len(theta) == 2:
         theta = (float(theta[0]), float(theta[1]))
     else:
-        raise ValueError("theta must be a number or a tuple of two numbers")
+        raise ValueError("theta must be a scalar or a tuple of two numbers")
 
     fftshiftSwitch = params.fftshiftSwitch
     Np = reconstruction.Np  # Pixel size along each dimension.
@@ -146,9 +158,6 @@ def __make_transferfunction_off_axis_sas(
     nlambda = reconstruction.nlambda  # no. of wavelengths for multi-wavelength.
     nslice = reconstruction.nslice  # no. of slices for multi-slice operation
     xp = cp if on_gpu else np
-
-    # distance from the center of the sample to the probe.
-    zo = reconstruction.zo if zo is None else zo
 
     # ensuring some checks
     if fftshiftSwitch:
@@ -169,14 +178,14 @@ def __make_transferfunction_off_axis_sas(
     )
     for inds in iterate_6d_fields(transfer_function):
         transfer_function[*inds] = __off_axis_sas_transfer_function(
-            wavelength, Lp, pad_factor * Np, theta, zo, on_gpu
+            wavelength, Lp, pad_factor * Np, theta, z1, z2, on_gpu
         )
 
     return transfer_function
 
 
 @lru_cache(CACHE_SIZE)
-def __off_axis_sas_transfer_function(wavelength, Lp, Np, theta, zo, on_gpu):
+def __off_axis_sas_transfer_function(wavelength, Lp, Np, theta, z1, z2, on_gpu):
     """Precompensation transfer function for scalable off-axis transfer function.
 
     Parameters
@@ -189,8 +198,10 @@ def __off_axis_sas_transfer_function(wavelength, Lp, Np, theta, zo, on_gpu):
         _description_
     theta : tuple / scalar
         Theta (angle in degrees) in the x-y plane.
-    zo : float
-        propagation distance
+    z1 : float
+        propagation distance (ASPW)
+    z2 : float
+        propagation distance (Fresnel) - relaxing sampling requirements.
     on_gpu : bool
         checks if the array is on GPU or not.
 
@@ -225,20 +236,22 @@ def __off_axis_sas_transfer_function(wavelength, Lp, Np, theta, zo, on_gpu):
     sqrt_chi = np.sqrt(np.maximum(0, chi))
 
     def _create_bandpass_filter(smooth_filter=True, eps=1e-10):
-        # zo = z1 in the first line and zo = z2 in the second line
-        Omegax = zo * (tx - (Fx + sx / wavelength) / (sqrt_chi + eps))
-        Omegax += wavelength * zo * Fx
+        """ Creating a bandpass filter """
+        
+        # for the field in x-direction
+        Omegax = z1 * (tx - (Fx + sx / wavelength) / (sqrt_chi + eps))
+        Omegax += wavelength * z2 * Fx
 
-        # zo = z1 in the first line and zo = z2 in the second line
-        Omegay = zo * (ty - (Fy + sy / wavelength) / (sqrt_chi + eps))
-        Omegay += wavelength * zo * Fy
-
-        sampling_rate = 2
-        criteria_x = df <= xp.abs(1 / (sampling_rate * Omegax + eps))
-        criteria_y = df <= xp.abs(1 / (sampling_rate * Omegay + eps))
+        # for the field in y-direction
+        Omegay = z1 * (ty - (Fy + sy / wavelength) / (sqrt_chi + eps))
+        Omegay += wavelength * z2 * Fy
 
         # Fourier Bandpass filter (W is a mask below)
-        W_mask = xp.logical_and(criteria_x, criteria_y)
+        sampling_rate = 2
+        W_mask = xp.logical_and(
+            df <= xp.abs(1 / (sampling_rate * Omegax + eps)), 
+            df <= xp.abs(1 / (sampling_rate * Omegay + eps))
+            )
 
         # smooth the bandpass filter corners with a Gaussian kernel
         if smooth_filter:
@@ -253,15 +266,15 @@ def __off_axis_sas_transfer_function(wavelength, Lp, Np, theta, zo, on_gpu):
 
     # implements the angular spectrum transfer function (see eq. 23, part of the precompensation factor)
     # zo is z1 in the document.
-    H_AS = complexexp(2 * np.pi * zo * sqrt_chi)
+    H_AS = complexexp(2 * np.pi * z1 * sqrt_chi)
 
     # Fresnel transfer function
     H_Fr = complexexp(
-        -np.pi * zo / wavelength * ((wavelength * Fx) ** 2 + (wavelength * Fy) ** 2)
+        -np.pi * z2 / wavelength * ((wavelength * Fx) ** 2 + (wavelength * Fy) ** 2)
     )
 
     # off-axis consideration of the transfer function
-    H_offaxis = complexexp(2 * np.pi * zo * (tx * Fx + ty * Fy))
+    H_offaxis = complexexp(2 * np.pi * z1 * (tx * Fx + ty * Fy))
 
     # precompensation with bandpass filter
     bandpass_filter = _create_bandpass_filter(smooth_filter=True, eps=1e-10)
