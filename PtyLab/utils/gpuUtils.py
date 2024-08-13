@@ -6,6 +6,7 @@ import numpy as np
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("GPU")
+logging.getLogger('numexpr').setLevel(logging.WARNING)
 
 def check_gpu_availability(verbose=True):
     """Check if GPU and cupy are available."""
