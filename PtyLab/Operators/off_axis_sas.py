@@ -171,13 +171,14 @@ def __make_transferfunction_off_axis_sas(
             " Currently off-axis SAS not valid for multi-slice ptychography"
         )
 
-    # Array shape (nlambda, nosm, npsm, nslice, Np, Np)
+    # transfer function over the entire 6D field (nlambda, nosm, npsm, nslice, Np, Np)
     transfer_function = xp.zeros(
         (nlambda, nosm, npsm, nslice, Np * pad_factor, Np * pad_factor),
         dtype="complex64",
     )
     for inds in iterate_6d_fields(transfer_function):
-        transfer_function[*inds] = __off_axis_sas_transfer_function(
+        i_nlambda, j_nosm, k_npsm, l_nslice = inds
+        transfer_function[i_nlambda, j_nosm, k_npsm, l_nslice] = __off_axis_sas_transfer_function(
             wavelength, Lp, pad_factor * Np, theta, z1, z2, on_gpu
         )
 
