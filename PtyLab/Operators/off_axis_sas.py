@@ -4,8 +4,12 @@ import numpy as np
 
 from PtyLab import Params, Reconstruction
 from PtyLab.Operators._propagation_kernels import __make_quad_phase
-from PtyLab.Operators.propagator_utils import (complexexp, convolve2d,
-                                               gaussian2D, iterate_6d_fields)
+from PtyLab.Operators.propagator_utils import (
+    complexexp,
+    convolve2d,
+    gaussian2D,
+    iterate_6d_fields,
+)
 from PtyLab.utils.gpuUtils import getArrayModule
 from PtyLab.utils.utils import fft2c, ifft2c
 
@@ -150,9 +154,9 @@ def __make_transferfunction_off_axis_sas(
         raise ValueError("theta must be a scalar or a tuple of two numbers")
 
     fftshiftSwitch = params.fftshiftSwitch
-    Np = reconstruction.Np  # Pixel size along each dimension.
+    Np = pad_factor * reconstruction.Np  # Pixel size along each dimension.
     wavelength = reconstruction.wavelength  # Wavelength used in the scanning probe.
-    Lp = reconstruction.Lp  # length of the sample.
+    Lp = pad_factor * reconstruction.Lp  # length of the sample.
     nosm = reconstruction.nosm  # no. of spatial modes for the object.
     npsm = reconstruction.npsm  # no. of spatial modes for the probe.
     nlambda = reconstruction.nlambda  # no. of wavelengths for multi-wavelength.
@@ -173,13 +177,13 @@ def __make_transferfunction_off_axis_sas(
 
     # transfer function over the entire 6D field (nlambda, nosm, npsm, nslice, Np, Np)
     transfer_function = xp.zeros(
-        (nlambda, nosm, npsm, nslice, Np * pad_factor, Np * pad_factor),
+        (nlambda, nosm, npsm, nslice, Np, Np),
         dtype="complex64",
     )
     for inds in iterate_6d_fields(transfer_function):
         i_nlambda, j_nosm, k_npsm, l_nslice = inds
         transfer_function[i_nlambda, j_nosm, k_npsm, l_nslice] = __off_axis_sas_transfer_function(
-            wavelength, Lp, pad_factor * Np, theta, z1, z2, on_gpu
+            wavelength, Lp, Np, theta, z1, z2, on_gpu
         )
 
     return transfer_function
