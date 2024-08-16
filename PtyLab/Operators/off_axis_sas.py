@@ -154,13 +154,22 @@ def __make_transferfunction_off_axis_sas(
         raise ValueError("theta must be a scalar or a tuple of two numbers")
 
     fftshiftSwitch = params.fftshiftSwitch
-    Np = pad_factor * reconstruction.Np  # Pixel size along each dimension.
+    Np = pad_factor * reconstruction.Np  # padding the field
     wavelength = reconstruction.wavelength  # Wavelength used in the scanning probe.
-    Lp = pad_factor * reconstruction.Lp  # length of the sample.
     nosm = reconstruction.nosm  # no. of spatial modes for the object.
     npsm = reconstruction.npsm  # no. of spatial modes for the probe.
     nlambda = reconstruction.nlambda  # no. of wavelengths for multi-wavelength.
     nslice = reconstruction.nslice  # no. of slices for multi-slice operation
+    
+    # modify real-space resolution for adjusting effective NA
+    try:
+        premultiplier = reconstruction.premultiplier
+    except AttributeError:
+        premultiplier = 1.0
+        
+    reconstruction.dxp = premultiplier * reconstruction.dxp
+    Lp = pad_factor * reconstruction.Lp 
+    
     xp = cp if on_gpu else np
 
     # ensuring some checks
