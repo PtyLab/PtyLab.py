@@ -8,7 +8,7 @@ except ImportError:
 from functools import lru_cache
 
 try:
-    import cupy as cp
+    import cupy as cp  # type: ignore
 except ImportError:
     pass
     # print("Cupy not available, will not be able to run GPU based computation")
@@ -308,7 +308,9 @@ def propagate_twoStepPolychrome_inv(
     ]
     G = propagate_twoStepPolychrome(
         reconstruction.ESW, params, reconstruction, inverse=True, z=z
-    )[1]  # tODO: What is G here? Why are we not returning reconstruction.esw?
+    )[
+        1
+    ]  # tODO: What is G here? Why are we not returning reconstruction.esw?
     return G, F
 
 
@@ -878,7 +880,7 @@ def __make_transferfunction_polychrome_ASP(
     spectralDensity = np.array(spectralDensity_as_tuple)
     if fftshiftSwitch:
         raise ValueError("ASP propagatorType works only with fftshiftSwitch = False!")
-    dummy = np.ones((nlambda, nosm, npsm, 1, Np, Np), dtype="complex64")
+    dummy = np.ones((nlambda, nosm, npsm, 1, Np, Np), dtype="complex64")  # noqa: F841
     transferFunction = np.array(
         [
             [

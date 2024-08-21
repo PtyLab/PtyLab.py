@@ -5,9 +5,9 @@ from PtyLab.Operators.off_axis_sas import propagate_off_axis_sas
 from PtyLab.utils.gpuUtils import check_gpu_availability
 
 try:
-    import cupy as cp
-    from cupyx.profiler import benchmark
-except:
+    import cupy as cp  # type: ignore
+    from cupyx.profiler import benchmark  # type: ignore
+except ImportError:
     pass
 
 
@@ -35,16 +35,14 @@ def benchmark_runs(nruns: int = 10):
     reconstruction, params = load_data(path="example:simulation_cpm")
 
     if check_gpu_availability(verbose=False):
-        
+
         msg = "gpu switch must internally be activated"
         assert params.gpuSwitch is True, msg
-        
+
         reconstruction._move_data_to_gpu()
 
         def run_propagator_func():
-            return propagate_off_axis_sas(
-                reconstruction.probe, params, reconstruction
-            )
+            return propagate_off_axis_sas(reconstruction.probe, params, reconstruction)
 
         # Warm-up run
         t0 = time.time()
