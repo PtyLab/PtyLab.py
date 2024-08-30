@@ -80,10 +80,7 @@ def propagate_off_axis_sas(
     # specifying z1 (aspw) and z2 (Fresnel) propagator for relaxing
     # sampling requirements. Similar issue as the NOTE on pad_factor above.
     z1 = reconstruction.zo if z is None else z
-    try:
-        z2 = reconstruction.z2
-    except AttributeError:
-        z2 = z1
+    z2 = reconstruction.z2 if hasattr(reconstruction, "z2") else z1
 
     # quadratic phase Q2 (currently zo, but this can be z2 and z1 separated)
     quad_phase = __make_quad_phase(
@@ -137,21 +134,23 @@ def __make_transferfunction_off_axis_sas(
         The calculated transfer function with shape (nlambda, nosm, npsm, nslice, Np, Np).
     """
 
-    # convert theta to a tuple of two floats.
-    #   - If theta is a single number, return (float(number), 0.0)
-    #   - If theta is a tuple of two numbers, convert both to float
-    #   - Raise ValueError for invalid theta
+    # off axis theta tuple in degrees
     theta = reconstruction.theta
     if isinstance(theta, (int, float)):
+        # theta is a single number, return (float(number), 0.0)
         theta = (float(theta), 0.0)
     elif isinstance(theta, tuple) and len(theta) == 2:
+        # theta is a tuple of two numbers, convert both to float
         theta = (float(theta[0]), float(theta[1]))
     else:
         raise ValueError(
             "theta must be specified as a scalar or a tuple of two numbers"
         )
 
-    pad_factor = reconstruction.pad_factor
+    pad_factor = (
+        reconstruction.pad_factor if hasattr(reconstruction, "pad_factor") else 2
+    )
+
     fftshiftSwitch = params.fftshiftSwitch
     Np = pad_factor * reconstruction.Np  # padding the field
     wavelength = reconstruction.wavelength  # Wavelength used in the scanning probe.
@@ -161,10 +160,11 @@ def __make_transferfunction_off_axis_sas(
     nslice = reconstruction.nslice  # no. of slices for multi-slice operation
 
     # modify real-space resolution for adjusting effective NA
-    try:
-        prefactor_dxp = reconstruction.prefactor_dxp
-    except AttributeError:
-        prefactor_dxp = 1.0
+    prefactor_dxp = (
+        reconstruction.prefactor_dxp
+        if hasattr(reconstruction, "prefactor_dxp")
+        else 1.0
+    )
 
     reconstruction.dxp = prefactor_dxp * reconstruction.dxp
     Lp = pad_factor * reconstruction.Lp
