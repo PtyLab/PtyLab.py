@@ -54,21 +54,21 @@ def propagate_off_axis_sas(
 
     # ideally pad factor is 2, however can be modiefied by user.
     # NOTE: Hacky way of getting this, as the Reconstruction class is not flexible enough,
-    # to add more attributes (constrained by the design of PtyLab). Perhaps a better way?
-    try:
-        pad_factor = reconstruction.pad_factor
-    except AttributeError:
-        reconstruction.pad_factor = 2
-        pad_factor = reconstruction.pad_factor
+    pad_factor = (
+        reconstruction.pad_factor if hasattr(reconstruction, "pad_factor") else 2
+    )
 
+    # pad the original field
     rows, cols = fields.shape[-2:]
+    pad_rows = (pad_factor * rows - rows) // 2
+    pad_cols = (pad_factor * cols - cols) // 2
     pad_width = (
         (0, 0),
         (0, 0),
         (0, 0),
         (0, 0),
-        (rows // pad_factor, rows // pad_factor),
-        (cols // pad_factor, cols // pad_factor),
+        (pad_rows, pad_rows),
+        (pad_cols, pad_cols),
     )
     fields_padded = xp.pad(fields, pad_width, "constant")
 

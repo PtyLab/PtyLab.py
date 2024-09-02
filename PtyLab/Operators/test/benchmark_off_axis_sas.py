@@ -33,7 +33,7 @@ def benchmark_runs(nruns: int = 10):
 
     # load data
     reconstruction, params = load_data(path="example:simulation_cpm")
-
+    reconstruction.pad_factor = 2  # can be modiefied by user.
     if check_gpu_availability(verbose=False):
 
         msg = "gpu switch must internally be activated"
