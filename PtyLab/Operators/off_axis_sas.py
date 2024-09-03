@@ -167,7 +167,7 @@ def __make_transferfunction_off_axis_sas(
     )
 
     reconstruction.dxp = prefactor_dxp * reconstruction.dxp
-    Lp = pad_factor * reconstruction.Lp
+    Lp = Np * reconstruction.dxp
 
     xp = cp if on_gpu else np
 
