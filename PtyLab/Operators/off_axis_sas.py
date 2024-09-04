@@ -52,7 +52,7 @@ def propagate_off_axis_sas(
     # pad the original field (last 2 dimensions) with zeros to be twice it's size
     # no padding in the first 4 dimensions
 
-    # ideally pad factor is 2, however can be modiefied by user.
+    # ideally pad factor of 2 is supported as per the SAS publication, however can be modiefied by user.
     # NOTE: Hacky way of getting this, as the Reconstruction class is not flexible enough,
     pad_factor = (
         reconstruction.pad_factor if hasattr(reconstruction, "pad_factor") else 2
@@ -229,7 +229,7 @@ def __off_axis_sas_transfer_function(wavelength, Lp, Np, theta, z1, z2, on_gpu):
 
     # Fourier grid
     df = 1 / Lp
-    f = xp.arange(-Np / 2, Np / 2) * df
+    f = xp.linspace(-Np / 2, Np / 2, int(Np)) * df
     Fx, Fy = xp.meshgrid(f, f)
 
     # off-axis sines and tangents (theta in degrees)
