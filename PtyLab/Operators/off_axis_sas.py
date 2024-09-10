@@ -80,7 +80,11 @@ def propagate_off_axis_sas(
     # specifying z1 (aspw) and z2 (Fresnel) propagator for relaxing
     # sampling requirements. Similar issue as the NOTE on pad_factor above.
     z1 = reconstruction.zo if z is None else z
-    z2 = reconstruction.z2 if hasattr(reconstruction, "z2") else z1
+
+    prefactor_z = (
+        reconstruction.prefactor_z if hasattr(reconstruction, "prefactor_z") else 1.0
+    )
+    z2 = prefactor_z * z1
 
     # quadratic phase Q2 (currently zo, but this can be z2 and z1 separated)
     quad_phase = __make_quad_phase(
@@ -111,7 +115,7 @@ def propagate_off_axis_sas(
     return reconstruction.esw, prop_fields
 
 
-@lru_cache(CACHE_SIZE)
+# @lru_cache(CACHE_SIZE)
 def __make_transferfunction_off_axis_sas(
     params: Params, reconstruction: Reconstruction, on_gpu: bool, z1: float, z2: float
 ):
@@ -197,7 +201,7 @@ def __make_transferfunction_off_axis_sas(
     return transfer_function
 
 
-@lru_cache(CACHE_SIZE)
+# @lru_cache(CACHE_SIZE)
 def __off_axis_sas_transfer_function(wavelength, Lp, Np, theta, z1, z2, on_gpu):
     """Precompensation transfer function for scalable off-axis transfer function.
 
@@ -246,7 +250,7 @@ def __off_axis_sas_transfer_function(wavelength, Lp, Np, theta, z1, z2, on_gpu):
         - (Fx + (sx / wavelength)) ** 2
         - (Fy + (sy / wavelength)) ** 2
     )
-    sqrt_chi = np.sqrt(np.maximum(0, chi))
+    sqrt_chi = xp.sqrt(xp.maximum(0, chi))
 
     def _create_bandpass_filter(smooth_filter=True, eps=1e-10):
         """Creating a bandpass filter"""
@@ -279,15 +283,15 @@ def __off_axis_sas_transfer_function(wavelength, Lp, Np, theta, z1, z2, on_gpu):
 
     # implements the angular spectrum transfer function (see eq. 23, part of the precompensation factor)
     # zo is z1 in the document.
-    H_AS = complexexp(2 * np.pi * z1 * sqrt_chi)
+    H_AS = complexexp(2 * xp.pi * z1 * sqrt_chi)
 
     # Fresnel transfer function
     H_Fr = complexexp(
-        -np.pi * z2 / wavelength * ((wavelength * Fx) ** 2 + (wavelength * Fy) ** 2)
+        -xp.pi * z2 / wavelength * ((wavelength * Fx) ** 2 + (wavelength * Fy) ** 2)
     )
 
     # off-axis consideration of the transfer function
-    H_offaxis = complexexp(2 * np.pi * z1 * (tx * Fx + ty * Fy))
+    H_offaxis = complexexp(2 * xp.pi * z1 * (tx * Fx + ty * Fy))
 
     # precompensation with bandpass filter
     bandpass_filter = _create_bandpass_filter(smooth_filter=True, eps=1e-10)
