@@ -1,7 +1,6 @@
 from functools import lru_cache
 
 import numpy as np
-
 from PtyLab import Params, Reconstruction
 from PtyLab.Operators._propagation_kernels import __make_quad_phase
 from PtyLab.Operators.propagator_utils import (
@@ -28,8 +27,10 @@ def propagate_off_axis_sas(
     z: float = None,
 ):
     """
-    Scalable Off-axis Angular Spectrum (SOAS) Propagation method that assumes that the source and
+    Off-axis Scalable Angular Spectrum (SAS) Propagation method that assumes that the source and
     destination planes are coplanar, but off-axis.
+    // TODO: This in the end is the same as SAS with the shift operation. Should be moved to the propagator file and renamed.
+    Perhaps later adapted if it varies based on sampling strategy. However, currently it is fairly flexible.
 
     Parameters
     ----------
