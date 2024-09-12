@@ -173,6 +173,7 @@ def __off_axis_sas_transfer_function(wavelength, Lp, Np, theta, z1, z2, on_gpu):
     return H_precomp
 
 
+@lru_cache(CACHE_SIZE)
 def __make_transferfunction_off_axis_sas(
     params: Params,
     reconstruction: Reconstruction,
@@ -369,7 +370,68 @@ def propagate_off_axis_sas(
     psi_precomp = ifft2c(H_precomp * fft2c(fields_padded))
     prop_fields = fft2c(quad_phase_Q1 * psi_precomp) * quad_phase_Q2
 
-    # crop the field by a factor of 2 (as it was originally padded by 2)
+    # crop the field by the given pad-factor (default: 2)
+    prop_fields_unpadded = _unpad_field(prop_fields, pad_factor)
+
+    return reconstruction.esw, prop_fields_unpadded
+
+
+# TODO: Check if theta=0 in the end falls back to the SAS case. If yes, this will be a more flexible implementation for SAS that allows off-axis propagation.
+#       Should be eventually renamed in that case. Perhaps later adapted if parts of it vary with sampling strategy.
+def propagate_off_axis_sas_inv(
+    fields,
+    params: Params,
+    reconstruction: Reconstruction,
+    z: float = None,
+    with_quad_phase_Q2: bool = False,
+):
+    """
+    Off-axis Scalable Angular Spectrum (SAS) Propagation method that assumes that the source and
+    destination planes are coplanar, but off-axis.
+
+    Parameters
+    ----------
+    fields: np.ndarray
+        Field to propagate
+    params: Params
+        Instance of the Params class
+    reconstruction: Reconstruction
+        Instance of the Reconstruction class.
+    z: float
+        Propagation distance
+    with_quad_phase_Q2: bool
+        If True, the quadratic phase Q2 is applied
+
+    Returns
+    -------
+    reconstruction.esw, propagated field:
+        Exit surface wave and the propagated field
+    """
+
+    interfaced_dict = _interface_off_axis_sas(
+        fields,
+        params,
+        reconstruction,
+        z,
+        with_quad_phase_Q2,
+    )
+
+    fields_padded = interfaced_dict["fields_padded"]
+    H_precomp = interfaced_dict["H_precomp"]
+    quad_phase_Q1 = interfaced_dict["quad_phase_Q1"]
+    quad_phase_Q2 = interfaced_dict["quad_phase_Q2"]
+    pad_factor = interfaced_dict["pad_factor"]
+
+    # conjugates for the backward direction
+    Q1_conj = np.conj(quad_phase_Q1)
+    Q2_conj = np.conj(quad_phase_Q2)
+    H_precomp_conj = np.conj(H_precomp)
+
+    # backward field propagation
+    psi_precomp = H_precomp_conj * fft2c(Q1_conj * ifft2c(Q2_conj * fields_padded))
+    prop_fields = ifft2c(psi_precomp)
+
+    # crop the field by the given pad-factor (default: 2)
     prop_fields_unpadded = _unpad_field(prop_fields, pad_factor)
 
     return reconstruction.esw, prop_fields_unpadded
