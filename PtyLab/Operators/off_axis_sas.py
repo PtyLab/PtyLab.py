@@ -285,7 +285,9 @@ def _interface_off_axis_sas(
     z1 = reconstruction.zo if z is None else z
 
     # specify the prefactor_z and add a default value.
-    if not hasattr(reconstruction, "prefactor_z"):
+    if hasattr(reconstruction, "prefactor_z"):
+        prefactor_z = reconstruction.prefactor_z
+    else:
         prefactor_z = np.reciprocal(np.prod(np.cos(np.deg2rad(theta)) ** 2))
 
     # z2 (Fresnel) for relaxing sampling requirements
