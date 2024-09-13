@@ -269,17 +269,6 @@ def _interface_off_axis_sas(
     # off-axis theta tuple in degrees
     theta = _to_tuple(reconstruction.theta)
 
-    # modify real-space resolution for adjusting effective NA
-    prefactor_dxp = (
-        reconstruction.prefactor_dxp
-        if hasattr(reconstruction, "prefactor_dxp")
-        else 1.0
-    )
-
-    # probe FOV adjusted
-    reconstruction.dxp = prefactor_dxp * reconstruction.dxp
-    Lp = Np * reconstruction.dxp
-
     # specifying z1 (aspw) and z2 (Fresnel) propagator for relaxing
     # sampling requirements. Similar issue as the NOTE on pad_factor above.
     z1 = reconstruction.zo if z is None else z
@@ -292,6 +281,17 @@ def _interface_off_axis_sas(
 
     # z2 (Fresnel) for relaxing sampling requirements
     z2 = prefactor_z * z1
+
+    # modify real-space resolution for adjusting effective NA
+    prefactor_dxp = (
+        reconstruction.prefactor_dxp
+        if hasattr(reconstruction, "prefactor_dxp")
+        else 1.0
+    )
+
+    # probe FOV adjusted
+    reconstruction.dxp = prefactor_dxp * wavelength * z2 / reconstruction.Ld
+    Lp = Np * reconstruction.dxp
 
     # quadratic phase Q2 (currently zo, but this can be z2 and z1 separated)
     quad_phase_Q1 = __make_quad_phase(
