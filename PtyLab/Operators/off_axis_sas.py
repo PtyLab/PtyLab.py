@@ -266,6 +266,9 @@ def _interface_off_axis_sas(
     wavelength = reconstruction.wavelength
     Np = reconstruction.Np * pad_factor
 
+    # off-axis theta tuple in degrees
+    theta = _to_tuple(reconstruction.theta)
+
     # modify real-space resolution for adjusting effective NA
     prefactor_dxp = (
         reconstruction.prefactor_dxp
@@ -281,9 +284,11 @@ def _interface_off_axis_sas(
     # sampling requirements. Similar issue as the NOTE on pad_factor above.
     z1 = reconstruction.zo if z is None else z
 
-    prefactor_z = (
-        reconstruction.prefactor_z if hasattr(reconstruction, "prefactor_z") else 1.0
-    )
+    # specify the prefactor_z and add a default value.
+    if not hasattr(reconstruction, "prefactor_z"):
+        prefactor_z = np.reciprocal(np.prod(np.cos(np.deg2rad(theta)) ** 2))
+
+    # z2 (Fresnel) for relaxing sampling requirements
     z2 = prefactor_z * z1
 
     # quadratic phase Q2 (currently zo, but this can be z2 and z1 separated)
