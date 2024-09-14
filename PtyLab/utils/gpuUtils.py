@@ -6,7 +6,8 @@ import numpy as np
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("GPU")
-logging.getLogger('numexpr').setLevel(logging.WARNING)
+logging.getLogger("numexpr").setLevel(logging.WARNING)
+
 
 def check_gpu_availability(verbose=True):
     """Check if GPU and cupy are available."""
@@ -35,6 +36,7 @@ if CP_AVAILABLE:
     import cupy as cp
 else:
     cp = np
+
 
 def getArrayModule(*args, **kwargs):
     """
@@ -126,14 +128,13 @@ def transfer_fields_to_cpu(self: object, fields: List[str], logger: logging.Logg
             self.logger.debug(f"Moved {field} to CPU")
         else:
             self.logger.debug(f"Skipped {field} as it is not defined")
-            self.logger.debug(f"Skipped {field} as it is not defined")
-            self.logger.debug(f"Skipped {field} as it is not defined")
 
 
 def check_array_type(arr):
-    """ Checks if the array if a numpy or a cupy array. Useful for debugging"""
+    """Checks if the array if a numpy or a cupy array. Useful for debugging"""
     try:
         import cupy as cp
+
         if isinstance(arr, cp.ndarray):
             print("This is a CuPy array")
         elif isinstance(arr, np.ndarray):
