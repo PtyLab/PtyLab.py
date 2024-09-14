@@ -1,7 +1,7 @@
 import time
 
 from PtyLab import easyInitialize
-from PtyLab.Operators.off_axis_sas import propagate_off_axis_sas
+from PtyLab.Operators.off_axis_sas import propagate_sas
 from PtyLab.utils.gpuUtils import check_gpu_availability
 
 try:
@@ -42,7 +42,7 @@ def benchmark_runs(nruns: int = 10):
         reconstruction._move_data_to_gpu()
 
         def run_propagator_func():
-            return propagate_off_axis_sas(reconstruction.probe, params, reconstruction)
+            return propagate_sas(reconstruction.probe, params, reconstruction)
 
         # Warm-up run
         t0 = time.time()
@@ -76,7 +76,7 @@ def benchmark_runs(nruns: int = 10):
     print("\nCPU run times:")
     for i in range(nruns):
         t0 = time.time()
-        propagate_off_axis_sas(reconstruction.probe, params, reconstruction)
+        propagate_sas(reconstruction.probe, params, reconstruction)
         t1 = time.time()
         print(f"Run {i}: {1e3 * (t1 - t0):.3f} ms")
 
