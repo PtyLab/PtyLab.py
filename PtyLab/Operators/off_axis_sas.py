@@ -273,16 +273,15 @@ def _interface_off_axis_sas(
     # sampling requirements. Similar issue as the NOTE on pad_factor above.
     z1 = reconstruction.zo if z is None else z
 
-    # specify the prefactor_z and add a default value.
-    if hasattr(reconstruction, "prefactor_z"):
-        prefactor_z = reconstruction.prefactor_z
-    else:
-        prefactor_z = np.reciprocal(np.prod(np.cos(np.deg2rad(theta)) ** 2))
-
+    # prefactor_z for relaxing sampling (default to 1.6 from general observations)
+    # TODO: Eventually need a routine that can automatically calculate an optimum value
+    prefactor_z = (
+        reconstruction.prefactor_z if hasattr(reconstruction, "prefactor_z") else 1.6
+    )
     # z2 (Fresnel) for relaxing sampling requirements
     z2 = prefactor_z * z1
 
-    # modify real-space resolution for adjusting effective NA
+    # modify real-space resolution if required, however preferably kept at 1.0 (diffraction-limited)
     prefactor_dxp = (
         reconstruction.prefactor_dxp
         if hasattr(reconstruction, "prefactor_dxp")
@@ -290,7 +289,9 @@ def _interface_off_axis_sas(
     )
 
     # probe FOV adjusted
-    reconstruction.dxp = prefactor_dxp * wavelength * z2 / reconstruction.Ld
+    # TODO: Need to check if this will change with z1 or z2, z2 seems to be affecting reconstruction
+    # and lowering the flexibility for allowing higher frequencies (zooming out) by varying prefactor_z
+    reconstruction.dxp = prefactor_dxp * wavelength * z1 / reconstruction.Ld
     Lp = Np * reconstruction.dxp
 
     # quadratic phase Q2 (currently zo, but this can be z2 and z1 separated)
