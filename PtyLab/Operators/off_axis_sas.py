@@ -16,11 +16,8 @@ from PtyLab.utils.utils import fft2c, ifft2c
 try:
     import cupy as cp  # type: ignore
 
-    # cupy available changes the import throughout the file
-    xp = cp
-
 except ImportError:
-    xp = np
+    pass
 
 CACHE_SIZE = 5
 
@@ -60,8 +57,10 @@ def _pad_field(fields, pad_factor: int):
 
 
 def _unpad_field(fields_padded, pad_factor: int):
+    xp = getArrayModule(fields_padded)
+
     rows_padded, cols_padded = fields_padded.shape[-2:]
-    rows_unpadded, cols_unpadded = np.array(fields_padded.shape[-2:]) // pad_factor
+    rows_unpadded, cols_unpadded = xp.array(fields_padded.shape[-2:]) // pad_factor
     start_h, start_w = (
         (rows_padded - rows_unpadded) // 2,
         (cols_padded - cols_unpadded) // 2,
@@ -75,7 +74,7 @@ def _unpad_field(fields_padded, pad_factor: int):
     return fields_unpadded
 
 
-def __off_axis_sas_transfer_function(wavelength, Lp, Np, theta, z1, z2, on_gpu):
+def __sas_transfer_function(wavelength, Lp, Np, theta, z1, z2, on_gpu):
     """Precompensation transfer function for scalable off-axis transfer function.
 
     Parameters
@@ -97,7 +96,7 @@ def __off_axis_sas_transfer_function(wavelength, Lp, Np, theta, z1, z2, on_gpu):
 
     Returns
     -------
-    np.ndarray
+    xp.ndarray
         precompensated transfer function `H_precomp`
     """
 
@@ -174,7 +173,7 @@ def __off_axis_sas_transfer_function(wavelength, Lp, Np, theta, z1, z2, on_gpu):
 
 
 @lru_cache(CACHE_SIZE)
-def __make_transferfunction_off_axis_sas(
+def __make_transferfunction_sas(
     params: Params,
     reconstruction: Reconstruction,
     Np: int,
@@ -241,20 +240,22 @@ def __make_transferfunction_off_axis_sas(
     for inds in iterate_6d_fields(transfer_function):
         i_nlambda, j_nosm, k_npsm, l_nslice = inds
         transfer_function[i_nlambda, j_nosm, k_npsm, l_nslice] = (
-            __off_axis_sas_transfer_function(wavelength, Lp, Np, theta, z1, z2, on_gpu)
+            __sas_transfer_function(wavelength, Lp, Np, theta, z1, z2, on_gpu)
         )
 
     return transfer_function
 
 
-def _interface_off_axis_sas(
+def _interface_sas(
     fields,
     params: Params,
     reconstruction: Reconstruction,
     z: float = None,
     with_quad_phase_Q2: bool = False,
-) -> np.ndarray:
+):
     """Just an interface for the actual forward and backward off-axis sas propagator"""
+
+    xp = getArrayModule(fields)
 
     # ideally pad factor of 2 is supported as per the SAS publication, however can be modified by user.
     pad_factor = (
@@ -265,9 +266,6 @@ def _interface_off_axis_sas(
     # reconstruction parameters
     wavelength = reconstruction.wavelength
     Np = reconstruction.Np * pad_factor
-
-    # off-axis theta tuple in degrees
-    theta = _to_tuple(reconstruction.theta)
 
     # specifying z1 (aspw) and z2 (Fresnel) propagator for relaxing
     # sampling requirements. Similar issue as the NOTE on pad_factor above.
@@ -300,18 +298,16 @@ def _interface_off_axis_sas(
     )
 
     # precompensated transfer function
-    H_precomp = __make_transferfunction_off_axis_sas(
-        params, reconstruction, Np, Lp, z1, z2
-    )
+    H_precomp = __make_transferfunction_sas(params, reconstruction, Np, Lp, z1, z2)
 
     if with_quad_phase_Q2:
         # quadratic phase Q2 (mostly okay to ignore it!)
         dxq = wavelength * z1 / Lp
-        k = 2 * np.pi / wavelength
-        x_q = np.linspace(-Np / 2, Np / 2, int(Np)) * dxq
-        Xq, Yq = np.meshgrid(x_q, x_q)
+        k = 2 * xp.pi / wavelength
+        x_q = xp.linspace(-Np / 2, Np / 2, int(Np)) * dxq
+        Xq, Yq = xp.meshgrid(x_q, x_q)
 
-        quad_phase_Q2 = np.exp(1j * k * z1) * np.exp(
+        quad_phase_Q2 = xp.exp(1j * k * z1) * xp.exp(
             1.0j * k / (2 * z1) * (Xq**2 + Yq**2)
         )
 
@@ -320,7 +316,7 @@ def _interface_off_axis_sas(
         "H_precomp": H_precomp,
         "quad_phase_Q1": quad_phase_Q1,
         "quad_phase_Q2": (
-            quad_phase_Q2 if with_quad_phase_Q2 else np.ones_like(fields_padded)
+            quad_phase_Q2 if with_quad_phase_Q2 else xp.ones_like(fields_padded)
         ),
         "pad_factor": pad_factor,
     }
@@ -328,7 +324,7 @@ def _interface_off_axis_sas(
     return return_dict
 
 
-def propagate_off_axis_sas(
+def propagate_sas(
     fields,
     params: Params,
     reconstruction: Reconstruction,
@@ -336,14 +332,12 @@ def propagate_off_axis_sas(
     with_quad_phase_Q2: bool = False,
 ):
     """
-    Off-axis Scalable Angular Spectrum (SAS) Propagation method that assumes that the source and
-    destination planes are coplanar, but off-axis.
-    // TODO: This in the end is the same as SAS with the shift operation. Should be moved to the propagator file and renamed.
-    Perhaps later adapted if it varies based on sampling strategy. However, currently it is fairly flexible.
+    Implementation of "scalable angular spectrum (SAS) propagation, Heintzmann et. al, 2024". This implementation also
+    incorporates off-axis field shift by specifying the illumination angle `reconstruction.theta`.
 
     Parameters
     ----------
-    fields: np.ndarray
+    fields: xp.ndarray
         Field to propagate
     params: Params
         Instance of the Params class
@@ -360,7 +354,7 @@ def propagate_off_axis_sas(
         Exit surface wave and the propagated field
     """
 
-    interfaced_dict = _interface_off_axis_sas(
+    interfaced_dict = _interface_sas(
         fields,
         params,
         reconstruction,
@@ -384,9 +378,7 @@ def propagate_off_axis_sas(
     return reconstruction.esw, prop_fields_unpadded
 
 
-# TODO: Check if theta=0 in the end falls back to the SAS case. If yes, this will be a more flexible implementation for SAS that allows off-axis propagation.
-#       Should be eventually renamed in that case. Perhaps later adapted if parts of it vary with sampling strategy.
-def propagate_off_axis_sas_inv(
+def propagate_sas_inv(
     fields,
     params: Params,
     reconstruction: Reconstruction,
@@ -394,12 +386,11 @@ def propagate_off_axis_sas_inv(
     with_quad_phase_Q2: bool = False,
 ):
     """
-    Off-axis Scalable Angular Spectrum (SAS) Propagation method that assumes that the source and
-    destination planes are coplanar, but off-axis.
+    Backward propagation (invertion) of the scalable angular spectrum (SAS) progator.
 
     Parameters
     ----------
-    fields: np.ndarray
+    fields: xp.ndarray
         Field to propagate
     params: Params
         Instance of the Params class
@@ -415,8 +406,9 @@ def propagate_off_axis_sas_inv(
     reconstruction.esw, propagated field:
         Exit surface wave and the propagated field
     """
+    xp = getArrayModule(fields)
 
-    interfaced_dict = _interface_off_axis_sas(
+    interfaced_dict = _interface_sas(
         fields,
         params,
         reconstruction,
@@ -431,9 +423,9 @@ def propagate_off_axis_sas_inv(
     pad_factor = interfaced_dict["pad_factor"]
 
     # conjugates for the backward direction
-    Q1_conj = np.conj(quad_phase_Q1)
-    Q2_conj = np.conj(quad_phase_Q2)
-    H_precomp_conj = np.conj(H_precomp)
+    Q1_conj = xp.conj(quad_phase_Q1)
+    Q2_conj = xp.conj(quad_phase_Q2)
+    H_precomp_conj = xp.conj(H_precomp)
 
     # backward field propagation
     psi_precomp = H_precomp_conj * fft2c(Q1_conj * ifft2c(Q2_conj * fields_padded))

@@ -17,9 +17,9 @@ import numpy as np
 from PtyLab import Params, Reconstruction
 from PtyLab.Operators._propagation_kernels import __make_quad_phase
 from PtyLab.Operators.off_axis_sas import (
-    __make_transferfunction_off_axis_sas,
-    propagate_off_axis_sas,
-    propagate_off_axis_sas_inv,
+    __make_transferfunction_sas,
+    propagate_sas,
+    propagate_sas_inv,
 )
 from PtyLab.Operators.propagator_utils import complexexp
 from PtyLab.utils.gpuUtils import getArrayModule, isGpuArray
@@ -1051,7 +1051,7 @@ def clear_cache(logger: logging.Logger = None):
         __make_cache_twoStepPolychrome,
         __make_transferfunction_polychrome_ASP,
         __make_transferfunction_scaledPolychromeASP,
-        __make_transferfunction_off_axis_sas,
+        __make_transferfunction_sas,
     ]
     for method in list_of_methods:
         if logger is not None:
@@ -1069,7 +1069,7 @@ forward_lookup_dictionary = {
     "scaledpolychromeasp": propagate_scaledPolychromeASP,
     "twosteppolychrome": propagate_twoStepPolychrome,
     "identity": propagate_identity,
-    "offaxissas": propagate_off_axis_sas,
+    "sas": propagate_sas,
 }
 
 
@@ -1082,5 +1082,5 @@ reverse_lookup_dictionary = {
     "scaledpolychromeasp": propagate_scaledPolychromeASP_inv,
     "twosteppolychrome": propagate_twoStepPolychrome_inv,
     "identity": propagate_identity,
-    "offaxissas": propagate_off_axis_sas_inv,
+    "sas": propagate_sas_inv,
 }
