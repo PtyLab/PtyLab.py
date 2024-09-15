@@ -20,7 +20,7 @@ def load_data(path="example:simulation_cpm"):
     return reconstruction, params
 
 
-def benchmark_runs(nruns: int = 10):
+def benchmark_runs(with_gpu=True, nruns: int = 10):
     """Checks if the off-axis SAS implementation works with some run-times.
 
     Parameters
@@ -33,12 +33,17 @@ def benchmark_runs(nruns: int = 10):
 
     # load data
     reconstruction, params = load_data(path="example:simulation_cpm")
-    reconstruction.pad_factor = 2  # can be modiefied by user.
-    if check_gpu_availability(verbose=False):
+    reconstruction.pad_factor = 2  # can be modified by user.
 
-        msg = "gpu switch must internally be activated"
-        assert params.gpuSwitch is True, msg
+    # # running on CPU
 
+    # if check_gpu_availability(verbose=False):
+    if with_gpu:
+        if not check_gpu_availability(verbose=True):
+            msg = "\nNo GPU hardware found, set with_gpu to False"
+            raise AttributeError(msg)
+
+        params.gpuSwitch = True
         reconstruction._move_data_to_gpu()
 
         def run_propagator_func():
@@ -68,17 +73,15 @@ def benchmark_runs(nruns: int = 10):
                 print(f"Run {i}: {elapsed:.3f} ms")
     else:
         print("\nNo GPU hardware found, benchmarking only for CPU ...")
+        params.gpuSwitch = False
+        reconstruction._move_data_to_cpu()
 
-    # running on CPU
-    params.gpuSwitch = False
-    reconstruction._move_data_to_cpu()
-
-    print("\nCPU run times:")
-    for i in range(nruns):
-        t0 = time.time()
-        propagate_sas(reconstruction.probe, params, reconstruction)
-        t1 = time.time()
-        print(f"Run {i}: {1e3 * (t1 - t0):.3f} ms")
+        print("\nCPU run times:")
+        for i in range(nruns):
+            t0 = time.time()
+            propagate_sas(reconstruction.probe, params, reconstruction)
+            t1 = time.time()
+            print(f"Run {i}: {1e3 * (t1 - t0):.3f} ms")
 
 
-benchmark_runs(nruns=10)
+benchmark_runs(with_gpu=True, nruns=10)
