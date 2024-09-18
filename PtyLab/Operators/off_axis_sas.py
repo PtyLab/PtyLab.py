@@ -109,8 +109,9 @@ def __sas_transfer_function(wavelength, Lp, Np, theta, z1, z2, on_gpu):
     Fx, Fy = xp.meshgrid(f, f)
 
     # off-axis sines and tangents (theta in degrees)
-    sx, sy = xp.sin(xp.radians(theta))
-    tx, ty = xp.tan(xp.radians(theta))
+    theta_x, theta_y = theta
+    sx, sy = xp.sin(xp.radians(theta_x)), xp.sin(xp.radians(theta_y))
+    tx, ty = xp.tan(xp.radians(theta_x)), xp.tan(xp.radians(theta_y))
 
     # transfer function
     # eq. 12 includes chi parameter under square root
@@ -271,7 +272,8 @@ def _interface_sas(
 
     # off-axis theta tuple in degrees and the calculated sines
     theta = _to_tuple(reconstruction.theta)
-    sx, sy = xp.sin(xp.radians(theta))
+    theta_x, theta_y = theta
+    sx, sy = xp.sin(xp.radians(theta_x)), xp.sin(xp.radians(theta_y))
 
     # prefactor_z for relaxing sampling, defaults to 1 / sqrt(1-sx**2-sy**2)
     prefactor_z = (
