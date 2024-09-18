@@ -260,9 +260,10 @@ def _interface_sas(
     )
     fields_padded = _pad_field(fields, pad_factor)
 
-    # reconstruction parameters
+    # modified Np and Lp with the pad factor
     wavelength = reconstruction.wavelength
     Np = reconstruction.Np * pad_factor
+    Lp = Np * reconstruction.dxp
 
     # specifying z1 (aspw) and z2 (Fresnel) propagator for relaxing
     # sampling requirements. Similar issue as the NOTE on pad_factor above.
@@ -289,11 +290,9 @@ def _interface_sas(
         else 1.0
     )
 
-    # probe FOV adjusted
-    # TODO: Need to check if this will change with z1 or z2, z2 seems to be affecting reconstruction
-    # and lowering the flexibility for allowing higher frequencies (zooming out) by varying prefactor_z
-    reconstruction.dxp = prefactor_dxp * wavelength * z1 / reconstruction.Ld
-    Lp = Np * reconstruction.dxp
+    # probe FOV adjusted with the pad factor
+    Ld = reconstruction.Ld * pad_factor
+    reconstruction.dxp = prefactor_dxp * wavelength * z2 / Ld
 
     # quadratic phase Q2 (currently zo, but this can be z2 and z1 separated)
     quad_phase_Q1 = __make_quad_phase(
