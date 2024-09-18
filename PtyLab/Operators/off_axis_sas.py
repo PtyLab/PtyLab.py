@@ -109,11 +109,8 @@ def __sas_transfer_function(wavelength, Lp, Np, theta, z1, z2, on_gpu):
     Fx, Fy = xp.meshgrid(f, f)
 
     # off-axis sines and tangents (theta in degrees)
-    thetax, thetay = theta
-    sx = xp.sin(xp.radians(thetax))
-    sy = xp.sin(xp.radians(thetay))
-    tx = xp.tan(xp.radians(thetax))
-    ty = xp.tan(xp.radians(thetay))
+    sx, sy = xp.sin(xp.radians(theta))
+    tx, ty = xp.tan(xp.radians(theta))
 
     # transfer function
     # eq. 12 includes chi parameter under square root
@@ -271,11 +268,17 @@ def _interface_sas(
     # sampling requirements. Similar issue as the NOTE on pad_factor above.
     z1 = reconstruction.zo if z is None else z
 
-    # prefactor_z for relaxing sampling (default to 1.6 from general observations)
-    # TODO: Eventually need a routine that can automatically calculate an optimum value
+    # off-axis theta tuple in degrees and the calculated sines
+    theta = _to_tuple(reconstruction.theta)
+    sx, sy = xp.sin(xp.radians(theta))
+
+    # prefactor_z for relaxing sampling, defaults to 1 / sqrt(1-sx**2-sy**2)
     prefactor_z = (
-        reconstruction.prefactor_z if hasattr(reconstruction, "prefactor_z") else 1.6
+        reconstruction.prefactor_z
+        if hasattr(reconstruction, "prefactor_z")
+        else 1 / xp.sqrt(1 - sx**2 - sy**2)
     )
+
     # z2 (Fresnel) for relaxing sampling requirements
     z2 = prefactor_z * z1
 
