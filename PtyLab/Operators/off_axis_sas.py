@@ -23,18 +23,16 @@ CACHE_SIZE = 5
 
 
 def _to_tuple(theta):
-    theta_tuple = theta
+    if theta is None:
+        return (0.0, 0.0)
     if isinstance(theta, (int, float)):
-        # theta is a single number, return (float(number), 0.0)
-        theta_tuple = (float(theta), 0.0)
+        return (float(theta), 0.0)
     elif isinstance(theta, tuple) and len(theta) == 2:
-        # theta is a tuple of two numbers, convert both to float
-        theta_tuple = (float(theta[0]), float(theta[1]))
+        return (float(theta[0]), float(theta[1]))
     else:
         raise ValueError(
-            "theta must be specified as a scalar or a tuple of two numbers"
+            "theta must be specified as None, a scalar, or a tuple of two numbers"
         )
-    return theta_tuple
 
 
 def _pad_field(fields, pad_factor: int):
@@ -209,8 +207,9 @@ def __make_transferfunction_sas(
     xp = cp if on_gpu else np
 
     # off axis theta tuple in degrees
-    theta = _to_tuple(reconstruction.theta)
-
+    theta = _to_tuple(
+        reconstruction.theta if hasattr(reconstruction, "theta") else None
+    )
     fftshiftSwitch = params.fftshiftSwitch
     wavelength = reconstruction.wavelength  # Wavelength used in the scanning probe.
     nosm = reconstruction.nosm  # no. of spatial modes for the object.
@@ -266,12 +265,14 @@ def _interface_sas(
     Np = reconstruction.Np * pad_factor
     Lp = Np * reconstruction.dxp
 
-    # specifying z1 (aspw) and z2 (Fresnel) propagator for relaxing
+    # specifying z1 (aspw) and z2 (Fresnel) virtual distance for relaxing
     # sampling requirements. Similar issue as the NOTE on pad_factor above.
     z1 = reconstruction.zo if z is None else z
 
     # off-axis theta tuple in degrees and the calculated sines
-    theta = _to_tuple(reconstruction.theta)
+    theta = _to_tuple(
+        reconstruction.theta if hasattr(reconstruction, "theta") else None
+    )
     theta_x, theta_y = theta
     sx, sy = xp.sin(xp.radians(theta_x)), xp.sin(xp.radians(theta_y))
 
@@ -282,7 +283,7 @@ def _interface_sas(
         else 1 / xp.sqrt(1 - sx**2 - sy**2)
     )
 
-    # z2 (Fresnel) for relaxing sampling requirements
+    # z2 virtual distance (Fresnel) for relaxing sampling requirements
     z2 = prefactor_z * z1
 
     # modify real-space resolution if required, however preferably kept at 1.0 (diffraction-limited)
