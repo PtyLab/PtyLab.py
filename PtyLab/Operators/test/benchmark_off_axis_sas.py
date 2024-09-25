@@ -16,7 +16,6 @@ def load_data(path="example:simulation_cpm"):
     reconstruction.initializeObjectProbe()
     reconstruction.esw = 2
     reconstruction.theta = (40, 0)
-    reconstruction.z2 = reconstruction.zo * 1.3
     return reconstruction, params
 
 
@@ -84,4 +83,4 @@ def benchmark_runs(with_gpu=True, nruns: int = 10):
             print(f"Run {i}: {1e3 * (t1 - t0):.3f} ms")
 
 
-benchmark_runs(with_gpu=True, nruns=10)
+benchmark_runs(with_gpu=False, nruns=10)
