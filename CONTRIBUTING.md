@@ -1,22 +1,67 @@
-## Package management with Poetry
+# Package Management with Poetry
 
-The build-system as given under [`pyproject.toml`](pyproject.toml) is based on [Poetry](https://python-poetry.org/), a Python package manager. If you are a would like to modify existing dependencies or add new ones, relying on Poetry is recommended. It comes with its own dependency resolver, making sure nothing breaks. We recommend using `conda` as an environment manager and `poetry` as a dependency resolver.
+If you intend to modify existing dependencies or add new ones, please **read this document carefully!**
 
-First clone this repository and create a conda environment as explained in the development section of `README.md`. Install `poetry` from this [installation guide](https://python-poetry.org/docs/#installing-with-pipx). 
+Our build system, as specified in [`pyproject.toml`](pyproject.toml), is based on [Poetry](https://python-poetry.org/docs/), a Python package manager that includes its own dependency resolver to ensure compatibility among packages. We use Poetry both as a dependency resolver and as an environment manager (instead of `conda`).
 
-At the root of the repository, activate the conda environment and install `ptylab` and its depedencies with `poetry`.
+Installing and familiarizing yourself with Poetry is recommended. The easiest way to install Poetry is via `pipx`. You can install `pipx` and Poetry with an export plugin as follows:
 
 ```bash
-conda activate ptylab_venv
-poetry install -E dev
+pip install pipx
+pipx install poetry
+pipx inject poetry poetry-plugin-export
 ```
 
-This will also create a `poetry.lock` file that contains the list of all the *pinned dependencies* as given under `pyproject.toml`.
+To use Poetry and install the `ptylab` package with development dependencies, navigate to the root of the repository (assuming you have already cloned it) and run:
 
-If you want to install a new package from [PyPI](https://pypi.org/project/pip/), please do so as
+```bash
+poetry install --all-extras --sync
+pre-commit install
+```
+
+This will create a virtual environment and install the dependencies specified in the `pyproject.toml` and `poetry.lock` files. To activate this environment, type:
+
+```bash
+poetry shell
+```
+
+For installing `cupy` for GPU usage, you can specify the optional `gpu-cuda11x` or `gpu-cuda12x` flag based on your [CUDA toolkit version](https://docs.cupy.dev/en/stable/install.html):
+
+```bash
+poetry install --all-extras --with gpu-cuda11x --sync
+```
+
+If you encounter installation issues, check your CUDA version with:
+
+```bash
+nvcc --version
+```
+
+If this command is not recognized, it's likely that your CUDA `PATH` and `LD_LIBRARY_PATH` are not set properly. For more information, refer to the [CUDA documentation](https://docs.nvidia.com/cuda/cuda-quick-start-guide/index.html).
+
+## Modifying Packages
+
+To install a new package from [PyPI](https://pypi.org/project/pip/), use:
 
 ```bash
 poetry add <package-name>
-``` 
+```
 
-This will not just install the new package, but also resolve the existing environment and make sure no other dependencies break. Similarly, you can remove a package as `poetry remove <package-name>`. For more information, please rely on their [documentation](https://python-poetry.org/docs/basic-usage/). 
+This command will install the new package and resolve existing dependencies to prevent conflicts. Similarly, you can remove a package with:
+
+```bash
+poetry remove <package-name>
+```
+
+For more information, refer to the [Poetry documentation](https://python-poetry.org/docs/basic-usage/). These commands will modify the `pyproject.toml` and `poetry.lock` files. Ensure that you increment the package version (at least a minor version change) when making such modifications.
+
+> [!WARNING] 
+> When a dependency is changed, the `poetry.lock` file updates. If you try to commit these changes, the pre-commit hook might prevent it, especially if the `requirements.txt` file is modified. In this case, you need to stage both the `requirements.txt` and `poetry.lock` files for the commit to proceed.
+
+If, for any reason, the pre-commit hook does not work, you can manually generate the `requirements.txt` file with:
+
+```bash
+poetry export -f requirements.txt --output requirements.txt --without-hashes --extras dev
+```
+
+The `requirements.txt` file is essential for users who prefer not to use Poetry.
