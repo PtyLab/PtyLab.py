@@ -2,7 +2,7 @@
 
 If you intend to modify existing dependencies or add new ones, please **read this document carefully!**
 
-Our build system, as specified in [`pyproject.toml`](pyproject.toml), is based on [Poetry](https://python-poetry.org/docs/), a Python package manager that includes its own dependency resolver to ensure compatibility among packages. We use Poetry both as a dependency resolver and as an environment manager (instead of `conda`).
+Our build system, as specified in [`pyproject.toml`](pyproject.toml), is based on [Poetry](https://python-poetry.org/docs/), a Python package manager that includes its own dependency resolver to ensure compatibility among packages. We use `poetry` as a dependency resolver and `conda` as our environment manager.
 
 Installing and familiarizing yourself with Poetry is recommended. The easiest way to install Poetry is via `pipx`. You can install `pipx` and Poetry with an export plugin as follows:
 
@@ -12,18 +12,21 @@ pipx install poetry
 pipx inject poetry poetry-plugin-export
 ```
 
-To use Poetry and install the `ptylab` package with development dependencies, navigate to the root of the repository (assuming you have already cloned it) and run:
+Let's create the conda environment, assuming you have cloned the package and have navigated to the root of the repository,
+
+```bash
+conda create --name ptylab_venv python=3.11.5 # or python version satisfying ">=3.9, <3.12"
+conda activate ptylab_venv
+```
+
+Within the environmemt, `ptylab` and its dependencies are installed using `poetry` along with the pre-commit hook,
 
 ```bash
 poetry install --all-extras --sync
 pre-commit install
 ```
 
-This will create a virtual environment and install the dependencies specified in the `pyproject.toml` and `poetry.lock` files. To activate this environment, type:
-
-```bash
-poetry shell
-```
+This will utilize `pyproject.toml` and `poetry.lock` file for installing  *pinned dependencies*. 
 
 For installing `cupy` for GPU usage, you can specify the optional `gpu-cuda11x` or `gpu-cuda12x` flag based on your [CUDA toolkit version](https://docs.cupy.dev/en/stable/install.html):
 
