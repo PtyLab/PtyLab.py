@@ -30,11 +30,11 @@ git clone git@github.com:PtyLab/PtyLab.py.git
 cd PtyLab.py
 ```
 
-Inside a virtual environment (preferably with conda), please install `ptylab` and its dependencies:
+Inside a virtual environment (preferably with conda), please install `ptylab` and its dependencies from the pinned versions specified under `requirements.txt`:
 ```bash
 conda create --name ptylab_venv python=3.11.5 # or python version satisfying ">=3.9, <3.12"
 conda activate ptylab_venv
-pip install -e .[dev]
+pip install -e . -r requirements.txt
 ```
 
 To use the GPU, `cupy` can be additionally installed in this environment.
@@ -43,7 +43,7 @@ To use the GPU, `cupy` can be additionally installed in this environment.
 conda install -c conda-forge cupy
 ```
 
-If you would like to contribute to this package, please checkout the [`CONTRIBUTING.md`](CONTRIBUTING.md) file.
+If you would like to contribute to this package, especially if it involves modifying dependencies, please checkout the [`CONTRIBUTING.md`](CONTRIBUTING.md) file.
 
 ## Citation
 
