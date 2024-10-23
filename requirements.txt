@@ -1,4 +1,3 @@
--e .
 absl-py==2.1.0 ; python_version >= "3.9" and python_version < "3.12"
 appnope==0.1.4 ; python_version >= "3.9" and python_version < "3.12" and platform_system == "Darwin"
 asttokens==2.4.1 ; python_version >= "3.9" and python_version < "3.12"
