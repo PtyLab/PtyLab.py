@@ -1455,6 +1455,10 @@ class BaseEngine(object):
                 )
                 * self.experimentalData.maxProbePower
             )
+        if self.params.probeSpectralPowerCorrectionSwitch:
+            for wl in range(self.reconstruction.probe.shape[0]):
+                self.reconstruction.probe[wl, ...] *= self.experimentalData.maxProbePower * self.experimentalData.spectralPower[wl] \
+                                                      / np.sqrt(np.sum(self.reconstruction.probe[wl, ...] * self.reconstruction.probe[wl, ...].conj()))
 
         if (
             self.params.comStabilizationSwitch is not None
