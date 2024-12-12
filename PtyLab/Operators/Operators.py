@@ -404,12 +404,12 @@ def propagate_scaledPolychromeASP(
         reconstruction.Np,
         tuple(reconstruction.spectralDensity),
         reconstruction.dxo,
-        reconstruction.dxp,
+        reconstruction.dxd,
         params.gpuSwitch,
     )
     if inverse:
         Q1, Q2 = Q1.conj(), Q2.conj()
-        return reconstruction.esw, ifft2c(fft2c(fields) * Q1) * Q2
+        return reconstruction.esw, ifft2c(fft2c(fields) * Q2) * Q1
     return reconstruction.esw, ifft2c(fft2c(fields * Q1) * Q2)
 
 
