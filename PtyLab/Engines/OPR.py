@@ -152,16 +152,30 @@ class OPR(BaseEngine):
 
     def svd(self, P):
         if isGpuArray(P):
+            cp.cuda.Stream.null.synchronize()
+            if cp.isnan(P).any() or cp.isinf(P).any():
+                print("Input contains NaN or Inf values")
+                raise
             try:
                 return cp.linalg.svd(P, full_matrices=False)
             except:
                 print('Something is wrong with SVD on cuda. Probably an installation error')
-                raise
-        A, v, At = np.linalg.svd(asNumpyArray(P), full_matrices=False)
-        if isGpuArray(P):
-            A = cp.array(A)
-            v = cp.array(v)
-            At = cp.array(At)
+                # Fall back to NumPy's CPU-based SVD
+                A_cpu, v_cpu, At_cpu = np.linalg.svd(cp.asnumpy(P), full_matrices=False)
+
+                # Transfer the results back to GPU
+                A_gpu = cp.asarray(A_cpu)
+                v_gpu = cp.asarray(v_cpu)
+                At_gpu = cp.asarray(At_cpu)
+
+                # Return the GPU-based results
+                return A_gpu, v_gpu, At_gpu
+        else:
+            A, v, At = np.linalg.svd(asNumpyArray(P), full_matrices=False)
+            if isGpuArray(P):
+                A = cp.array(A)
+                v = cp.array(v)
+                At = cp.array(At)
         return A, v, At
 
     def rsvd(self, P, n_dim):
@@ -186,7 +200,26 @@ class OPR(BaseEngine):
             if self.params.OPR_tsvd_type == 'randomized':
                 U, s, Vh = self.rsvd(probe_stack[:, :, i, :, :,:].reshape(n*n, nFrames), n_dim)
             elif self.params.OPR_tsvd_type == 'numpy':
-                U, s, Vh = cp.linalg.svd(probe_stack[:, :, i, :, :, :].reshape(n * n, nFrames), full_matrices=False)
+                probe_reshaped = probe_stack[:, :, i, :, :, :].reshape(n * n, nFrames)
+
+                try:
+                    # Attempt to perform SVD on the GPU
+                    U, s, Vh = cp.linalg.svd(probe_reshaped, full_matrices=False)
+                except:
+                    # print('CUDA SVD failed, falling back to NumPy SVD')
+
+                    # Transfer probe_reshaped to CPU for NumPy SVD
+                    probe_reshaped_cpu = cp.asnumpy(probe_reshaped)
+
+                    # Perform NumPy SVD
+                    U_cpu, s_cpu, Vh_cpu = np.linalg.svd(probe_reshaped_cpu, full_matrices=False)
+
+                    # Transfer the results back to the GPU
+                    U = cp.asarray(U_cpu)
+                    s = cp.asarray(s_cpu)
+                    Vh = cp.asarray(Vh_cpu)
+
+                # Set the singular values beyond the specified dimension to zero
                 s[n_dim:] = 0
 
             if self.params.OPR_neighbor_constraint:
