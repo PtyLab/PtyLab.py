@@ -92,6 +92,7 @@ class Reconstruction(object):
             "purityProbe",
             "purityObject",
             "reference",
+            "intensity_mask"
         ]
 
     # @property

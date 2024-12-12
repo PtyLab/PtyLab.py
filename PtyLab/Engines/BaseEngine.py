@@ -990,7 +990,14 @@ class BaseEngine(object):
             ) * frac - self.reconstruction.reference
             self.reconstruction.reference = temp
         else:
-            self.reconstruction.ESW = self.reconstruction.ESW * frac
+            if hasattr(self.params, 'intensityMask'):
+                if self.params.intensityMask:
+                    self.reconstruction.ESW = self.reconstruction.ESW * (frac * (self.reconstruction.intensity_mask) + (self.reconstruction.intensity_mask - 1))
+                else:
+                    print('nop')
+                    self.reconstruction.ESW = self.reconstruction.ESW * frac
+            else:
+                self.reconstruction.ESW = self.reconstruction.ESW * frac
 
         # update background (see PhD thsis by Peng Li)
         if self.params.backgroundModeSwitch:
