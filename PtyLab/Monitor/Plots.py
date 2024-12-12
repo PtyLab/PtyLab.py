@@ -132,7 +132,7 @@ class ObjectProbeErrorPlot(object):
             # self.im_probe_ff.set_data(PE_ff)
             if optimizable.npsm > 1 and optimizable.purityProbe == optimizable.purityProbe:
                 self.txt_purityProbe.set_text(
-                    "Probe estimate\nPurity: %i" % (100 * optimizable.purityProbe) + "%"
+                    "Probe estimate\nPurity: %.2f" % (100 * optimizable.purityProbe) + "%"
                 )
         self.im_probe.autoscale()
 
