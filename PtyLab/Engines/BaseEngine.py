@@ -989,7 +989,14 @@ class BaseEngine(object):
             ) * frac - self.reconstruction.reference
             self.reconstruction.reference = temp
         else:
-            self.reconstruction.ESW = self.reconstruction.ESW * frac
+            if hasattr(self.params, 'intensityMask'):
+                if self.params.intensityMask:
+                    self.reconstruction.ESW = self.reconstruction.ESW * (frac * (self.reconstruction.intensity_mask) + (self.reconstruction.intensity_mask - 1))
+                else:
+                    print('nop')
+                    self.reconstruction.ESW = self.reconstruction.ESW * frac
+            else:
+                self.reconstruction.ESW = self.reconstruction.ESW * frac
 
         # update background (see PhD thsis by Peng Li)
         if self.params.backgroundModeSwitch:
@@ -1075,7 +1082,7 @@ class BaseEngine(object):
                 probe_estimate = np.squeeze(
                     asNumpyArray(
                         self.reconstruction.probe[
-                            0, ..., self.monitor.probeROI[0], self.monitor.probeROI[1]
+                            ..., self.monitor.probeROI[0], self.monitor.probeROI[1]
                         ]
                     )
                 )
@@ -1447,6 +1454,10 @@ class BaseEngine(object):
                 )
                 * self.experimentalData.maxProbePower
             )
+        if self.params.probeSpectralPowerCorrectionSwitch:
+            for wl in range(self.reconstruction.probe.shape[0]):
+                self.reconstruction.probe[wl, ...] *= self.experimentalData.maxProbePower * self.experimentalData.spectralPower[wl] \
+                                                      / np.sqrt(np.sum(self.reconstruction.probe[wl, ...] * self.reconstruction.probe[wl, ...].conj()))
 
         if (
             self.params.comStabilizationSwitch is not None

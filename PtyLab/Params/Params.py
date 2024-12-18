@@ -95,6 +95,7 @@ class Params(object):
         )
         self.absorbingProbeBoundaryAleph = 5e-2
         self.probePowerCorrectionSwitch = False  # probe normalization to measured PSD
+        self.probeSpectralPowerCorrectionSwitch = False  # probe normalization from experimentalData.probeSpectralPower
         self.modulusEnforcedProbeSwitch = False  # enforce empty beam
 
         self.absProbeSwitch = False  # force the probe to be abs-only
