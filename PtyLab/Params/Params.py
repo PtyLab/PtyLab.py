@@ -50,6 +50,9 @@ class Params(object):
         self.weigh_probe_updates_by_intensity = False
         self.logger = logging.getLogger("Params")
 
+        # Dump updated object each iteration
+        self.dump_obj = False
+
         # Default settings for switches, settings that involve how things are computed
         self.fftshiftSwitch = False
         # this is an internal setting, tracking wether of not the fftshifts have been done. Do not change this yourself
