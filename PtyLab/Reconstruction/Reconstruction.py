@@ -92,6 +92,7 @@ class Reconstruction(object):
             "purityProbe",
             "purityObject",
             "reference",
+            "intensity_mask"
         ]
 
     # @property
@@ -705,6 +706,7 @@ class Reconstruction(object):
     def DoF(self):
         """expected Depth of field"""
         DoF = self.wavelength / self.NAd**2
+        # self.Dof2 = 5.2 *self.dxp**2 /self.wavelength
         return DoF
 
     def _move_data_to_cpu(self):
