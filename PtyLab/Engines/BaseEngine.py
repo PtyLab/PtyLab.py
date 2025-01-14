@@ -1,5 +1,6 @@
 import logging
 import warnings
+import os
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -719,19 +720,6 @@ class BaseEngine(object):
         # this is the new estimate which will be processed later
         self.reconstruction.eswUpdate = eswUpdate
 
-    def exportOjb(self, extension=".mat"):
-        """
-        Export the object.
-
-        If extension == '.mat', export to matlab file.
-        If extension == '.png', export to a png file (with amplitude-phase)
-
-        Matches: exportObj (except for the PNG)
-
-        :return:
-        """
-        raise NotImplementedError()
-
     def fft2s(self):
         """
         Computes the fourier transform of the exit surface wave.
@@ -989,7 +977,14 @@ class BaseEngine(object):
             ) * frac - self.reconstruction.reference
             self.reconstruction.reference = temp
         else:
-            self.reconstruction.ESW = self.reconstruction.ESW * frac
+            if hasattr(self.params, 'intensityMask'):
+                if self.params.intensityMask:
+                    self.reconstruction.ESW = self.reconstruction.ESW * (frac * (self.reconstruction.intensity_mask) + (self.reconstruction.intensity_mask - 1))
+                else:
+                    print('nop')
+                    self.reconstruction.ESW = self.reconstruction.ESW * frac
+            else:
+                self.reconstruction.ESW = self.reconstruction.ESW * frac
 
         # update background (see PhD thsis by Peng Li)
         if self.params.backgroundModeSwitch:
@@ -1075,7 +1070,7 @@ class BaseEngine(object):
                 probe_estimate = np.squeeze(
                     asNumpyArray(
                         self.reconstruction.probe[
-                            0, ..., self.monitor.probeROI[0], self.monitor.probeROI[1]
+                            ..., self.monitor.probeROI[0], self.monitor.probeROI[1]
                         ]
                     )
                 )
@@ -1218,7 +1213,25 @@ class BaseEngine(object):
             # print('iteration:%i' %len(self.reconstruction.error))
             # print('runtime:')
             # print('error:')
-        # TODO: print info
+
+        # Dump each iteration the current object
+        if self.params.dump_obj:
+            folder_path = 'dumps'
+            if loop == 0:
+                if not os.path.exists(folder_path):
+                    # Create the folder
+                    os.makedirs(folder_path)
+                    print(f"Folder '{folder_path}' created.")
+                else:
+                    print(f"Folder '{folder_path}' already exists.")
+
+            filename = 'obj_dump_' + str(loop) + '.h5py'
+            import h5py
+            file_path = os.path.join(folder_path, filename)
+            with h5py.File(file_path, 'w') as hdf:
+                obj = self.reconstruction.object.get()
+                hdf.create_dataset('Object', data=obj)
+
 
     def positionCorrection(self, objectPatch, positionIndex, sy, sx):
         """
@@ -1447,6 +1460,10 @@ class BaseEngine(object):
                 )
                 * self.experimentalData.maxProbePower
             )
+        if self.params.probeSpectralPowerCorrectionSwitch:
+            for wl in range(self.reconstruction.probe.shape[0]):
+                self.reconstruction.probe[wl, ...] *= self.experimentalData.maxProbePower * self.experimentalData.spectralPower[wl] \
+                                                      / np.sqrt(np.sum(self.reconstruction.probe[wl, ...] * self.reconstruction.probe[wl, ...].conj()))
 
         if (
             self.params.comStabilizationSwitch is not None

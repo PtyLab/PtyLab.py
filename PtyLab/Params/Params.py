@@ -31,6 +31,9 @@ class Params(object):
         self.weigh_probe_updates_by_intensity = False
         self.logger = logging.getLogger("Params")
 
+        # Dump updated object each iteration
+        self.dump_obj = False
+
         # Default settings for switches, settings that involve how things are computed
         self.fftshiftSwitch = False
         # this is an internal setting, tracking wether of not the fftshifts have been done. Do not change this yourself
@@ -76,6 +79,7 @@ class Params(object):
         )
         self.absorbingProbeBoundaryAleph = 5e-2
         self.probePowerCorrectionSwitch = False  # probe normalization to measured PSD
+        self.probeSpectralPowerCorrectionSwitch = False  # probe normalization from experimentalData.probeSpectralPower
         self.modulusEnforcedProbeSwitch = False  # enforce empty beam
 
         self.absProbeSwitch = False  # force the probe to be abs-only

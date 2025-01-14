@@ -168,27 +168,27 @@ class ExperimentalData:
             return
         if orientation == 1:
             # Invert column
-            self.ptychogram = np.fliplr(self.ptychogram)
+            self.ptychogram = np.flip(self.ptychogram, axis=-1)
         elif orientation == 2:
             # Invert rows
-            self.ptychogram = np.flipud(self.ptychogram)
+            self.ptychogram = np.flip(self.ptychogram, axis=-2)
         elif orientation == 3:
             # invert columns and rows
-            self.ptychogram = np.fliplr(self.ptychogram)
-            self.ptychogram = np.flipud(self.ptychogram)
+            self.ptychogram = np.flip(self.ptychogram, axis=-1)
+            self.ptychogram = np.flip(self.ptychogram, axis=-2)
         elif orientation == 4:
             # Transpose
             self.ptychogram = np.transpose(self.ptychogram, (0, 2, 1))
         elif orientation == 5:
             self.ptychogram = np.transpose(self.ptychogram, (0, 2, 1))
-            self.ptychogram = np.fliplr(self.ptychogram)
+            self.ptychogram = np.flip(self.ptychogram, axis=-1)
         elif orientation == 6:
             self.ptychogram = np.transpose(self.ptychogram, (0, 2, 1))
-            self.ptychogram = np.flipud(self.ptychogram)
+            self.ptychogram = np.flip(self.ptychogram, axis=-2)
         elif orientation == 7:
             self.ptychogram = np.transpose(self.ptychogram, (0, 2, 1))
-            self.ptychogram = np.fliplr(self.ptychogram)
-            self.ptychogram = np.flipud(self.ptychogram)
+            self.ptychogram = np.flip(self.ptychogram, axis=-1)
+            self.ptychogram = np.flip(self.ptychogram, axis=-2)
 
         else:
             raise ValueError(f"Orientation {orientation} is not implemented")
