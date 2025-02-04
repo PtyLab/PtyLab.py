@@ -154,6 +154,25 @@ class ExperimentalData:
         self.ptychogram = self.ptychogram[..., startx: startx + size, startx: startx + size]
         # self._setData()
 
+    def binData(self, binning):
+        '''
+        :param binning: Binning parameter (int, e.g. 2)
+        :return:
+        '''
+        Ndp = self.ptychogram.shape[0]
+        Ny = self.ptychogram.shape[1]
+        Nx = self.ptychogram.shape[2]
+
+        ptychogram_temp = np.copy(self.ptychogram)
+        self.ptychogram = np.zeros((Ndp, Ny // binning, Nx // binning))
+
+        # Loop through all dp
+        for i in range(Ndp):
+            temp = ptychogram_temp[i]
+            reshaped_temp = temp.reshape(Ny // binning, binning, Nx // binning, binning)
+            temp_binning = reshaped_temp.mean(axis=(1, 3))
+            self.ptychogram[i] = np.copy(temp_binning)
+
     def setOrientation(self, orientation, force_contiguous=True):
         """
         Sets the correct orientation. This function follows the ptypy convention.
