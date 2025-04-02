@@ -87,12 +87,12 @@ def _fft_convolve2d(x, y, on_gpu, mode="same"):
     size = s1[0] + s2[0] - 1, s1[1] + s2[1] - 1
     fx = xp.fft.fft2(x, size)
     fy = xp.fft.fft2(y, size)
-    result = xp.real(xp.fft.ifft2(fx * fy))
+    result = xp.fft.ifft2(fx * fy)
 
     if mode == "same":
         return _centered(result, s1, on_gpu)
     elif mode == "valid":
-        return _centered(result, (s1[0] - s2[0] + 1, s1[1] - s2[1] + 1))
+        return _centered(result, (s1[0] - s2[0] + 1, s1[1] - s2[1] + 1), on_gpu)
     else:  # 'full'
         return result
 
