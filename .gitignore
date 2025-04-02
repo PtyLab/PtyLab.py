@@ -6,3 +6,4 @@
 *.venv
 logs_tensorboard
 *.hdf5
+.DS_Store
