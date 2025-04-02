@@ -29,24 +29,12 @@ def complexexp(angle):
 
 
 def iterate_6d_fields(fields):
-    """Efficiently iterating via a generator for the 6D field array
-    (nlambda, nosm, npsm, nslice, Np, Np).
-
-    Parameters
-    ----------
-    fields : np.ndarray
-
-
-    Yields
-    ------
-    tuple
-        returns a tuple of indices over the array
     """
-    for i_nlambda in range(fields.shape[0]):
-        for j_nosm in range(fields.shape[1]):
-            for k_npsm in range(fields.shape[2]):
-                for l_nslice in range(fields.shape[3]):
-                    yield (i_nlambda, j_nosm, k_npsm, l_nslice)
+    Iterate over the first four dimensions of a 6D field array. (nlambda, nosm, npsm, nslice, Np, Np)
+    corresponding to multi-wavelengths, object modes, probe modes, multislice, diffraction pattern (2d)
+    """
+    for idx in np.ndindex(fields.shape[:4]):
+        yield idx
 
 
 # creating a bandpass filter
@@ -67,7 +55,7 @@ def gaussian2D(n, std, on_gpu):
     # analytic function
     h = xp.exp(-(x**2 + y**2) / (2 * std**2))
     # truncate very small values to zero
-    mask = h < xp.finfo(float).eps * np.max(h)
+    mask = h < xp.finfo(float).eps * xp.max(h)
     h *= 1 - mask
     # normalize filter to unit L1 energy
     sumh = xp.sum(h)
