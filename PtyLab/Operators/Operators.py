@@ -8,7 +8,7 @@ except ImportError:
 from functools import lru_cache
 
 try:
-    import cupy as cp
+    import cupy as cp  # type: ignore
 except ImportError:
     pass
     # print("Cupy not available, will not be able to run GPU based computation")
@@ -16,6 +16,12 @@ import numpy as np
 
 from PtyLab import Params, Reconstruction
 from PtyLab.Operators._propagation_kernels import __make_quad_phase
+from PtyLab.Operators.off_axis_sas import (
+    __make_transferfunction_sas,
+    propagate_sas,
+    propagate_sas_inv,
+)
+from PtyLab.Operators.propagator_utils import complexexp
 from PtyLab.utils.gpuUtils import getArrayModule, isGpuArray
 from PtyLab.utils.utils import circ, fft2c, ifft2c
 
@@ -396,9 +402,6 @@ def propagate_scaledPolychromeASP(
     reconstruction.esw, propagated field:
         Exit surface wave and the propagated field
 
-    Returns
-    -------
-
     """
     if z is None:
         z = reconstruction.zo
@@ -624,81 +627,6 @@ def aspw(u, z, wavelength, L, bandlimit=True, is_FT=True):
     return u_prop, phase_exp
 
 
-@lru_cache(cache_size)
-def __aspw_transfer_function(z, wavelength, N, L, on_gpu=False, bandlimit=True):
-    """
-    Angular spectrum optical transfer function. You likely don't need to use this directly.
-
-    The result of this call is cached so it can be reused and called as often as you need without having
-    to worry about recalculating everything all the time.
-
-
-    Parameters
-    ----------
-    z: float
-        distance
-    wavelength: float
-        wavelength in meter
-    N: int
-        Number of pixels per side
-    L: int
-        Physical size
-    on_gpu: bool
-        If true, a cupy array is returned
-    bandlimit: bool
-        If the transfer function should be band-limited.
-
-    Returns
-    -------
-
-    """
-    if on_gpu:
-        xp = cp
-    else:
-        xp = np
-
-    a_z = abs(z)
-    k = 2 * np.pi / wavelength
-    X = xp.arange(-N / 2, N / 2) / L
-    Fx, Fy = xp.meshgrid(X, X)
-    f_max = L / (wavelength * xp.sqrt(L**2 + 4 * a_z**2))
-    # note: see the paper above if you are not sure what this bandlimit has to do here
-    # W = rect(Fx/(2*f_max)) .* rect(Fy/(2*f_max));
-    W = xp.array(circ(Fx, Fy, 2 * f_max))
-    # note: accounts for circular symmetry of transfer function and imposes bandlimit to avoid sampling issues
-    exponent = 1 - (Fx * wavelength) ** 2 - (Fy * wavelength) ** 2
-    # take out stuff that cannot exist
-    mask = exponent > 0
-    if not bandlimit:
-        mask = 0 * mask + 1
-    # put the out of range values to 0 so the square root can be taken
-    exponent = xp.clip(exponent, 0, xp.inf)
-    H = xp.array(mask * complexexp(k * a_z * xp.sqrt(exponent)))
-    if z < 0:
-        H = H.conj()
-    phase_exp = H * W
-    return phase_exp
-
-
-def complexexp(angle):
-    """
-    Faster way of implementing np.exp(1j*something_unitary)
-
-    Parameters
-    ----------
-    angle: np.ndarray
-        Angle of the exponent
-
-    Returns
-    -------
-
-    cos(angle) + 1j * sin(angle)
-
-    """
-    xp = getArrayModule(angle)
-    return xp.cos(angle) + 1j * xp.sin(angle)
-
-
 def scaledASP(u, z, wavelength, dx, dq, bandlimit=True, exactSolution=False):
     """
     Angular spectrum propagation with customized grid spacing dq (within Fresnel(or paraxial) approximation)
@@ -832,26 +760,60 @@ def fresnelPropagator(u, z, wavelength, L):
     return u_out, dq, Q1, Q2
 
 
-def clear_cache(logger: logging.Logger = None):
-    """Clear the cache of all cached functions in this module. Use if GPU memory is not available.
+@lru_cache(cache_size)
+def __aspw_transfer_function(z, wavelength, N, L, on_gpu=False, bandlimit=True):
+    """
+    Angular spectrum optical transfer function. You likely don't need to use this directly.
 
-    IF logger is available, print some information about the methods being cleared.
+    The result of this call is cached so it can be reused and called as often as you need without having
+    to worry about recalculating everything all the time.
 
-    Returns nothing"""
-    list_of_methods = [
-        __aspw_transfer_function,
-        __make_quad_phase,
-        __make_transferfunction_ASP,
-        __make_transferfunction_scaledASP,
-        __make_cache_twoStepPolychrome,
-        __make_transferfunction_polychrome_ASP,
-        __make_transferfunction_scaledPolychromeASP,
-    ]
-    for method in list_of_methods:
-        if logger is not None:
-            logger.debug(method.cache_info())
-            logger.info("clearing cache for %s", method)
-        method.cache_clear()
+
+    Parameters
+    ----------
+    z: float
+        distance
+    wavelength: float
+        wavelength in meter
+    N: int
+        Number of pixels per side
+    L: int
+        Physical size
+    on_gpu: bool
+        If true, a cupy array is returned
+    bandlimit: bool
+        If the transfer function should be band-limited.
+
+    Returns
+    -------
+
+    """
+    if on_gpu:
+        xp = cp
+    else:
+        xp = np
+
+    a_z = abs(z)
+    k = 2 * np.pi / wavelength
+    X = xp.arange(-N / 2, N / 2) / L
+    Fx, Fy = xp.meshgrid(X, X)
+    f_max = L / (wavelength * xp.sqrt(L**2 + 4 * a_z**2))
+    # note: see the paper above if you are not sure what this bandlimit has to do here
+    # W = rect(Fx/(2*f_max)) .* rect(Fy/(2*f_max));
+    W = xp.array(circ(Fx, Fy, 2 * f_max))
+    # note: accounts for circular symmetry of transfer function and imposes bandlimit to avoid sampling issues
+    exponent = 1 - (Fx * wavelength) ** 2 - (Fy * wavelength) ** 2
+    # take out stuff that cannot exist
+    mask = exponent > 0
+    if not bandlimit:
+        mask = 0 * mask + 1
+    # put the out of range values to 0 so the square root can be taken
+    exponent = xp.clip(exponent, 0, xp.inf)
+    H = xp.array(mask * complexexp(k * a_z * xp.sqrt(exponent)))
+    if z < 0:
+        H = H.conj()
+    phase_exp = H * W
+    return phase_exp
 
 
 @lru_cache(cache_size)
@@ -865,7 +827,7 @@ def __make_transferfunction_ASP(
             "For multi-wavelength, polychromeASP needs to be used instead of ASP"
         )
 
-    dummy = np.ones((1, nosm, npsm, 1, Np, Np), dtype="complex64")
+    # dummy = np.ones((1, nosm, npsm, 1, Np, Np), dtype="complex64")
     _transferFunction = np.array(
         [
             [
@@ -919,7 +881,7 @@ def __make_transferfunction_polychrome_ASP(
     spectralDensity = np.array(spectralDensity_as_tuple)
     if fftshiftSwitch:
         raise ValueError("ASP propagatorType works only with fftshiftSwitch = False!")
-    dummy = np.ones((nlambda, nosm, npsm, 1, Np, Np), dtype="complex64")
+    dummy = np.ones((nlambda, nosm, npsm, 1, Np, Np), dtype="complex64")  # noqa: F841
     transferFunction = np.array(
         [
             [
@@ -1075,6 +1037,29 @@ def __make_cache_twoStepPolychrome(
     return transferFunction, quadraticPhase
 
 
+def clear_cache(logger: logging.Logger = None):
+    """Clear the cache of all cached functions in this module. Use if GPU memory is not available.
+
+    IF logger is available, print some information about the methods being cleared.
+
+    Returns nothing"""
+    list_of_methods = [
+        __aspw_transfer_function,
+        __make_quad_phase,
+        __make_transferfunction_ASP,
+        __make_transferfunction_scaledASP,
+        __make_cache_twoStepPolychrome,
+        __make_transferfunction_polychrome_ASP,
+        __make_transferfunction_scaledPolychromeASP,
+        __make_transferfunction_sas,
+    ]
+    for method in list_of_methods:
+        if logger is not None:
+            logger.debug(method.cache_info())
+            logger.info("clearing cache for %s", method)
+        method.cache_clear()
+
+
 forward_lookup_dictionary = {
     "fraunhofer": propagate_fraunhofer,
     "fresnel": propagate_fresnel,
@@ -1084,6 +1069,7 @@ forward_lookup_dictionary = {
     "scaledpolychromeasp": propagate_scaledPolychromeASP,
     "twosteppolychrome": propagate_twoStepPolychrome,
     "identity": propagate_identity,
+    "sas": propagate_sas,
 }
 
 
@@ -1096,4 +1082,5 @@ reverse_lookup_dictionary = {
     "scaledpolychromeasp": propagate_scaledPolychromeASP_inv,
     "twosteppolychrome": propagate_twoStepPolychrome_inv,
     "identity": propagate_identity,
+    "sas": propagate_sas_inv,
 }

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "ptylab"
-version = "0.2.1"
+version = "0.3.0"
 description = "A cross-platform, open-source inverse modeling toolbox for conventional and Fourier ptychography"
 authors = ["Lars Loetgering <lars.loetgering@fulbrightmail.org>", "PtyLab Team"]
 readme = "README.md"
@@ -29,6 +29,18 @@ pre-commit = { version = "^4.0.1", optional = true }
 
 [tool.poetry.extras]
 dev = ["black", "ipykernel", "pre-commit"]
+
+[tool.poetry.group.gpu-cuda11x]
+optional = true
+
+[tool.poetry.group.gpu-cuda11x.dependencies]
+cupy-cuda11x = "^13.2.0"
+
+[tool.poetry.group.gpu-cuda12x]
+optional = true
+
+[tool.poetry.group.gpu-cuda12x.dependencies]
+cupy-cuda12x = "^13.2.0"
 
 [build-system]
 requires = ["poetry-core"]

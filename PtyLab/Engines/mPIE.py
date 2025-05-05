@@ -13,7 +13,6 @@ import logging
 import sys
 
 import tqdm
-
 from PtyLab.Engines.BaseEngine import BaseEngine
 from PtyLab.ExperimentalData.ExperimentalData import ExperimentalData
 from PtyLab.Monitor.Monitor import Monitor
@@ -93,7 +92,12 @@ class mPIE(BaseEngine):
 
         self.reconstruction.probeWindow = np.abs(self.reconstruction.probe)
 
-    def reconstruct(self, experimentalData=None, reconstruction=None):
+    def reconstruct(
+        self,
+        experimentalData: ExperimentalData = None,
+        reconstruction: Reconstruction = None,
+        probe_update_switch: bool = True,
+    ):
         """Reconstruct object. If experimentalData is given, it replaces the current data. Idem for reconstruction."""
 
         self.changeExperimentalData(experimentalData)
@@ -152,13 +156,16 @@ class mPIE(BaseEngine):
                     self.reconstruction.object[..., sy, sx] = object_patch
 
                 # probe update
-                weight = 1
-                if self.params.weigh_probe_updates_by_intensity:
-                    weight = self.experimentalData.relative_intensity(positionIndex)
-                    # print(f'for position {positionIndex}, using weight {weight}')
+                if probe_update_switch:
+                    weight = 1
+                    if self.params.weigh_probe_updates_by_intensity:
+                        weight = self.experimentalData.relative_intensity(positionIndex)
+                        # print(f'for position {positionIndex}, using weight {weight}')
 
-                self.reconstruction.probe = self.probeUpdate(objectPatch, DELTA, weight)
-                # self.reconstruction.push_probe_update(self.reconstruction.probe, positionIndex, self.experimentalData.ptychogram.shape[0])
+                    self.reconstruction.probe = self.probeUpdate(
+                        objectPatch, DELTA, weight
+                    )
+                    # self.reconstruction.push_probe_update(self.reconstruction.probe, positionIndex, self.experimentalData.ptychogram.shape[0])
 
                 if self.params.positionCorrectionSwitch:
                     shifter = self.positionCorrection(
@@ -169,7 +176,8 @@ class mPIE(BaseEngine):
                 # momentum updates
                 if np.random.rand(1) > 0.95:
                     self.objectMomentumUpdate()
-                    self.probeMomentumUpdate()
+                    if probe_update_switch:
+                        self.probeMomentumUpdate()
                 # yield positionLoop, positionIndex
 
             # get error metric

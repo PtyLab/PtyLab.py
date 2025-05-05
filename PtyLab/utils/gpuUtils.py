@@ -4,12 +4,37 @@ from typing import List
 
 import numpy as np
 
-try:
-    import cupy as cp
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("GPU")
+logging.getLogger("numexpr").setLevel(logging.WARNING)
 
-    CP_AVAILABLE = True
-except ImportError:
-    CP_AVAILABLE = False
+
+def check_gpu_availability(verbose=True):
+    """Check if GPU and cupy are available."""
+    try:
+        import cupy
+
+        if cupy.cuda.is_available():
+            if verbose:
+                logger.info("cupy and CUDA available, switching to GPU")
+            return True
+
+    except AttributeError:
+        if verbose:
+            logger.info("CUDA is unavailable, switching to CPU")
+        return False
+
+    except ImportError:
+        if verbose:
+            logger.info("cupy is unavailable, switching to CPU")
+        return False
+
+
+CP_AVAILABLE = True if check_gpu_availability() else False
+
+if CP_AVAILABLE:
+    import cupy as cp
+else:
     cp = np
 
 
@@ -22,6 +47,7 @@ def getArrayModule(*args, **kwargs):
     :param kwargs:
     :return:
     """
+
     if CP_AVAILABLE:
         return cp.get_array_module(*args, **kwargs)
     else:
@@ -43,6 +69,7 @@ def asNumpyArray(ary) -> np.ndarray:
     :return: cpu-version of ary
 
     """
+
     if CP_AVAILABLE:
         return cp.asnumpy(ary)
     else:
@@ -101,3 +128,21 @@ def transfer_fields_to_cpu(self: object, fields: List[str], logger: logging.Logg
             self.logger.debug(f"Moved {field} to CPU")
         else:
             self.logger.debug(f"Skipped {field} as it is not defined")
+
+
+def check_array_type(arr):
+    """Checks if the array if a numpy or a cupy array. Useful for debugging"""
+    try:
+        import cupy as cp
+
+        if isinstance(arr, cp.ndarray):
+            print("This is a CuPy array")
+        elif isinstance(arr, np.ndarray):
+            print("This is a NumPy array")
+        else:
+            print("This is neither a NumPy nor a CuPy array")
+    except ImportError:
+        if isinstance(arr, np.ndarray):
+            print("This is a NumPy array")
+        else:
+            print("This is not a NumPy array (CuPy not available)")

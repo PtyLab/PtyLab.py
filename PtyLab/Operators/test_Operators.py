@@ -1,11 +1,21 @@
+import time
 from unittest import TestCase
 
-from numpy.testing import assert_allclose
-
-from PtyLab import Operators, easyInitialize
 import numpy as np
 from numpy.testing import assert_allclose
-import time
+
+from PtyLab import easyInitialize
+from PtyLab.Operators.Operators import (
+    aspw,
+    aspw_cached,
+    forward_lookup_dictionary,
+    object2detector,
+    propagate_ASP,
+    propagate_fresnel,
+    propagate_scaledASP,
+    propagate_scaledPolychromeASP,
+    propagate_twoStepPolychrome,
+)
 
 
 def test_caching_aspw():
@@ -24,17 +34,17 @@ def test_caching_aspw():
     from cupyx import time as timer
 
     # run this to warm up the GPU
-    timer.repeat(Operators.Operators.aspw, (E, z, wl, L), {}, n_repeat=200, n_warmup=50)
+    timer.repeat(aspw, (E, z, wl, L), {}, n_repeat=200, n_warmup=50)
 
     t0 = time.time()
     for i in range(100):
-        E_prop = Operators.Operators.aspw_cached(E, z, wl, L)
+        E_prop = aspw_cached(E, z, wl, L)
     if xp is not np:
         E_prop = xp.asnumpy(E_prop)
     t1 = time.time()
     t_cached = t1 - t0
     for i in range(100):
-        E_prop2 = Operators.Operators.aspw(E, z, wl, L)[0]
+        E_prop2 = aspw(E, z, wl, L)[0]
     if xp is not np:
         E_prop2 = E_prop2.get()
     t2 = time.time()
@@ -59,23 +69,31 @@ def test_object2detector():
 
 
 def _doit(reconstruction, params):
-    for operator_name in Operators.Operators.forward_lookup_dictionary:
+    for operator_name in forward_lookup_dictionary:
         params.propagatorType = operator_name
         reconstruction.esw = reconstruction.probe
+        reconstruction.theta = (40, 0)  # for off-axis sas
         print("\n")
         import time
 
         for i in range(3):
             t0 = time.time()
-            Operators.Operators.object2detector(
-                reconstruction.esw, params, reconstruction
-            )
+            object2detector(reconstruction.esw, params, reconstruction)
             # out = operator(reconstruction.probe, params, reconstruction)
             t1 = time.time()
             print(operator_name, i, 1e3 * (t1 - t0), "ms")
 
 
-def test__propagate_fresnel():
+def test_propagate_fresnel(test_device: str = "CPU", nruns: int = 10):
+    """Checks if Fresnel based propagators are bug-free.
+
+    Parameters
+    ----------
+    test_device : str, optional
+        Specify hardware either as "CPU" or "GPU", by default "CPU"
+    nruns : int, optional
+        No. of runs for each propagator
+    """
     experimentalData, reconstruction, params, monitor, engine = easyInitialize(
         "example:simulation_cpm"
     )
@@ -83,33 +101,37 @@ def test__propagate_fresnel():
     reconstruction.initializeObjectProbe()
     reconstruction.esw = 2
     for operator in [
-        Operators.Operators.propagate_fresnel,
-        Operators.Operators.propagate_ASP,
-        Operators.Operators.propagate_scaledASP,
-        Operators.Operators.propagate_twoStepPolychrome,
-        Operators.Operators.propagate_scaledPolychromeASP,
+        propagate_fresnel,
+        propagate_ASP,
+        propagate_scaledASP,
+        propagate_twoStepPolychrome,
+        propagate_scaledPolychromeASP,
     ]:
-        params.gpuSwitch = True
-        reconstruction._move_data_to_gpu()
+        if test_device == "GPU":
+            if params.gpuSwitch:
+                reconstruction._move_data_to_gpu()
 
-        import time
+                for i in range(nruns):
+                    t0 = time.time()
+                    _ = operator(reconstruction.probe, params, reconstruction)
+                    t1 = time.time()
+                    print(i, 1e3 * (t1 - t0), "ms")
+            else:
+                print("No GPU hardware found, please set test_device = 'CPU' ")
 
-        for i in range(3):
-            t0 = time.time()
-            out = operator(reconstruction.probe, params, reconstruction)
-            t1 = time.time()
-            print(i, 1e3 * (t1 - t0), "ms")
+        elif test_device == "CPU":
+            params.gpuSwitch = False
+            reconstruction._move_data_to_cpu()
 
-        params.gpuSwitch = False
-        reconstruction._move_data_to_cpu()
-
-        import time
-
-        for i in range(10):
-            t0 = time.time()
-            out = operator(reconstruction.probe, params, reconstruction)
-            t1 = time.time()
-            print(i, 1e3 * (t1 - t0), "ms")
+            print("\n---------------")
+            print(f"{operator.__name__}\n")
+            for i in range(nruns):
+                t0 = time.time()
+                _ = operator(reconstruction.probe, params, reconstruction)
+                t1 = time.time()
+                print(f"Run {i}: {1e3 * (t1 - t0):.3f} ms")
+        else:
+            raise SyntaxError("Set test_device = 'CPU' or 'GPU' ")
 
 
 def test_aspw_cached():
@@ -123,6 +145,9 @@ class TestASP(TestCase):
         )
         reconstruction.esw = None
         a = reconstruction.probe
-        P1 = Operators.Operators.propagate_ASP(a,params, reconstruction,z=1e-3, fftflag=False)[1]
-        P2 = Operators.Operators.propagate_ASP(a, params, reconstruction, z=1e-3, fftflag=True)[1]
+        P1 = propagate_ASP(a, params, reconstruction, z=1e-3, fftflag=False)[1]
+        P2 = propagate_ASP(a, params, reconstruction, z=1e-3, fftflag=True)[1]
         assert_allclose(P1, P2)
+
+
+test_object2detector()
