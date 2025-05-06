@@ -284,7 +284,7 @@ def _interface_sas(
     )
 
     # z2 virtual distance (Fresnel) for relaxing sampling requirements
-    z2 = prefactor_z * z1
+    z2 = float(prefactor_z * z1)
 
     # modify real-space resolution if required, however preferably kept at 1.0 (diffraction-limited)
     prefactor_dxp = (
@@ -295,11 +295,13 @@ def _interface_sas(
 
     # probe FOV adjusted with the pad factor
     Ld = reconstruction.Ld * pad_factor
-    reconstruction.dxp = prefactor_dxp * wavelength * z2 / Ld
+    reconstruction.dxp = float(prefactor_dxp * wavelength * z2 / Ld)
 
     # quadratic phase Q2 (currently zo, but this can be z2 and z1 separated)
+    dxp = float(reconstruction.dxp)
+    
     quad_phase_Q1 = __make_quad_phase(
-        z2, wavelength, Np, reconstruction.dxp, params.gpuSwitch
+        z2, wavelength, Np, dxp, params.gpuSwitch
     )
 
     # precompensated transfer function
