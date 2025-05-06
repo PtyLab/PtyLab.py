@@ -82,5 +82,7 @@ def benchmark_runs(with_gpu=True, nruns: int = 10):
             t1 = time.time()
             print(f"Run {i}: {1e3 * (t1 - t0):.3f} ms")
 
-
-benchmark_runs(with_gpu=False, nruns=10)
+if __name__ == "__main__":
+    
+    # benchmark runs with and without GPU
+    benchmark_runs(with_gpu=True, nruns=10)
