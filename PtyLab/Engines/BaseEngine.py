@@ -994,7 +994,6 @@ class BaseEngine(object):
                 if self.params.intensityMask:
                     self.reconstruction.ESW = self.reconstruction.ESW * (frac * (self.reconstruction.intensity_mask) + (self.reconstruction.intensity_mask - 1))
                 else:
-                    print('nop')
                     self.reconstruction.ESW = self.reconstruction.ESW * frac
             else:
                 self.reconstruction.ESW = self.reconstruction.ESW * frac
@@ -1614,7 +1613,7 @@ class BaseEngine(object):
                     self.reconstruction.purityProbe = np.sqrt(
                         np.sum(self.normalizedEigenvaluesProbe**2)
                     )
-
+                    self.reconstruction.purityProbeHist.append(self.reconstruction.purityProbe.get())
                     # orthogonolize momentum operator
                     if self.params.momentumAcceleration:
                         # orthogonalize probe Buffer

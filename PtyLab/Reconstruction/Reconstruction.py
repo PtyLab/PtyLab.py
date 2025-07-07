@@ -320,6 +320,7 @@ class Reconstruction(object):
         # beam and object purity (# default initial value for plots.)
         self.purityProbe = 1
         self.purityObject = 1
+        self.purityProbeHist = []
 
         self.positions0 = self.positions.copy()
 
