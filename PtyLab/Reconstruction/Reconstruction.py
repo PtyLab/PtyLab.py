@@ -190,16 +190,17 @@ class Reconstruction(object):
                 )
 
         # set object pixel numbers
-        self.No = (
-            self.Np * 2**2
-        )  # unimportant but leave it here as it's required for self.positions
-        # we need space for the probe as well, on both sides that would be half the probe
-        range_pixels = np.max(self.positions, axis=0) - np.min(self.positions, axis=0)
-        # print(range_pixels)
-        range_pixels = np.max(range_pixels) + self.Np * 2
-        if range_pixels % 2 == 1:
-            range_pixels += 1
-        self.No = np.max([self.Np, range_pixels])
+        if not hasattr(self, 'No'):
+            self.No = (
+                self.Np * 2**2
+            )  # unimportant but leave it here as it's required for self.positions
+            # we need space for the probe as well, on both sides that would be half the probe
+            range_pixels = np.max(self.positions, axis=0) - np.min(self.positions, axis=0)
+            # print(range_pixels)
+            range_pixels = np.max(range_pixels) + self.Np * 2
+            if range_pixels % 2 == 1:
+                range_pixels += 1
+            self.No = np.max([self.Np, range_pixels])
 
     def make_alignment_plot(self, saveit=False):
         import time
