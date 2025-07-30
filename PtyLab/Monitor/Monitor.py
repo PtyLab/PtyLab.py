@@ -270,6 +270,14 @@ class DummyMonitor(object):
     figureUpdateFrequency = 1000000
     verboseLevel = "low"
 
+    def update_encoder(self, *args, **kwargs):
+        pass
+
+    def updateBeamWidth(self, *args, **kwargs):
+        pass
+
+
+
     def updatePlot(self, object_estimate, probe_estimate):
         pass
 
