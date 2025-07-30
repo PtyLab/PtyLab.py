@@ -93,7 +93,7 @@ class mPIE(BaseEngine):
 
         self.reconstruction.probeWindow = np.abs(self.reconstruction.probe)
 
-    def reconstruct(self, experimentalData=None, reconstruction=None):
+    def reconstruct(self, experimentalData=None, reconstruction=None, vis_after_each_iteration=None):
         """Reconstruct object. If experimentalData is given, it replaces the current data. Idem for reconstruction."""
 
         self.changeExperimentalData(experimentalData)
@@ -182,6 +182,9 @@ class mPIE(BaseEngine):
 
             # show reconstruction
             self.showReconstruction(loop)
+
+            if callable(vis_after_each_iteration):
+                vis_after_each_iteration(loop, self.reconstruction)
 
         if self.params.gpuFlag:
             self.logger.info("switch to cpu")
