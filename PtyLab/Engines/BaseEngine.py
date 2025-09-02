@@ -297,14 +297,23 @@ class BaseEngine(object):
                     / 2
                 ).astype(int)
 
+                # self.monitor.objectROI = [
+                #     slice(
+                #         max(0, yc - ry // 2), min(self.reconstruction.No, yc + ry // 2)
+                #     ),
+                #     slice(
+                #         max(0, xc - rx // 2), min(self.reconstruction.No, xc + rx // 2)
+                #     ),
+                # ]
                 self.monitor.objectROI = [
-                    slice(
-                        max(0, yc - ry // 2), min(self.reconstruction.No, yc + ry // 2)
-                    ),
                     slice(
                         max(0, xc - rx // 2), min(self.reconstruction.No, xc + rx // 2)
                     ),
+                    slice(
+                        max(0, yc - ry // 2), min(self.reconstruction.No, yc + ry // 2)
+                    )
                 ]
+
 
         if not hasattr(self.monitor, "probeROI") or update:
             if self.monitor.probeZoom == "full" or self.monitor.probeZoom is None:
