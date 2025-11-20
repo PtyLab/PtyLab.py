@@ -942,7 +942,7 @@ class BaseEngine(object):
                 / (self.reconstruction.Iestimated + gimmel)
             )
 
-        elif self.params.intensityConstraint == "exponential":
+        elif self.params.intensityConstraint.lower() == "exponential":
             x = self.currentDetectorError / (self.reconstruction.Iestimated + gimmel)
             W = xp.exp(-0.05 * x)
             frac = xp.sqrt(
@@ -951,14 +951,20 @@ class BaseEngine(object):
             )
             frac = W * frac + (1 - W)
 
-        elif self.params.intensityConstraint == "poission":
-            frac = self.reconstruction.Imeasured / (
+        elif (self.params.intensityConstraint.lower() == "poisson" or
+              self.params.intensityConstraint.lower() == "poission"):
+            frac = (self.reconstruction.Imeasured + gimmel) / (
                 self.reconstruction.Iestimated + gimmel
             )
 
+        elif self.params.intensityConstraint.lower() == "proxpoisson":
+            lam = 1
+            frac = (self.reconstruction.Imeasured + lam * self.reconstruction.Iestimated + gimmel) / (
+                (1 + lam) * self.reconstruction.Iestimated + gimmel
+            )
         elif (
-            self.params.intensityConstraint == "standard"
-            or self.params.intensityConstraint == "interferometric"
+            self.params.intensityConstraint.lower() == "standard"
+            or self.params.intensityConstraint.lower() == "interferometric"
         ):
             frac = xp.sqrt(
                 self.reconstruction.Imeasured

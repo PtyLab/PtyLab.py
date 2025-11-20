@@ -15,3 +15,5 @@ from .OPR import OPR
 from .pcPIE import pcPIE
 from .qNewton import qNewton
 from .zPIE import zPIE
+from .ePIE_mw import ePIE_mw
+from .mPIE_mw import mPIE_mw

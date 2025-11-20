@@ -23,9 +23,8 @@ change data visualization and initialization options manually for now
 fileName = "simu.hdf5"  # simu.hdf5 or Lenspaper.hdf5
 filePath = getExampleDataFolder() / fileName
 
-exampleData = ExperimentalData(filePath, operationMode="CPM")
+exampleData, reconstruction, params, monitor, ePIE_engine = PtyLab.easyInitialize(filePath, operationMode='CPM')
 # initialize again reconstruction and engine with the wrong encoder data
-reconstruction = Reconstruction(exampleData)
 
 # perturb encoder positions
 maxPosError = 10
@@ -33,7 +32,6 @@ encoder0 = exampleData.encoder.copy()
 exampleData.encoder = encoder0 + maxPosError * reconstruction.dxo * (
     2 * np.random.rand(encoder0.shape[0], encoder0.shape[1]) - 1
 )
-reconstruction = Reconstruction(exampleData)
 import matplotlib.pyplot as plt
 
 figure, ax = plt.subplots(1, 1, num=112, squeeze=True, clear=True, figsize=(5, 5))
