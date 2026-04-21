@@ -153,6 +153,8 @@ class Params(object):
         # map a change in positions to a change in z. Experimental, do not use
         self.map_position_to_z_change = False
 
+        self.OPRP = False
+
         # Default values of all OPR parameters
         # Index of the incoherent probe modes that are linked in a subspace.
         self.OPR_modes = np.array([0])

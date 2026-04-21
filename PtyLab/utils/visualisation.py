@@ -1,11 +1,13 @@
 # This file contains utilities required for Monitor
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib as mpl
 import math
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-from PtyLab.utils.gpuUtils import asNumpyArray, getArrayModule, isGpuArray
+
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib.colors import LinearSegmentedColormap
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+from PtyLab.utils.gpuUtils import asNumpyArray, getArrayModule, isGpuArray
 
 try:
     import pyqtgraph as pg
@@ -51,7 +53,7 @@ def complex2rgb(u, amplitudeScalingFactor=1, force_numpy=True, center_phase=Fals
     # u = asNumpyArray(u)
     if center_phase:
         N = u.shape[-1]
-        phexp = xp.sum(u[...,N//3:2*N//3,N//3:2*N//3], axis=(-2,-1))
+        phexp = xp.sum(u[..., N // 3 : 2 * N // 3, N // 3 : 2 * N // 3], axis=(-2, -1))
         u = u * phexp.conj() / (abs(phexp) + 1e-9)
     h = xp.angle(u)
     h = (h + np.pi) / (2 * np.pi)
@@ -63,11 +65,11 @@ def complex2rgb(u, amplitudeScalingFactor=1, force_numpy=True, center_phase=Fals
         ASF = v.mean() + 2 * np.std(v)
         ASF = ASF / v.max()
     elif amplitudeScalingFactor is None:
-        ASF = 1./v.max()
+        ASF = 1.0 / v.max()
         amplitudeScalingFactor = ASF
     else:
         ASF = amplitudeScalingFactor
-    
+
     if ASF != 1 and amplitudeScalingFactor != "2sigma":
         v[v > amplitudeScalingFactor * np.max(v)] = amplitudeScalingFactor * np.max(v)
     v = v / (xp.max(v) + xp.finfo(float).eps) * (2**8 - 1)
@@ -253,29 +255,86 @@ def setColorMap():
     return cm
 
 
+def _is_notebook():
+    """Return True when running inside a Jupyter kernel."""
+    try:
+        from IPython import get_ipython
+        return get_ipython().__class__.__name__ == "ZMQInteractiveShell"
+    except NameError:
+        return False
+
+
 def show3Dslider(A, colormap="diffraction"):
     """
-    show a 3D plot with a slider using pyqtgraph.
+    show a 3D plot with a slider.
+
+    In a Jupyter notebook an inline ipywidgets slider is used.
+    In a script the interactive pyqtgraph viewer is used.
+
     :param A: a 3D array
     :param colormap: matplotlib colormap, default, customized colormap for plotting diffraction data
     return: a pyqtgraph plot
     """
     print(A.min(), A.max())
-    app = pg.mkQApp()
-    imv = pg.ImageView(view=pg.PlotItem())
-    imv.setWindowTitle("Close to proceed")
 
-    imv.setImage(A)
-
-    # choose colormap from matplotlib colormaps
+    # resolve colormap once — matplotlib LinearSegmentedColormap works for both paths
     if colormap == "diffraction":
         cmap = setColorMap()
     else:
         cmap = mpl.cm.get_cmap(colormap)
 
-    # set the colormap
-    positions = np.linspace(0, 1, cmap.N)
-    colors = [(np.array(cmap(i)[:-1]) * 255).astype("int") for i in positions]
-    imv.setColorMap(pg.ColorMap(pos=positions, color=colors))
-    imv.show()
-    app.exec_()
+    if _is_notebook():
+        import ipywidgets as widgets
+        from IPython.display import display
+        import matplotlib.pyplot as plt
+
+        # Create output widget for displaying figure
+        out = widgets.Output()
+
+        def update_frame(change):
+            # Create new figure for each frame update
+            # Handle both old API (event dict) and new API (direct value)
+            if isinstance(change, dict):
+                frame = int(change['new'])
+            else:
+                frame = int(change)
+            fig, ax = plt.subplots(1, 1, figsize=(6, 6))
+            im = ax.imshow(A[frame], cmap=cmap, origin="lower")
+            plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+            ax.axis("off")
+            plt.tight_layout()
+
+            with out:
+                out.clear_output(wait=True)
+                display(fig)
+                plt.close(fig)
+
+        # Create slider widget
+        slider = widgets.IntSlider(
+            min=0,
+            max=A.shape[0] - 1,
+            step=1,
+            value=0,
+            description="Frame"
+        )
+
+        # Link slider to update function
+        slider.observe(update_frame, names="value")
+
+        # Display slider and output
+        display(widgets.VBox([slider, out]))
+
+        # Initial display
+        update_frame(0)
+    else:
+        app = pg.mkQApp()
+        imv = pg.ImageView(view=pg.PlotItem())
+        imv.setWindowTitle("Close to proceed")
+        imv.setImage(A)
+
+        # set the colormap
+        positions = np.linspace(0, 1, cmap.N)
+        colors = [(np.array(cmap(i)[:-1]) * 255).astype("int") for i in positions]
+        imv.setColorMap(pg.ColorMap(pos=positions, color=colors))
+        imv.show()
+        app.exec_()

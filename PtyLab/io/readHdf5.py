@@ -1,9 +1,10 @@
-from pathlib import Path
-import tables
-import numpy as np
 import logging
-from scipy.io import loadmat
+from pathlib import Path
+
 import h5py
+import numpy as np
+import tables
+from scipy.io import loadmat
 
 logger = logging.getLogger("readHdf5")
 
@@ -34,7 +35,7 @@ def loadInputData(filename: Path, requiredFields, optionalFields):
     """
     filename = Path(filename)
     if not filename.exists():
-        raise FileNotFoundError(f'Could not find file {filename}.')
+        raise FileNotFoundError(f"Could not find file {filename}.")
     logger.debug("Loading input data: %s", filename)
 
     # sanity checks
@@ -48,7 +49,6 @@ def loadInputData(filename: Path, requiredFields, optionalFields):
     dataset = dict()
     try:
         with tables.open_file(str(filename), mode="r") as hdf5File:
-
             # load the required fields
             for key in requiredFields:
                 value = hdf5File.root[key].read()
@@ -66,19 +66,20 @@ def loadInputData(filename: Path, requiredFields, optionalFields):
     except Exception as e:
         logger.error("Error reading hdf5 file!")
         raise e
-    if 'encoder' in dataset:
-        print(f'Found encoder with shape {dataset["encoder"].shape}')
-        if dataset['encoder'].shape[0] < dataset['encoder'].shape[1]:
-            dataset['encoder'] = dataset['encoder'].T
-            print('Warning: Automatically changing the shape of encoder. ')
-            dataset['encoder'] -= dataset['encoder'].mean(axis=0, keepdims=True)
-            print(dataset['encoder'].shape, dataset['encoder'].mean(axis=0))
+    if "encoder" in dataset:
+        print(f"Found encoder with shape {dataset['encoder'].shape}")
+        if dataset["encoder"].shape[0] < dataset["encoder"].shape[1]:
+            dataset["encoder"] = dataset["encoder"].T
+            print("Warning: Automatically changing the shape of encoder. ")
+            dataset["encoder"] -= dataset["encoder"].mean(axis=0, keepdims=True)
+            print(dataset["encoder"].shape, dataset["encoder"].mean(axis=0))
             # dataset['encoder'] *= -1
     # dirty hack for now
 
     # upsample
 
     from PtyLab.utils.utils import fft2c, ifft2c
+
     # dataset['dxd'] = dataset['dxd'] / 2
     # padwidth = dataset['ptychogram'].shape[-1]//2
     # padwidth = [[0,0], [padwidth, padwidth], [padwidth,padwidth]]
@@ -95,8 +96,9 @@ def getOrientation(filename):
     orientation = None
     with h5py.File(str(filename), "r") as archive:
         if "orientation" in archive.keys():
-            orientation = np.array(archive["orientation"]).ravel()[0].astype(int)
-    return int(orientation) if orientation is not None else None
+            raw_value = np.array(archive["orientation"]).ravel()[0]
+            orientation = scalify(raw_value)
+    return orientation
 
 
 def checkDataFields(filename, requiredFields):
@@ -121,5 +123,3 @@ def checkDataFields(filename, requiredFields):
             raise KeyError("hdf5 file misses key %s" % k)
 
     return None
-
-

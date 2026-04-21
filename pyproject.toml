@@ -1,6 +1,6 @@
 [project]
 name = "ptylab"
-version = "0.2.4"
+version = "0.2.5"
 description = "A cross-platform, open-source inverse modeling toolbox for conventional and Fourier ptychography"
 authors = [
     { name = "Lars Loetgering", email = "lars.loetgering@fulbrightmail.org" },
@@ -21,6 +21,7 @@ dependencies = [
     "bokeh~=3.2",
     "PyQt5~=5.15",
     "ipython~=8.18",
+    "ipywidgets>=8.1.8",
 ]
 
 [project.optional-dependencies]
@@ -30,9 +31,13 @@ dev = [
     "pytest~=9.0",
     "imageio~=2.0",
 ]
-cuda12 = ["cupy-cuda12x"]
-cuda13 = ["cupy-cuda13x"]
+gpu = ["cupy-cuda12x[ctk]"]
 tensorflow = ["tensorflow~=2.14"]
+docs = [
+    "mkdocs>=1.6.1",
+    "mkdocs-material>=9.7.6",
+    "mkdocs-jupyter>=0.24",
+]
 
 [project.scripts]
 ptylab = "PtyLab.utils.cli:main"

@@ -4,6 +4,22 @@ from .aPIE import aPIE
 
 # # for other Engines (like one you are developing but which is too specific) you can always import PtyLab.Engines.<your_engine_filename>.<your_class>
 from .BaseEngine import BaseEngine
+
+__all__ = [
+    "aPIE",
+    "BaseEngine",
+    "e3PIE",
+    "ePIE",
+    "ePIE_TV",
+    "mPIE",
+    "mPIE_tv",
+    "mqNewton",
+    "multiPIE",
+    "OPR",
+    "pcPIE",
+    "qNewton",
+    "zPIE",
+]
 from .e3PIE import e3PIE
 from .ePIE import ePIE
 from .ePIE_TV import ePIE_TV

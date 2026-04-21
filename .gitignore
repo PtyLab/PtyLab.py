@@ -10,3 +10,9 @@ logs_tensorboard
 .python-version
 .DS_Store
 .idea
+.claude
+.cache
+
+# mkdocs
+site/
+.cache/mkdocs-jupyter/

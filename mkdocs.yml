@@ -1,0 +1,85 @@
+site_name: PtyLab.py
+site_description: Cross-platform, open-source inverse modeling toolbox for conventional and Fourier ptychography
+site_url: https://ptylab.github.io/PtyLab.py/
+repo_url: https://github.com/PtyLab/PtyLab.py
+repo_name: PtyLab/PtyLab.py
+dev_addr: '127.0.0.1:8000'
+
+theme:
+  name: material
+  logo: assets/ptylab_logo.svg
+  favicon: assets/ptylab_logo.svg
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: black
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - navigation.expand
+    - navigation.indexes
+    - navigation.top
+    - content.code.copy
+    - toc.integrate
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - getting-started/index.md
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quickstart.md
+  - CPM Workflow:
+    - cpm/index.md
+    - Overview: cpm/overview.md
+    - Data Format: cpm/data-format.md
+    - Engines: cpm/engines.md
+    - Configuration Reference: cpm/configuration.md
+  - FPM Workflow:
+    - fpm/index.md
+    - Overview: fpm/overview.md
+    - LED Calibration: fpm/calibration.md
+  - Advanced Topics:
+    - advanced/index.md
+    - GPU Acceleration: advanced/gpu.md
+    - Multislice: advanced/multislice.md
+    - Position Correction: advanced/position-correction.md
+  - Tutorials:
+    - tutorials/index.md
+    - "01 – CPM Simulation": tutorials/tutorial_CPM_sim.ipynb
+    - "02 – CPM Example Data": tutorials/tutorial_CPM.ipynb
+    - "03 – CPM Multi-Wavelength": tutorials/tutorial_CPM_multiWavelength.ipynb
+    - "04 – CPM Position Correction": tutorials/tutorial_LateralPositionCorrection.ipynb
+    - "05 – CPM Reflection": tutorials/tutorial_reflectionPtychography.ipynb
+    - "06 – CPM Interferometric Intensity": tutorials/tutorial_interferometricIntensityConstraint.ipynb
+    - "07 – FPM": tutorials/tutorial_FPM.ipynb
+
+extra_css:
+  - stylesheets/extra.css
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+  - mkdocs-jupyter:
+      include: ["*.ipynb"]
+      execute: false
+      allow_errors: true
