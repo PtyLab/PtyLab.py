@@ -42,15 +42,14 @@ Install from PyPI within your virtual environment:
 ```bash
 pip install ptylab
 ```
-
-> [!NOTE]  
-> For much faster installs, we recommend [uv](https://docs.astral.sh/uv/getting-started/installation/): `uv pip install ptylab`
+For much faster installs, we recommend [uv](https://docs.astral.sh/uv/getting-started/installation/): `uv pip install ptylab`
 
 This package uses `cupy` to utilize GPU for faster reconstruction. To enable GPU support:
 
 ```bash
 pip install "ptylab[gpu]"
 ```
+You can check if GPU is detected with `ptylab check gpu`.
 
 For the latest unreleased changes on `main`:
 
@@ -58,41 +57,23 @@ For the latest unreleased changes on `main`:
 pip install git+https://github.com/PtyLab/PtyLab.py.git
 ```
 
-Check GPU detection:
-
-```bash
-ptylab check gpu
-```
-
 ### Development
 
-Clone the repo and install dev dependencies with [uv](https://docs.astral.sh/uv/getting-started/installation/):
+Clone the repo and install dev and gpu dependencies with [uv](https://docs.astral.sh/uv/getting-started/installation/):
 
 ```bash
 git clone git@github.com:PtyLab/PtyLab.py.git
 cd PtyLab.py
-uv sync --extra dev
+uv sync --extra dev,gpu # remove the GPU flag if you are on CPU
 ```
-
 This creates a `.venv` virtual environment in the project root. Select this environment from your IDE.
 
-To use the GPU as well, install with the `gpu` flag:
 
-```bash
-uv sync --extra dev,gpu
-```
-
-and check if GPU is detected with `uv run ptylab check gpu`.
-
-Add tests for new behaviour and run the suite:
+Add tests for new implementations and run the suite:
 
 ```bash
 uv run pytest tests
 ```
-
-CI runs this on every PR. Please bump the package version when modifying dependencies.
-
-Releases are published to PyPI automatically: bump `version` in `pyproject.toml`, then publish a GitHub Release tagged `v<version>`.
 
 ## Citation
 
