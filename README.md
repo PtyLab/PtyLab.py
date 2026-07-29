@@ -1,7 +1,6 @@
 # PtyLab.py: Unified Ptychography Toolbox
 ![Python 3.10+](https://img.shields.io/badge/python-3.10+-green.svg)
 [![PyPI](https://img.shields.io/pypi/v/ptylab.svg)](https://pypi.org/project/ptylab/)
-[![Downloads](https://img.shields.io/pypi/dm/ptylab.svg)](https://pypi.org/project/ptylab/)
 ![Tests](https://github.com/PtyLab/PtyLab.py/actions/workflows/test.yml/badge.svg)
 
 [**Getting Started**](#getting-started) | [**Installation**](#installation) | [**Development**](#development) | [**Documentation**](https://ptylab.github.io/PtyLab.py/)
