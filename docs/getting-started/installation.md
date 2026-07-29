@@ -1,27 +1,35 @@
 # Installation
 
-PtyLab.py requires **Python 3.10–3.13** and is distributed via GitHub.
+PtyLab.py requires **Python 3.10–3.13** and is distributed on [PyPI](https://pypi.org/project/ptylab/).
 
-## From GitHub (pip)
+## From PyPI (pip)
 
 === "CPU"
 
     ```bash
-    pip install git+https://github.com/PtyLab/PtyLab.py.git
+    pip install ptylab
     ```
 
 === "GPU"
 
     ```bash
-    pip install "ptylab[gpu] @ git+https://github.com/PtyLab/PtyLab.py.git"
+    pip install "ptylab[gpu]"
     ```
 
 !!! tip
     For faster installs, use [uv](https://docs.astral.sh/uv/getting-started/installation/):
 
     ```bash
-    uv pip install git+https://github.com/PtyLab/PtyLab.py.git
+    uv pip install ptylab
     ```
+
+## Latest development version
+
+To install the unreleased state of `main` directly from GitHub:
+
+```bash
+pip install git+https://github.com/PtyLab/PtyLab.py.git
+```
 
 ## Verify GPU detection
 

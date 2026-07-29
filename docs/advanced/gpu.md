@@ -7,7 +7,7 @@ PtyLab.py uses [CuPy](https://cupy.dev/) as a drop-in GPU backend for NumPy. The
 GPU acceleration requires installing PtyLab.py with a CUDA extra. See [Installation](../getting-started/installation.md) for the full instructions.
 
 ```bash
-pip install "ptylab[gpu] @ git+https://github.com/PtyLab/PtyLab.py.git"
+pip install "ptylab[gpu]"
 ```
 
 ## Verifying GPU availability
