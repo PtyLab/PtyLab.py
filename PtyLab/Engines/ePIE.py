@@ -1,10 +1,9 @@
-import numpy as np
-from matplotlib import pyplot as plt
-
 import logging
 import sys
 
+import numpy as np
 import tqdm
+from matplotlib import pyplot as plt
 
 from PtyLab.Engines.BaseEngine import BaseEngine
 from PtyLab.ExperimentalData.ExperimentalData import ExperimentalData
