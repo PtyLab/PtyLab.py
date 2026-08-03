@@ -1361,10 +1361,9 @@
 <a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="n">recon</span><span class="o">.</span><span class="n">initializeObjectProbe</span><span class="p">()</span>
 <a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>
 <a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="n">engine</span><span class="o">.</span><span class="n">numIterations</span> <span class="o">=</span> <span class="mi">100</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="k">for</span> <span class="n">loop</span><span class="p">,</span> <span class="n">posLoop</span> <span class="ow">in</span> <span class="n">engine</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">():</span>
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    <span class="k">pass</span>
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="n">recon</span><span class="o">.</span><span class="n">saveResults</span><span class="p">(</span><span class="s2">&quot;multislice_result.hdf5&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="n">engine</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">()</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="n">recon</span><span class="o">.</span><span class="n">saveResults</span><span class="p">(</span><span class="s2">&quot;multislice_result.hdf5&quot;</span><span class="p">)</span>
 </code></pre></div>
 <h2 id="output">Output<a class="headerlink" href="#output" title="Permanent link">&para;</a></h2>
 <p>With <code>nslice = N</code>, the reconstructed object has shape <code>(nlambda, nosm, npsm, N, No, No)</code>. Each slice <code>[:, :, :, i, :, :]</code> represents one depth layer of the sample.</p>
