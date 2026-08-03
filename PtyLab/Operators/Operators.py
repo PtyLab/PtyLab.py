@@ -268,7 +268,8 @@ def propagate_twoStepPolychrome(
         tuple(reconstruction.spectralDensity),
         reconstruction.Lp,
         reconstruction.dxp,
-        params.gpuSwitch,
+        # device placement follows the data, not the global switch
+        isGpuArray(fields),
     )
     if inverse:
         result = ifft2c(
@@ -340,7 +341,8 @@ def propagate_scaledASP(
         reconstruction.wavelength,
         reconstruction.dxo,
         reconstruction.dxd,
-        params.gpuSwitch,
+        # device placement follows the data, not the global switch
+        isGpuArray(fields),
     )
     if inverse:
         Q1, Q2 = Q1.conj(), Q2.conj()
@@ -412,7 +414,8 @@ def propagate_scaledPolychromeASP(
         tuple(reconstruction.spectralDensity),
         reconstruction.dxo,
         reconstruction.dxd,
-        params.gpuSwitch,
+        # device placement follows the data, not the global switch
+        isGpuArray(fields),
     )
     if inverse:
         Q1, Q2 = Q1.conj(), Q2.conj()
@@ -492,7 +495,8 @@ def propagate_polychromeASP(
         reconstruction.Lp,
         reconstruction.nlambda,
         tuple(reconstruction.spectralDensity),
-        params.gpuSwitch,
+        # device placement follows the data, not the global switch
+        isGpuArray(fields),
     )
 
     if inverse:
