@@ -26,8 +26,7 @@ def test_fresnel_propagator_round_trip():
     monitor = Monitor()
     ePIE_engine = ePIE(optimizable, exampleData, params, monitor)
     ePIE_engine.numIterations = 1
-    for _ in ePIE_engine.reconstruct():
-        pass
+    ePIE_engine.reconstruct()
 
     A = optimizable.esw
     ePIE_engine.object2detector()

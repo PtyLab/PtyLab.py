@@ -76,8 +76,7 @@ See [LED Calibration](calibration.md) for details.
 ```python
 recon.initializeObjectProbe()
 engine.numIterations = 50
-for loop, posLoop in engine.reconstruct():
-    pass
+engine.reconstruct()
 
 recon.saveResults("fpm_result.hdf5")
 ```
