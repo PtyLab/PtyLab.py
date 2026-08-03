@@ -22,9 +22,9 @@ Peak GPU memory over a 30-iteration run drops from 3.18 GB to 1.85 GB (1.72x).
 
 Any matrix `A` factors as
 
-```
-A = U S Vᴴ
-```
+$$
+A = U S V^{H}
+$$
 
 with `U` and `V` having orthonormal columns and `S` diagonal with the singular
 values in descending order. The expensive part on a GPU is that this is computed
@@ -40,16 +40,16 @@ needs two specific products, and both can be obtained much more cheaply.
 
 Form the **Gram matrix** of `A`:
 
-```
-G = Aᴴ A = (U S Vᴴ)ᴴ (U S Vᴴ) = V S Uᴴ U S Vᴴ = V S² Vᴴ
-```
+$$
+G = A^{H} A = (U S V^{H})^{H} (U S V^{H}) = V S U^{H} U S V^{H} = V S^{2} V^{H}
+$$
 
-(using `UᴴU = I`). So `G`'s eigenvectors are exactly `A`'s right singular
+(using $U^{H}U = I$). So `G`'s eigenvectors are exactly `A`'s right singular
 vectors `V`, and its eigenvalues are the **squared** singular values. Equally,
 
-```
-A Aᴴ = U S² Uᴴ
-```
+$$
+A A^{H} = U S^{2} U^{H}
+$$
 
 gives the left singular vectors. So you can recover whichever side you need from
 a decomposition of a *much smaller* matrix — and the trick is to form the Gram
@@ -62,27 +62,29 @@ matrix on whichever side is small.
 **What it computes.** For each scan position, take the probe's incoherent modes
 as a matrix `P` of shape `(nModes, Np²)` — for a typical run that is
 **`(4, 132496)`**: 4 rows, 132 thousand columns. It orthogonalizes them and
-rescales by mode power, i.e. it wants `S Vᴴ`.
+rescales by mode power, i.e. it wants $S V^{H}$.
 
 **The old way.** A full SVD of `(4, 132496)`, inside a Python `for` loop over all
-202 frames. The economy SVD's `Vᴴ` has shape `(4, 132496)` — as large as the
+202 frames. The economy SVD's $V^{H}$ has shape `(4, 132496)` — as large as the
 input — so you pay a full factorization to produce something the size of what
 you started with, 202 separate times.
 
 **The new way.** Note that
 
-```
-S Vᴴ = Uᴴ A          (since A = U S Vᴴ and UᴴU = I)
-```
+$$
+S V^{H} = U^{H} A
+\qquad \text{since } A = U S V^{H} \text{ and } U^{H} U = I
+$$
 
 and `U` comes from the *other* Gram matrix:
 
-```
-G = P Pᴴ            shape (4, 4)  ← four by four!
-```
+$$
+G = P P^{H}
+\qquad \text{shape } (4, 4)
+$$
 
-So the whole operation becomes: one small matmul to build a 4×4 matrix,
-decompose that 4×4, then one matmul `Uᴴ P`. The large dimension (132496) is only
+Four by four. So the whole operation becomes: one small matmul to build a 4×4 matrix,
+decompose that 4×4, then one matmul $U^{H} P$. The large dimension (132496) is only
 ever touched by matrix multiplications, which run at near peak throughput.
 
 On top of that, all 202 frames are done in **one batched call** instead of a
@@ -108,31 +110,33 @@ about 204 MB in complex64 — purely to throw most of it away.
 
 **The new way.** Build
 
-```
-G = Aᴴ A            shape (202, 202)  ← nFrames squared, tiny
-```
+$$
+G = A^{H} A
+\qquad \text{shape } (202, 202)
+$$
 
-decompose it, keep the top `k` eigenvectors `V_k`, and the rank-k truncation is
+which is `nFrames` squared, and therefore tiny. Decompose it, keep the top `k`
+eigenvectors $V_{k}$, and the rank-`k` truncation is
 
-```
-A_k = A V_k V_kᴴ
-```
+$$
+A_{k} = A V_{k} V_{k}^{H}
+$$
 
 `U` is never formed at full size. `G` at 202×202 is well under a megabyte,
 versus 204 MB for the `U` the full SVD insists on building.
 
-### Why is this faster if both are "O(M·N²)"?
+### Why is this faster if both are $O(M N^{2})$?
 
 Forming `G` costs roughly the same *flop count* as the SVD. The difference is
 what those flops are:
 
-- `Aᴴ A` is a single **GEMM** — the most optimized operation on the machine,
+- $A^{H} A$ is a single **GEMM** — the most optimized operation on the machine,
   running at a large fraction of peak throughput.
 - An SVD is a long chain of Householder reflections and QR sweeps: many small
   kernels, limited parallelism, lots of synchronization.
 
-Then the remaining `202³ ≈ 8×10⁶` flops to decompose `G` are negligible next to
-the `132496 × 202² ≈ 5×10⁹` in the GEMM.
+Then the remaining $202^{3} \approx 8 \times 10^{6}$ flops to decompose $G$ are
+negligible next to the $132496 \times 202^{2} \approx 5 \times 10^{9}$ in the GEMM.
 
 So the speedup comes from **moving the work from a badly-parallel algorithm into
 a well-parallel one**, not from doing asymptotically less arithmetic. The
@@ -182,8 +186,8 @@ agrees to **9.3e-5**.
 
 ### `G` is built in double precision
 
-Forming `Aᴴ A` squares the condition number: if `A` has condition number κ, then
-`G` has κ². In float32 (≈7 digits) that could leave only ~3.5 usable digits,
+Forming $A^{H} A$ squares the condition number: if $A$ has condition number
+$\kappa$, then $G$ has $\kappa^{2}$. In float32 (≈7 digits) that could leave only ~3.5 usable digits,
 which is why the Gram trick has a reputation for being numerically sloppy.
 
 The fix is cheap. In `gram_tsvd` the sensitive step is decomposing `G`, and `G`
@@ -226,8 +230,10 @@ params.OPR_fast_orthogonalization = False   # per-frame loop in orthogonalizeInc
 `params.OPR_tsvd_type` also still accepts `"randomized"`, which uses the
 pre-existing randomized SVD in `PtyLab/utils/fsvd.py`.
 
-The reference path is pinned by `tests/regression/test_engine_regression.py::test_opr_golden`,
-and `test_opr_fast_paths_agree_with_reference` asserts the fast paths track it.
+The reference path is pinned by
+`tests/regression/test_opr_regression.py::test_opr_legacy_path_golden`, and
+`test_opr_gram_matches_legacy_on_gauge_invariant_quantities` asserts the fast
+paths track it.
 `tests/Engines/test_opr_linalg.py` unit-tests `gram_tsvd` directly against
 `numpy.linalg.svd`, including rank-deficient input and rank clamping, and runs on
 CPU so CI covers it.
