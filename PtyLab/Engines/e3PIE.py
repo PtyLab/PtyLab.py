@@ -48,35 +48,25 @@ class e3PIE(BaseEngine):
         Set parameters that are specific to the e3PIE settings.
         :return:
         """
-        self.params.betaProbe = 0.25
-        self.params.betaObject = 0.25
+        # these are read back as self.betaProbe / self.betaObject in reconstruct()
+        # and objectPatchUpdate(), matching every other engine (cf. ePIE.py)
+        self.betaProbe = 0.25
+        self.betaObject = 0.25
         self.numIterations = 50
 
-        if False:
-            # preallocate transfer function
-            self.reconstruction.H = aspw(
-                np.squeeze(self.reconstruction.probe[0, 0, 0, 0, ...]),
-                self.reconstruction.dz,
-                self.reconstruction.wavelength / self.reconstruction.refrIndex,
-                self.reconstruction.Lp,
-            )[1]
-            # shift transfer function to avoid fftshifts for FFTS
-            # self.reconstruction.H = np.fft.ifftshift(self.optimizableH)
-            self.reconstruction.H = np.fft.ifftshift(self.reconstruction.H)
-
-        if True:
-            import cupy as xp
-
-            # preallocate transfer function
-            self.reconstruction.H = aspw(
-                xp.squeeze(self.reconstruction.probe[0, 0, 0, 0, ...]),
-                self.reconstruction.dz,
-                self.reconstruction.wavelength / self.reconstruction.refrIndex,
-                self.reconstruction.Lp,
-            )[1]
-            # shift transfer function to avoid fftshifts for FFTS
-            # self.reconstruction.H = np.fft.ifftshift(self.optimizableH)
-            self.reconstruction.H = xp.fft.ifftshift(self.reconstruction.H)
+        # preallocate transfer function. This runs from __init__, before
+        # _checkGPU has moved anything, so the probe is still on the host here;
+        # H is listed in Reconstruction.possible_GPU_fields and travels with the
+        # rest of the state when the engine switches to the GPU.
+        xp = getArrayModule(self.reconstruction.probe)
+        self.reconstruction.H = aspw(
+            xp.squeeze(self.reconstruction.probe[0, 0, 0, 0, ...]),
+            self.reconstruction.dz,
+            self.reconstruction.wavelength / self.reconstruction.refrIndex,
+            self.reconstruction.Lp,
+        )[1]
+        # shift transfer function to avoid fftshifts for FFTS
+        self.reconstruction.H = xp.fft.ifftshift(self.reconstruction.H)
 
     def reconstruct(self):
         self._prepareReconstruction()
