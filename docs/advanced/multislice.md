@@ -31,8 +31,7 @@ recon.nslice = 4           # number of depth slices
 recon.initializeObjectProbe()
 
 engine.numIterations = 100
-for loop, posLoop in engine.reconstruct():
-    pass
+engine.reconstruct()
 
 recon.saveResults("multislice_result.hdf5")
 ```
