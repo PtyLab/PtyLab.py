@@ -1,6 +1,6 @@
 [project]
 name = "ptylab"
-version = "0.2.8"
+version = "0.3.0"
 description = "A cross-platform, open-source inverse modeling toolbox for conventional and Fourier ptychography"
 authors = [
     { name = "Lars Loetgering", email = "lars.loetgering@fulbrightmail.org" },

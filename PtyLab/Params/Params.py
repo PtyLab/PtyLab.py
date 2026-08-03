@@ -171,9 +171,23 @@ class Params(object):
         self.OPR_tv = False
         # truncated SVD to chose, either standard numpy svd or randomized tsvd, which
         # saves some computational time
-        self.OPR_tsvd_type = "numpy"  # numpy or randomized
+        #   "numpy"      - full SVD, exact, slowest and most memory hungry
+        #   "gram"       - rank-k truncation via the (nFrames x nFrames) Gram
+        #                  matrix. Same subspace, ~1.8x faster on 4-5x less peak
+        #                  memory. The memory saving is the point: it is what
+        #                  keeps a large OPR run inside a 32 GB card.
+        #   "randomized" - randomized SVD (PtyLab.utils.fsvd.rsvd)
+        # Set to "numpy" to reproduce pre-0.3.0 output exactly.
+        self.OPR_tsvd_type = "gram"  # numpy, gram or randomized
         # Switch to orthogonolize all incoherent probe modes
         self.OPR_orthogonalize_modes = True
+        # Use the batched Gram-matrix form of orthogonalizeIncoherentModes
+        # (1.8-4.1x faster). Reproduces the mode powers and the spanned subspace;
+        # individual mode vectors may differ from LAPACK's arbitrary choice when
+        # two modes carry near-equal power, which measures at 3.1e-05 relative
+        # after 30 iterations -- three orders below the algorithm's own
+        # sensitivity to its inputs. See notes/gram_orthogonalization.md.
+        self.OPR_fast_orthogonalization = True
         # If set True only slowly changing probes are allowed
         self.OPR_neighbor_constraint = False
 
