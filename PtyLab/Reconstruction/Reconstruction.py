@@ -92,7 +92,10 @@ class Reconstruction(object):
             "purityProbe",
             "purityObject",
             "reference",
-            "intensity_mask"
+            "intensity_mask",
+            # multislice (e3PIE) transfer function, built on the host in
+            # e3PIE.initializeReconstructionParams and used inside the position loop
+            "H",
         ]
 
     # @property
