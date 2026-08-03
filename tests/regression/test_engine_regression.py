@@ -42,9 +42,8 @@ SEED = 20240607
 
 # name -> engine, propagator, (nlambda, nosm, npsm, nslice), iterations
 #
-# Engines are added here as they become testable. e3PIE is still absent: it
-# raises on its own betaProbe, so pinning it today would record a meaningless
-# baseline. It joins this table in the PR that repairs it.
+# Engines are added here as they become testable. Still absent: zPIE, aPIE and
+# mPIE_tv, which do not run on this branch at all -- see the PRs that repair them.
 CONFIGS = {
     "epie_fraunhofer": ("ePIE", "Fraunhofer", (1, 1, 1, 1), 3),
     "epie_asp": ("ePIE", "ASP", (1, 1, 1, 1), 3),
@@ -54,6 +53,7 @@ CONFIGS = {
     "mpie_single": ("mPIE", "Fraunhofer", (1, 1, 1, 1), 3),
     "mpie_mixed_state": ("mPIE", "Fraunhofer", (1, 2, 3, 1), 3),
     "qnewton_single": ("qNewton", "Fraunhofer", (1, 1, 1, 1), 3),
+    "e3pie_multislice": ("e3PIE", "Fraunhofer", (1, 1, 1, 3), 2),
 }
 
 
