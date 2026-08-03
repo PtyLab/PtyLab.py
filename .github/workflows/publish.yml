@@ -1,26 +1,99 @@
 name: Publish to PyPI
 
 on:
+  # A merge to main that changes the version in pyproject.toml is the release
+  # trigger. Merges that leave the version alone do nothing.
+  push:
+    branches: [main]
+    paths: ["pyproject.toml"]
+  # Kept as an escape hatch: publishing a GitHub Release by hand still works.
   release:
     types: [published]
   workflow_dispatch:
 
 jobs:
+  check:
+
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+      publish: ${{ steps.check.outputs.publish }}
+
+    steps:
+      - uses: actions/checkout@v6.0.2
+        with:
+          # HEAD^ is needed to read the previous version. On a merge commit that
+          # is the first parent, i.e. main as it was before the merge.
+          fetch-depth: 2
+      - name: Decide whether this commit is a release
+        id: check
+        run: |
+          VERSION=$(grep -m1 '^version = ' pyproject.toml | cut -d'"' -f2)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "pyproject.toml declares version $VERSION"
+
+          case "${{ github.event_name }}" in
+            push)
+              PREV=$(git show HEAD^:pyproject.toml | grep -m1 '^version = ' | cut -d'"' -f2)
+              if [ "$VERSION" = "$PREV" ]; then
+                echo "Version unchanged at $VERSION -- nothing to publish."
+                echo "publish=false" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+              # A tag already existing means this version was released before and
+              # this run is a re-run or a revert. Publishing again would fail at
+              # PyPI, which refuses to overwrite a released version.
+              if git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" >/dev/null 2>&1; then
+                echo "::warning::Tag v$VERSION already exists; skipping publish."
+                echo "publish=false" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+              echo "Version bumped $PREV -> $VERSION; releasing."
+              echo "publish=true" >> "$GITHUB_OUTPUT"
+              ;;
+            release)
+              TAG=${GITHUB_REF_NAME#v}
+              if [ "$VERSION" != "$TAG" ]; then
+                echo "::error::Tag $GITHUB_REF_NAME does not match pyproject.toml version $VERSION"
+                exit 1
+              fi
+              echo "publish=true" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "publish=true" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
+  test:
+
+    # A PyPI version cannot be replaced once uploaded, so the tests gate the
+    # release rather than merely running alongside it.
+    needs: check
+    if: needs.check.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - name: Install uv and set the python version
+        uses: astral-sh/setup-uv@v8.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache-dependency-glob: "pyproject.toml"
+      - name: Install the project with `dev`
+        run: uv sync --extra dev
+      - name: Run tests
+        run: uv run pytest tests
+
   build:
 
+    needs: [check, test]
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v6.0.2
-      - name: Verify tag matches project version
-        if: github.event_name == 'release'
-        run: |
-          VERSION=$(grep -m1 '^version = ' pyproject.toml | cut -d'"' -f2)
-          TAG=${GITHUB_REF_NAME#v}
-          if [ "$VERSION" != "$TAG" ]; then
-            echo "::error::Tag $GITHUB_REF_NAME does not match pyproject.toml version $VERSION"
-            exit 1
-          fi
       - name: Install uv
         uses: astral-sh/setup-uv@v8.0.0
         with:
@@ -48,3 +121,32 @@ jobs:
           name: dist
           path: dist/
       - uses: pypa/gh-action-pypi-publish@v1.14.1
+
+  tag:
+
+    # Records what was published. Only for the push path -- on the release path
+    # the tag and release already exist.
+    #
+    # Creating a release with GITHUB_TOKEN does not re-trigger this workflow's
+    # `release: published` event; GitHub suppresses that to prevent recursion.
+    needs: [check, publish]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: actions/download-artifact@v8.0.1
+        with:
+          name: dist
+          path: dist/
+      - name: Tag the commit and open a GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${{ needs.check.outputs.version }}" \
+            --target "$GITHUB_SHA" \
+            --title "v${{ needs.check.outputs.version }}" \
+            --generate-notes \
+            dist/*
