@@ -205,6 +205,14 @@ class Monitor(AbstractMonitor):
         if self.verboseLevel == "high":
             self.diffractionDataMonitor = DiffractionDataPlot()
 
+    @property
+    def objectPixelSize(self):
+        """Pixel size of the object estimate that is plotted.
+        """
+        if self.reconstruction.data.operationMode == "FPM":
+            return self.reconstruction.dxo_fpm
+        return self.reconstruction.dxo
+
     def updateObjectProbeErrorMonitor(
         self,
         error,
@@ -226,7 +234,7 @@ class Monitor(AbstractMonitor):
             object_estimate,
             self.reconstruction,
             objectPlot=self.objectPlot,
-            pixelSize=self.reconstruction.dxo,
+            pixelSize=self.objectPixelSize,
             axisUnit="mm",
             amplitudeScalingFactor=self.objectPlotContrast,
         )
