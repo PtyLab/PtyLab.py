@@ -652,6 +652,24 @@ class Reconstruction(object):
         return self.No * self.dxo
 
     @property
+    def dxo_fpm(self):
+        """Real-space object pixel size for FPM.
+
+        In FPM the object is stored as its spectrum, sampled with a fixed
+        Fourier-space step 1 / (Np * dxp) that is set by the low-resolution
+        images. Growing the object from Np to No pixels therefore extends the
+        reconstructed bandwidth, it does not extend the field of view: after
+        the Fourier transform back to real space the No pixels still cover
+        Np * dxp, so the real-space sampling is finer instead.
+        """
+        return self.dxp * self.Np / self.No
+
+    @property
+    def Lo_fpm(self):
+        """Real-space field of view of the FPM object, equal to that of the raw images."""
+        return self.No * self.dxo_fpm
+
+    @property
     def xo(self):
         """object coordinates 1D"""
         try:
