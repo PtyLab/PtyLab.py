@@ -1,5 +1,4 @@
 import logging
-import warnings
 import os
 
 import numpy as np
@@ -9,10 +8,7 @@ from PtyLab import Operators
 from PtyLab.ExperimentalData.ExperimentalData import ExperimentalData
 from PtyLab.Monitor.Monitor import Monitor
 from PtyLab.Params.Params import Params
-from PtyLab.Reconstruction.Reconstruction import (
-    Reconstruction,
-    calculate_pixel_positions,
-)
+from PtyLab.Reconstruction.Reconstruction import Reconstruction
 from PtyLab.Regularizers import grad_TV
 
 # PtyLab imports
@@ -23,7 +19,7 @@ from PtyLab.utils.gpuUtils import (
     transfer_fields_to_cpu,
     transfer_fields_to_gpu,
 )
-from PtyLab.utils.utils import circ, fft2c, ifft2c, orthogonalizeModes
+from PtyLab.utils.utils import circ, fft2c, orthogonalizeModes
 
 try:
     import cupy as cp
@@ -311,9 +307,8 @@ class BaseEngine(object):
                     ),
                     slice(
                         max(0, yc - ry // 2), min(self.reconstruction.No, yc + ry // 2)
-                    )
+                    ),
                 ]
-
 
         if not hasattr(self.monitor, "probeROI") or update:
             if self.monitor.probeZoom == "full" or self.monitor.probeZoom is None:
@@ -497,7 +492,7 @@ class BaseEngine(object):
                     "theta",
                     "wavelength",
                     "Xd",
-                    "Yd" "dxd",
+                    "Yddxd",
                     "zo",
                 ]
                 self.theta = self.reconstruction.theta
@@ -762,8 +757,8 @@ class BaseEngine(object):
         xVariance = np.sum((self.reconstruction.Xp - xMean) ** 2 * P, axis=(-1, -2))
         yVariance = np.sum((self.reconstruction.Yp - yMean) ** 2 * P, axis=(-1, -2))
 
-        c = 2 * xp.sqrt(
-            2 * xp.log(2)
+        c = (
+            2 * xp.sqrt(2 * xp.log(2))
         )  # constant for converting variance to FWHM (see e.g. https://en.wikipedia.org/wiki/Full_width_at_half_maximum)
 
         self.reconstruction.beamWidthX = asNumpyArray(c * np.sqrt(xVariance))
@@ -865,7 +860,6 @@ class BaseEngine(object):
             elif self.params.FourierMaskSwitch and self.params.CPSCswitch:
                 raise NotImplementedError
             else:
-
                 self.reconstruction.errorAtPos[positionIndex] = asNumpyArray(
                     xp.sum(self.currentDetectorError)
                 )
@@ -986,9 +980,12 @@ class BaseEngine(object):
             ) * frac - self.reconstruction.reference
             self.reconstruction.reference = temp
         else:
-            if hasattr(self.params, 'intensityMask'):
+            if hasattr(self.params, "intensityMask"):
                 if self.params.intensityMask:
-                    self.reconstruction.ESW = self.reconstruction.ESW * (frac * (self.reconstruction.intensity_mask) + (self.reconstruction.intensity_mask - 1))
+                    self.reconstruction.ESW = self.reconstruction.ESW * (
+                        frac * (self.reconstruction.intensity_mask)
+                        + (self.reconstruction.intensity_mask - 1)
+                    )
                 else:
                     self.reconstruction.ESW = self.reconstruction.ESW * frac
             else:
@@ -1051,7 +1048,6 @@ class BaseEngine(object):
         :return:
         """
         if np.mod(loop, self.monitor.figureUpdateFrequency) == 0:
-
             if self.experimentalData.operationMode == "FPM":
                 object_estimate = np.squeeze(
                     asNumpyArray(
@@ -1224,7 +1220,7 @@ class BaseEngine(object):
 
         # Dump each iteration the current object
         if self.params.dump_obj:
-            folder_path = 'dumps'
+            folder_path = "dumps"
             if loop == 0:
                 if not os.path.exists(folder_path):
                     # Create the folder
@@ -1233,13 +1229,13 @@ class BaseEngine(object):
                 else:
                     print(f"Folder '{folder_path}' already exists.")
 
-            filename = 'obj_dump_' + str(loop) + '.h5py'
+            filename = "obj_dump_" + str(loop) + ".h5py"
             import h5py
-            file_path = os.path.join(folder_path, filename)
-            with h5py.File(file_path, 'w') as hdf:
-                obj = self.reconstruction.object.get()
-                hdf.create_dataset('Object', data=obj)
 
+            file_path = os.path.join(folder_path, filename)
+            with h5py.File(file_path, "w") as hdf:
+                obj = self.reconstruction.object.get()
+                hdf.create_dataset("Object", data=obj)
 
     def positionCorrection(self, objectPatch, positionIndex, sy, sx):
         """
@@ -1426,7 +1422,6 @@ class BaseEngine(object):
                     / (np.sqrt(conv**2 - k[:, 0] ** 2 - k[:, 1] ** 2))[..., None]
                 )
             else:
-
                 new_encoder = (
                     self.reconstruction.encoder_corrected
                     - self.adaptStep * self.D * self.reconstruction.dxo
@@ -1437,7 +1432,9 @@ class BaseEngine(object):
                 )
 
                 self.reconstruction.encoder_corrected = new_encoder
-                self.logger.info(f"Average update size: {abs(self.D).mean():.2f} pixels")
+                self.logger.info(
+                    f"Average update size: {abs(self.D).mean():.2f} pixels"
+                )
 
     def applyConstraints(self, loop):
         """
@@ -1471,8 +1468,16 @@ class BaseEngine(object):
             )
         if self.params.probeSpectralPowerCorrectionSwitch:
             for wl in range(self.reconstruction.probe.shape[0]):
-                self.reconstruction.probe[wl, ...] *= self.experimentalData.maxProbePower * self.experimentalData.spectralPower[wl] \
-                                                      / np.sqrt(np.sum(self.reconstruction.probe[wl, ...] * self.reconstruction.probe[wl, ...].conj()))
+                self.reconstruction.probe[wl, ...] *= (
+                    self.experimentalData.maxProbePower
+                    * self.experimentalData.spectralPower[wl]
+                    / np.sqrt(
+                        np.sum(
+                            self.reconstruction.probe[wl, ...]
+                            * self.reconstruction.probe[wl, ...].conj()
+                        )
+                    )
+                )
 
         if (
             self.params.comStabilizationSwitch is not None
@@ -1504,7 +1509,6 @@ class BaseEngine(object):
 
         # Todo: objectSmoothenessSwitch,probeSmoothenessSwitch,
         if self.params.probeSmoothenessSwitch:
-
             self.reconstruction.probe = smooth_amplitude(
                 self.reconstruction.probe,
                 self.params.probeSmoothenessWidth,
@@ -1551,9 +1555,7 @@ class BaseEngine(object):
                 1 - self.params.couplingAleph
             ) * self.reconstruction.probe[
                 0
-            ] + self.params.couplingAleph * self.reconstruction.probe[
-                1
-            ]
+            ] + self.params.couplingAleph * self.reconstruction.probe[1]
             for lambdaLoop in np.arange(1, self.reconstruction.nlambda - 1):
                 self.reconstruction.probe[lambdaLoop] = (
                     1 - self.params.couplingAleph
@@ -1568,9 +1570,7 @@ class BaseEngine(object):
                 1 - self.params.couplingAleph
             ) * self.reconstruction.probe[
                 -1
-            ] + self.params.couplingAleph * self.reconstruction.probe[
-                -2
-            ]
+            ] + self.params.couplingAleph * self.reconstruction.probe[-2]
         if self.params.binaryProbeSwitch:
             probePeakAmplitude = np.max(abs(self.reconstruction.probe))
             probeThresholded = self.reconstruction.probe.copy()
@@ -1587,7 +1587,6 @@ class BaseEngine(object):
             )
 
         if self.params.positionCorrectionSwitch:
-
             self.positionCorrectionUpdate()
 
         if (
@@ -1629,18 +1628,22 @@ class BaseEngine(object):
                         self.reconstruction.probe[id_l, 0, :, id_s, :, :],
                         method="snapShots",
                     )
-                    self.reconstruction.purityProbe = np.sqrt(
-                        np.sum(self.normalizedEigenvaluesProbe**2)
+                    # normalizedEigenvalues can live on either device, and is only
+                    # npsm values long -- reducing it on the host is both cheaper
+                    # than launching kernels for it and device-independent.
+                    eigenvalues = asNumpyArray(self.normalizedEigenvaluesProbe)
+                    self.reconstruction.purityProbe = float(
+                        np.sqrt(np.sum(eigenvalues**2))
                     )
-                    self.reconstruction.purityProbeHist.append(self.reconstruction.purityProbe.get())
+                    self.reconstruction.purityProbeHist.append(
+                        self.reconstruction.purityProbe
+                    )
                     # orthogonolize momentum operator
                     if self.params.momentumAcceleration:
                         # orthogonalize probe Buffer
                         p = self.reconstruction.probeBuffer[
                             id_l, 0, :, id_s, :, :
-                        ].reshape(
-                            (self.reconstruction.npsm, self.reconstruction.Np**2)
-                        )
+                        ].reshape((self.reconstruction.npsm, self.reconstruction.Np**2))
                         self.reconstruction.probeBuffer[id_l, 0, :, id_s, :, :] = (
                             xp.array(self.MSPVprobe) @ p
                         ).reshape(
@@ -1653,9 +1656,7 @@ class BaseEngine(object):
                         # orthogonalize probe momentum
                         p = self.reconstruction.probeMomentum[
                             id_l, 0, :, id_s, :, :
-                        ].reshape(
-                            (self.reconstruction.npsm, self.reconstruction.Np**2)
-                        )
+                        ].reshape((self.reconstruction.npsm, self.reconstruction.Np**2))
                         self.reconstruction.probeMomentum[id_l, 0, :, id_s, :, :] = (
                             xp.array(self.MSPVprobe) @ p
                         ).reshape(
@@ -1682,8 +1683,9 @@ class BaseEngine(object):
                         self.reconstruction.object[id_l, :, 0, id_s, :, :],
                         method="snapShots",
                     )
-                    self.reconstruction.purityObject = np.sqrt(
-                        np.sum(self.normalizedEigenvaluesObject**2)
+                    eigenvalues = asNumpyArray(self.normalizedEigenvaluesObject)
+                    self.reconstruction.purityObject = float(
+                        np.sqrt(np.sum(eigenvalues**2))
                     )
 
                     # orthogonolize momentum operator
@@ -1691,9 +1693,7 @@ class BaseEngine(object):
                         # orthogonalize object Buffer
                         p = self.reconstruction.objectBuffer[
                             id_l, :, 0, id_s, :, :
-                        ].reshape(
-                            (self.reconstruction.nosm, self.reconstruction.No**2)
-                        )
+                        ].reshape((self.reconstruction.nosm, self.reconstruction.No**2))
                         self.reconstruction.objectBuffer[id_l, :, 0, id_s, :, :] = (
                             xp.array(self.MSPVobject) @ p
                         ).reshape(
@@ -1706,9 +1706,7 @@ class BaseEngine(object):
                         # orthogonalize object momentum
                         p = self.reconstruction.objectMomentum[
                             id_l, :, 0, id_s, :, :
-                        ].reshape(
-                            (self.reconstruction.nosm, self.reconstruction.No**2)
-                        )
+                        ].reshape((self.reconstruction.nosm, self.reconstruction.No**2))
                         self.reconstruction.objectMomentum[id_l, :, 0, id_s, :, :] = (
                             xp.array(self.MSPVobject) @ p
                         ).reshape(
