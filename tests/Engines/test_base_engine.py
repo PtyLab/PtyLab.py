@@ -1,14 +1,15 @@
-import pytest
-import numpy as np
 import logging
-import PtyLab
 
-try:
-    import cupy as cp
-    HAS_GPU = True
-except ImportError:
-    cp = None
-    HAS_GPU = False
+import numpy as np
+import pytest
+
+import PtyLab
+from PtyLab.Params.Params import _check_gpu_availability
+from PtyLab.utils.gpuUtils import cp
+
+# Ask the library the same question it asks itself when it sets gpuSwitch, so a
+# test can never disagree with the code path it is exercising.
+HAS_GPU = bool(_check_gpu_availability())
 
 
 @pytest.fixture

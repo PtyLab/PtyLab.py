@@ -7,23 +7,22 @@ that assumes one of the two (e.g. calling ``.get()``) breaks on the other, so
 these tests run the constraint on both devices and pin the host-side type.
 """
 
+import logging
+
 import numpy as np
 import pytest
 
 from PtyLab.Engines.mPIE import mPIE
 from PtyLab.ExperimentalData.ExperimentalData import ExperimentalData
 from PtyLab.Monitor.Monitor import DummyMonitor
-from PtyLab.Params.Params import Params
+from PtyLab.Params.Params import Params, _check_gpu_availability
 from PtyLab.Reconstruction.Reconstruction import Reconstruction
-from PtyLab.utils.gpuUtils import asNumpyArray
+from PtyLab.utils.gpuUtils import asNumpyArray, cp
 from PtyLab.utils.utils import orthogonalizeModes
 
-try:
-    import cupy
-
-    HAS_GPU = cupy.cuda.is_available()
-except Exception:
-    HAS_GPU = False
+# Ask the library the same question it asks itself when it sets gpuSwitch, so a
+# test can never disagree with the code path it is exercising.
+HAS_GPU = bool(_check_gpu_availability())
 
 SEED = 20240607
 
@@ -93,30 +92,35 @@ def test_orthogonalized_modes_are_orthogonal():
 
 
 @pytest.mark.skipif(not HAS_GPU, reason="no GPU available")
-def test_cusolver_failure_falls_back_to_the_host():
-    """A GPU decomposition that raises must not lose the reconstruction.
+def test_device_failure_falls_back_to_the_host(caplog):
+    """A device-side failure must not lose the reconstruction.
 
-    cuSOLVER fails for reasons unrelated to the data -- a CUDA install that
-    cannot load libcusolver, or a memory pool that has left it no workspace --
-    so the fallback has to produce the same modes, back on the device.
+    The GPU work here fails for reasons unrelated to the data -- a CUDA install
+    that cannot load a library, or a memory pool that has left cuSOLVER no
+    workspace -- so the fallback has to produce the same modes, back on the
+    device. ``cp.dot`` is what the device path enters first, so breaking it
+    stands in for any of those; the caplog assertion is what proves the fallback
+    was actually taken rather than the test passing vacuously.
     """
     rng = np.random.default_rng(3)
     p = (rng.normal(size=(4, 32, 32)) + 1j * rng.normal(size=(4, 32, 32))).astype(
         np.complex64
     )
 
-    on_device, _, _ = orthogonalizeModes(cupy.asarray(p), method="snapShots")
+    on_device, _, _ = orthogonalizeModes(cp.asarray(p), method="snapShots")
 
-    original_svd = cupy.linalg.svd
-    cupy.linalg.svd = lambda *args, **kwargs: (_ for _ in ()).throw(
-        RuntimeError("simulated cuSOLVER failure")
+    original_dot = cp.dot
+    cp.dot = lambda *args, **kwargs: (_ for _ in ()).throw(
+        RuntimeError("simulated device failure")
     )
     try:
-        fallback, _, _ = orthogonalizeModes(cupy.asarray(p), method="snapShots")
+        with caplog.at_level(logging.WARNING):
+            fallback, _, _ = orthogonalizeModes(cp.asarray(p), method="snapShots")
     finally:
-        cupy.linalg.svd = original_svd
+        cp.dot = original_dot
 
-    assert isinstance(fallback, cupy.ndarray), "must come back on the device"
+    assert "rather than the GPU" in caplog.text, "the fallback did not run"
+    assert isinstance(fallback, cp.ndarray), "must come back on the device"
     scale = float(np.abs(asNumpyArray(on_device)).max())
     assert np.allclose(
         asNumpyArray(on_device), asNumpyArray(fallback), rtol=1e-4, atol=1e-4 * scale
