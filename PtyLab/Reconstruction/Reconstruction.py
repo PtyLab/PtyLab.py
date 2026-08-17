@@ -650,6 +650,17 @@ class Reconstruction(object):
         return self.No * self.dxo
 
     @property
+    def dxo_fpm(self):
+        """Real-space object pixel size for FPM.
+        """
+        return self.dxp * self.Np / self.No
+
+    @property
+    def Lo_fpm(self):
+        """Real-space field of view of the FPM object, equal to that of the raw images."""
+        return self.No * self.dxo_fpm
+
+    @property
     def xo(self):
         """object coordinates 1D"""
         try:
