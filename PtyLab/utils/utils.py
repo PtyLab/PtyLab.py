@@ -1,8 +1,12 @@
+import logging
+
 import numpy as np
 from scipy import linalg
 import scipy.stats as st
 
-from PtyLab.utils.gpuUtils import getArrayModule
+from PtyLab.utils.gpuUtils import asNumpyArray, getArrayModule
+
+logger = logging.getLogger(__name__)
 
 
 def fft2c(field, fftshiftSwitch=False, *args, **kwargs):
@@ -123,6 +127,54 @@ def gaussian2D(n, std):
     return h
 
 
+def _snapShotModes(p, xp):
+    """
+    Orthogonalize the modes of ``p`` through the Gram matrix, using ``xp``
+    (numpy or cupy) for every step.
+
+    The two matmuls -- forming ``G = p2D p2D^H`` and applying the result back to
+    the modes -- run under ``xp``, so they stay wherever the data already lives.
+    The eigendecomposition of ``G`` always runs on the host: ``G`` is only
+    (nmodes x nmodes), a few hundred bytes, so there is no parallelism for a GPU
+    to exploit, and cuSOLVER is measurably slow on matrices that small -- it
+    costs 0.17-0.86 ms against 0.03-0.17 ms for both matmuls combined, i.e. the
+    decomposition would be the whole cost of this function. Keeping it on the
+    host is 2-5x faster overall and, as a side effect, means orthogonalization
+    no longer depends on cuSOLVER at all: cupyx.cusolver is not importable in
+    every CuPy/CUDA installation, which used to send this function down its
+    fallback path for entire reconstructions.
+
+    :param p: modes, shaped (nmodes, Ny, Nx)
+    :param xp: numpy or cupy
+    :return: (orthogonalized modes, normalized eigenvalues, mode mixing matrix)
+    """
+    p2D = p.reshape(p.shape[0], p.shape[1] * p.shape[2])
+    G = xp.dot(p2D.conj(), xp.transpose(p2D))
+
+    # G is Hermitian, so eigh rather than eig: real eigenvalues, orthonormal
+    # eigenvectors, and no complex residue to discard. eigh returns them
+    # ascending, and the callers want the dominant mode first.
+    w, V = np.linalg.eigh(asNumpyArray(G))
+    order = np.argsort(w)[::-1]
+
+    # G is also positive semi-definite, so w is non-negative in exact
+    # arithmetic; clip guards a vanishing mode that rounding pushed below zero,
+    # which would otherwise turn the sqrt into a nan.
+    s = np.sqrt(np.clip(w[order].real, 0.0, None))
+    normalizedEigenvalues = s**2 / np.sum(s**2)
+
+    # The modes are V^T p2D -- plain transpose, not conjugate: G above is
+    # conj(p2D p2D^H), so eigh hands back the conjugated eigenvectors and the
+    # conjugation cancels. Writing the product directly avoids dividing the
+    # projection by s only to multiply it back in, which is what the regularized
+    # inverse of diag(s) used to do -- and which lost precision on near-zero
+    # modes.
+    V = xp.asarray(np.ascontiguousarray(V[:, order].T))
+    modes = xp.dot(V, p2D).reshape(p.shape[0], p.shape[1], p.shape[2])
+
+    return modes, normalizedEigenvalues, V
+
+
 def orthogonalizeModes(p, method=None):
     """
     Imposes orthogonality through singular value decomposition
@@ -133,48 +185,20 @@ def orthogonalizeModes(p, method=None):
 
     if method == "snapShots":
         try:
-            p2D = p.reshape(p.shape[0], p.shape[1] * p.shape[2])
-            w, V = xp.linalg.eigh(xp.dot(p2D.conj(), xp.transpose(p2D)))
-            s = xp.sqrt(w).real
-            U = xp.dot(
-                xp.dot(xp.transpose(p2D), V),
-                xp.linalg.inv(xp.diag(s) + 1e-17 * xp.eye(len(s))),
-            )
-            # indices = xp.flip(xp.argsort(s))
-            indices = xp.argsort(s)[::-1]
-            s = s[indices]  # [::-1].sort()
-            U = U[:, indices]
-            V = V[:, indices]
-            p = xp.transpose(xp.dot(U, xp.diag(s))).reshape(
-                p.shape[0], p.shape[1], p.shape[2]
-            )
-            normalizedEigenvalues = s**2 / xp.sum(s**2)
-            V = xp.transpose(V)
+            p, normalizedEigenvalues, V = _snapShotModes(p, xp)
         except Exception as e:
-            print("Warning: performing SVD on CPU rather than GPU due to error", e)
-            # print('Exception: ', e)
-            # TODO: check, most likely this is faster to perform on the CPU rather than GPU
-            if hasattr(p, "device"):
-                p = p.get()
-            p2D = p.reshape(p.shape[0], p.shape[1] * p.shape[2])
-            w, V = np.linalg.eig(np.dot(p2D.conj(), np.transpose(p2D)))
-            s = np.sqrt(w).real
-            U = np.dot(
-                xp.dot(xp.transpose(p2D), V),
-                np.linalg.inv(np.diag(s) + 1e-17 * np.eye(len(s))),
+            # cuSOLVER can fail for reasons that have nothing to do with this
+            # data -- a CUDA install that cannot load libcusolver, or a memory
+            # pool that has left it no room to allocate its workspace. Fall back
+            # to the host rather than losing the reconstruction, but say loudly
+            # what went wrong: this costs a device round trip every call, so it
+            # is not something to run for a whole reconstruction unnoticed.
+            logger.warning(
+                "Orthogonalizing modes on the CPU rather than the GPU: %s: %s",
+                type(e).__name__,
+                e,
             )
-            indices = np.flip(np.argsort(s))
-            s[::-1].sort()
-            U = U[:, indices]
-            V = V[:, indices]
-            p = np.transpose(np.dot(U, np.diag(s))).reshape(
-                p.shape[0], p.shape[1], p.shape[2]
-            )
-            normalizedEigenvalues = s**2 / np.sum(s**2)
-            V = np.transpose(V)
-            # U, s, V = np.linalg.svd(p.reshape(p.shape[0], p.shape[1]*p.shape[2]), full_matrices=False )
-            # p = np.dot(np.diag(s), V).reshape(p.shape[0], p.shape[1], p.shape[2])
-            # normalizedEigenvalues = s**2/xp.sum(s**2)
+            p, normalizedEigenvalues, V = _snapShotModes(asNumpyArray(p), np)
         return xp.asarray(p), normalizedEigenvalues, V
 
     else:

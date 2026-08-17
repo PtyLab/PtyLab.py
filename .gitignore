@@ -16,3 +16,6 @@ logs_tensorboard
 # mkdocs
 site/
 .cache/mkdocs-jupyter/
+
+# misc
+notes/

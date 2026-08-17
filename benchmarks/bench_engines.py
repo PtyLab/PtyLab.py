@@ -18,6 +18,12 @@ Regimes (see BASELINE.md for the measurements behind these):
   A  field <= ~12 MB   launch/dispatch bound   -- graphs & fusion pay
   B  field >= ~50 MB   HBM bandwidth + cuFFT   -- little headroom
   C  OPR               orthogonalization       -- two thirds linear algebra
+
+The "+ orth" config runs the mode-orthogonalization constraint every iteration.
+Compare it against the otherwise identical config without the suffix to price
+the constraint; the gap is sensitive to whether cuSOLVER is usable, since a
+CuPy install that cannot load libcusolver sends orthogonalizeModes to the host
+and back on every call.
 """
 
 import argparse
@@ -62,11 +68,19 @@ CONFIGS = [
     ("mixed npsm=4  364",           "mPIE", "Fraunhofer", (1, 1, 4, 1), 364, 102, "A"),
     ("Brain-like poly=7  182",      "ePIE", "polychromeASP", (7, 1, 1, 1), 182, 100, "A"),
     ("multislice nslice=4  364",    "e3PIE", "Fraunhofer", (1, 1, 1, 4), 364, 102, "A"),
+    ("mixed npsm=4  364 + orth",    "mPIE", "Fraunhofer", (1, 1, 4, 1), 364, 102, "A"),
     ("heavy 7x2x4  364",            "mPIE", "Fraunhofer", (7, 2, 4, 1), 364, 40, "B"),
     ("OPR 364, 202fr, 4 modes",     "OPR", "Fraunhofer", (1, 1, 4, 1), 364, 202, "C"),
 ]
 
 QUICK = {"simu-like  128, 100fr", "heavy 7x2x4  364", "OPR 364, 202fr, 4 modes"}
+
+# Configs that run the mode-orthogonalization constraint every iteration. Every
+# other config leaves orthogonalizationSwitch off, which left orthogonalizeModes
+# -- the most expensive constraint, and one that reaches into cuSOLVER -- with no
+# benchmark coverage at all. Paired with "mixed npsm=4  364", which is otherwise
+# identical, so the difference between the two rows is the constraint's cost.
+ORTHOGONALIZED = {"mixed npsm=4  364 + orth"}
 
 
 def synth_dataset(path, nd, n_frames, seed=7):
@@ -101,6 +115,9 @@ def build(path, config, gpu):
     params.gpuSwitch = gpu
     params.propagatorType = propagator
     params.positionOrder = "sequential"
+    if _name in ORTHOGONALIZED:
+        params.orthogonalizationSwitch = True
+        params.orthogonalizationFrequency = 1
 
     reconstruction = Reconstruction(data, params)
     reconstruction.nlambda = nlambda

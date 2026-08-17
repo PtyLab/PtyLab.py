@@ -186,7 +186,7 @@ class Params(object):
         # individual mode vectors may differ from LAPACK's arbitrary choice when
         # two modes carry near-equal power, which measures at 3.1e-05 relative
         # after 30 iterations -- three orders below the algorithm's own
-        # sensitivity to its inputs. See notes/gram_orthogonalization.md.
+        # sensitivity to its inputs. See PR #96 for the derivation.
         self.OPR_fast_orthogonalization = True
         # If set True only slowly changing probes are allowed
         self.OPR_neighbor_constraint = False

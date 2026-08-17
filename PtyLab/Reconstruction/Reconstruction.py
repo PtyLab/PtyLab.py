@@ -89,8 +89,6 @@ class Reconstruction(object):
             "objectMomentum",
             "detectorError",
             "background",
-            "purityProbe",
-            "purityObject",
             "reference",
             "intensity_mask",
             # multislice (e3PIE) transfer function, built on the host in
@@ -322,8 +320,8 @@ class Reconstruction(object):
         self.nslice = 1
 
         # beam and object purity (# default initial value for plots.)
-        self.purityProbe = 1
-        self.purityObject = 1
+        self.purityProbe = 1.0
+        self.purityObject = 1.0
         self.purityProbeHist = []
 
         self.positions0 = self.positions.copy()

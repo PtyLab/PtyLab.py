@@ -25,16 +25,16 @@ import pytest
 
 from PtyLab.ExperimentalData.ExperimentalData import ExperimentalData
 from PtyLab.Monitor.Monitor import DummyMonitor
-from PtyLab.Params.Params import Params
+from PtyLab.Params.Params import (
+    Params,
+    _check_gpu_availability,
+)
 from PtyLab.Reconstruction.Reconstruction import Reconstruction
 from PtyLab.utils.gpuUtils import asNumpyArray
 
-try:
-    import cupy
-
-    HAS_GPU = cupy.cuda.is_available()
-except Exception:
-    HAS_GPU = False
+# Ask the library the same question it asks itself when it sets gpuSwitch, so a
+# test can never disagree with the code path it is exercising.
+HAS_GPU = bool(_check_gpu_availability())
 
 GOLDEN_DIR = Path(__file__).parent / "data"
 REGEN = os.environ.get("PTYLAB_REGEN_GOLDENS", "") not in ("", "0")

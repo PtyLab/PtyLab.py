@@ -1,16 +1,29 @@
 # This file contains utilities that enable the use of a GPU while allowing to run the toolbox without one
 import logging
-from typing import List
+from typing import Any
 
 import numpy as np
 
-try:
-    import cupy as cp
 
-    CP_AVAILABLE = True
-except ImportError:
-    CP_AVAILABLE = False
-    cp = np
+def _import_cupy() -> Any:
+    """Return the cupy module, or None when it is not installed."""
+    try:
+        import cupy
+
+        return cupy
+    except ImportError:
+        return None
+
+
+_cupy = _import_cupy()
+CP_AVAILABLE = _cupy is not None
+
+# Falls back to numpy so that `cp.` references still resolve on a machine
+# without cupy; every cupy-only call is guarded by CP_AVAILABLE. Annotated Any
+# because the two modules differ in exactly the attributes those guards select
+# -- asnumpy and get_array_module exist only on the cupy branch, so a checker
+# that sees the union rejects calls that are unreachable without cupy.
+cp: Any = _cupy if CP_AVAILABLE else np
 
 
 def getArrayModule(*args, **kwargs):
@@ -29,10 +42,7 @@ def getArrayModule(*args, **kwargs):
 
 
 def isGpuArray(ary):
-    if getArrayModule(ary) is np:
-        return False
-    else:
-        return True
+    return getArrayModule(ary) is not np
 
 
 def asNumpyArray(ary) -> np.ndarray:
@@ -61,7 +71,7 @@ def asCupyArray(field: np.ndarray, dtype="auto"):
 
 
 def transfer_fields_to_gpu(
-    self: object, fields: List[str], logger: logging.Logger, dtype="auto"
+    self: object, fields: list[str], logger: logging.Logger, dtype="auto"
 ):
     """
     Move any fields defined in fields to the CPU. Fields has to be a list of strings with field names
@@ -76,16 +86,16 @@ def transfer_fields_to_gpu(
             # move it to the CPU
             attribute = getattr(self, field)
             try:
-                setattr(self, field, asCupyArray(attribute))
+                setattr(self, field, asCupyArray(attribute, dtype=dtype))
             except AttributeError:
-                self.logger.error(f"Cannot set attribute {field}")
+                logger.error(f"Cannot set attribute {field}")
                 raise
-            self.logger.debug(f"Moved {field} to GPU")
+            logger.debug(f"Moved {field} to GPU")
         else:
-            self.logger.debug(f"Skipped {field} as it is not defined")
+            logger.debug(f"Skipped {field} as it is not defined")
 
 
-def transfer_fields_to_cpu(self: object, fields: List[str], logger: logging.Logger):
+def transfer_fields_to_cpu(self: object, fields: list[str], logger: logging.Logger):
     """
     Move any fields defined in fields to the CPU. Fields has to be a list of strings with field names
     :param self:
@@ -98,6 +108,6 @@ def transfer_fields_to_cpu(self: object, fields: List[str], logger: logging.Logg
             # move it to the CPU
             attribute = getattr(self, field)
             setattr(self, field, asNumpyArray(attribute))
-            self.logger.debug(f"Moved {field} to CPU")
+            logger.debug(f"Moved {field} to CPU")
         else:
-            self.logger.debug(f"Skipped {field} as it is not defined")
+            logger.debug(f"Skipped {field} as it is not defined")
