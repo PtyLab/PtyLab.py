@@ -492,7 +492,8 @@ class BaseEngine(object):
                     "theta",
                     "wavelength",
                     "Xd",
-                    "Yddxd",
+                    "Yd",
+                    "dxd",
                     "zo",
                 ]
                 self.theta = self.reconstruction.theta
