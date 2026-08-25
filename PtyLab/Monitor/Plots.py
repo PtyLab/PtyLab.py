@@ -122,7 +122,12 @@ class ObjectProbeErrorPlot(object):
         self.im_object.autoscale()
 
     def updateProbe(
-        self, probe_estimate, optimizable, amplitudeScalingFactor=1, **kwargs
+        self,
+        probe_estimate,
+        optimizable,
+        amplitudeScalingFactor=1,
+        label="Probe estimate",
+        **kwargs,
     ):
 
         # from PtyLab.Operators.Operators import fft2c
@@ -137,6 +142,7 @@ class ObjectProbeErrorPlot(object):
 
         if self.firstrun:
             self.im_probe = complexPlot(PE, ax=self.ax_probe, **kwargs)
+            self.txt_purityProbe = self.ax_probe.set_title(label)
             # self.im_probe_ff = complexPlot(PE_ff, self.ax_probe_ff, **kwargs)
         else:
             self.im_probe.set_data(PE)
@@ -146,7 +152,7 @@ class ObjectProbeErrorPlot(object):
                 and optimizable.purityProbe == optimizable.purityProbe
             ):
                 self.txt_purityProbe.set_text(
-                    "Probe estimate\nPurity: %.2f" % (100 * optimizable.purityProbe) + "%"
+                    "%s\nPurity: %.2f" % (label, 100 * optimizable.purityProbe) + "%"
                 )
         self.im_probe.autoscale()
 

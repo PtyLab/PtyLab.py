@@ -94,6 +94,39 @@ def complex2rgb_vectorized(probe, **kwargs):
     return probe_rgb
 
 
+# Axis units for the image plots. The reciprocal ones are for Fourier-space
+# quantities such as the FPM pupil, whose axes are spatial frequencies.
+unitRatio = {
+    "pixel": 1,
+    "m": 1,
+    "cm": 1e2,
+    "mm": 1e3,
+    "um": 1e6,
+    "1/m": 1,
+    "1/mm": 1e-3,
+    "1/um": 1e-6,
+}
+
+
+def plotExtent(pixelSize, axisUnit, shape):
+    """
+    Extent for imshow, expressed in axisUnit.
+
+    Real-space axes run from zero, as they always have. Reciprocal axes are
+    centred on zero frequency instead, which is where the pupil sits.
+
+    :param pixelSize: sample spacing of the array, in SI units
+    :param str axisUnit: any key of unitRatio
+    :param shape: shape of the array that is plotted
+    :return: [left, right, bottom, top] for imshow
+    """
+    step = pixelSize * unitRatio[axisUnit]
+    width, height = step * shape[1], step * shape[0]
+    if axisUnit.startswith("1/"):
+        return [-width / 2, width / 2, height / 2, -height / 2]
+    return [0, width, height, 0]
+
+
 def complexPlot(rgb, ax=None, pixelSize=1, axisUnit="pixel"):
     """
     Plot a 2D complex plot (hue for phase, brightness for amplitude). Input array need to be prepared by using
@@ -101,15 +134,14 @@ def complexPlot(rgb, ax=None, pixelSize=1, axisUnit="pixel"):
     :param rgb: a rgb array that is converted from a 2D complex np.ndarray by using complex2rgb
     :param ax: Optional axis to plot in
     :param pixelSize: pixelSize in x and y, to display the physical dimension of the plot
-    :param str axisUnit: Options: default 'pixel', 'm', 'cm', 'mm', 'um'
+    :param str axisUnit: Options: default 'pixel', 'm', 'cm', 'mm', 'um', and the
+        reciprocal '1/m', '1/mm', '1/um' for Fourier-space quantities
     :return: An hsv plot
     """
 
     if not ax:
         fig, ax = plt.subplots()
-    unitRatio = {"pixel": 1, "m": 1, "cm": 1e2, "mm": 1e3, "um": 1e6}
-    pixelSize = pixelSize * unitRatio[axisUnit]
-    extent = [0, pixelSize * rgb.shape[1], pixelSize * rgb.shape[0], 0]
+    extent = plotExtent(pixelSize, axisUnit, rgb.shape)
 
     im = ax.imshow(rgb, extent=extent, interpolation=None)
     ax.set_ylabel(axisUnit)
@@ -199,9 +231,7 @@ def absplot(
     U = np.abs(asNumpyArray(u))
     if not ax:
         fig, ax = plt.subplots()
-    unitRatio = {"pixel": 1, "m": 1, "cm": 1e2, "mm": 1e3, "um": 1e6}
-    pixelSize = pixelSize * unitRatio[axisUnit]
-    extent = [0, pixelSize * U.shape[1], pixelSize * U.shape[0], 0]
+    extent = plotExtent(pixelSize, axisUnit, U.shape)
 
     if amplitudeScalingFactor != 1:
         U[U > amplitudeScalingFactor * np.max(U)] = amplitudeScalingFactor * np.max(U)

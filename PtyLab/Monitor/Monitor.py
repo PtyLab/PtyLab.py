@@ -205,6 +205,34 @@ class Monitor(AbstractMonitor):
         if self.verboseLevel == "high":
             self.diffractionDataMonitor = DiffractionDataPlot()
 
+    @property
+    def objectPixelSize(self):
+        """Pixel size of the object estimate that is plotted."""
+        if self.reconstruction.data.operationMode == "FPM":
+            return self.reconstruction.dxo_fpm
+        return self.reconstruction.dxo
+
+    @property
+    def probePixelSize(self):
+        """Axis step of the probe panel."""
+        if self.reconstruction.data.operationMode == "FPM":
+            return self.reconstruction.dfp
+        return self.reconstruction.dxp
+
+    @property
+    def probeAxisUnit(self):
+        """Unit of the probe panel axes: a length for CPM, a spatial frequency for FPM."""
+        if self.reconstruction.data.operationMode == "FPM":
+            return "1/um"
+        return "mm"
+
+    @property
+    def probeLabel(self):
+        """Title of the probe panel. FPM estimates a pupil instead of a probe."""
+        if self.reconstruction.data.operationMode == "FPM":
+            return "Pupil estimate"
+        return "Probe estimate"
+
     def updateObjectProbeErrorMonitor(
         self,
         error,
@@ -226,15 +254,16 @@ class Monitor(AbstractMonitor):
             object_estimate,
             self.reconstruction,
             objectPlot=self.objectPlot,
-            pixelSize=self.reconstruction.dxo,
+            pixelSize=self.objectPixelSize,
             axisUnit="mm",
             amplitudeScalingFactor=self.objectPlotContrast,
         )
         self.defaultMonitor.updateProbe(
             probe_estimate,
             self.reconstruction,
-            pixelSize=self.reconstruction.dxp,
-            axisUnit="mm",
+            pixelSize=self.probePixelSize,
+            axisUnit=self.probeAxisUnit,
+            label=self.probeLabel,
             amplitudeScalingFactor=self.probePlotContrast,
         )
         self.defaultMonitor.update_z(zo)
