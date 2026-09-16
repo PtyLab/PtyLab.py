@@ -57,9 +57,9 @@ For the latest unreleased changes on `main`:
 pip install git+https://github.com/PtyLab/PtyLab.py.git
 ```
 
-### Gradient-based Optimization (automatic differentiation)
+### Gradient-based reconstruction (uses automatic differentiation)
 
-A new experimental submodule `PtyLab.Engines.GradientEngine` depends on PyTorch and implements gradient-based optimization with AD. Currently, this submodule is in an early stage and would mature with time. However, it already provides a starting point for experimenting with custom forward models to work well with the PtyLab ecosystem.  To start using it, install PyTorch in your environment following the [official installation instructions](https://pytorch.org/get-started/locally/).
+The experimental submodule `PtyLab.Engines.GradientEngine` uses PyTorch for gradient-based optimization with automatic differentiation (AD). It is still in early development, but already provides a starting point for experimenting with custom forward models within the PtyLab ecosystem. To get started, install PyTorch following the [official installation instructions](https://pytorch.org/get-started/locally/). The first [CPM tutorial](/jupyter_tutorials/jupyter_tutorials_tutorial_CPM_sim.ipynb) now includes an example using this engine.
 
 ### Development
 
