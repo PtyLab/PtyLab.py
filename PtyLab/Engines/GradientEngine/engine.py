@@ -24,7 +24,7 @@ from PtyLab.Engines.BaseEngine import BaseEngine
 
 from .losses import amplitude_loss
 from .models import SingleSliceModel
-from .propagation import FixedPropagation
+from .propagation import KernelPropagator
 
 
 class GradientEngine(BaseEngine):
@@ -178,8 +178,8 @@ class GradientEngine(BaseEngine):
             raise ValueError("numIterations must be positive.")
 
     # Keep the Fourier helpers available to subclasses.
-    fft2c = staticmethod(FixedPropagation.fft2c)
-    ifft2c = staticmethod(FixedPropagation.ifft2c)
+    fft2c = staticmethod(KernelPropagator.fft2c)
+    ifft2c = staticmethod(KernelPropagator.ifft2c)
 
     def preparePropagation(self):
         """Create the field propagator once per run from the current geometry.
@@ -187,7 +187,7 @@ class GradientEngine(BaseEngine):
         Override this hook to provide a different propagation callable. Learnable
         geometry requires kernels built in Torch during each forward pass.
         """
-        self.propagation = FixedPropagation(
+        self.propagation = KernelPropagator(
             self.reconstruction, self.params.propagatorType, self.device
         )
 
