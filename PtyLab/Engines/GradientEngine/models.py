@@ -1,44 +1,114 @@
-"""Measurement models: object/probe tensors and a scan position to a detector field.
+"""Torch components for the ptychographic forward model."""
 
-Models contain the physics, not the optimizer or NumPy monitoring state. The
-propagate callback accepts an object patch and probe and returns a Torch field.
-"""
+import torch
 
 
-class SingleSliceModel:
-    """Single-wavelength, single-mode, single slice CPM with fixed integer scan positions.
+class SharedProbe(torch.nn.Module):
+    """An entrance probe shared by every scan frame."""
 
-    For scan j, the detector field is u_j = D[O_j * P], where O_j is
-    the object patch at that position, P is the probe, and D propagates
-    their pointwise product to the detector.
+    def __init__(self, field):
+        super().__init__()
+        self.field = torch.nn.Parameter(torch.as_tensor(field, dtype=torch.complex64))
+
+    def forward(self, indices):
+        """Return one broadcast view of the six-axis probe per frame index."""
+        return self.field.unsqueeze(0).expand(len(indices), *self.field.shape)
+
+    def reset_from_array(self, field):
+        """Copy a reconstruction probe into the existing parameter."""
+        value = torch.as_tensor(field, dtype=self.field.dtype, device=self.field.device)
+        if value.shape != self.field.shape:
+            raise ValueError(
+                f"Probe shape changed from {tuple(self.field.shape)} to {tuple(value.shape)}."
+            )
+        with torch.no_grad():
+            self.field.copy_(value)
+
+
+class PtychographyModel(torch.nn.Module):
+    """Single-slice CPM components with six-axis object/probe storage.
+
+    ``object`` has shape ``(nlambda, nosm, 1, nslice, No, No)`` and the
+    shared probe has shape ``(nlambda, 1, npsm, 1, Np, Np)``. Stage 1
+    restricts all four physical counts to one while preserving these axes.
     """
 
-    def validate(self, reconstruction):
-        """Require one wavelength, mode and slice, with six-dimensional arrays.
+    def __init__(self, object_field, probe, positions):
+        super().__init__()
+        self.object = torch.nn.Parameter(
+            torch.as_tensor(object_field, dtype=torch.complex64)
+        )
+        self.probe = probe
+        self.register_buffer(
+            "positions", torch.as_tensor(positions, dtype=torch.long), persistent=False
+        )
+        self.propagation = None
 
-        Raise NotImplementedError for unsupported mode counts and ValueError
-        for object/probe shapes inconsistent with the initialized grid sizes.
-        """
-        r = reconstruction
-        if any(getattr(r, name) != 1 for name in ("nlambda", "nosm", "npsm", "nslice")):
+    @staticmethod
+    def validate(reconstruction):
+        """Validate Stage 1 counts and the canonical six-axis array shapes."""
+        recon = reconstruction
+        if any(
+            getattr(recon, name) != 1 for name in ("nlambda", "nosm", "npsm", "nslice")
+        ):
             raise NotImplementedError(
-                "ObjectProbeModel requires single-mode, single-slice data."
+                "PtychographyModel currently requires one wavelength, object state, "
+                "probe state, and slice."
             )
-        object_shape = (1, 1, 1, 1, r.No, r.No)
-        probe_shape = (1, 1, 1, 1, r.Np, r.Np)
-        if r.object.shape != object_shape or r.probe.shape != probe_shape:
+        object_shape = (1, 1, 1, 1, recon.No, recon.No)
+        probe_shape = (1, 1, 1, 1, recon.Np, recon.Np)
+        if recon.object.shape != object_shape or recon.probe.shape != probe_shape:
             raise ValueError(
-                "Initialize single-mode object and probe with initializeObjectProbe()."
+                "Initialize six-axis object and probe arrays with initializeObjectProbe()."
             )
 
-    def __call__(self, obj, probe, position, propagate):
-        """Return a [height, width] complex detector field with gradients intact.
+    def set_positions(self, positions):
+        """Replace integer patch origins without changing model parameters."""
+        self.positions = torch.as_tensor(
+            positions, dtype=torch.long, device=self.object.device
+        )
 
-        position gives the integer (row, col) of the object's patch origin.
-        propagate receives that patch and the probe as separate tensors.
-        """
-        row, col = position
-        height, width = probe.shape[-2:]
-        # O_j[y, x] = O[row_j + y, col_j + x].
-        patch = obj[..., row : row + height, col : col + width]
-        return propagate(patch, probe).reshape(height, width)
+    def set_propagation(self, propagation):
+        """Set the callable that maps exit waves to detector fields."""
+        self.propagation = propagation
+
+    def reset_from_reconstruction(self, reconstruction):
+        """Import object and probe values while preserving parameter identity."""
+        obj = torch.as_tensor(
+            reconstruction.object, dtype=self.object.dtype, device=self.object.device
+        )
+        if obj.shape != self.object.shape:
+            raise ValueError(
+                f"Object shape changed from {tuple(self.object.shape)} to {tuple(obj.shape)}."
+            )
+        with torch.no_grad():
+            self.object.copy_(obj)
+        self.probe.reset_from_array(reconstruction.probe)
+        self.set_positions(reconstruction.positions)
+
+    def object_patches(self, indices):
+        """Gather object patches with batch followed by the six physical axes."""
+        positions = self.positions[indices]
+        height, width = self.probe.field.shape[-2:]
+        rows = (
+            positions[:, 0, None, None]
+            + torch.arange(height, device=self.object.device)[None, :, None]
+        )
+        cols = (
+            positions[:, 1, None, None]
+            + torch.arange(width, device=self.object.device)[None, None, :]
+        )
+        return self.object[..., rows, cols].movedim(-3, 0)
+
+    def detector_fields(self, indices):
+        """Return detector fields with all state axes retained."""
+        if self.propagation is None:
+            raise RuntimeError("Set model propagation before forwarding data.")
+        patches = self.object_patches(indices)
+        entrance_probe = self.probe(indices)
+        return self.propagation(patches * entrance_probe)
+
+    def forward(self, indices):
+        """Return detector intensity with shape ``(batch, Np, Np)``."""
+        fields = self.detector_fields(indices)
+        return fields.abs().square().sum(dim=(1, 2, 3, 4))
