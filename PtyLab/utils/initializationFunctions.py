@@ -1,10 +1,25 @@
 import logging
+
 import numpy as np
-from PtyLab.utils.utils import circ, fft2c, ifft2c
 from matplotlib import pyplot as plt
-from scipy.ndimage import gaussian_filter
 from scipy import ndimage
+from scipy.ndimage import gaussian_filter
 from skimage.transform import rescale
+
+from PtyLab.utils.utils import circ, fft2c, ifft2c
+
+
+def spectralInitializeObject(shape, reconstruction, logger: logging.Logger = None):
+    """Placeholder for a spectral object estimate.
+
+    The implementation will use measured diffraction intensities, scan positions,
+    and an initialized probe from ``reconstruction`` to return an object estimate
+    with the requested ``shape``. Probe-first initialization and configurable
+    spectral options still need to be wired into Reconstruction.
+    Note: However, this expects a known probe. See: Valzania et al., 2021 paper
+    for this.
+    """
+    raise NotImplementedError("Spectral object initialization is not implemented yet.")
 
 
 def initialProbeOrObject(shape, type_of_init, data, logger: logging.Logger = None):
@@ -14,6 +29,8 @@ def initialProbeOrObject(shape, type_of_init, data, logger: logging.Logger = Non
         ones - every element is set to 1 + random noise
         circ - same as 'ones' but with a circular boundary constraint
         upsampled - upsampled low-resolution estimate (used for FPM)
+
+    The spectral option is an object-only placeholder and raises NotImplementedError.
 
     Random noise is added to the arrays to enforce linear independence required
     for orthogonalization of modes
@@ -27,22 +44,31 @@ def initialProbeOrObject(shape, type_of_init, data, logger: logging.Logger = Non
                 "been initialized. Skipping."
             )
         return type_of_init
-    supported_shapes = ["circ", 'circ_smooth', "rand", "gaussian", "ones", "upsampled"]
+    if type_of_init == "spectral":
+        return spectralInitializeObject(shape, data, logger)
+
+    supported_shapes = ["circ", "circ_smooth", "rand", "gaussian", "ones", "upsampled"]
     if type_of_init not in supported_shapes:
-        raise NotImplementedError(f'Got {type_of_init} for shape. Supported shapes are: {supported_shapes}')
+        raise NotImplementedError(
+            f"Got {type_of_init} for shape. Supported shapes are: {supported_shapes}"
+        )
 
     if type_of_init == "ones":
         return np.ones(shape) + 0.001 * np.random.rand(*shape)
 
-    if type_of_init in ["circ", 'circ_smooth']:
+    if type_of_init in ["circ", "circ_smooth"]:
         try:
             # BUG: This only works for the probe, not for the object
             pupil = circ(data.Xp, data.Yp, data.data.entrancePupilDiameter)
-            initial_field = np.ones(shape, dtype=np.complex64) + 0.001 * np.random.rand(*shape)
+            initial_field = np.ones(shape, dtype=np.complex64) + 0.001 * np.random.rand(
+                *shape
+            )
 
-            if 'smooth' in type_of_init:
+            if "smooth" in type_of_init:
                 dia_pixel = data.data.entrancePupilDiameter / data.dxo
-                pupil = ndimage.gaussian_filter(pupil.astype(np.float64), 0.1 * dia_pixel)
+                pupil = ndimage.gaussian_filter(
+                    pupil.astype(np.float64), 0.1 * dia_pixel
+                )
 
             initial_field *= pupil
             return initial_field
@@ -51,7 +77,6 @@ def initialProbeOrObject(shape, type_of_init, data, logger: logging.Logger = Non
             raise AttributeError(
                 e, "probe/aperture/entrancePupilDiameter was not defined"
             )
- 
 
     if type_of_init == "upsampled":
         low_res = ifft2c(np.sqrt(np.mean(data.data.ptychogram, 0)))
