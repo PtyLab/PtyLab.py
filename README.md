@@ -75,6 +75,14 @@ Add tests for new implementations and run the suite:
 uv run pytest tests
 ```
 
+### Documentation
+
+Any documentation changes would be deployed automatically after a PR merges main. However, please verify locally first with
+
+```bash
+uv run --extra docs mkdocs serve
+```
+
 ## Citation
 
 If you use this package, please cite:
