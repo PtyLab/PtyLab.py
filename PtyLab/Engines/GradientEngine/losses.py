@@ -2,6 +2,14 @@
 
 Each objective returns one real scalar for a frame or batch. Losses sum over pixels
 and frames; GradientEngine applies one optimizer step per full scan.
+
+Unit convention: predicted_intensity is expected in detector units throughout
+this module, i.e. predicted_intensity = gain * E[photon count]. For a unit-gain
+detector (gain=1.0, the default everywhere below), detector units and photon
+counts coincide, so this reduces to the usual photon-count convention. Any
+gain != 1.0 must be applied consistently across whichever loss is selected, so
+that predicted_intensity always means the same physical quantity regardless of
+which objective GradientEngine is configured to use.
 """
 
 from math import isfinite
@@ -30,18 +38,27 @@ def poisson_loss(
     predicted_intensity,
     measured_intensity,
     total_power,
+    gain=1.0,
     eps=1e-10,
 ):
     """NLL of the Poisson distribution.
 
-    L = (1 / P) * sum_i [I_i - y_i * log(max(I_i, epsilon))]
+    L = (1 / P) * sum_i [I_i - (y_i / g) * log(max(I_i, epsilon))]
 
     Poisson photon-count objective, omitting terms independent of the prediction
-    and clipping the logarithm near zero. Use photon-count units for this model.
+    and clipping the logarithm near zero. predicted_intensity is in detector
+    units (I = g * E[N]); gain reconciles this with measured_intensity, which
+    is assumed to already be in the same detector units as predicted_intensity.
+    For a unit-gain detector (default), this is the ordinary photon-count
+    Poisson NLL with I and y both equal to photon counts.
     """
+    if not isfinite(gain) or gain <= 0:
+        raise ValueError("gain must be a positive finite scalar.")
+    if not isfinite(eps) or eps <= 0:
+        raise ValueError("eps must be a positive finite scalar.")
     return (
         predicted_intensity
-        - measured_intensity * predicted_intensity.clamp_min(eps).log()
+        - (measured_intensity / gain) * predicted_intensity.clamp_min(eps).log()
     ).sum() / total_power
 
 
@@ -49,25 +66,24 @@ def amplitude_loss(
     predicted_intensity,
     measured_intensity,
     total_power,
-    eps=1e-12,
+    anscombe_offset=0.375,
 ):
-    """Stabilized squared amplitude residual, normalized by full-scan power.
+    """Anscombe-stabilized squared amplitude residual, normalized by full-scan power.
 
-    L = sum_i (sqrt(max(I_i, 0) + eps) - sqrt(y_i))^2 / P
+    L = sum_i (sqrt(max(I_i, 0) + c) - sqrt(max(y_i, 0) + c))^2 / P,  c = anscombe_offset
 
-    I is predicted intensity, y is measured intensity, and P is total measured
-    scan intensity. With positive scalar eps, ordinary Torch autodiff remains
-    finite at I=0. Stabilization changes the objective near zero; even I=y=0
-    contributes eps/P. eps has intensity units and defaults to 1e-12.
-
-    Square-root residuals approximate variance stabilization of Poisson counts;
-    this is not an exact Poisson likelihood or the full Anscombe transform.
-    Inputs must be nonnegative real intensities in float32 or float64, with P>0.
+    Approximates the Poisson NLL by working in amplitude space, where Poisson
+    noise is roughly constant-variance. c = 3/8 (Anscombe, 1948) sharpens this
+    approximation at low counts and must be applied to both sides equally, and
+    must stay strictly positive to keep the gradient finite at I = 0.
     """
-    if not isfinite(eps) or eps <= 0:
-        raise ValueError("eps must be a positive finite scalar.")
-    predicted_amplitude = torch.sqrt(predicted_intensity.clamp_min(0.0) + eps)
-    residual = predicted_amplitude - measured_intensity.sqrt()
+    if not isfinite(anscombe_offset) or anscombe_offset <= 0:
+        raise ValueError("anscombe_offset must be a positive finite scalar.")
+    predicted_amplitude = torch.sqrt(
+        predicted_intensity.clamp_min(0.0) + anscombe_offset
+    )
+    measured_amplitude = torch.sqrt(measured_intensity.clamp_min(0.0) + anscombe_offset)
+    residual = predicted_amplitude - measured_amplitude
     return residual.square().sum() / total_power
 
 
