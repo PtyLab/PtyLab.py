@@ -42,14 +42,18 @@ Install from PyPI within your virtual environment:
 ```bash
 pip install ptylab
 ```
-For much faster installs, we recommend [uv](https://docs.astral.sh/uv/getting-started/installation/): `uv pip install ptylab`
+For faster installs, we recommend [uv](https://docs.astral.sh/uv/getting-started/installation/):
+
+```bash
+uv pip install ptylab
+```
 
 This package uses `cupy` to utilize GPU for faster reconstruction. To enable GPU support:
 
 ```bash
-pip install "ptylab[gpu]"
+uv pip install "ptylab[gpu]"
 ```
-You can check if GPU is detected with `ptylab check gpu`.
+The `gpu` extra installs CuPy for NVIDIA CUDA 12. Check available devices with `uv run ptylab check gpu`.
 
 For the latest unreleased changes on `main`:
 
@@ -59,7 +63,13 @@ pip install git+https://github.com/PtyLab/PtyLab.py.git
 
 ### Gradient-based reconstruction (uses automatic differentiation)
 
-The experimental submodule `PtyLab.Engines.GradientEngine` uses PyTorch for gradient-based optimization with automatic differentiation (AD). It is still in early development, but already provides a starting point for experimenting with custom forward models within the PtyLab ecosystem. To get started, install PyTorch following the [official installation instructions](https://pytorch.org/get-started/locally/). The first [CPM tutorial](/jupyter_tutorials/jupyter_tutorials_tutorial_CPM_sim.ipynb) now includes an example using this engine.
+The experimental `PtyLab.Engines.GradientEngine` uses PyTorch for gradient-based reconstruction and custom forward models. Install it with automatic hardware selection:
+
+```bash
+uv pip install "ptylab[torch]" --torch-backend=auto
+```
+
+For CuPy and CUDA 12.8 PyTorch, install `ptylab[gpu,torch]` with `--torch-backend=cu128`. See the [CPM tutorial](/jupyter_tutorials/jupyter_tutorials_tutorial_CPM_sim.ipynb) and [component guide](/PtyLab/Engines/GradientEngine/README.md).
 
 ### Development
 
@@ -68,15 +78,16 @@ Clone the repo and install dev and gpu dependencies with [uv](https://docs.astra
 ```bash
 git clone git@github.com:PtyLab/PtyLab.py.git
 cd PtyLab.py
-uv sync --extra dev,gpu # remove the GPU flag if you are on CPU
+uv sync --extra dev --extra gpu # omit --extra gpu if you are on CPU
 ```
 This creates a `.venv` virtual environment in the project root. Select this environment from your IDE.
 
+Add `--extra torch` for GradientEngine development.
 
 Add tests for new implementations and run the suite:
 
 ```bash
-uv run pytest tests
+uv run --extra dev --extra torch pytest tests
 ```
 
 ## Citation
