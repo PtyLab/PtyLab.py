@@ -53,7 +53,7 @@ This package uses `cupy` to utilize GPU for faster reconstruction. To enable GPU
 ```bash
 uv pip install "ptylab[gpu]"
 ```
-The `gpu` extra installs CuPy for NVIDIA CUDA 12. Check available devices with `uv run ptylab check gpu`.
+The `gpu` extra installs CuPy for NVIDIA CUDA 12. Check whether GPU is correctly configured with `uv run ptylab check gpu`.
 
 For the latest unreleased changes on `main`:
 
@@ -80,14 +80,12 @@ git clone git@github.com:PtyLab/PtyLab.py.git
 cd PtyLab.py
 uv sync --extra dev --extra gpu # omit --extra gpu if you are on CPU
 ```
-This creates a `.venv` virtual environment in the project root. Select this environment from your IDE.
+This creates a `.venv` virtual environment in the project root. Select this environment from your IDE. Add `--extra torch` for `GradientEngine` development.
 
-Add `--extra torch` for GradientEngine development.
-
-Add tests for new implementations and run the suite:
+Add tests for new implementations and run the suite with the additional `--extra test` flag:
 
 ```bash
-uv run --extra dev --extra torch pytest tests
+uv run pytest tests
 ```
 
 ## Citation

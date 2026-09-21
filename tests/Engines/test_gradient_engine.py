@@ -32,9 +32,9 @@ def engine():
     params.gpuSwitch = False
     params.positionOrder = "sequential"
     reconstruction = Reconstruction(data, params)
-    reconstruction.npsm = reconstruction.nosm = reconstruction.nlambda = (
-        reconstruction.nslice
-    ) = 1
+    reconstruction.npsm = (
+        reconstruction.nosm
+    ) = reconstruction.nlambda = reconstruction.nslice = 1
     reconstruction.initialObject = "ones"
     reconstruction.initialProbe = "circ"
     reconstruction.initializeObjectProbe()
@@ -309,7 +309,8 @@ def test_assigned_model_and_loss_receive_gradients(engine):
 @pytest.mark.parametrize("batch_size", [1, 2, 3, 8])
 @pytest.mark.parametrize("propagator", GradientEngine.supportedPropagators)
 @pytest.mark.parametrize(
-    "loss_name", ["amplitude_loss", "intensity_loss", "poisson_loss"]
+    "loss_name",
+    ["amplitude_loss", "intensity_loss", "poisson_loss", "mixed_poisson_gaussian_loss"],
 )
 def test_batches_match_single_frame_step(engine, batch_size, propagator, loss_name):
     from copy import deepcopy
