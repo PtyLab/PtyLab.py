@@ -9,12 +9,18 @@ from PtyLab import Params
 from PtyLab.utils.gpuUtils import asNumpyArray
 from PtyLab.utils.utils import fft2c
 from PtyLab.utils.visualisation import complex2rgb, complex2rgb_vectorized
-from tensorflow import summary as tfs
 from scipy import ndimage
 
 import matplotlib
 import io
-from tensorflow import image
+try:
+    from tensorflow import summary as tfs, image
+except ModuleNotFoundError as exc:
+    if exc.name != "tensorflow":
+        raise
+    tfs = image = None
+
+
 def center_angle(object_estimate):
     # first, align the angle of the object based on the zeroth order mode
     object_estimate_0 = object_estimate.copy()
@@ -55,6 +61,10 @@ class TensorboardMonitor(AbstractMonitor):
     downsample_everything = 1
 
     def __init__(self, logdir="./logs_tensorboard", name=None):
+        if tfs is None:
+            raise ImportError(
+                "TensorboardMonitor requires TensorFlow. Install with: pip install tensorflow"
+            )
         super(AbstractMonitor).__init__()
         # if true, all phases are centered in such a way that the average phase in the center of any RGB plot is zero.
         self.center_phases = True
