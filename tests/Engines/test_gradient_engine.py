@@ -61,7 +61,9 @@ def test_forward_matches_numpy_and_has_complex_gradients(size):
     obj_t = torch.tensor(obj, requires_grad=True)
     probe_t = torch.tensor(probe, requires_grad=True)
     actual = GradientEngine.fft2c(obj_t * probe_t)
-    np.testing.assert_allclose(actual.detach().numpy(), fft2c(obj * probe), atol=1e-12)
+    np.testing.assert_allclose(
+        actual.detach().cpu().numpy(), fft2c(obj * probe), atol=1e-12
+    )
     assert torch.autograd.gradcheck(
         lambda o, p: GradientEngine.fft2c(o * p).abs().square().sum(),
         (obj_t, probe_t),
@@ -81,16 +83,16 @@ def test_reconstruction_reduces_loss_and_preserves_numpy_api(
     assert len(r.error) == 35
     assert r.error[-1] < 0.3 * r.error[0]
     for initial, result, tensor in (
-        (before_object, r.object, engine.objectTensor),
-        (before_probe, r.probe, engine.probeTensor),
+        (before_object, r.object, engine.model.object),
+        (before_probe, r.probe, engine.model.probe.field),
     ):
         assert isinstance(result, np.ndarray)
         assert result.shape == initial.shape
         assert not np.allclose(result, initial)
         assert torch.isfinite(tensor.grad).all()
         assert tensor.grad.abs().sum() > 0
-        np.testing.assert_array_equal(result, tensor.detach().numpy())
-        assert not np.shares_memory(result, tensor.detach().numpy())
+        np.testing.assert_array_equal(result, tensor.detach().cpu().numpy())
+        assert not np.shares_memory(result, tensor.detach().cpu().numpy())
     r.saveResults(tmp_path / "autodiff.hdf5")
     assert (tmp_path / "autodiff.hdf5").exists()
 
@@ -142,43 +144,45 @@ else:
 
 
 def test_subclass_can_extend_model_optimizer_and_constraints(engine):
+    from PtyLab.Engines.GradientEngine.models import PtychographyModel, SharedProbe
+
+    class GainModel(PtychographyModel):
+        def __init__(self, object_field, probe, positions):
+            super().__init__(object_field, probe, positions)
+            self.gain = torch.nn.Parameter(torch.tensor(0.8))
+
+        def forward(self, indices):
+            return self.gain * super().forward(indices)
+
     class GainEngine(GradientEngine):
-        def initializeParameters(self):
-            super().initializeParameters()
-            self.gain = torch.nn.Parameter(torch.tensor(0.8, device=self.device))
-            self.steps = []
-
-        def parameterGroups(self):
-            return super().parameterGroups() + [{"params": [self.gain], "lr": 0.02}]
-
         def createOptimizer(self):
             return torch.optim.SGD(self.parameterGroups())
 
-        def forward(self, positionIndex):
-            return self.gain * super().forward(positionIndex)
-
-        def computeLoss(self, detectorWave, measuredAmplitude):
-            return (
-                detectorWave.abs().square() - measuredAmplitude.square()
-            ).square().sum() / self.totalPower
-
         def regularizationLoss(self):
-            return 0.01 * (self.gain - 1).square()
+            return 0.01 * (self.model.gain - 1).square()
 
         def afterStep(self, iteration):
             assert not torch.is_grad_enabled()
-            self.gain.clamp_(min=0.1)
+            self.model.gain.clamp_(min=0.1)
             self.steps.append(iteration)
 
     extended = GainEngine(
         engine.reconstruction, engine.experimentalData, engine.params, engine.monitor
     )
+    r = extended.reconstruction
+    extended.model = GainModel(r.object, SharedProbe(r.probe), r.positions)
+    extended.parameters = {
+        "object": {"lr": 0.003},
+        "probe.field": {"lr": 0.001},
+        "gain": {"lr": 0.002},
+    }
+    extended.steps = []
     extended.numIterations = 3
     extended.reconstruct()
     assert isinstance(extended.optimizer, torch.optim.SGD)
     assert extended.steps == [0, 1, 2]
-    assert extended.gain.item() != pytest.approx(0.8)
-    assert torch.isfinite(extended.gain.grad)
+    assert extended.model.gain.item() != pytest.approx(0.8)
+    assert torch.isfinite(extended.model.gain.grad)
     assert np.isfinite(extended.reconstruction.error).all()
 
 
@@ -207,16 +211,17 @@ def test_propagators_match_ptylab_and_pass_gradcheck(engine, propagator, size):
         esw=obj * probe,
     )
     engine.params.propagator = propagator
+    engine.device = "cpu"
     engine.preparePropagation()
     obj_t = torch.tensor(obj, requires_grad=True)
     probe_t = torch.tensor(probe, requires_grad=True)
-    actual = engine.propagate(obj_t, probe_t)
+    actual = engine.propagate(obj_t * probe_t)
     _, expected = object2detector(obj * probe, engine.params, engine.reconstruction)
     np.testing.assert_allclose(
-        actual.detach().numpy(), np.squeeze(expected), rtol=2e-6, atol=2e-6
+        actual.detach().cpu().numpy(), np.squeeze(expected), rtol=2e-6, atol=2e-6
     )
     assert torch.autograd.gradcheck(
-        lambda o, p: engine.propagate(o, p).abs().square(),
+        lambda o, p: engine.propagate(o * p).abs().square(),
         (obj_t, probe_t),
         fast_mode=True,
     )
@@ -240,8 +245,8 @@ def test_reconstruction_with_other_propagators(engine, propagator):
     engine.reconstruct()
     assert np.isfinite(r.error).all()
     assert r.error[-1] < r.error[0]
-    assert torch.isfinite(engine.objectTensor.grad).all()
-    assert torch.isfinite(engine.probeTensor.grad).all()
+    assert torch.isfinite(engine.model.object.grad).all()
+    assert torch.isfinite(engine.model.probe.field.grad).all()
 
 
 def test_asp_rejects_different_pixel_spacings(engine):
@@ -258,7 +263,7 @@ def test_component_regularizer_matches_subclass_hook(engine):
 
     class RegularizedEngine(GradientEngine):
         def regularizationLoss(self):
-            return object_smoothness(self.objectTensor, self.probeTensor, weight=0.02)
+            return object_smoothness(self.model, weight=0.02)
 
     initial = deepcopy(engine.reconstruction)
     reference = RegularizedEngine(
@@ -281,22 +286,23 @@ def test_component_regularizer_matches_subclass_hook(engine):
 
 def test_assigned_model_and_loss_receive_gradients(engine):
     from PtyLab.Engines.GradientEngine.losses import intensity_loss
-    from PtyLab.Engines.GradientEngine.models import SingleSliceModel
+    from PtyLab.Engines.GradientEngine.models import PtychographyModel, SharedProbe
 
-    class ScaledFieldModel(SingleSliceModel):
+    class ScaledIntensityModel(PtychographyModel):
         calls = 0
 
-        def __call__(self, obj, probe, position, propagate):
+        def forward(self, indices):
             self.calls += 1
-            return 0.9 * super().__call__(obj, probe, position, propagate)
+            return 0.9 * super().forward(indices)
 
-    engine.model = ScaledFieldModel()
+    r = engine.reconstruction
+    engine.model = ScaledIntensityModel(r.object, SharedProbe(r.probe), r.positions)
     engine.lossFunction = intensity_loss
     engine.numIterations = 3
     engine.reconstruct()
     assert engine.model.calls == 3 * engine.experimentalData.numFrames
-    assert engine.objectTensor.grad.abs().sum() > 0
-    assert engine.probeTensor.grad.abs().sum() > 0
+    assert engine.model.object.grad.abs().sum() > 0
+    assert engine.model.probe.field.grad.abs().sum() > 0
     assert np.isfinite(engine.reconstruction.error).all()
 
 
@@ -322,8 +328,12 @@ def test_batches_match_single_frame_step(engine, batch_size, propagator, loss_na
     for candidate in (engine, reference):
         candidate.lossFunction = getattr(losses, loss_name)
         candidate.regularizers = [
-            lambda obj, probe: (
-                0.002 * (obj.abs().square().mean() + probe.abs().square().mean())
+            lambda model: (
+                0.002
+                * (
+                    model.object.abs().square().mean()
+                    + model.probe.field.abs().square().mean()
+                )
             )
         ]
         candidate.prepareReconstruction()
@@ -336,20 +346,25 @@ def test_batches_match_single_frame_step(engine, batch_size, propagator, loss_na
         candidate.regularizationLoss = Mock(wraps=candidate.regularizationLoss)
         candidate.optimizer.step = Mock(wraps=candidate.optimizer.step)
 
-    expected_wave = reference.forward(1).detach().abs().square().numpy()
+    expected_intensity = (
+        reference.forward(torch.tensor([1], device=reference.device))[0]
+        .detach()
+        .cpu()
+        .numpy()
+    )
     expected_loss = reference.runIteration(0)
     actual_loss = engine.runIteration(0)
     assert actual_loss == pytest.approx(expected_loss, rel=2e-6, abs=1e-7)
     engine.regularizationLoss.assert_called_once()
     engine.optimizer.step.assert_called_once()
     for actual, expected in (
-        (engine.objectTensor, reference.objectTensor),
-        (engine.probeTensor, reference.probeTensor),
+        (engine.model.object, reference.model.object),
+        (engine.model.probe.field, reference.model.probe.field),
     ):
         torch.testing.assert_close(actual.grad, expected.grad, rtol=3e-5, atol=2e-7)
         torch.testing.assert_close(actual, expected, rtol=3e-5, atol=2e-6)
     np.testing.assert_allclose(
-        engine.reconstruction.Iestimated, expected_wave, rtol=3e-5, atol=2e-6
+        engine.reconstruction.Iestimated, expected_intensity, rtol=3e-5, atol=2e-6
     )
     np.testing.assert_allclose(
         engine.reconstruction.Imeasured,
@@ -371,54 +386,24 @@ def test_numpy_integer_batch_size(engine):
     engine.reconstruct()
 
 
-@pytest.mark.parametrize("customization", ["model", "forward"])
-def test_custom_forward_requires_explicit_batch_hook(engine, customization):
-    from PtyLab.Engines.GradientEngine.models import SingleSliceModel
+def test_custom_model_uses_the_same_forward_for_full_and_partial_batches(engine):
+    from PtyLab.Engines.GradientEngine.models import PtychographyModel, SharedProbe
 
-    if customization == "model":
-
-        class CustomModel(SingleSliceModel):
-            def __call__(self, *args):
-                return 0.9 * super().__call__(*args)
-
-        engine.model = CustomModel()
-    else:
-        original_forward = engine.forward
-        engine.forward = lambda index: 0.9 * original_forward(index)
-    engine.batchSize = 2
-    with pytest.raises(NotImplementedError, match="Override forwardBatch"):
-        engine.prepareReconstruction()
-    engine.batchSize = 1
-    engine.numIterations = 1
-    engine.reconstruct()
-
-
-def test_custom_batch_hook_is_used(engine):
-    class GainEngine(GradientEngine):
-        def initializeParameters(self):
-            super().initializeParameters()
-            self.gain = torch.nn.Parameter(torch.tensor(0.8, device=self.device))
+    class CountingModel(PtychographyModel):
+        def __init__(self, object_field, probe, positions):
+            super().__init__(object_field, probe, positions)
             self.batch_lengths = []
 
-        def parameterGroups(self):
-            return super().parameterGroups() + [{"params": [self.gain], "lr": 0.02}]
-
-        def forward(self, index):
-            return self.gain * super().forward(index)
-
-        def forwardBatch(self, indices):
+        def forward(self, indices):
             self.batch_lengths.append(len(indices))
-            return self.gain * super().forwardBatch(indices)
+            return super().forward(indices)
 
-    custom = GainEngine(
-        engine.reconstruction, engine.experimentalData, engine.params, DummyMonitor()
-    )
-    custom.batchSize = 3
-    custom.numIterations = 1
-    custom.reconstruct()
-    assert custom.batch_lengths == [3, 1]
-    assert torch.isfinite(custom.gain.grad)
-    assert custom.gain.item() != pytest.approx(0.8)
+    r = engine.reconstruction
+    engine.model = CountingModel(r.object, SharedProbe(r.probe), r.positions)
+    engine.batchSize = 3
+    engine.numIterations = 1
+    engine.reconstruct()
+    assert engine.model.batch_lengths == [3, 1]
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA unavailable")
@@ -429,14 +414,15 @@ def test_cuda_batches_match_cpu(engine):
     reference = GradientEngine(
         initial, engine.experimentalData, initial.params, DummyMonitor()
     )
+    reference.device = "cpu"
     engine.device = "cuda"
     engine.batchSize = 3
     for candidate in (engine, reference):
         candidate.prepareReconstruction()
     assert engine.runIteration(0) == pytest.approx(reference.runIteration(0), rel=2e-5)
     for actual, expected in (
-        (engine.objectTensor, reference.objectTensor),
-        (engine.probeTensor, reference.probeTensor),
+        (engine.model.object, reference.model.object),
+        (engine.model.probe.field, reference.model.probe.field),
     ):
         torch.testing.assert_close(
             actual.grad.cpu(), expected.grad, rtol=3e-5, atol=2e-7
@@ -447,24 +433,23 @@ def test_cuda_batches_match_cpu(engine):
 def test_poisson_loss_matches_likelihood_and_has_finite_gradients():
     from PtyLab.Engines.GradientEngine.losses import poisson_loss
 
-    wave = torch.tensor([1 + 2j, 2 - 1j], dtype=torch.complex128, requires_grad=True)
-    amplitude = torch.tensor([2.0, 3.0], dtype=torch.float64)
-    power = amplitude.square().sum()
-    counts = amplitude.square()
+    intensity = torch.tensor([5.0, 5.0], dtype=torch.float64, requires_grad=True)
+    measured = torch.tensor([4.0, 9.0], dtype=torch.float64)
+    power = measured.sum()
     expected = (
-        -torch.distributions.Poisson(wave.abs().square()).log_prob(counts)
-        - torch.lgamma(counts + 1)
+        -torch.distributions.Poisson(intensity).log_prob(measured)
+        - torch.lgamma(measured + 1)
     ).sum() / power
-    torch.testing.assert_close(poisson_loss(wave, amplitude, power), expected)
+    torch.testing.assert_close(poisson_loss(intensity, measured, power), expected)
     assert torch.autograd.gradcheck(
-        lambda w: poisson_loss(w, amplitude, power), (wave,)
+        lambda value: poisson_loss(value, measured, power), (intensity,)
     )
 
-    zero_wave = torch.zeros(2, dtype=torch.complex128, requires_grad=True)
-    loss = poisson_loss(zero_wave, torch.tensor([0.0, 1.0]), power)
+    zero_intensity = torch.zeros(2, dtype=torch.float64, requires_grad=True)
+    loss = poisson_loss(zero_intensity, torch.tensor([0.0, 1.0]), power)
     assert torch.isfinite(loss)
     loss.backward()
-    assert torch.isfinite(zero_wave.grad).all()
+    assert torch.isfinite(zero_intensity.grad).all()
 
 
 @pytest.mark.parametrize("batch_size", [1, 3])
@@ -518,3 +503,208 @@ def test_reconstruct_without_replacement_preserves_corrected_positions(engine):
     engine.numIterations = 1
     engine.reconstruct()
     np.testing.assert_array_equal(engine.reconstruction.encoder_corrected, corrected)
+
+
+def test_component_model_preserves_six_axis_fields_and_returns_intensity(engine):
+    from PtyLab.Engines.GradientEngine.models import PtychographyModel, SharedProbe
+
+    engine.device = "cpu"
+    engine.prepareReconstruction()
+
+    assert isinstance(engine.model, PtychographyModel)
+    assert isinstance(engine.model.probe, SharedProbe)
+    indices = torch.tensor([0, 2], dtype=torch.long)
+    fields = engine.model.detector_fields(indices)
+    intensity = engine.model(indices)
+
+    assert fields.shape == (2, 1, 1, 1, 1, 8, 8)
+    assert intensity.shape == (2, 8, 8)
+    torch.testing.assert_close(intensity, fields.abs().square().sum(dim=(1, 2, 3, 4)))
+
+    expected = []
+    obj = engine.reconstruction.object.reshape(engine.reconstruction.No, -1)
+    probe = engine.reconstruction.probe.reshape(8, 8)
+    for index in indices.tolist():
+        row, col = engine.positions[index]
+        expected.append(abs(fft2c(obj[row : row + 8, col : col + 8] * probe)) ** 2)
+    np.testing.assert_allclose(
+        intensity.detach().numpy(), expected, rtol=1e-5, atol=1e-7
+    )
+
+
+@pytest.mark.parametrize(
+    "selection,estimated_name,fixed_name",
+    [
+        ({"object": {"lr": 0.03}}, "object", "probe.field"),
+        ({"probe.field": {"lr": 0.01}}, "probe.field", "object"),
+    ],
+)
+def test_parameters_select_object_or_probe_independently(
+    engine, selection, estimated_name, fixed_name
+):
+    engine.device = "cpu"
+    engine.parameters = selection
+    engine.prepareReconstruction()
+
+    named = dict(engine.model.named_parameters())
+    assert named[estimated_name].requires_grad
+    assert not named[fixed_name].requires_grad
+    assert len(engine.optimizer.param_groups) == 1
+    assert engine.optimizer.param_groups[0]["lr"] == selection[estimated_name]["lr"]
+
+
+@pytest.mark.parametrize(
+    "selection,message",
+    [
+        ({}, "at least one"),
+        ({"missing": {"lr": 0.1}}, "Unknown parameter"),
+        ({"object": {"lr": 0.0}}, "positive and finite"),
+        ({"object": {"lr": float("inf")}}, "positive and finite"),
+        ({"object": {}}, "lr"),
+    ],
+)
+def test_invalid_parameter_selections_fail_at_the_api_boundary(
+    engine, selection, message
+):
+    engine.parameters = selection
+    with pytest.raises((TypeError, ValueError, KeyError), match=message):
+        engine.prepareReconstruction()
+
+
+def test_default_device_is_cuda_when_available_else_cpu(engine):
+    assert engine.device == ("cuda" if torch.cuda.is_available() else "cpu")
+
+
+def test_default_prediction_objective_and_update_match_field_reference(engine):
+    engine.device = "cpu"
+    engine.batchSize = 3
+    engine.prepareReconstruction()
+
+    object_reference = torch.nn.Parameter(
+        torch.tensor(engine.reconstruction.object, dtype=torch.complex64)
+    )
+    probe_reference = torch.nn.Parameter(
+        torch.tensor(engine.reconstruction.probe, dtype=torch.complex64)
+    )
+    optimizer = torch.optim.Adam(
+        [
+            {"params": [object_reference], "lr": engine.learningRateObject},
+            {"params": [probe_reference], "lr": engine.learningRateProbe},
+        ],
+        foreach=False,
+    )
+    optimizer.zero_grad(set_to_none=True)
+    reference_loss = torch.zeros(())
+    measured = torch.tensor(engine.experimentalData.ptychogram).sqrt()
+    total_power = measured.square().sum()
+    for index, (row, col) in enumerate(engine.positions):
+        patch = object_reference[..., row : row + 8, col : col + 8]
+        detector = GradientEngine.fft2c(patch * probe_reference).reshape(8, 8)
+        loss = (detector.abs() - measured[index]).square().sum() / total_power
+        loss.backward()
+        reference_loss += loss.detach()
+    optimizer.step()
+
+    actual_loss = engine.runIteration(0)
+    assert actual_loss == pytest.approx(reference_loss.item(), rel=2e-6, abs=1e-7)
+    torch.testing.assert_close(
+        engine.model.object.grad, object_reference.grad, rtol=3e-5, atol=2e-7
+    )
+    torch.testing.assert_close(
+        engine.model.probe.field.grad, probe_reference.grad, rtol=3e-5, atol=2e-7
+    )
+    torch.testing.assert_close(
+        engine.model.object, object_reference, rtol=3e-5, atol=2e-6
+    )
+    torch.testing.assert_close(
+        engine.model.probe.field, probe_reference, rtol=3e-5, atol=2e-6
+    )
+
+
+@pytest.mark.parametrize("estimated_name", ["object", "probe.field"])
+def test_omitted_parameter_stays_fixed_during_reconstruction(engine, estimated_name):
+    engine.device = "cpu"
+    engine.parameters = {estimated_name: {"lr": 0.02}}
+    engine.numIterations = 2
+    before = {
+        "object": engine.reconstruction.object.copy(),
+        "probe.field": engine.reconstruction.probe.copy(),
+    }
+    engine.reconstruct()
+    after = engine.snapshot()
+
+    fixed_name = "probe.field" if estimated_name == "object" else "object"
+    np.testing.assert_array_equal(after[fixed_name], before[fixed_name])
+    assert not np.allclose(after[estimated_name], before[estimated_name])
+
+
+def test_snapshot_restart_and_reset_have_explicit_ownership(engine):
+    engine.device = "cpu"
+    engine.prepareReconstruction()
+    first_optimizer = engine.optimizer
+    retained_object = engine.model.object.detach().clone()
+
+    detached = engine.snapshot()
+    detached["object"][...] = 0
+    assert torch.count_nonzero(engine.model.object).item() > 0
+
+    engine.reconstruction.object[...] = 2 + 3j
+    engine.prepareReconstruction()
+    assert engine.optimizer is not first_optimizer
+    torch.testing.assert_close(engine.model.object, retained_object)
+    np.testing.assert_array_equal(
+        engine.reconstruction.object, retained_object.detach().numpy()
+    )
+
+    engine.reconstruction.object[...] = 2 + 3j
+    object_identity = id(engine.model.object)
+    engine.reset()
+    assert id(engine.model.object) == object_identity
+    torch.testing.assert_close(
+        engine.model.object, torch.full_like(engine.model.object, 2 + 3j)
+    )
+
+
+def test_exception_path_synchronizes_component_state(engine):
+    class InterruptedEngine(GradientEngine):
+        def afterStep(self, iteration):
+            self.model.object.add_(1)
+            raise RuntimeError("intentional interruption")
+
+    interrupted = InterruptedEngine(
+        engine.reconstruction, engine.experimentalData, engine.params, DummyMonitor()
+    )
+    interrupted.device = "cpu"
+    interrupted.numIterations = 1
+    with pytest.raises(RuntimeError, match="intentional interruption"):
+        interrupted.reconstruct()
+    np.testing.assert_array_equal(
+        interrupted.reconstruction.object,
+        interrupted.model.object.detach().numpy(),
+    )
+    assert not np.shares_memory(
+        interrupted.reconstruction.object,
+        interrupted.model.object.detach().numpy(),
+    )
+
+
+def test_duplicate_parameter_ownership_is_rejected(engine):
+    engine.device = "cpu"
+    engine.reset()
+    engine.model.object_alias = engine.model.object
+    engine.parameters = {
+        "object": {"lr": 0.03},
+        "object_alias": {"lr": 0.03},
+    }
+    with pytest.raises(ValueError, match="same tensor"):
+        engine.prepareReconstruction()
+
+
+def test_explicit_cpu_device_moves_components_and_batches(engine):
+    engine.device = "cpu"
+    engine.prepareReconstruction()
+    assert {parameter.device.type for parameter in engine.model.parameters()} == {"cpu"}
+    assert engine.measuredIntensities.device.type == "cpu"
+    assert all(
+        kernel.device.type == "cpu" for kernel in engine.propagation.propagationKernels
+    )
