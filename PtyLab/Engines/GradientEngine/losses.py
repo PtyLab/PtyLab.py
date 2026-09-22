@@ -66,16 +66,35 @@ def amplitude_loss(
     predicted_intensity,
     measured_intensity,
     total_power,
+    eps=1e-12,
+):
+    """Stabilized squared amplitude residual, normalized by full-scan power.
+
+    L = sum_i (sqrt(max(I_i, 0) + eps) - sqrt(y_i))^2 / P
+
+    This is the conventional ptychographic amplitude objective. The small
+    positive epsilon keeps autodiff finite at a dark predicted pixel without
+    changing the measured amplitude transform.
+    """
+    if not isfinite(eps) or eps <= 0:
+        raise ValueError("eps must be a positive finite scalar.")
+    predicted_amplitude = torch.sqrt(predicted_intensity.clamp_min(0.0) + eps)
+    residual = predicted_amplitude - measured_intensity.sqrt()
+    return residual.square().sum() / total_power
+
+
+def anscombe_loss(
+    predicted_intensity,
+    measured_intensity,
+    total_power,
     anscombe_offset=0.375,
 ):
-    """Anscombe-stabilized squared amplitude residual, normalized by full-scan power.
+    """Squared residual after applying the Anscombe 3/8 amplitude transform.
 
-    L = sum_i (sqrt(max(I_i, 0) + c) - sqrt(max(y_i, 0) + c))^2 / P,  c = anscombe_offset
+    L = sum_i (sqrt(max(I_i, 0) + c) - sqrt(max(y_i, 0) + c))^2 / P
 
-    Approximates the Poisson NLL by working in amplitude space, where Poisson
-    noise is roughly constant-variance. c = 3/8 (Anscombe, 1948) sharpens this
-    approximation at low counts and must be applied to both sides equally, and
-    must stay strictly positive to keep the gradient finite at I = 0.
+    Keeping this objective separate from :func:`amplitude_loss` makes the
+    variance-stabilized approximation explicit in comparisons.
     """
     if not isfinite(anscombe_offset) or anscombe_offset <= 0:
         raise ValueError("anscombe_offset must be a positive finite scalar.")
@@ -120,4 +139,48 @@ def mixed_poisson_gaussian_loss(
     residual_sq = (predicted_intensity - measured_intensity).square()
 
     nll = 0.5 * ((residual_sq / variance) + variance.log())
+    return nll.sum() / total_power
+
+
+def censored_mixed_poisson_gaussian_loss(
+    predicted_intensity,
+    measured_intensity,
+    total_power,
+    gain=1.0,
+    read_out_sigma=0.0,
+    lower_bound=0.0,
+    eps=1e-8,
+):
+    """Censored Gaussian approximation to clipped Poisson-Gaussian data.
+
+    Positive measurements use the heteroscedastic Gaussian density from
+    :func:`mixed_poisson_gaussian_loss`. A value at the detector lower bound
+    instead contributes the probability that its latent, unclipped value was
+    at or below that bound.
+
+    This models ``measured = max(lower_bound, latent_measurement)``. It is not
+    the exact Poisson-Gaussian convolution likelihood.
+    """
+    if not isfinite(gain) or gain < 0:
+        raise ValueError("gain must be a nonnegative finite scalar.")
+    if not isfinite(read_out_sigma) or read_out_sigma < 0:
+        raise ValueError("read_out_sigma must be a nonnegative finite scalar.")
+    if not isfinite(lower_bound):
+        raise ValueError("lower_bound must be a finite scalar.")
+    if not isfinite(eps) or eps <= 0:
+        raise ValueError("eps must be a positive finite scalar.")
+
+    intensity = predicted_intensity.clamp_min(0.0)
+    variance = gain * intensity + (read_out_sigma**2) + eps
+    standard_deviation = variance.sqrt()
+    residual_sq = (intensity - measured_intensity).square()
+    uncensored_nll = 0.5 * ((residual_sq / variance) + variance.log())
+    censored_nll = -torch.special.log_ndtr(
+        (lower_bound - intensity) / standard_deviation
+    )
+    nll = torch.where(
+        measured_intensity <= lower_bound,
+        censored_nll,
+        uncensored_nll,
+    )
     return nll.sum() / total_power
