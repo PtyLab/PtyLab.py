@@ -218,7 +218,7 @@ class ExperimentalData:
 
     def reduce_positions(self, start, end):
         """
-        Restrict the dataset to a contiguous subset of measurement positions.
+            Restrict the dataset to a contiguous subset of measurement positions.
 
         The ptychogram and the corresponding encoder positions are sliced along
         their first dimension using standard Python slicing semantics.
@@ -256,6 +256,9 @@ class ExperimentalData:
 
         Notes:
             This method modifies ``self.ptychogram`` in place.
+
+            Derived detector quantities such as ``Nd`` and ``Ld`` are currently
+            not recomputed by this method.
         '''
         if not isinstance(size, int):
             raise TypeError('Crop value is not valid. Int expected')
