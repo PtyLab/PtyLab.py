@@ -20,8 +20,67 @@ from PtyLab.utils.visualisation import setColorMap, show3Dslider
 
 class ExperimentalData:
     """
-    This is a container class for all the data associated with the ptychography reconstruction.
-    It only holds attributes that are the same for every type of reconstruction.
+    Store experimental data and geometry for a PtyLab reconstruction.
+
+    The class defines the experimental fields required for conventional
+    ptychography (CPM) or Fourier ptychography (FPM), loads them from an HDF5
+    dataset, and derives basic detector and acquisition quantities used by the
+    reconstruction.
+
+    Args:
+        filename (str or Path, optional):
+            Path to an experimental HDF5 dataset. If None, the object is initialized without
+            loading a dataset.
+
+        operationMode (str, optional):
+            Ptychographic operation mode, either conventional ptychography
+            (``"CPM"``) or Fourier ptychography (``"FPM"``).
+            Defaults to ``"CPM"``.
+
+    Attributes:
+        operationMode (str):
+            Selected ptychographic operation mode.
+
+        ptychogram (np.ndarray):
+            Stack of measured intensity images. Available after data have been loaded.
+
+        wavelength (float):
+            Illumination wavelength in meters.
+
+        encoder (np.ndarray):
+            Position or illumination-coordinate data associated with the measurements.
+
+        dxd (float):
+            Detector pixel size in meters.
+
+        Nd (int):
+            Number of detector pixels along one dimension.
+
+        Ld (float):
+            Physical detector width in meters.
+
+        numFrames (int):
+            Number of measured frames.
+
+        zo (float):
+            Sample-to-detector distance in meters. Available for CPM datasets.
+
+        zled (float):
+            LED-to-sample distance in meters. Available for FPM datasets.
+
+        magnification (float):
+            Microscope magnification. Available for FPM datasets.
+
+    Raises:
+        ValueError:
+            If ``operationMode`` is neither ``"CPM"`` nor ``"FPM"``.
+
+    Notes:
+        CPM and FPM require different acquisition parameters. For CPM, the
+        required fields include ``zo`` (sample-to-detector distance), whereas
+        FPM requires ``zled`` and ``magnification``.
+
+        Geometric quantities are expected in SI units, with distances given in meters.
     """
 
     def __init__(self, filename=None, operationMode="CPM"):
@@ -29,20 +88,19 @@ class ExperimentalData:
         self.logger.debug("Initializing ExperimentalData object")
 
         self.operationMode = (
-            operationMode  # operationMode: 'CPM' or 'FPM', default is CPM is not given
+            operationMode  # Select the data schema for CPM or FPM.
         )
         self._setFields()
         if filename is not None:
             self.loadData(filename)
 
-        # which fields have to be transferred if GPU operation is required?
-        # not all of them are always used, but the class will determine by itself which ones are
-        # required
+        # Arrays that may need to be transferred between CPU and GPU.
+        # Some fields are only present for specific reconstruction modes or engines.
         self.fields_to_transfer = [
             "emptyBeam",
             "ptychogram",
             "ptychogramDownsampled",
-            "W",  # for aPIE
+            "W",  # used in aPIE
         ]
 
     def _setFields(self):
@@ -50,30 +108,29 @@ class ExperimentalData:
         Set the required and optional fields for ptyLab to work.
         ALL VALUES MUST BE IN METERS.
         """
-        # These are the fields required for ptyLab to work (depending on the operationMode)
         if self.operationMode == "CPM":
             self.requiredFields = [
-                "ptychogram",  # 3D image stack
-                "wavelength",  # illumination lambda
-                "encoder",  # diffracted field positions
-                "dxd",  # pixel size
-                "zo",  # sample to detector distance
+                "ptychogram",  # measured intensity stack, shape: (numFrames, Nd, Nd)
+                "wavelength",  # illumination wavelength [m]
+                "encoder",  # lateral scan positions for each diffraction frame [m]
+                "dxd",  # detector pixel size [m]
+                "zo",  # sample-to-detector propagation distance [m]
             ]
             self.optionalFields = [
-                "entrancePupilDiameter",  # used in CPM as the probe diameter
-                "spectralDensity",  # CPM parameters: different wavelengths required for polychromatic ptychography
-                "theta",  # CPM parameters: reflection tilt angle, required for
+                "entrancePupilDiameter",  # effective probe diameter used for CPM initialization [m]
+                "spectralDensity",  # CPM parameters: spectral weights for polychromatic reconstruction
+                "theta",  # CPM parameters: sample tilt / incidence angle for reflection-mode ptychography [rad]
                 "emptyBeam",  # image of the probe
             ]
 
         elif self.operationMode == "FPM":
             self.requiredFields = [
-                "ptychogram",  # 3D image stack
-                "wavelength",  # illumination lambda
-                "encoder",  # diffracted field positions
-                "dxd",  # detector pixel size
-                "zled",  # LED to sample distance
-                "magnification",  # magnification, used for FPM computations of dxp
+                "ptychogram",  # measured intensity stack, shape: (numFrames, Nd, Nd)
+                "wavelength",  # illumination wavelength [m]
+                "encoder",  # lateral scan positions for each diffraction frame [m]
+                "dxd",  # detector pixel size [m]
+                "zled",  # LED to sample distance [m]
+                "magnification",  # magnification, used for FPM computations of dxp [m]
             ]
             self.optionalFields = [
                 # entrance pupil diameter, defined in lens-based microscopes as the aperture diameter, reqquired for FPM
@@ -85,16 +142,29 @@ class ExperimentalData:
 
     def loadData(self, filename=None):
         """
-        Load data specified in filename.
-        :type filename: str or Path
-            Filename of dataset. There are three additional options:
-                - example:simulation_cpm will load an example cmp dataset.
-                - example:simulation_fpm will load an example fpm dataset.
-                - test:nodata will load an essentially empty object
-        :param python_order: bool
-                Weather to change the input order of the files to match python convention.
-                 Only in very special cases should this be false.
-        :return:
+        Load a ptychography dataset and initialize the corresponding experimental data.
+
+        The dataset fields required for loading depend on the selected operation mode.
+        Example-data aliases can be used instead of explicit file paths.
+
+        Args:
+            filename (str or Path):
+                Path to the dataset to load. The following special aliases are supported:
+
+                - ``"example:simulation_cpm"``: synthetic CPM example dataset.
+                - ``"example:simulation_fpm"``: synthetic FPM example dataset.
+                - ``"test:nodata"``: initialize a minimal stub dataset for testing.
+
+        Notes:
+            After loading, the dataset fields are added as attributes of the
+            ``ExperimentalData`` instance.
+
+            Derived quantities such as detector coordinates, detector size,
+            number of frames, and probe-power estimates are initialized by
+            ``_setData()``.
+
+            The ptychogram orientation is applied after loading according to the
+            orientation metadata stored in the dataset.
         """
         import os
 
@@ -124,16 +194,15 @@ class ExperimentalData:
         else:
             self.filename = filename
 
-        # 1. check if the dataset contains what we need before loading
+        # Validate that all required dataset fields are present.
         readHdf5.checkDataFields(self.filename, self.requiredFields)
-        # 2. load dictionary. Only the values specified by 'requiredFields'
-        # in readHdf.py file were loaded
+        # Load all required fields and any available optional fields.
         measurementDict = readHdf5.loadInputData(
             self.filename, self.requiredFields, self.optionalFields
         )
-        # 3. 'requiredFields' will be the attributes that must be set
+        # Expose the loaded dataset fields as ExperimentalData attributes.
         attributesToSet = measurementDict.keys()
-        # 4. set object attributes as the essential data fields
+        
         # self.logger.setLevel(logging.DEBUG)
         for a in attributesToSet:
             # make sure that property is not an attribtue
@@ -143,21 +212,53 @@ class ExperimentalData:
             self.logger.debug("Setting %s", a)
 
         self._setData()
-        # last step, just to be sure that it's the last thing we do: set orientation
-        # this has to be last as it can actually change the data in self.ptychogram
-        # depending on the orientation
+        # Apply the stored orientation last, since this operation modifies
+        # the ptychogram array.
         self.setOrientation(readHdf5.getOrientation(self.filename))
 
     def reduce_positions(self, start, end):
         """
-        Reduce the number of positions for the reconstruction
+            Restrict the dataset to a contiguous subset of measurement positions.
+
+        The ptychogram and the corresponding encoder positions are sliced along
+        their first dimension using standard Python slicing semantics.
+
+        Args:
+            start (int):
+                Index of the first measurement position to retain.
+
+            end (int):
+                Index at which to stop the selection. The measurement at this
+                index is not included.
+
+        Notes: 
+            This method modifies ``self.ptychogram`` and ``self.encoder`` in place.
         """
         self.ptychogram = self.ptychogram[start: end]
         self.encoder = self.encoder[start: end]
+        self._setData()
 
     def cropCenter(self, size):
         '''
-        The parameter size corresponds to the finale size of the diffraction patterns
+        Crop each diffraction pattern to a centered square region.
+
+        The ptychogram is cropped along its two detector dimensions while the
+        number of measurement frames is preserved.
+
+        Args:
+            size (int):
+                Number of detector pixels retained along each dimension of the
+                cropped diffraction patterns.
+
+        Raises:
+            TypeError:
+                If ``size`` is not an integer.
+
+        Notes:
+            This method modifies ``self.ptychogram`` in place.
+
+            Derived detector quantities such as ``Nd`` and ``Ld`` are currently
+            not recomputed by this method.
         '''
         if not isinstance(size, int):
             raise TypeError('Crop value is not valid. Int expected')
@@ -168,7 +269,7 @@ class ExperimentalData:
         startx += 1
 
         self.ptychogram = self.ptychogram[..., startx: startx + size, startx: startx + size]
-        # self._setData()
+        self._setData()
 
     def binData(self, binning):
         '''
