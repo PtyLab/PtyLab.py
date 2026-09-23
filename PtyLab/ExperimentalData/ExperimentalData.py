@@ -218,7 +218,7 @@ class ExperimentalData:
 
     def reduce_positions(self, start, end):
         """
-            Restrict the dataset to a contiguous subset of measurement positions.
+        Restrict the dataset to a contiguous subset of measurement positions.
 
         The ptychogram and the corresponding encoder positions are sliced along
         their first dimension using standard Python slicing semantics.
@@ -256,9 +256,6 @@ class ExperimentalData:
 
         Notes:
             This method modifies ``self.ptychogram`` in place.
-
-            Derived detector quantities such as ``Nd`` and ``Ld`` are currently
-            not recomputed by this method.
         '''
         if not isinstance(size, int):
             raise TypeError('Crop value is not valid. Int expected')
@@ -273,8 +270,21 @@ class ExperimentalData:
 
     def binData(self, binning):
         '''
-        :param binning: Binning parameter (int, e.g. 2)
-        :return:
+        Spatially bin each diffraction pattern by averaging neighboring pixels.
+
+        Each ``binning × binning`` detector region is replaced by its mean value,
+        reducing both detector dimensions by the specified binning factor.
+
+        Args:
+            binning (int):
+                Integer binning factor applied along both detector dimensions.
+                The detector dimensions must be divisible by this value.
+
+        Notes:
+            This method modifies ``self.ptychogram`` in place.
+
+            The current implementation performs mean binning, so each output pixel
+            contains the average intensity of the corresponding input pixel block.
         '''
         Ndp = self.ptychogram.shape[0]
         Ny = self.ptychogram.shape[1]
@@ -283,7 +293,7 @@ class ExperimentalData:
         ptychogram_temp = np.copy(self.ptychogram)
         self.ptychogram = np.zeros((Ndp, Ny // binning, Nx // binning))
 
-        # Loop through all dp
+        # Bin each diffraction pattern independently.
         for i in range(Ndp):
             temp = ptychogram_temp[i]
             reshaped_temp = temp.reshape(Ny // binning, binning, Nx // binning, binning)
@@ -292,9 +302,40 @@ class ExperimentalData:
 
     def setOrientation(self, orientation, force_contiguous=True):
         """
-        Sets the correct orientation. This function follows the ptypy convention.
+        Apply the detector orientation specified by the ptypy convention.
 
-        If orientation is None, it won't change the current orientation.
+        The orientation is applied to the last two dimensions of
+        ``self.ptychogram`` using combinations of axis flips and transposition.
+
+        Args:
+            orientation (int or None):
+                Orientation code following the ptypy convention:
+
+                - ``0``: no transformation.
+                - ``1``: flip detector columns.
+                - ``2``: flip detector rows.
+                - ``3``: flip detector rows and columns.
+                - ``4``: transpose the detector dimensions.
+                - ``5``: transpose, then flip columns.
+                - ``6``: transpose, then flip rows.
+                - ``7``: transpose, then flip rows and columns.
+
+                If None, no transformation is applied.
+
+            force_contiguous (bool, optional):
+                If True, convert the transformed ptychogram to a contiguous
+                NumPy array. Defaults to True.
+
+        Raises:
+            TypeError:
+                If ``orientation`` is not an integer or None.
+
+            ValueError:
+                If ``orientation`` is not one of the supported values from
+                0 to 7.
+
+        Notes:
+            This method modifies ``self.ptychogram`` in place.
         """
         if orientation is None:  # do not update.
             return
@@ -333,7 +374,17 @@ class ExperimentalData:
             self.ptychogram = np.ascontiguousarray(self.ptychogram)
 
     def _setData(self):
+        """
+        Update detector geometry and dataset-derived quantities.
 
+        This method derives detector coordinates, detector size, frame count,
+        per-frame integrated intensity, and the maximum probe-amplitude scale
+        from the current ``ptychogram`` and detector pixel size.
+
+        Notes:
+            This method should be called whenever the ptychogram shape or detector
+            sampling changes.
+        """
         # Set the detector coordinates
         self.Nd = self.ptychogram.shape[-1]
         # Detector coordinates 1D
@@ -352,7 +403,15 @@ class ExperimentalData:
 
     def showPtychogram(self):
         """
-        show ptychogram.
+        Display the measured ptychogram stack on a logarithmic intensity scale.
+
+        The diffraction patterns are clipped to non-negative values, converted to
+        ``log10(I + 1)`` for visualization, and displayed with an interactive
+        slider over the measurement frames.
+
+        Notes:
+            This method is intended for data inspection only and does not modify
+            ``self.ptychogram``.
         """
         xp = getArrayModule(self.ptychogram)
         print(f"Min max ptychogram: {np.min(self.ptychogram)}, {self.ptychogram.max()}")
@@ -373,15 +432,25 @@ class ExperimentalData:
 
     def relative_intensity(self, index):
         """
-        Return the relative intensity of the ptychogram at index compared to the brightest one
+        Return the normalized mean intensity of a selected ptychogram frame.
 
-        Parameters
-        ----------
-        index
+        The mean detector intensity is computed for each frame and
+        normalized.
 
-        Returns
-        -------
+        Args:
+            index (int):
+                Index of the measurement frame.
 
+        Returns:
+            float:
+                Normalized mean intensity of the selected frame.
+
+        Notes:
+            The normalization is defined as
+
+            ``I_rel = I_mean / (mean(I_mean) + 2 * std(I_mean))``.
+
+            The normalized intensities are cached after the first call.
         """
         if not hasattr(self, '_relative_intensity'):
             self._relative_intensity = self.ptychogram.mean((-2,-1))
