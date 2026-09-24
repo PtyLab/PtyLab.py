@@ -9,4 +9,4 @@
 
 ## Notes
 
-<!-- Optional: breaking changes, version bump, follow-ups. -->
+<!-- Optional: breaking changes, changed reconstruction results, follow-ups. -->
