@@ -22,10 +22,9 @@ class ExperimentalData:
     """
     Store experimental data and geometry for a PtyLab reconstruction.
 
-    The class defines the experimental fields required for conventional
-    ptychography (CPM) or Fourier ptychography (FPM), loads them from an HDF5
-    dataset, and derives basic detector and acquisition quantities used by the
-    reconstruction.
+    The class defines the dataset fields required for conventional ptychography
+    (CPM) and Fourier ptychography (FPM), loads them from an HDF5 dataset, and
+    derives detector and dataset quantities used during reconstruction.
 
     Args:
         filename (str or Path, optional):
@@ -65,11 +64,32 @@ class ExperimentalData:
         zo (float):
             Sample-to-detector distance in meters. Available for CPM datasets.
 
+        entrancePupilDiameter (float or None):
+            Effective probe diameter used for probe initialization. Optional for CPM datasets, not used in FPM.
+
+        spectralDensity (np.ndarray or None):
+            Spectral information used for polychromatic reconstruction. Optional for CPM datasets, not used in FPM.
+
+        theta (float or None):
+            Sample tilt or incidence-angle parameter used for reflection-mode. Optional for CPM datasets, not used in FPM.
+
+        emptyBeam (np.ndarray or None):
+            Reference illumination or probe image. Optional for CPM datasets, not used in FPM.
+
         zled (float):
             LED-to-sample distance in meters. Available for FPM datasets.
 
         magnification (float):
             Microscope magnification. Available for FPM datasets.
+        
+        NA (float or None):
+            Microscope numerical aperture optional for FPM. If not provided, it is estimated from the Fourier-space pupil diameter during reconstruction.
+        
+        energyAtPos (np.ndarray):
+            Integrated intensity of each measurement frame.
+
+        maxProbePower (float):
+            Maximum integrated-amplitude scale derived from the ptychogram.
 
     Raises:
         ValueError:
