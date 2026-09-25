@@ -77,19 +77,19 @@ class ExperimentalData:
             Reference illumination or probe image. Optional for CPM datasets, not used in FPM.
 
         zled (float):
-            LED-to-sample distance in meters. Available for FPM datasets.
+            LED-to-sample distance in meters. Available for FPM datasets, and used to determine the illumination angle and corresponding Fourier-space shift for each measurement.
 
         magnification (float):
-            Microscope magnification. Available for FPM datasets.
+            Microscope magnification. Available for FPM datasets, Used to convert the detector pixel size to the sample-plane pixel size.
         
         NA (float or None):
             Microscope numerical aperture optional for FPM. If not provided, it is estimated from the Fourier-space pupil diameter during reconstruction.
         
         energyAtPos (np.ndarray):
-            Integrated intensity of each measurement frame.
+            Integrated diffraction intensity for each measurement frame, obtained by summing the ptychogram over the detector pixels. Used to normalize the reconstruction error for each scan position.
 
         maxProbePower (float):
-            Maximum integrated-amplitude scale derived from the ptychogram.
+            Probe-amplitude scale derived from the brightest diffraction frame, defined as the square root of its integrated intensity. Used to rescale the initial probe when probe-power correction is enabled.
 
     Raises:
         ValueError:
