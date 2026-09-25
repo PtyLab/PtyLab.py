@@ -1,5 +1,6 @@
 # Experimental Data
 
-::: PtyLab.ExperimentalData
+::: PtyLab.ExperimentalData.ExperimentalData.ExperimentalData
     options:
-      show_submodules: true
+      show_root_heading: true
+      show_root_full_path: false
