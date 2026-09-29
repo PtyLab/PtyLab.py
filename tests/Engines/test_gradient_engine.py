@@ -70,6 +70,21 @@ def test_forward_matches_numpy_and_has_complex_gradients(size):
     )
 
 
+@pytest.mark.parametrize("size", [7, 8])
+def test_fraunhofer_intensity_field_is_fft_order_of_centered_intensity(size):
+    from PtyLab.Engines.GradientEngine.propagation import KernelPropagator
+
+    rng = np.random.default_rng(5)
+    field = torch.tensor(
+        rng.normal(size=(3, size, size)) + 1j * rng.normal(size=(3, size, size))
+    )
+    propagation = KernelPropagator(None, "Fraunhofer")
+    assert propagation.fftOrderIntensity
+    centered = propagation(field).abs().square()
+    fft_order = propagation.intensity_field(field).abs().square()
+    torch.testing.assert_close(torch.fft.fftshift(fft_order, dim=(-2, -1)), centered)
+
+
 @pytest.mark.parametrize("batch_size", [1, 3])
 def test_reconstruction_reduces_loss_and_preserves_numpy_api(
     engine, tmp_path, batch_size
@@ -271,6 +286,9 @@ def test_component_regularizer_matches_subclass_hook(engine):
     )
     engine.regularizers = [partial(object_smoothness, weight=0.02)]
     engine.numIterations = reference.numIterations = 4
+    # CUDA scatter-adds in the patch-gather backward are not bitwise
+    # reproducible; CPU keeps this equivalence check exact.
+    engine.device = reference.device = "cpu"
     engine.reconstruct()
     reference.reconstruct()
     np.testing.assert_allclose(
@@ -300,7 +318,7 @@ def test_assigned_model_and_loss_receive_gradients(engine):
     engine.lossFunction = intensity_loss
     engine.numIterations = 3
     engine.reconstruct()
-    assert engine.model.calls == 3 * engine.experimentalData.numFrames
+    assert engine.model.calls == 3  # one full-scan batch per iteration
     assert engine.model.object.grad.abs().sum() > 0
     assert engine.model.probe.field.grad.abs().sum() > 0
     assert np.isfinite(engine.reconstruction.error).all()
@@ -326,6 +344,7 @@ def test_batches_match_single_frame_step(engine, batch_size, propagator, loss_na
         initial, engine.experimentalData, initial.params, DummyMonitor()
     )
     engine.batchSize = batch_size
+    reference.batchSize = 1
     for candidate in (engine, reference):
         candidate.lossFunction = getattr(losses, loss_name)
         candidate.regularizers = [
@@ -347,11 +366,8 @@ def test_batches_match_single_frame_step(engine, batch_size, propagator, loss_na
         candidate.regularizationLoss = Mock(wraps=candidate.regularizationLoss)
         candidate.optimizer.step = Mock(wraps=candidate.optimizer.step)
 
-    expected_intensity = (
+    expected_intensity = reference.centeredIntensity(
         reference.forward(torch.tensor([1], device=reference.device))[0]
-        .detach()
-        .cpu()
-        .numpy()
     )
     expected_loss = reference.runIteration(0)
     actual_loss = engine.runIteration(0)
@@ -374,10 +390,10 @@ def test_batches_match_single_frame_step(engine, batch_size, propagator, loss_na
     )
 
 
-@pytest.mark.parametrize("batch_size", [0, -1, 1.5, "2", None, True, np.bool_(True)])
+@pytest.mark.parametrize("batch_size", [0, -1, 1.5, "2", True, np.bool_(True)])
 def test_invalid_batch_size(engine, batch_size):
     engine.batchSize = batch_size
-    with pytest.raises(ValueError, match="batchSize must be a positive integer"):
+    with pytest.raises(ValueError, match="batchSize must be a positive integer or None"):
         engine.prepareReconstruction()
 
 
@@ -520,6 +536,8 @@ def test_component_model_preserves_six_axis_fields_and_returns_intensity(engine)
 
     assert fields.shape == (2, 1, 1, 1, 1, 8, 8)
     assert intensity.shape == (2, 8, 8)
+    # Fraunhofer intensities are in unshifted FFT order, fields stay centered.
+    intensity = torch.fft.fftshift(intensity, dim=(-2, -1))
     torch.testing.assert_close(intensity, fields.abs().square().sum(dim=(1, 2, 3, 4)))
 
     expected = []
@@ -709,3 +727,157 @@ def test_explicit_cpu_device_moves_components_and_batches(engine):
     assert all(
         kernel.device.type == "cpu" for kernel in engine.propagation.propagationKernels
     )
+
+
+def test_update_per_batch_with_one_batch_matches_full_scan_step(engine):
+    from copy import deepcopy
+
+    initial = deepcopy(engine.reconstruction)
+    reference = GradientEngine(
+        initial, engine.experimentalData, initial.params, DummyMonitor()
+    )
+    engine.updatePerBatch = True
+    for candidate in (engine, reference):
+        candidate.device = "cpu"
+        candidate.batchSize = engine.experimentalData.numFrames
+        candidate.numIterations = 3
+        candidate.reconstruct()
+    np.testing.assert_array_equal(
+        engine.reconstruction.error, reference.reconstruction.error
+    )
+    np.testing.assert_array_equal(
+        engine.reconstruction.object, reference.reconstruction.object
+    )
+
+
+@pytest.mark.parametrize("batch_size, steps", [(1, 4), (3, 2), (4, 1)])
+def test_update_per_batch_steps_once_per_batch(engine, batch_size, steps):
+    from functools import partial
+
+    from PtyLab.Engines.GradientEngine.regularizers import object_smoothness
+
+    engine.device = "cpu"
+    engine.batchSize = batch_size
+    engine.updatePerBatch = True
+    engine.regularizers = [partial(object_smoothness, weight=0.02)]
+    after_step = []
+    engine.afterStep = after_step.append
+    engine.prepareReconstruction()
+    original_step = engine.optimizer.step
+    counted = []
+
+    def step(*args, **kwargs):
+        counted.append(1)
+        return original_step(*args, **kwargs)
+
+    engine.optimizer.step = step
+    loss = engine.runIteration(0)
+    assert len(counted) == len(after_step) == steps
+    assert np.isfinite(loss)
+
+
+def test_gradient_preconditioners_match_numpy_illumination(engine):
+    engine.device = "cpu"
+    engine.prepareReconstruction()
+    r = engine.reconstruction
+    indices = torch.tensor([0, 2, 3])
+    curvature = engine.model.gradient_preconditioners(indices)
+
+    probe = np.squeeze(r.probe)
+    obj = np.squeeze(r.object)
+    illumination = np.zeros((r.No, r.No))
+    coverage = np.zeros((r.Np, r.Np))
+    for row, col in r.positions[[0, 2, 3]]:
+        illumination[row : row + r.Np, col : col + r.Np] += abs(probe) ** 2
+        coverage += abs(obj[row : row + r.Np, col : col + r.Np]) ** 2
+    assert curvature["object"].shape == engine.model.object.shape
+    assert curvature["probe.field"].shape == engine.model.probe.field.shape
+    np.testing.assert_allclose(
+        curvature["object"].squeeze().numpy(), illumination, rtol=1e-5
+    )
+    np.testing.assert_allclose(
+        curvature["probe.field"].squeeze().numpy(), coverage, rtol=1e-5
+    )
+
+
+def test_preconditioned_step_divides_gradient_by_regularized_curvature(engine):
+    engine.device = "cpu"
+    engine.optimizerType = "preconditioned"
+    engine.preconditionerAlpha = 0.25
+    engine.parameters = {"object": {"lr": 0.3}, "probe.field": {"lr": 0.2}}
+    engine.prepareReconstruction()
+    assert isinstance(engine.optimizer, torch.optim.SGD)
+    before = {
+        name: parameter.detach().clone()
+        for name, parameter in engine.model.named_parameters()
+    }
+
+    indices = torch.arange(engine.experimentalData.numFrames)
+    engine.optimizer.zero_grad(set_to_none=True)
+    loss = engine.computeLoss(
+        engine.forward(indices), engine.measuredIntensities[indices]
+    )
+    loss.backward()
+    gradients = {
+        name: parameter.grad.clone()
+        for name, parameter in engine.model.named_parameters()
+    }
+    curvature = engine.model.gradient_preconditioners(indices)
+
+    engine.setPositionOrder = lambda: None
+    engine.positionIndices = np.arange(engine.experimentalData.numFrames)
+    engine.runIteration(0)
+    for name, rate in (("object", 0.3), ("probe.field", 0.2)):
+        values = curvature[name]
+        denominator = (0.75 * values + 0.25 * values.max()) / engine.totalPower
+        expected = before[name] - rate * gradients[name] / denominator
+        torch.testing.assert_close(
+            dict(engine.model.named_parameters())[name].detach(),
+            expected,
+            rtol=1e-5,
+            atol=1e-6,
+        )
+
+
+def test_preconditioned_reconstruction_reduces_loss(engine):
+    engine.device = "cpu"
+    engine.optimizerType = "preconditioned"
+    engine.parameters = {"object": {"lr": 0.3}, "probe.field": {"lr": 0.3}}
+    engine.numIterations = 10
+    engine.reconstruct()
+    assert engine.reconstruction.error[-1] < engine.reconstruction.error[0]
+
+
+def test_preconditioned_parameter_without_curvature_fails(engine):
+    from PtyLab.Engines.GradientEngine.models import PtychographyModel, SharedProbe
+
+    class ScaledModel(PtychographyModel):
+        def __init__(self, *args):
+            super().__init__(*args)
+            self.scale = torch.nn.Parameter(torch.ones(()))
+
+        def forward(self, indices):
+            return self.scale * super().forward(indices)
+
+    r = engine.reconstruction
+    engine.model = ScaledModel(r.object, SharedProbe(r.probe), r.positions)
+    engine.device = "cpu"
+    engine.optimizerType = "preconditioned"
+    engine.parameters = {"scale": {"lr": 0.1}}
+    with pytest.raises(KeyError, match="scale"):
+        engine.reconstruct()
+
+
+@pytest.mark.parametrize(
+    "name, value",
+    [
+        ("optimizerType", "sgd"),
+        ("preconditionerAlpha", 0.0),
+        ("preconditionerAlpha", 1.5),
+        ("preconditionerAlpha", True),
+    ],
+)
+def test_invalid_optimizer_settings_fail(engine, name, value):
+    setattr(engine, name, value)
+    with pytest.raises(ValueError, match=name):
+        engine.reconstruct()
