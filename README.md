@@ -61,15 +61,17 @@ For the latest unreleased changes on `main`:
 pip install git+https://github.com/PtyLab/PtyLab.py.git
 ```
 
-### Gradient-based reconstruction (uses automatic differentiation)
+### Gradient-based reconstruction with PyTorch
 
-The experimental `PtyLab.Engines.GradientEngine` uses PyTorch for gradient-based reconstruction and custom forward models. Install it with automatic hardware selection:
+The new module `PtyLab.Engines.GradientEngine` is a work-in-progress that leverages automatic differentiation from PyTorch for gradient-based reconstruction and custom forward models. Note that it will undergo substantial refactoring in the coming versions and would most likely include breaking changes. 
+
+To enable the module's use, install it with an additional `torch` flag:
 
 ```bash
-uv pip install "ptylab[torch]" --torch-backend=auto
+uv pip install "ptylab[gpu,torch]" --torch-backend=cu126
 ```
 
-For CuPy and CUDA 12.8 PyTorch, install `ptylab[gpu,torch]` with `--torch-backend=cu128`. See the [CPM tutorial](/jupyter_tutorials/jupyter_tutorials_tutorial_CPM_sim.ipynb) and [component guide](/PtyLab/Engines/GradientEngine/README.md).
+See the [CPM tutorial](/jupyter_tutorials/jupyter_tutorials_tutorial_CPM_sim_GradientEngine.ipynb) and [component guide](/PtyLab/Engines/GradientEngine/README.md).
 
 ### Development
 
