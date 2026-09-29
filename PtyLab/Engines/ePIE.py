@@ -17,6 +17,55 @@ from PtyLab.utils.utils import fft2c, ifft2c
 
 
 class ePIE(BaseEngine):
+    r"""
+    Extended Ptychographical Iterative Engine (ePIE).
+
+    ePIE jointly reconstructs the complex object and illumination probe by
+    iterating over overlapping scan positions.[^maiden2009] For each position $j$, the
+    exit surface wave is formed as
+
+    $$
+    \Psi_j = O_j P
+    $$
+
+    where $O_j$ is the object patch illuminated by the probe $P$.
+
+    After propagation to the detector plane and application of the measured
+    intensity constraint, the corrected exit wave $\Psi'_j$ is propagated
+    back to the object plane. The resulting exit-wave difference is
+
+    $$
+    \Delta\Psi_j = \Psi'_j - \Psi_j
+    $$
+
+    In the classical single-mode ePIE formulation, the object and probe are
+    updated according to
+
+    $$
+    O'_j = O_j + \beta_O \frac{P^*}{\max |P|^2}\Delta\Psi_j
+    $$
+
+    and
+
+    $$
+    P' = P + \beta_P \frac{O_j^*}{\max |O_j|^2}\Delta\Psi_j
+    $$
+
+    where $\beta_O$ and $\beta_P$ control the object and probe update step
+    sizes.
+
+    The PtyLab implementation generalizes these updates to its multidimensional
+    reconstruction representation by summing the corresponding contributions
+    over the relevant wavelength, mode, and slice dimensions.
+
+    The default ePIE settings are `betaObject = 0.25`,
+    `betaProbe = 0.25`, and `numIterations = 50`.
+
+    [^maiden2009]: A. M. Maiden and J. M. Rodenburg,
+        "An improved ptychographical phase retrieval algorithm for diffractive
+        imaging," Ultramicroscopy 109, 1256-1262 (2009).
+        https://doi.org/10.1016/j.ultramic.2009.05.012
+    """
     def __init__(
         self,
         reconstruction: Reconstruction,
@@ -24,8 +73,21 @@ class ePIE(BaseEngine):
         params: Params,
         monitor: Monitor,
     ):
-        # This contains reconstruction parameters that are specific to the reconstruction
-        # but not necessarily to ePIE reconstruction
+        """
+        Initialize the ePIE reconstruction engine.
+
+        Args:
+            reconstruction (Reconstruction):
+                Reconstruction state containing the current object, probe, and
+                geometry.
+            experimentalData (ExperimentalData):
+                Experimental diffraction data and acquisition parameters.
+            params (Params):
+                Shared reconstruction parameters and constraint settings.
+            monitor (Monitor):
+                Monitor used for reconstruction visualization and progress
+                reporting.
+        """
         super().__init__(reconstruction, experimentalData, params, monitor)
         self.logger = logging.getLogger("ePIE")
         self.logger.info("Sucesfully created ePIE ePIE_engine")
@@ -34,27 +96,86 @@ class ePIE(BaseEngine):
 
     def initializeReconstructionParams(self):
         """
-        Set parameters that are specific to the ePIE settings.
-        :return:
+        Initialize ePIE-specific reconstruction parameters.
+
+        Defaults:
+            betaObject (float):
+                Object update step size. Default is 0.25.
+            betaProbe (float):
+                Probe update step size. Default is 0.25.
+            numIterations (int):
+                Number of reconstruction iterations. Default is 50.
         """
         self.betaProbe = 0.25
         self.betaObject = 0.25
         self.numIterations = 50
 
     def reconstruct(self, experimentalData: ExperimentalData = None):
-        """Run the reconstruction to completion.
+        """
+        Run the ePIE reconstruction to completion.
 
-        Use :meth:`reconstruct_stepwise` instead if you want to interleave your
-        own work between scan positions.
+        This method consumes the generator returned by `reconstruct_stepwise()`
+        until all reconstruction iterations and scan positions have been
+        processed.
+
+        Use `reconstruct_stepwise()` when custom operations need to be inserted
+        between individual scan-position updates.
+
+        Args:
+            experimentalData (ExperimentalData, optional):
+                Experimental dataset to use for the reconstruction. If provided,
+                it replaces the currently attached experimental data.
         """
         for _ in self.reconstruct_stepwise(experimentalData):
             pass
 
     def reconstruct_stepwise(self, experimentalData: ExperimentalData = None):
-        """Generator variant of :meth:`reconstruct`.
+        r"""
+        Run the ePIE reconstruction one scan-position update at a time.
 
-        Yields ``(iteration, positionLoop)`` after every scan position. Nothing
-        happens until the generator is consumed.
+        For each reconstruction iteration, the scan positions are visited in the
+        order selected by `params.positionOrder`. At each position $j$, the
+        corresponding object patch is extracted and combined with the current
+        probe to form the exit surface wave:
+
+        $$
+        \Psi_j = O_j P
+        $$
+
+        The exit wave is propagated to the detector plane, constrained by the
+        measured diffraction intensity through `intensityProjection()`, and
+        propagated back to obtain an updated exit wave $\Psi'_j$.
+
+        The exit-wave correction is
+
+        $$
+        \Delta\Psi_j = \Psi'_j - \Psi_j
+        $$
+
+        and is subsequently used by `objectPatchUpdate()` and `probeUpdate()` to
+        update the object and probe.
+
+        If `params.OPRP` is enabled, position-dependent probe estimates are
+        retrieved from `reconstruction.probe_storage` before each scan-position
+        update and stored again after the probe update. Without OPRP, the same
+        probe estimate is shared and updated sequentially across all scan
+        positions.
+
+        After all scan positions in an iteration have been processed,
+        `getErrorMetrics()` evaluates the reconstruction error and
+        `applyConstraints()` applies the enabled reconstruction constraints.
+
+        The method yields after every scan-position update, allowing custom code
+        to be interleaved with the reconstruction.
+
+        Args:
+            experimentalData (ExperimentalData, optional):
+                Experimental dataset to use for the reconstruction. If provided,
+                it replaces the currently attached experimental data.
+
+        Yields:
+            tuple:
+                ``(iteration, positionLoop)`` after each scan-position update.
         """
         if experimentalData is not None:
             self.reconstruction.data = experimentalData
@@ -126,11 +247,39 @@ class ePIE(BaseEngine):
             self.params.gpuFlag = 0
 
     def objectPatchUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
-        """
-        Todo add docstring
-        :param objectPatch:
-        :param DELTA:
-        :return:
+        r"""
+        Update the object patch using the ePIE object-update rule.
+
+        For the classical single-mode case, the probe weighting is
+
+        $$
+        W_P(x,y) = \frac{P^*(x,y)}{\max_{x,y}|P(x,y)|^2}
+        $$
+
+        and the object patch is updated according to
+
+        $$
+        O'_j = O_j + \beta_O W_P\Delta\Psi_j
+        $$
+
+        where $O_j$ is the current object patch, $\Delta\Psi_j$ is the
+        exit-wave correction obtained from the detector-plane intensity
+        constraint, and $\beta_O$ is `betaObject`.
+
+        In the multidimensional PtyLab representation, contributions from the
+        relevant wavelength, probe-mode, and slice dimensions are summed before
+        updating the object patch.
+
+        Args:
+            objectPatch (ndarray):
+                Current object patch at the active scan position.
+            DELTA (ndarray):
+                Exit-wave correction
+                `reconstruction.eswUpdate - reconstruction.esw`.
+
+        Returns:
+            ndarray:
+                Updated object patch.
         """
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
@@ -143,11 +292,39 @@ class ePIE(BaseEngine):
         )
 
     def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
-        """
-        Todo add docstring
-        :param objectPatch:
-        :param DELTA:
-        :return:
+        r"""
+        Update the probe using the ePIE probe-update rule.
+
+        For the classical single-mode case, the object weighting is
+
+        $$
+        W_O(x,y) = \frac{O_j^*(x,y)}{\max_{x,y}|O_j(x,y)|^2}
+        $$
+
+        and the probe is updated according to
+
+        $$
+        P' = P + \beta_P W_O\Delta\Psi_j
+        $$
+
+        where $O_j$ is the current object patch, $\Delta\Psi_j$ is the
+        exit-wave correction obtained from the detector-plane intensity
+        constraint, and $\beta_P$ is `betaProbe`.
+
+        In the multidimensional PtyLab representation, the implemented update
+        sums the corresponding correction over axes `(0, 1, 3)` while preserving
+        the probe-mode dimension.
+
+        Args:
+            objectPatch (ndarray):
+                Current object patch at the active scan position.
+            DELTA (ndarray):
+                Exit-wave correction
+                `reconstruction.eswUpdate - reconstruction.esw`.
+
+        Returns:
+            ndarray:
+                Updated probe.
         """
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)

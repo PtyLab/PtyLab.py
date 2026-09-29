@@ -102,6 +102,11 @@ class BaseEngine(object):
     their algorithm-specific reconstruction and update steps. ``BaseEngine``
     is therefore generally not intended to be instantiated directly.
 
+    Many methods in `BaseEngine` implement functionality controlled by user-facing
+    `Params` switches. The `Params` API documentation describes when and why these
+    options are used, while the corresponding `BaseEngine` methods document their
+    implementation details.
+
     Args:
         reconstruction (Reconstruction):
             Mutable reconstruction state containing the current object, probe,

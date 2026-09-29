@@ -30,13 +30,7 @@
         - adaptiveDenoising
         - objectPatchUpdate_TV
 
-::: PtyLab.Engines.aPIE.aPIE
-    options:
-      show_root_heading: true
-      show_root_full_path: false
-      inherited_members: false
-
-::: PtyLab.Engines.e3PIE.e3PIE
+::: PtyLab.Engines.ePIE.ePIE
     options:
       show_root_heading: true
       show_root_full_path: false
@@ -48,7 +42,7 @@
       show_root_full_path: false
       inherited_members: false
 
-::: PtyLab.Engines.ePIE.ePIE
+::: PtyLab.Engines.mPIE.mPIE
     options:
       show_root_heading: true
       show_root_full_path: false
@@ -60,13 +54,25 @@
       show_root_full_path: false
       inherited_members: false
 
-::: PtyLab.Engines.mPIE.mPIE
+::: PtyLab.Engines.pcPIE.pcPIE
     options:
       show_root_heading: true
       show_root_full_path: false
       inherited_members: false
 
-::: PtyLab.Engines.mqNewton.mqNewton
+::: PtyLab.Engines.zPIE.zPIE
+    options:
+      show_root_heading: true
+      show_root_full_path: false
+      inherited_members: false
+
+::: PtyLab.Engines.aPIE.aPIE
+    options:
+      show_root_heading: true
+      show_root_full_path: false
+      inherited_members: false
+
+::: PtyLab.Engines.e3PIE.e3PIE
     options:
       show_root_heading: true
       show_root_full_path: false
@@ -84,19 +90,13 @@
       show_root_full_path: false
       inherited_members: false
 
-::: PtyLab.Engines.pcPIE.pcPIE
-    options:
-      show_root_heading: true
-      show_root_full_path: false
-      inherited_members: false
-
 ::: PtyLab.Engines.qNewton.qNewton
     options:
       show_root_heading: true
       show_root_full_path: false
       inherited_members: false
-
-::: PtyLab.Engines.zPIE.zPIE
+      
+::: PtyLab.Engines.mqNewton.mqNewton
     options:
       show_root_heading: true
       show_root_full_path: false
