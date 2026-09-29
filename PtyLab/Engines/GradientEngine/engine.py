@@ -39,6 +39,17 @@ class GradientEngine(BaseEngine):
     Every reconstruction call creates a fresh optimizer while retaining the
     component values from the previous call. ``reset()`` explicitly imports the
     detached arrays currently stored on the Reconstruction.
+
+    ``optimizerType = "preconditioned"`` replaces Adam with PIE-style gradient
+    descent: each gradient is divided by the regularized curvature map from
+    ``model.gradient_preconditioners`` before a plain step. Its learning rates
+    are dimensionless; about 0.3 suits the amplitude loss. ``updatePerBatch``
+    takes one optimizer step per batch instead of one per full scan.
+
+    ``batchSize = None`` (the default) forwards the whole scan as one tensor;
+    set an integer only to bound memory. For Fraunhofer data
+    ``measuredIntensities`` is stored in unshifted FFT order, see
+    ``KernelPropagator.intensity_field``.
     """
 
     unsupportedSettings = (
@@ -76,7 +87,7 @@ class GradientEngine(BaseEngine):
     def __init__(self, reconstruction, experimentalData, params, monitor):
         super().__init__(reconstruction, experimentalData, params, monitor)
         self.numIterations = 100
-        self.batchSize = 1
+        self.batchSize = None
         self.learningRateObject = 0.03
         self.learningRateProbe = 0.01
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -84,15 +95,18 @@ class GradientEngine(BaseEngine):
         self.model = None
         self.lossFunction = amplitude_loss
         self.regularizers = []
+        self.optimizerType = "adam"
+        self.preconditionerAlpha = 0.1
+        self.updatePerBatch = False
 
     def validateSettings(self):
         """Reject inputs outside the Stage 1 CPM and single-state contract."""
-        if (
+        if self.batchSize is not None and (
             isinstance(self.batchSize, (bool, np.bool_))
             or not isinstance(self.batchSize, Integral)
             or self.batchSize < 1
         ):
-            raise ValueError("batchSize must be a positive integer.")
+            raise ValueError("batchSize must be a positive integer or None.")
         r, p = self.reconstruction, self.params
         if self.experimentalData.operationMode != "CPM":
             raise NotImplementedError("GradientEngine currently supports CPM only.")
@@ -131,6 +145,15 @@ class GradientEngine(BaseEngine):
             )
         if self.numIterations < 1:
             raise ValueError("numIterations must be positive.")
+        if self.optimizerType not in ("adam", "preconditioned"):
+            raise ValueError('optimizerType must be "adam" or "preconditioned".')
+        alpha = self.preconditionerAlpha
+        if (
+            isinstance(alpha, (bool, np.bool_))
+            or not isinstance(alpha, Real)
+            or not 0 < alpha <= 1
+        ):
+            raise ValueError("preconditionerAlpha must lie in (0, 1].")
 
     fft2c = staticmethod(KernelPropagator.fft2c)
     ifft2c = staticmethod(KernelPropagator.ifft2c)
@@ -156,7 +179,9 @@ class GradientEngine(BaseEngine):
             self.model = self.createModel()
         self.model.to(self.device)
         self.model.set_positions(self.positions)
-        self.model.set_propagation(self.propagation)
+        self.model.set_propagation(
+            self.propagation, getattr(self.propagation, "intensity_field", None)
+        )
 
     def reset(self):
         """Import current Reconstruction object/probe arrays into the components."""
@@ -252,8 +277,32 @@ class GradientEngine(BaseEngine):
         return groups
 
     def createOptimizer(self):
-        """Create a fresh Adam optimizer for the selected parameters."""
+        """Create a fresh optimizer of ``optimizerType`` for the selected parameters."""
+        if self.optimizerType == "preconditioned":
+            return torch.optim.SGD(self.parameterGroups(), foreach=False)
         return torch.optim.Adam(self.parameterGroups(), foreach=False)
+
+    def preconditionGradients(self, indices):
+        """Divide gradients by regularized curvature maps of the stepped frames.
+
+        With curvature ``d`` the denominator is ``(1 - a) d + a max(d)`` for
+        ``a = preconditionerAlpha``, as in rPIE, divided by the full-scan power
+        that normalizes every loss.
+        """
+        curvature = self.model.gradient_preconditioners(indices)
+        alpha = self.preconditionerAlpha
+        for group in self.optimizer.param_groups:
+            (parameter,) = group["params"]
+            if parameter.grad is None:
+                continue
+            if group["name"] not in curvature:
+                raise KeyError(
+                    f"No preconditioner for parameter {group['name']!r}; "
+                    "extend model.gradient_preconditioners."
+                )
+            values = curvature[group["name"]]
+            denominator = (1 - alpha) * values + alpha * values.max()
+            parameter.grad.div_(denominator / self.totalPower)
 
     def _validate_data(self):
         r = self.reconstruction
@@ -281,11 +330,16 @@ class GradientEngine(BaseEngine):
         """Prepare data, retained components, propagation, and a fresh optimizer."""
         self.validateSettings()
         intensity = self._validate_data()
+        self.preparePropagation()
+        self.fftOrderIntensity = getattr(self.propagation, "fftOrderIntensity", False)
         self.measuredIntensities = torch.tensor(
             intensity, dtype=torch.float32, device=self.device
         )
+        if self.fftOrderIntensity:
+            self.measuredIntensities = torch.fft.ifftshift(
+                self.measuredIntensities, dim=(-2, -1)
+            )
         self.totalPower = self.measuredIntensities.sum()
-        self.preparePropagation()
         self.initializeParameters()
         self.optimizer = self.createOptimizer()
         self.reconstruction.error = []
@@ -312,38 +366,57 @@ class GradientEngine(BaseEngine):
         pass
 
     def runIteration(self, iteration):
-        """Accumulate the full-scan objective and take one optimizer step."""
+        """Accumulate the full-scan objective and take one optimizer step.
+
+        With ``updatePerBatch`` every batch takes its own step, and each step
+        carries the regularization penalty weighted by its share of the frames.
+        ``afterStep`` then runs after every step.
+        """
         self.setPositionOrder()
-        self.optimizer.zero_grad(set_to_none=True)
         total_loss = torch.zeros((), device=self.device)
         indices = torch.as_tensor(
             self.positionIndices, dtype=torch.long, device=self.device
         )
-        for start in range(0, len(indices), self.batchSize):
-            batch = indices[start : start + self.batchSize]
-            predicted = self.forward(batch)
-            measured = self.measuredIntensities[batch]
-            loss = self.computeLoss(predicted, measured)
-            loss.backward()
-            total_loss += loss.detach()
-            if start + self.batchSize >= len(indices):
-                last_intensity = predicted[-1].detach().clone()
-            del loss, predicted, measured
+        batch_size = len(indices) if self.batchSize is None else int(self.batchSize)
+        batches = list(torch.split(indices, batch_size))
+        steps = [[batch] for batch in batches] if self.updatePerBatch else [batches]
+        for step in steps:
+            self.optimizer.zero_grad(set_to_none=True)
+            for batch in step:
+                predicted = self.forward(batch)
+                measured = self.measuredIntensities[batch]
+                loss = self.computeLoss(predicted, measured)
+                loss.backward()
+                total_loss += loss.detach()
+                if batch is batches[-1]:
+                    last_intensity = predicted[-1].detach().clone()
+                del loss, predicted, measured
 
-        penalty = self.regularizationLoss()
-        if penalty is not None:
-            penalty.backward()
-            total_loss += penalty.detach()
+            step_indices = torch.cat(step)
+            penalty = self.regularizationLoss()
+            if penalty is not None:
+                if len(step_indices) != len(indices):
+                    penalty = penalty * (len(step_indices) / len(indices))
+                penalty.backward()
+                total_loss += penalty.detach()
 
-        self.optimizer.step()
-        with torch.no_grad():
-            self.afterStep(iteration)
+            if self.optimizerType == "preconditioned":
+                self.preconditionGradients(step_indices)
+            self.optimizer.step()
+            with torch.no_grad():
+                self.afterStep(iteration)
 
-        self.reconstruction.Iestimated = last_intensity.cpu().numpy().copy()
-        self.reconstruction.Imeasured = (
-            self.measuredIntensities[self.positionIndices[-1]].cpu().numpy().copy()
+        self.reconstruction.Iestimated = self.centeredIntensity(last_intensity)
+        self.reconstruction.Imeasured = self.centeredIntensity(
+            self.measuredIntensities[self.positionIndices[-1]]
         )
         return total_loss.item()
+
+    def centeredIntensity(self, intensity):
+        """Return a detached NumPy detector image in PtyLab's centered order."""
+        if self.fftOrderIntensity:
+            intensity = torch.fft.fftshift(intensity, dim=(-2, -1))
+        return intensity.detach().cpu().numpy().copy()
 
     def _replace_experimental_data(self, experimentalData):
         """Replace measurements and positions after checking grid compatibility."""
