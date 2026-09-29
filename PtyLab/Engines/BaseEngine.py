@@ -35,16 +35,34 @@ def smooth_amplitude(
     field: np.ndarray, width: float, aleph: float, amplitude_only: bool = True
 ):
     """
-    Smooth the amplitude of a field. Optional phase can be smoothed as well.
-    Parameters
-    ----------
-    field
-    width
-    aleph
-    amplitude_only
+    Smooth a complex field using a Gaussian filter.
 
-    Returns
-    -------
+    By default, the Gaussian smoothing is applied only to the field
+    amplitude while preserving the original phase. If ``amplitude_only``
+    is False, the complex field itself is smoothed.
+
+    Args:
+        field (np.ndarray):
+            Complex-valued field to smooth. NumPy and CuPy arrays are
+            supported.
+
+        width (float):
+            Width of the Gaussian smoothing filter applied along the two
+            spatial dimensions.
+
+        aleph (float):
+            Weight of the smoothed field in the returned result. A value of
+            zero leaves the field unchanged, while a value of one returns
+            the fully smoothed field.
+
+        amplitude_only (bool, optional):
+            If True, smooth only the amplitude and preserve the original
+            phase. If False, smooth the full complex field.
+            Defaults to True.
+
+    Returns:
+        np.ndarray:
+            Smoothed field with the same shape as the input.
 
     """
     xp = getArrayModule(field)
@@ -68,10 +86,42 @@ def smooth_amplitude(
 
 class BaseEngine(object):
     """
-    Common properties that are common for all reconstruction Engines are defined here.
+    Base class providing shared functionality for PtyLab reconstruction engines.
 
-    Unless you are testing the code, there's hardly any need to create this object. For your own implementation,
-    inherit from this object
+    ``BaseEngine`` coordinates operations that are common to different
+    reconstruction algorithms, including wave propagation, intensity
+    projection, error evaluation, reconstruction constraints, position
+    correction, monitoring, and CPU/GPU data transfer.
+
+    The engine operates on shared ``Reconstruction``, ``ExperimentalData``,
+    ``Params``, and ``Monitor`` objects. These objects are referenced directly
+    rather than copied, so updates performed by the engine are reflected in
+    the associated reconstruction state.
+
+    Specific reconstruction engines inherit from this class and implement
+    their algorithm-specific reconstruction and update steps. ``BaseEngine``
+    is therefore generally not intended to be instantiated directly.
+
+    Args:
+        reconstruction (Reconstruction):
+            Mutable reconstruction state containing the current object, probe,
+            geometry, and reconstruction results.
+
+        experimentalData (ExperimentalData):
+            Experimental diffraction data and acquisition geometry.
+
+        params (Params):
+            Reconstruction parameters controlling propagation, constraints,
+            correction methods, GPU usage, and other algorithm settings.
+
+        monitor (Monitor):
+            Monitor used to visualize and report reconstruction progress.
+
+    Attributes:
+
+        betaObject (float):
+            Object update weight used by shared object-update routines.
+            Initialized to ``0.25``.
 
     """
 
@@ -82,21 +132,28 @@ class BaseEngine(object):
         params: Params,
         monitor: Monitor,
     ):
-        # These statements don't copy any data, they just keep a reference to the object
+        # Keep references to the shared PtyLab components; no data are copied.
         self.betaObject = 0.25
         self.reconstruction: Reconstruction = reconstruction
         self.experimentalData = experimentalData
         self.params = params
         self.monitor = monitor
-        self.monitor.reconstruction = reconstruction
+        self.monitor.reconstruction = reconstruction # share reconstruction state with monitor
 
         # datalogger
         self.logger = logging.getLogger("BaseEngine")
 
     def _prepareReconstruction(self):
         """
-        Initialize everything that depends on user changeable attributes.
-        :return:
+        Prepare the reconstruction state before iterative updates.
+
+        This method validates user-configurable settings and initializes shared
+        engine state, including FFT conventions, probe constraints, error arrays,
+        monitoring regions, position-correction parameters, and CPU/GPU data
+        placement.
+
+        GPU setup is performed last because the preceding initialization steps
+        operate on host-side reconstruction data.
         """
         # check miscellaneous quantities specific for certain Engines
         self._checkMISC()
@@ -114,10 +171,13 @@ class BaseEngine(object):
 
     def _setCPSC(self):
         """
-        set constrained-pixel-sum constraint:
-        -save measured diffraction patterns into ptychograpmDownsampled
-        -pad the probe (useful when having a pre-calibrated probe)
-        -update the coordinates
+        Configure the constrained-pixel-sum (CPSC) model.
+
+        CPSC reconstructs the diffraction field on a finer computational detector
+        grid while constraining the summed intensity within each group of subpixels
+        to match the corresponding measured detector pixel. The finer grid preserves
+        the detector field of view and therefore the real-space sampling, while
+        increasing the reconstruction field of view.
         """
 
         # save the measured ptychogram into ptychograpmDownsampled
@@ -170,12 +230,30 @@ class BaseEngine(object):
         self.logger.info("CPSCswitch is on, coordinates(dxd,dxp,dxo) have been updated")
 
     def update_data(self, experimentalData, reconstruction=None):
-        """Update the experimentalData if necessary"""
+        """
+        Update the data objects referenced by the engine.
+
+        Args:
+            experimentalData (ExperimentalData):
+                Experimental dataset to use for subsequent reconstruction steps.
+
+            reconstruction (Reconstruction, optional):
+                Replacement reconstruction state. If None, the current
+                reconstruction object is retained.
+        """
         self.experimentalData = experimentalData
         if reconstruction is not None:
             self.reconstruction = reconstruction
 
     def _initializePCParameters(self):
+        """
+        Initialize parameters and state for pcPIE correction.
+
+        When position correction is enabled, this method initializes the
+        feedback and momentum factors, the per-position correction vectors,
+        the candidate pixel shifts used for local correlation searches, and
+        the iteration threshold for starting position updates.
+        """
         if self.params.positionCorrectionSwitch:
             # additional pcPIE parameters as they appear in Matlab
             self.daleth = 0.5  # feedback
@@ -198,10 +276,12 @@ class BaseEngine(object):
 
     def _initializeErrors(self):
         """
-        initialize all kinds of errors:
-        detectorError is a matrix calculated at each iteration (numFrames,Nd,Nd);
-        errorAtPos sums over detectorError at each iteration, (numFrames,1);
-        reconstruction.error sums over errorAtPos, one number at each iteration;
+        Initialize reconstruction error storage.
+
+        Depending on ``saveMemory``, detector-plane errors are either stored for
+        every scan position or reduced immediately to per-position error values.
+        The method also initializes the per-position error array and the global
+        reconstruction error history.
         """
         # initialize detector error matrices
         if self.params.saveMemory:
@@ -225,6 +305,30 @@ class BaseEngine(object):
             self.reconstruction.error = []
 
     def _initialProbePowerCorrection(self):
+        r"""
+        Scale the initial probe to the measured diffraction power.
+
+        When `probePowerCorrectionSwitch` is enabled, rescale the complex probe
+        $P$ using the measured amplitude scale $P_{\max}$:
+
+        $$
+        P_{\mathrm{new}} = \frac{P}{\sqrt{\sum |P|^2}} P_{\max}
+        $$
+
+        The sum in the normalization includes every element of the probe array.
+        The amplitude scale is derived from the brightest measured diffraction
+        pattern:
+
+        $$
+        P_{\max} = \sqrt{\max_j \sum_{x,y} I_j(x,y)}
+        $$
+
+        Here, $I_j(x,y)$ is the measured intensity at detector pixel $(x,y)$
+        in frame $j$. The correction preserves the probe shape and phase while
+        placing its total power on the scale of the experimental data, reducing
+        large amplitude corrections at the beginning of reconstruction.
+        
+        """
         if self.params.probePowerCorrectionSwitch:
             self.reconstruction.probe = (
                 self.reconstruction.probe
@@ -235,6 +339,27 @@ class BaseEngine(object):
             )
 
     def _probeWindow(self):
+        r"""
+        Create the spatial window used by probe-boundary constraints.
+
+        For `absorbingProbeBoundary`, a smooth super-Gaussian window is defined as
+
+        $$
+        W(x,y) = \exp\left[-\left(\frac{x^2+y^2}{2\sigma^2}\right)^{10}\right]
+        $$
+
+        where
+
+        $$
+        \sigma = \frac{3}{4}\frac{N_p dx_p}{2.355}
+        $$
+
+        For `probeBoundary`, a circular support window is generated from the
+        entrance pupil diameter.
+
+        The generated window is stored in `probeWindow` and applied later by
+        `applyConstraints()`.
+        """
         # absorbing probe boundary: filter probe with super-gaussian window function
         if not self.params.saveMemory or self.params.absorbingProbeBoundary:
             self.probeWindow = np.exp(
@@ -267,7 +392,20 @@ class BaseEngine(object):
 
     def _setObjectProbeROI(self, update=False):
         """
-        Set object/probe ROI for monitoring
+        Set the object and probe regions of interest used for monitoring.
+
+        The object ROI is derived from the scan-position extent and probe size,
+        scaled by ``monitor.objectZoom``. The probe ROI is centered on the probe
+        grid and derived from the entrance pupil diameter and
+        ``monitor.probeZoom``.
+
+        If the corresponding zoom value is ``"full"`` or ``None``, the complete
+        object or probe is displayed.
+
+        Args:
+            update (bool, optional):
+                If True, recompute existing ROIs. Otherwise, ROIs are only created
+                when they are not already defined. Defaults to False.
         """
         if not hasattr(self.monitor, "objectROI") or update:
             if self.monitor.objectZoom == "full" or self.monitor.objectZoom is None:
@@ -331,6 +469,14 @@ class BaseEngine(object):
                 ]
 
     def _showInitialGuesses(self):
+        """
+        Display the initial object and probe estimates in the reconstruction monitor.
+
+        The object and probe are cropped to the monitoring regions defined by
+        ``objectROI`` and ``probeROI`` before being passed to the monitor together
+        with the current reconstruction error, propagation distance, mode purities,
+        and scan positions.
+        """
         self.monitor.initializeMonitors()
         objectEstimate = np.squeeze(
             self.reconstruction.object[
@@ -357,7 +503,17 @@ class BaseEngine(object):
 
     def _checkMISC(self):
         """
-        checks miscellaneous quantities specific certain Engines
+        Initialize auxiliary reconstruction state and validate special settings.
+
+        This method prepares additional variables required by selected intensity
+        constraints or background reconstruction, checks incompatible parameter
+        combinations, and initializes the constrained-pixel-sum configuration
+        when enabled.
+
+        Raises:
+            ValueError:
+                If incompatible reconstruction options are enabled or required
+                parameters for a selected constraint are missing.
         """
         if self.params.backgroundModeSwitch:
             self.reconstruction.background = 1e-1 * np.ones(
@@ -404,7 +560,15 @@ class BaseEngine(object):
 
     def _checkFFT(self):
         """
-        shift arrays to accelerate fft
+        Synchronize detector-domain arrays with the selected FFT convention.
+
+        When ``fftshiftSwitch`` is enabled, detector-side quantities are shifted
+        to the FFT-native ordering using ``ifftshift``. When the switch is
+        disabled after a previous shift, the arrays are restored using
+        ``fftshift``.
+
+        ``fftshiftFlag`` tracks the current data ordering to avoid applying the
+        shift repeatedly.
         """
         if self.params.fftshiftSwitch:
             if self.params.fftshiftFlag == 0:
@@ -418,7 +582,7 @@ class BaseEngine(object):
                     self.experimentalData.ptychogramDownsampled = np.fft.ifftshift(
                         self.experimentalData.ptychogramDownsampled, axes=(-1, -2)
                     )
-                if hasattr(self.experimentalData, "w"):
+                if hasattr(self.experimentalData, "W"):
                     if self.experimentalData.W is not None:
                         self.experimentalData.W = np.fft.ifftshift(
                             self.experimentalData.W, axes=(-1, -2)
@@ -452,12 +616,20 @@ class BaseEngine(object):
                     self.experimentalData.emptyBeam = np.fft.fftshift(
                         self.experimentalData.emptyBeam, axes=(-1, -2)
                     )
+                if hasattr(self.experimentalData, "PSD"):
+                    if self.experimentalData.PSD is not None:
+                        self.experimentalData.PSD = np.fft.fftshift(
+                            self.experimentalData.PSD, axes=(-1, -2)
+                    )
                 self.params.fftshiftFlag = 0
 
     def _move_data_to_gpu(self):
         """
-        Move the data to the GPU, called when the gpuSwitch is on.
-        :return:
+        Move reconstruction data required by the engine to the GPU.
+
+        Reconstruction and experimental-data fields are transferred by their
+        respective container classes. Engine-specific fields, including the probe
+        window and additional aPIE data when required, are transferred separately.
         """
 
         self.reconstruction._move_data_to_gpu()
@@ -542,8 +714,11 @@ class BaseEngine(object):
 
     def _move_data_to_cpu(self):
         """
-        Move the data to the CPU, called when the gpuSwitch is off.
-        :return:
+        Move reconstruction data required by the engine to the CPU.
+
+        Reconstruction and experimental-data fields are transferred by their
+        respective container classes, together with engine-specific fields such
+        as the probe window.
         """
         # reconstruction parameters
 
@@ -578,7 +753,7 @@ class BaseEngine(object):
         #     if self.params.aPIEflag:
         #         self.theta = self.theta.get()
         #
-        fields_to_transfer = ["theta", "probeWindow"]
+        # fields_to_transfer = ["theta", "probeWindow"]
         # self.probeWindow = self.probeWindow.get()
 
         # non-reconstruction parameters
@@ -611,6 +786,21 @@ class BaseEngine(object):
         #     self.reconstruction.reference = self.reconstruction.reference.get()
 
     def _checkGPU(self):
+        """
+        Synchronize reconstruction data with the selected computation device.
+
+        If GPU execution is enabled, required reconstruction, experimental-data,
+        and engine fields are transferred to the GPU. If GPU execution is
+        disabled, the corresponding data are transferred back to the CPU.
+
+        ``gpuFlag`` tracks the current device state, while repeated transfers
+        ensure that fields created after a previous device switch are also
+        synchronized.
+
+        Raises:
+            ImportError:
+                If GPU execution is requested but CuPy is not available.
+        """
         if not hasattr(self.params, "gpuFlag"):
             self.params.gpuFlag = 0
 
@@ -635,6 +825,24 @@ class BaseEngine(object):
                 self.params.gpuFlag = 0
 
     def setPositionOrder(self):
+        """
+        Set the order in which scan positions are processed.
+
+        The ordering is controlled by ``params.positionOrder``:
+
+        - ``"sequential"`` processes frames in their original order.
+        - ``"random"`` uses the original order during the first two iterations
+        and randomly shuffles the positions afterwards.
+        - ``"NA"`` sorts positions by their distance from the scan center,
+        processing central positions first. This ordering is intended for FPM,
+        where central illumination angles correspond to bright-field data.
+
+        The resulting frame indices are stored in ``positionIndices``.
+
+        Raises:
+            ValueError:
+                If ``positionOrder`` is not one of the supported options.
+        """
         if self.params.positionOrder == "sequential":
             self.positionIndices = np.arange(self.experimentalData.numFrames)
 
@@ -665,14 +873,34 @@ class BaseEngine(object):
             raise ValueError("position order not properly set")
 
     def changeExperimentalData(self, experimentalData: ExperimentalData):
+        """
+        Replace the experimental-data object referenced by the engine.
 
+        Args:
+            experimentalData (ExperimentalData):
+                Experimental dataset to use in subsequent reconstruction steps.
+
+        Raises:
+            TypeError:
+                If ``experimentalData`` is not an ``ExperimentalData`` instance.
+        """
         if experimentalData is not None:
             if not isinstance(experimentalData, ExperimentalData):
                 raise TypeError("Experimental data should be of class ExperimentalData")
             self.experimentalData = experimentalData
 
     def changeOptimizable(self, optimizable: Reconstruction):
+        """
+        Replace the reconstruction object referenced by the engine.
 
+        Args:
+            optimizable (Reconstruction):
+                Reconstruction state to use in subsequent engine operations.
+
+        Raises:
+            TypeError:
+                If ``optimizable`` is not a ``Reconstruction`` instance.
+        """
         if optimizable is not None:
             if not isinstance(optimizable, Reconstruction):
                 raise TypeError(
@@ -682,8 +910,12 @@ class BaseEngine(object):
 
     def convert2single(self):
         """
-        Convert the datasets to single precision. Matches: convert2single.m
-        :return:
+        Configure single-precision data types for reconstruction arrays.
+
+        This method sets the target complex and real data types to
+        ``numpy.complex64`` and ``numpy.float32`` and delegates the actual
+        conversion to dtype-matching helpers.
+
         """
         self.dtype_complex = np.complex64
         self.dtype_real = np.float32
@@ -691,15 +923,67 @@ class BaseEngine(object):
         self._match_dtypes_real()
 
     def _match_dtypes_complex(self):
-        raise NotImplementedError()
+        """
+        Convert complex-valued arrays to the configured complex dtype.
+
+        Complex arrays stored by the engine, reconstruction, and experimental
+        data containers are converted to ``self.dtype_complex``. Non-array
+        attributes and non-complex arrays are left unchanged.
+        """
+        array_types = (np.ndarray,)
+        if cp is not None:
+            array_types += (cp.ndarray,)
+
+        for container in (self, self.reconstruction, self.experimentalData):
+            for name, value in vars(container).items():
+                if not isinstance(value, array_types):
+                    continue
+
+                if value.dtype.kind == "c":
+                    setattr(
+                        container,
+                        name,
+                        value.astype(self.dtype_complex, copy=False),
+                    )
 
     def _match_dtypes_real(self):
-        raise NotImplementedError()
+        """
+        Convert floating-point arrays to the configured real dtype.
+
+        Floating-point arrays stored by the engine, reconstruction, and
+        experimental data containers are converted to ``self.dtype_real``.
+        Integer, boolean, complex, and non-array attributes are left unchanged.
+        """
+        array_types = (np.ndarray,)
+        if cp is not None:
+            array_types += (cp.ndarray,)
+
+        for container in (self, self.reconstruction, self.experimentalData):
+            for name, value in vars(container).items():
+                if not isinstance(value, array_types):
+                    continue
+
+                if value.dtype.kind == "f":
+                    setattr(
+                        container,
+                        name,
+                        value.astype(self.dtype_real, copy=False),
+                    )
+        
 
     def object2detector(self, esw=None):
         """
-        Implements object2detector.m. Modifies esw in-place
-        :return:
+        Propagate the exit surface wave from the object plane to the detector plane.
+
+        If ``esw`` is not provided, ``reconstruction.esw`` is used. The propagation
+        is performed by the operator selected through the reconstruction
+        parameters, and the propagated detector-plane field is stored in
+        ``reconstruction.ESW``.
+
+        Args:
+            esw (ndarray, optional):
+                Object-plane exit surface wave. If None, use
+                ``reconstruction.esw``.
         """
         if esw is None:
             # todo: check this, it seems weird to store it in self.esw
@@ -710,10 +994,17 @@ class BaseEngine(object):
 
     def detector2object(self, ESW=None):
         """
-        Propagate the ESW to the object plane (in-place).
+        Propagate the detector-plane field back to the object plane.
 
-        Matches: detector2object.m
-        :return:
+        If ``ESW`` is not provided, ``reconstruction.ESW`` is used. The
+        back-propagated exit surface wave is stored in ``reconstruction.esw``,
+        together with the corresponding update field in
+        ``reconstruction.eswUpdate``.
+
+        Args:
+            ESW (ndarray, optional):
+                Detector-plane wavefield. If None, use
+                ``reconstruction.ESW``.
         """
         if ESW is None:
             ESW = self.reconstruction.ESW
@@ -742,9 +1033,43 @@ class BaseEngine(object):
         )
 
     def getBeamWidth(self):
-        """
-        Calculate probe beam width (Full width half maximum)
-        :return:
+        r"""
+        Estimate the probe beam width from the second moment of its intensity.
+
+        The probe intensity is summed over the non-spatial dimensions and
+        normalized as
+
+        $$
+        \tilde{P}(x,y) = \frac{P(x,y)}{\sum_{x,y} P(x,y)}
+        $$
+
+        The intensity-weighted centroid and variance are then calculated, for
+        example along $x$ as
+
+        $$
+        \langle x \rangle = \sum_{x,y} x\tilde{P}(x,y)
+        $$
+
+        $$
+        \sigma_x^2 = \sum_{x,y}(x-\langle x\rangle)^2\tilde{P}(x,y)
+        $$
+
+        and converted to a Gaussian-equivalent full width at half maximum:
+
+        $$
+        \mathrm{FWHM}_x = 2\sqrt{2\ln 2}\sigma_x
+        $$
+
+        The same calculation is applied along $y$. 
+
+        Returns:
+            tuple:
+                ``(beamWidthY, beamWidthX)`` in meters.
+        
+        Notes:
+            For non-Gaussian probe
+            profiles, the returned values should be interpreted as second-moment
+            Gaussian-equivalent beam widths rather than direct half-maximum widths.
         """
         xp = getArrayModule(self.reconstruction.probe)
         P = xp.sum(
@@ -768,8 +1093,64 @@ class BaseEngine(object):
         return self.reconstruction.beamWidthY, self.reconstruction.beamWidthX
 
     def getOverlap(self, ind1, ind2):
-        """
-        Calculate linear and area overlap between two scan positions indexed ind1 and ind2
+        r"""
+        Estimate the probe overlap between two scan positions.
+
+        The physical displacement between the two positions is calculated from
+        their pixel-coordinate difference and the probe-plane pixel size:
+
+        $$
+        s_x = |x_2-x_1|dx_p,\qquad s_y = |y_2-y_1|dx_p
+        $$
+
+        The linear overlap is estimated from the radial scan displacement and
+        the smaller of the reconstructed probe widths:
+
+        $$
+        O_{\mathrm{linear}} = \max\left(1-\frac{\sqrt{s_x^2+s_y^2}}{\min(w_x,w_y)},0\right)
+        $$
+
+        where $w_x$ and $w_y$ are the Gaussian-equivalent probe widths returned
+        by `getBeamWidth()`.
+
+        The area overlap is calculated from the normalized autocorrelation of the
+        probe amplitude. Let
+
+        $$
+        P(x,y) = |\mathrm{probe}(x,y)|
+        $$
+
+        and
+
+        $$
+        Q(f_x,f_y) = \mathcal{F}\{P(x,y)\}.
+        $$
+
+        Using the Fourier correlation theorem, the normalized area overlap is
+
+        $$
+        O_{\mathrm{area}} = \frac{1}{N_\lambda}\sum_\lambda\frac{\left|\sum_{f_x,f_y}|Q_\lambda(f_x,f_y)|^2\exp[-i2\pi(f_xs_x+f_ys_y)]\right|}{\sum_{f_x,f_y}|Q_\lambda(f_x,f_y)|^2}.
+        $$
+
+        This definition is invariant to the absolute centering of the probe and
+        yields an overlap of one for zero displacement.
+
+        The current implementation uses the first probe mode and the last slice
+        when evaluating the area overlap.
+
+        Args:
+            ind1 (int):
+                Index of the first scan position.
+            ind2 (int):
+                Index of the second scan position.
+
+        Returns:
+            tuple:
+                ``(linearOverlap, areaOverlap)``.
+
+        Notes:
+            The calculated values are also stored in
+            ``reconstruction.linearOverlap`` and ``reconstruction.areaOverlap``.
         """
         sy = (
             abs(
@@ -808,18 +1189,56 @@ class BaseEngine(object):
         self.reconstruction.areaOverlap = np.mean(
             abs(
                 np.sum(
-                    Q**2 * np.exp(-1.0j * 2 * np.pi * (Fx * sx + Fy * sy)),
+                    abs(Q)**2 * np.exp(-1.0j * 2 * np.pi * (Fx * sx + Fy * sy)),
                     axis=(-1, -2),
                 )
             )
             / np.sum(abs(Q) ** 2, axis=(-1, -2)),
             axis=0,
         )
+        return (
+            self.reconstruction.linearOverlap,
+            self.reconstruction.areaOverlap,
+        )
 
     def getErrorMetrics(self):
-        """
-        matches getErrorMetrics.m
-        :return:
+        r"""
+        Compute the normalized reconstruction error for the current iteration.
+
+        For each scan position $j$, the detector-domain error is summed over all
+        detector pixels:
+
+        $$
+        e_j = \sum_{x,y} E_j(x,y)
+        $$
+
+        where $E_j(x,y)$ is the absolute difference between measured and estimated
+        detector intensities. If `FourierMaskSwitch` is enabled, the detector error
+        is weighted by the Fourier mask $W$:
+
+        $$
+        e_j = \sum_{x,y} E_j(x,y)W(x,y)
+        $$
+
+        The error at each scan position is normalized by the measured diffraction
+        energy:
+
+        $$
+        \tilde{e}_j = \frac{e_j}{E_j^{\mathrm{meas}} + 10^{-20}}
+        $$
+
+        The total error for the current iteration is then
+
+        $$
+        e_{\mathrm{iter}} = \sum_j \tilde{e}_j
+        $$
+
+        and is appended to `reconstruction.error`.
+
+        Notes:
+            If `saveMemory` is enabled, the per-position errors are accumulated
+            during the reconstruction loop instead of storing the full detector
+            error array.
         """
         if not self.params.saveMemory:
             # Calculate mean error for all positions (make separate function for all of that)
@@ -841,10 +1260,44 @@ class BaseEngine(object):
         self.reconstruction.error = np.append(self.reconstruction.error, eAverage)
 
     def getRMSD(self, positionIndex):
-        """
-        Root mean square deviation between ptychogram and intensity estimate
-        :param positionIndex:
-        :return:
+        r"""
+        Compute the detector-domain intensity error for one scan position.
+
+        The pixel-wise detector error is defined as
+
+        $$
+        E(x,y) = \left|I_{\mathrm{measured}}(x,y) - I_{\mathrm{estimated}}(x,y)\right|.
+        $$
+
+        If `saveMemory` is disabled, the full detector-error map is stored in
+        `reconstruction.detectorError`.
+
+        If `saveMemory` is enabled, the detector error is reduced immediately to
+        a per-position scalar:
+
+        $$
+        e_j = \sum_{x,y} E_j(x,y).
+        $$
+
+        When `FourierMaskSwitch` is enabled, the masked error is used instead:
+
+        $$
+        e_j = \sum_{x,y} E_j(x,y)W(x,y).
+        $$
+
+        Args:
+            positionIndex (int):
+                Index of the current scan position.
+
+        Raises:
+            NotImplementedError:
+                If `saveMemory`, `FourierMaskSwitch`, and `CPSCswitch` are all
+                enabled simultaneously.
+
+        Notes:
+            Despite its name, this method does not currently compute a root mean
+            square deviation. It computes an absolute detector-intensity
+            difference.
         """
         # find out wether or not to use the GPU
         xp = getArrayModule(self.reconstruction.Iestimated)
@@ -868,8 +1321,48 @@ class BaseEngine(object):
             self.reconstruction.detectorError[positionIndex] = self.currentDetectorError
 
     def intensityProjection(self, positionIndex):
-        """Compute the projected intensity.
-        Barebones, need to implement other methods
+        r"""
+        Apply the detector-plane intensity constraint for one scan position.
+
+        The current exit surface wave is first propagated to the detector plane.
+        The estimated intensity is calculated from the propagated field as
+
+        $$
+        I_{\mathrm{estimated}}(x,y)=\sum_m |\Psi_m(x,y)|^2.
+        $$
+
+        For the standard intensity constraint, the detector-plane field is scaled
+        by
+
+        $$
+        f(x,y)=\sqrt{\frac{I_{\mathrm{measured}}(x,y)}{I_{\mathrm{estimated}}(x,y)+\epsilon}},
+        $$
+
+        so that
+
+        $$
+        \Psi_{\mathrm{updated}}(x,y)=\Psi(x,y)f(x,y).
+        $$
+
+        Alternative projection rules are selected through
+        ``params.intensityConstraint``. The current implementation supports
+        ``"standard"``, ``"fluctuation"``, ``"exponential"``,
+        ``"poisson"``, and ``"interferometric"``.
+
+        Depending on the active parameters, the method may additionally apply
+        constrained-pixel-sum decompression, adaptive denoising, Fourier masking,
+        background estimation, or an interferometric reference update.
+
+        The constrained detector-plane field is finally propagated back to the
+        object plane.
+
+        Args:
+            positionIndex (int):
+                Index of the current diffraction frame.
+
+        Raises:
+            ValueError:
+                If ``intensityConstraint`` is not a supported value.
         """
         # figure out whether or not to use the GPU
         xp = getArrayModule(self.reconstruction.esw)
@@ -946,7 +1439,7 @@ class BaseEngine(object):
             )
             frac = W * frac + (1 - W)
 
-        elif self.params.intensityConstraint == "poission":
+        elif self.params.intensityConstraint == "poisson":
             frac = self.reconstruction.Imeasured / (
                 self.reconstruction.Iestimated + gimmel
             )
@@ -1012,10 +1505,47 @@ class BaseEngine(object):
         self.detector2object()
 
     def decompressionProjection(self, positionIndex):
-        """
-        calculate the upsampled Imeasured from downsampled Imeasured that is actually measured.
-        :param positionIndex: index for scan positions
-        :return:
+        r"""
+            Construct a high-resolution measured intensity for the
+        constrained-pixel-sum projection.
+
+        The current high-resolution estimated intensity is divided into blocks
+        of size $s \times s$, where $s$ is `CPSCupsamplingFactor`.
+
+        For each detector block, the predicted low-resolution intensity is
+
+        $$
+        \hat{I}^{\mathrm{LR}}_{mn} = \sum_{i,j \in \mathrm{block}_{mn}} I_{\mathrm{estimated}}(i,j)
+        $$
+
+        A block-wise correction factor is calculated from the measured
+        low-resolution diffraction intensity:
+
+        $$
+        S_{mn} = \frac{I^{\mathrm{LR}}_{\mathrm{measured},mn}}{\hat{I}^{\mathrm{LR}}_{mn} + \epsilon}
+        $$
+
+        The factor is expanded over the corresponding high-resolution block
+        and used to construct an effective high-resolution measured intensity:
+
+        $$
+        I^{\mathrm{HR}}_{\mathrm{measured}}(i,j) = I_{\mathrm{estimated}}(i,j) S_{mn}
+        $$
+
+        This preserves the current estimate of the sub-pixel intensity
+        distribution while enforcing that the summed intensity in each
+        high-resolution block matches the experimentally measured
+        low-resolution pixel intensity.
+
+        Args:
+            positionIndex (int):
+                Index of the current diffraction frame.
+
+        Notes:
+            The generated high-resolution intensity is stored in
+            `reconstruction.Imeasured`. When `FourierMaskSwitch` is enabled,
+            the CPSC correction is restricted by `experimentalData.W` after
+            the first five reconstruction iterations.
         """
         # overwrite the measured intensity (just to have same dimensions as Iestimated)
         xp = getArrayModule(self.reconstruction.Iestimated)
@@ -1044,9 +1574,23 @@ class BaseEngine(object):
 
     def showReconstruction(self, loop):
         """
-        Show the reconstruction process.
-        :param loop: the iteration number
-        :return:
+        Update reconstruction monitoring and optional iteration output.
+
+        The object, probe, reconstruction error, propagation distance, mode
+        purities, scan positions, and beam width are sent to the active monitor
+        at intervals defined by ``monitor.figureUpdateFrequency``.
+
+        For Fourier ptychography, the object is transformed to real space before
+        visualization. When the monitor verbosity is set to ``"high"``, the
+        current measured and estimated diffraction intensities, reconstruction
+        error, and estimated scan overlap are also displayed.
+
+        If object dumping is enabled, the current reconstructed object is written
+        to disk for each iteration.
+
+        Args:
+            loop (int):
+                Current reconstruction iteration.
         """
         if np.mod(loop, self.monitor.figureUpdateFrequency) == 0:
             if self.experimentalData.operationMode == "FPM":
@@ -1235,17 +1779,46 @@ class BaseEngine(object):
 
             file_path = os.path.join(folder_path, filename)
             with h5py.File(file_path, "w") as hdf:
-                obj = self.reconstruction.object.get()
+                obj = asNumpyArray(self.reconstruction.object)
                 hdf.create_dataset("Object", data=obj)
 
     def positionCorrection(self, objectPatch, positionIndex, sy, sx):
-        """
-        Modified from pcPIE. Position correction is done by using positionCorrection and positionCorrectionUpdate
-        :param objectPatch:
-        :param positionIndex:
-        :param sy:
-        :param sx:
-        :return:
+        r"""
+        Estimate the position correction for one scan position.
+
+        The current object patch is compared with the corresponding region of the
+        reconstructed object using cross-correlation. For small search radii,
+        shifted object patches are evaluated directly. For larger search radii,
+        the cross-correlation is calculated in the Fourier domain.
+
+        A correlation-weighted displacement estimate is obtained from the tested
+        shifts. Conceptually,
+
+        $$
+        g_x = \beta \sum_k \frac{C_k-\bar{C}}{\|O_{\mathrm{patch}}\|_2^2}\Delta x_k
+        $$
+
+        and similarly for $g_y$, where $C_k$ is the correlation obtained for the
+        candidate shift $(\Delta y_k,\Delta x_k)$.
+
+        The estimated correction is scaled by the position-correction feedback
+        factor and accumulated into the position search direction used by
+        `positionCorrectionUpdate()`.
+
+        Args:
+            objectPatch (ndarray):
+                Current reconstructed object patch for the scan position.
+            positionIndex (int):
+                Index of the current scan position.
+            sy (slice):
+                Row slice locating the current object patch in the full object.
+            sx (slice):
+                Column slice locating the current object patch in the full object.
+
+        Returns:
+            ndarray:
+                Estimated position correction ``[delta_y, delta_x]`` in pixels.
+                Returns zeros before position correction becomes active.
         """
 
         xp = getArrayModule(objectPatch)
@@ -1324,8 +1897,39 @@ class BaseEngine(object):
         return np.zeros(2)
 
     def position_update_to_change_in_z(self, loop):
-        """
-        Update the z based on the position updates.
+        r"""
+        Map the global scaling of corrected scan positions to an update of the
+        propagation distance.
+
+        The corrected and original encoder positions are centered and their
+        relative spatial scale is estimated as
+
+        $$
+        s = \frac{\sigma_{\mathrm{corrected}}}{\sigma_{\mathrm{original}}}
+        $$
+
+        A corresponding target propagation distance is estimated as
+
+        $$
+        z_{\mathrm{target}} = \frac{z}{s}
+        $$
+
+        The distance update is filtered through an Adam optimizer before being
+        applied to `reconstruction.zo`. After updating the propagation distance,
+        the corrected scan positions are rescaled around their center so that the
+        global scale change is transferred from the position correction to the
+        propagation distance.
+
+        Args:
+            loop (int):
+                Current reconstruction iteration.
+
+        Notes:
+            This method is used together with position correction and is called
+            periodically when `map_position_to_z_change` is enabled.
+
+            The method requires JAX, which is imported when the function is
+            called.
         """
         import jax
         from jax.experimental import optimizers
@@ -1398,6 +2002,42 @@ class BaseEngine(object):
         )
 
     def positionCorrectionUpdate(self):
+        r"""
+        Apply the accumulated position corrections to the scan coordinates.
+
+        Position corrections estimated by `positionCorrection()` are stored in
+        `D` in pixel units and are applied after the position-correction warm-up.
+
+        For conventional ptychography, the corrected encoder coordinates are
+        updated as
+
+        $$
+        \mathbf{r}_j^{\mathrm{new}} = \mathbf{r}_j^{\mathrm{old}} - \alpha D_j d_{xo}
+        $$
+
+        where $\alpha$ is the adaptive step size and $d_{xo}$ is the object-plane
+        pixel size. The corrected scan grid is then recentered to the mean of the
+        original encoder positions.
+
+        For Fourier ptychography, the corrected Fourier-space positions are
+        converted back to illumination coordinates using the inverse FPM
+        illumination geometry:
+
+        $$
+        \mathbf{r} = \operatorname{sign}(c)\frac{\mathbf{k}z_{\mathrm{LED}}}{\sqrt{c^2-k_x^2-k_y^2}}
+        $$
+
+        with
+
+        $$
+        c = -\frac{N_p d_{xo}}{\lambda}
+        $$
+
+        Notes:
+            The method updates `reconstruction.encoder_corrected` in place and is
+            called when position correction is enabled.
+        """
+        
         # fit the scaling out, to put in the z
         if len(self.reconstruction.error) > self.startAtIteration:
             self.logger.info("Updating positions")
@@ -1439,9 +2079,26 @@ class BaseEngine(object):
 
     def applyConstraints(self, loop):
         """
-        Apply constraints.
-        :param loop: loop number
-        :return:
+        Apply enabled reconstruction constraints after an iteration.
+
+        This method acts as the central dispatcher for object, probe, position,
+        and autofocus constraints selected through `Params`. Depending on the
+        active switches, it may apply regularization, probe normalization,
+        modal orthogonalization, probe-boundary constraints, smoothing,
+        amplitude constraints, spectral coupling, position correction, or
+        autofocus updates.
+
+        Constraints are applied sequentially in the order defined by this method,
+        so enabling multiple constraints may cause later operations to act on the
+        result of earlier ones.
+
+        Args:
+            loop (int):
+                Current reconstruction iteration.
+
+        Raises:
+            NotImplementedError:
+                If PSD estimation is enabled.
         """
         # dirks additions, untested
         if self.params.l2reg:
@@ -1612,9 +2269,47 @@ class BaseEngine(object):
         #     self.reconstruction.probe_storage.tsvd()
 
     def orthogonalization(self):
-        """
-        Perform orthogonalization
-        :return:
+        r"""
+        Orthogonalize mixed-state probe or object modes.
+
+        For multiple probe modes, the reconstructed modes are transformed to an
+        orthogonal modal basis independently for each wavelength and slice.
+        Conceptually, the transformed modes are
+
+        $$
+        P'_k(x,y) = \sum_j U_{kj}P_j(x,y)
+        $$
+
+        where $U$ is the modal transformation returned by `orthogonalizeModes()`.
+
+        The normalized modal eigenvalues are used to calculate the probe purity:
+
+        $$
+        \mu = \sqrt{\sum_k \tilde{\lambda}_k^2}
+        $$
+
+        where
+
+        $$
+        \tilde{\lambda}_k = \frac{\lambda_k}{\sum_j \lambda_j}
+        $$
+
+        are the normalized modal eigenvalues. A purity of one
+        corresponds to a single dominant mode, while lower values indicate a
+        stronger mixed-state contribution.
+
+        If momentum acceleration is enabled, the same modal transformation is
+        applied to the corresponding momentum and buffer arrays so that all
+        reconstruction state variables remain expressed in the same modal basis.
+
+        If only multiple object modes are present, the analogous procedure is
+        applied to the object modes and `purityObject` is updated.
+
+        Notes:
+            Probe modes are orthogonalized independently for each wavelength and
+            slice. The resulting probe purity is stored in
+            `reconstruction.purityProbe` and appended to
+            `reconstruction.purityProbeHist`.
         """
         xp = getArrayModule(self.reconstruction.probe)
         if self.reconstruction.npsm > 1:
@@ -1722,9 +2417,42 @@ class BaseEngine(object):
             pass
 
     def comStabilization(self):
-        """
-        Perform center of mass stabilization (center the probe)
-        :return:
+        r"""
+        Stabilize the probe center of mass to suppress translational drift.
+
+        Ptychographic reconstruction contains a translational ambiguity that can
+        allow the reconstructed probe and object to drift within their numerical
+        arrays without strongly affecting the data consistency. This method
+        estimates the probe center relative to the center of the reconstruction
+        window and shifts the reconstruction when the displacement exceeds
+        approximately one pixel.
+
+        The current probe center is estimated as
+
+        $$
+        x_c = \frac{\sum_{x,y}X_p(x,y)A(x,y)}{d_{xp}\sum_{x,y}A(x,y)}
+        $$
+
+        and
+
+        $$
+        y_c = \frac{\sum_{x,y}Y_p(x,y)A(x,y)}{d_{xp}\sum_{x,y}A(x,y)}
+        $$
+
+        where $A(x,y)$ is the probe amplitude and $d_{xp}$ is the probe-plane
+        pixel size. The resulting coordinates are rounded to integer pixel
+        shifts.
+
+        If the probe center is displaced by more than approximately one pixel,
+        both the probe and object are shifted by `(-yc, -xc)` to recenter the
+        reconstruction while preserving their relative spatial registration.
+
+        When momentum acceleration is enabled, the corresponding probe and object
+        momentum and buffer arrays are shifted by the same amount.
+
+        Notes:
+            For multislice reconstruction, the last probe slice is used to
+            estimate the center.
         """
         self.logger.info("Doing probe com stabilization")
         xp = getArrayModule(self.reconstruction.probe)
@@ -1732,7 +2460,7 @@ class BaseEngine(object):
         P2 = xp.sum(
             abs(self.reconstruction.probe[:, :, :, -1, ...]) ** 2, axis=(0, 1, 2)
         )
-        P2 = abs(self.reconstruction.probe[0, 0, 0, -1])
+        P2 = abs(self.reconstruction.probe[0, 0, 0, -1]) ** 2
         demon = xp.sum(P2) * self.reconstruction.dxp
         xc = int(
             xp.around(xp.sum(xp.array(self.reconstruction.Xp, xp.float32) * P2) / demon)
@@ -1776,17 +2504,57 @@ class BaseEngine(object):
                 )
 
     def modulusEnforcedProbe(self):
-        # propagate probe to detector
+        r"""
+        Constrain the reconstructed probe using a measured empty-beam intensity.
+
+        The current probe is propagated to the detector plane, where its
+        estimated intensity is compared with `experimentalData.emptyBeam`.
+
+        The detector-plane probe is scaled by
+
+        $$
+        f(x,y) = \sqrt{\frac{I_{\mathrm{empty}}(x,y)}{I_{\mathrm{probe}}(x,y)+\epsilon}}
+        $$
+
+        and updated as
+
+        $$
+        \Psi_{\mathrm{updated}}(x,y) = \Psi(x,y)f(x,y)
+        $$
+
+        so that the measured detector-plane amplitude is enforced while the
+        current phase estimate is retained.
+
+        The constrained field is then propagated back to the probe plane and
+        stored in `reconstruction.probe`.
+
+        If `FourierMaskSwitch` is enabled, the modulus constraint is applied only
+        inside the active Fourier mask, while the detector-plane field outside
+        the mask is left unchanged.
+
+        Notes:
+            This constraint requires `experimentalData.emptyBeam`, containing a
+            measured detector intensity of the illumination without the sample.
+        """
         xp = getArrayModule(self.reconstruction.esw)
         self.reconstruction.esw = self.reconstruction.probe
         self.object2detector()
 
         if self.params.FourierMaskSwitch:
-            self.reconstruction.ESW = self.reconstruction.ESW * xp.sqrt(
-                self.experimentalData.emptyBeam / 1e-10
-                + xp.sum(xp.abs(self.reconstruction.ESW) ** 2, axis=(0, 1, 2, 3))
-            ) * self.experimentalData.W + self.reconstruction.ESW * (
-                1 - self.experimentalData.W
+            self.reconstruction.ESW = (
+            self.reconstruction.ESW
+            * xp.sqrt(
+                self.experimentalData.emptyBeam
+                / (
+                    1e-10
+                    + xp.sum(
+                        xp.abs(self.reconstruction.ESW) ** 2,
+                        axis=(0, 1, 2, 3),
+                    )
+                )
+            )
+            * self.experimentalData.W
+            + self.reconstruction.ESW * (1 - self.experimentalData.W)
             )
         else:
             self.reconstruction.ESW = self.reconstruction.ESW * np.sqrt(
@@ -1803,11 +2571,34 @@ class BaseEngine(object):
         self.reconstruction.probe = self.reconstruction.esw
 
     def adaptiveDenoising(self):
-        """
-        Use the difference of mean intensities between the low-resolution
-        object estimate and the low-resolution raw data to estimate the
-        noise floor to be clipped.
-        :return:
+        r"""
+        Apply an adaptive amplitude-domain noise-floor correction.
+
+        The measured and estimated detector intensities are converted to
+        amplitudes.
+
+        A global noise level is estimated from their mean amplitude difference:
+
+        $$
+        n = \left|\left\langle A_{\mathrm{meas}} - A_{\mathrm{est}} \right\rangle\right|
+        $$
+
+        The estimated noise floor is subtracted from the measured amplitude and
+        negative values are clipped to zero:
+
+        $$
+        A'_{\mathrm{meas}} = \max(A_{\mathrm{meas}} - n, 0)
+        $$
+
+        The corrected measured intensity is then reconstructed as
+
+        $$
+        I'_{\mathrm{meas}} = \left(A'_{\mathrm{meas}}\right)^2
+        $$
+
+        Notes:
+            This method modifies `reconstruction.Imeasured` in place and is
+            applied before the detector-plane intensity constraint.
         """
         # figure out wether or not to use the GPU
         xp = getArrayModule(self.reconstruction.esw)
@@ -1830,12 +2621,37 @@ class BaseEngine(object):
         self.reconstruction.TV_autofocus()
 
     def objectPatchUpdate_TV(self, objectPatch: np.ndarray, DELTA: np.ndarray):
-        """
-        Update the object patch with a TV regularization.
+        r"""
+        Update an object patch with an additional total-variation regularization
+        term.
 
-        :param objectPatch:
-        :param DELTA:
-        :return:
+        The data-driven object update is weighted by the conjugated probe:
+
+        $$
+        W_P = \frac{P^*}{\max\left(\sum |P|^2\right)}
+        $$
+
+        and the object patch is updated as
+
+        $$
+        O_{\mathrm{new}} = O + \beta_O \sum W_P\Delta\Psi + \lambda\beta_O G_{\mathrm{TV}}(O)
+        $$
+
+        where $\Delta\Psi$ is the exit-wave correction, $\beta_O$ is the object
+        update step size, $\lambda$ is `objectTVregStepSize`, and
+        $G_{\mathrm{TV}}(O)$ is the TV update returned by `grad_TV()`.
+
+        Args:
+            objectPatch (ndarray):
+                Current object patch.
+            DELTA (ndarray):
+                Exit-wave correction used for the object update.
+
+        Returns:
+            ndarray:
+                Updated object patch including the TV regularization term.
+        Notes:
+            This function is only called by engines supporting TV-regularized object update.
         """
 
         xp = getArrayModule(objectPatch)
