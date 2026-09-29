@@ -46,6 +46,8 @@ class KernelPropagator:
         r = reconstruction
         self.propagator = propagator.lower()
         self.propagationKernels = ()
+        # intensity_field() skips both centering shifts, see its docstring.
+        self.fftOrderIntensity = self.propagator == "fraunhofer"
         if self.propagator == "fraunhofer":
             return
         if self.propagator in ("fresnel", "scaledasp") and r.zo == 0:
@@ -102,3 +104,16 @@ class KernelPropagator:
             source_phase, transfer = kernels
             return self.ifft2c(self.fft2c(exit_wave * source_phase) * transfer)
         raise NotImplementedError(f"Unsupported propagator: {self.propagator}")
+
+    def intensity_field(self, exit_wave):
+        """Return a field whose squared modulus is the detector intensity.
+
+        With ``fftOrderIntensity`` the intensity is in unshifted FFT order and
+        compares with ``ifftshift`` of centered data. Fraunhofer uses the plain
+        F(psi): the input ifftshift of F_c is a linear far-field phase and the
+        output fftshift a pixel permutation, so |F_c(psi)|^2 = fftshift(|F(psi)|^2),
+        also for odd grids. Other propagators return the centered field.
+        """
+        if self.fftOrderIntensity:
+            return torch.fft.fft2(exit_wave, norm="ortho")
+        return self(exit_wave)
