@@ -39,10 +39,18 @@ class PtychographyModel(torch.nn.Module):
             torch.as_tensor(object_field, dtype=torch.complex64)
         )
         self.probe = probe
-        self.register_buffer(
-            "positions", torch.as_tensor(positions, dtype=torch.long), persistent=False
+        # Flat object offsets of one probe-sized patch, fixed by the two grids.
+        height, width = probe.field.shape[-2:]
+        offsets = (
+            torch.arange(height)[:, None] * self.object.shape[-1]
+            + torch.arange(width)[None, :]
         )
+        self.register_buffer("patch_offsets", offsets, persistent=False)
+        self.register_buffer("positions", None, persistent=False)
+        self.register_buffer("patch_origins", None, persistent=False)
+        self.set_positions(positions)
         self.propagation = None
+        self.intensity_propagation = None
 
     @staticmethod
     def validate(reconstruction):
@@ -67,10 +75,20 @@ class PtychographyModel(torch.nn.Module):
         self.positions = torch.as_tensor(
             positions, dtype=torch.long, device=self.object.device
         )
+        # Flat index of each patch's top-left pixel, cached for every gather.
+        self.patch_origins = (
+            self.positions[:, 0] * self.object.shape[-1] + self.positions[:, 1]
+        )
 
-    def set_propagation(self, propagation):
-        """Set the callable that maps exit waves to detector fields."""
+    def set_propagation(self, propagation, intensity_propagation=None):
+        """Set the callables that map exit waves to detector fields.
+
+        ``intensity_propagation`` only has to preserve the squared modulus up to
+        a pixel order, like ``KernelPropagator.intensity_field``; ``forward``
+        uses it when given and ``detector_fields`` always uses ``propagation``.
+        """
         self.propagation = propagation
+        self.intensity_propagation = intensity_propagation
 
     def reset_from_reconstruction(self, reconstruction):
         """Import object and probe values while preserving parameter identity."""
@@ -86,19 +104,41 @@ class PtychographyModel(torch.nn.Module):
         self.probe.reset_from_array(reconstruction.probe)
         self.set_positions(reconstruction.positions)
 
+    def patch_indices(self, indices):
+        """Return flat object indices with shape ``(batch, Np, Np)``."""
+        return self.patch_origins[indices, None, None] + self.patch_offsets
+
     def object_patches(self, indices):
         """Gather object patches with batch followed by the six physical axes."""
-        positions = self.positions[indices]
-        height, width = self.probe.field.shape[-2:]
-        rows = (
-            positions[:, 0, None, None]
-            + torch.arange(height, device=self.object.device)[None, :, None]
-        )
-        cols = (
-            positions[:, 1, None, None]
-            + torch.arange(width, device=self.object.device)[None, None, :]
-        )
-        return self.object[..., rows, cols].movedim(-3, 0)
+        flat = self.patch_indices(indices)
+        patches = self.object.flatten(-2).index_select(-1, flat.reshape(-1))
+        return patches.unflatten(-1, flat.shape).movedim(-3, 0)
+
+    def gradient_preconditioners(self, indices):
+        """Return diagonal curvature maps for PIE-style preconditioning.
+
+        ``object`` receives the probe intensity summed over the patches of
+        ``indices``, and ``probe.field`` the summed object-patch intensity.
+        These are the Gauss-Newton diagonals for a loss with constant curvature
+        in the detector field, as used by PIE-type updates.
+        """
+        with torch.no_grad():
+            probe_intensity = self.probe(indices).abs().square()
+            probe_intensity = probe_intensity.sum(dim=(1, 2, 3, 4))
+            illumination = torch.zeros(
+                self.object.shape[-2:].numel(),
+                dtype=probe_intensity.dtype,
+                device=self.object.device,
+            )
+            illumination.index_add_(
+                0, self.patch_indices(indices).reshape(-1), probe_intensity.reshape(-1)
+            )
+            illumination = illumination.view(self.object.shape[-2:])
+            coverage = self.object_patches(indices).abs().square().sum(dim=0)
+        return {
+            "object": illumination.expand(self.object.shape),
+            "probe.field": coverage,
+        }
 
     def detector_fields(self, indices):
         """Return detector fields with all state axes retained."""
@@ -109,6 +149,14 @@ class PtychographyModel(torch.nn.Module):
         return self.propagation(patches * entrance_probe)
 
     def forward(self, indices):
-        """Return detector intensity with shape ``(batch, Np, Np)``."""
-        fields = self.detector_fields(indices)
+        """Return detector intensity with shape ``(batch, Np, Np)``.
+
+        The pixel order is that of ``intensity_propagation`` when one is set.
+        """
+        if self.intensity_propagation is None:
+            fields = self.detector_fields(indices)
+        else:
+            fields = self.intensity_propagation(
+                self.object_patches(indices) * self.probe(indices)
+            )
         return fields.abs().square().sum(dim=(1, 2, 3, 4))
