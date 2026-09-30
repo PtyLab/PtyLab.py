@@ -10,9 +10,7 @@ __all__ = [
     "BaseEngine",
     "e3PIE",
     "ePIE",
-    "ePIE_TV",
     "mPIE",
-    "mPIE_tv",
     "mqNewton",
     "multiPIE",
     "OPR",
@@ -22,9 +20,7 @@ __all__ = [
 ]
 from .e3PIE import e3PIE
 from .ePIE import ePIE
-from .ePIE_TV import ePIE_TV
 from .mPIE import mPIE
-from .mPIE_tv import mPIE_tv
 from .mqNewton import mqNewton
 from .multiPIE import multiPIE
 from .OPR import OPR

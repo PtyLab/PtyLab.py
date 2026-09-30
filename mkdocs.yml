@@ -23,6 +23,8 @@ theme:
         icon: material/brightness-4
         name: Switch to light mode
   features:
+    - navigation.tabs
+    - navigation.tabs.sticky
     - navigation.sections
     - navigation.expand
     - navigation.indexes
@@ -60,6 +62,20 @@ nav:
     - "05 – CPM Reflection": tutorials/tutorial_reflectionPtychography.ipynb
     - "06 – CPM Interferometric Intensity": tutorials/tutorial_interferometricIntensityConstraint.ipynb
     - "07 – FPM": tutorials/tutorial_FPM.ipynb
+  - API Reference:
+    - api/index.md
+    - Core: api/core.md
+    - Engines: api/engines.md
+    - Experimental Data: api/experimental-data.md
+    - Grid Generation: api/grid-generation.md
+    - Monitoring: api/monitoring.md
+    - Operators: api/operators.md
+    - Parameters: api/parameters.md
+    - Probe Engines: api/probe-engines.md
+    - Reconstruction: api/reconstruction.md
+    - Regularizers: api/regularizers.md
+    - Input and Output: api/io.md
+    - Utilities: api/utilities.md
 
 extra_css:
   - stylesheets/extra.css
@@ -79,6 +95,15 @@ markdown_extensions:
 
 plugins:
   - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths:
+            - .
+          options:
+            show_root_heading: true
+            show_source: true
+            members_order: source
   - mkdocs-jupyter:
       include: ["*.ipynb"]
       execute: false
