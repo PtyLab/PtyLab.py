@@ -10,7 +10,7 @@ For the original publication, see: [PtyLab.m/py/jl: a cross-platform, open-sourc
 ## Key features
 
 - **Classic engines**: ePIE, mPIE, mqNewton, qNewton
-- **Advanced corrections**: position correction (pcPIE), defocus correction (zPIE), angle correction (aPIE), orthogonal probe relaxation (OPR)
+- **Advanced corrections**: position correction, defocus correction (zPIE), angle correction (aPIE), orthogonal probe relaxation (OPR)
 - **Multi-modal**: multi-slice, multi-wavelength, mixed-state object and probe
 - **Multiple propagators**: Fraunhofer, Fresnel, Angular Spectrum (ASP), scaled ASP, polychromatic variants
 - **GPU acceleration**: same code runs on CPU and GPU

@@ -25,13 +25,3 @@ from .multiPIE import multiPIE
 from .OPR import OPR
 from .qNewton import qNewton
 from .zPIE import zPIE
-
-
-import warnings
-
-warnings.warn(
-    "`pcPIE` is deprecated. Use `mPIE` with "
-    "`params.positionCorrectionSwitch = True` instead.",
-    DeprecationWarning,
-    stacklevel=2,
-)
