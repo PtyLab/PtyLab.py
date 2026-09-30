@@ -218,9 +218,19 @@ class ePIE(BaseEngine):
                 DELTA = self.reconstruction.eswUpdate - self.reconstruction.esw
 
                 # object update
-                self.reconstruction.object[..., sy, sx] = self.objectPatchUpdate(
-                    objectPatch, DELTA
-                )
+                if (
+                    self.params.objectTVregSwitch
+                    and loop % self.params.objectTVfreq == 0
+                ):
+                    object_patch = self.objectPatchUpdate_TV(objectPatch, DELTA)
+                else:
+                    object_patch = self.objectPatchUpdate(objectPatch, DELTA)
+
+                self.reconstruction.object[..., sy, sx] = object_patch
+                
+                #self.reconstruction.object[..., sy, sx] = self.objectPatchUpdate(
+                #    objectPatch, DELTA
+                #)
 
                 # probe update
                 self.reconstruction.probe = self.probeUpdate(objectPatch, DELTA)
