@@ -31,6 +31,11 @@ class PtychographyModel(torch.nn.Module):
     ``object`` has shape ``(nlambda, nosm, 1, nslice, No, No)`` and the
     shared probe has shape ``(nlambda, 1, npsm, 1, Np, Np)``. Stage 1
     restricts all four physical counts to one while preserving these axes.
+
+    ``background`` is an optional incoherent detector background added to every
+    predicted frame, a scalar or one ``(Np, Np)`` image in the same pixel order
+    as ``forward``'s output. It is an ordinary parameter, so it stays fixed
+    unless selected for estimation.
     """
 
     def __init__(self, object_field, probe, positions):
@@ -48,6 +53,7 @@ class PtychographyModel(torch.nn.Module):
         self.register_buffer("patch_offsets", offsets, persistent=False)
         self.register_buffer("positions", None, persistent=False)
         self.register_buffer("patch_origins", None, persistent=False)
+        self.register_parameter("background", None)
         self.set_positions(positions)
         self.propagation = None
         self.intensity_propagation = None
@@ -89,6 +95,21 @@ class PtychographyModel(torch.nn.Module):
         """
         self.propagation = propagation
         self.intensity_propagation = intensity_propagation
+
+    def set_background(self, background):
+        """Replace the detector background, or remove it with ``None``.
+
+        ``background`` is a real scalar or one-frame tensor in ``forward``'s
+        pixel order; it is copied to the object's device as float32.
+        """
+        if background is None:
+            self.background = None
+            return
+        self.background = torch.nn.Parameter(
+            torch.as_tensor(background, dtype=torch.float32, device=self.object.device)
+            .detach()
+            .clone()
+        )
 
     def reset_from_reconstruction(self, reconstruction):
         """Import object and probe values while preserving parameter identity."""
@@ -149,7 +170,7 @@ class PtychographyModel(torch.nn.Module):
         return self.propagation(patches * entrance_probe)
 
     def forward(self, indices):
-        """Return detector intensity with shape ``(batch, Np, Np)``.
+        """Return detector intensity, plus any background, as ``(batch, Np, Np)``.
 
         The pixel order is that of ``intensity_propagation`` when one is set.
         """
@@ -159,4 +180,7 @@ class PtychographyModel(torch.nn.Module):
             fields = self.intensity_propagation(
                 self.object_patches(indices) * self.probe(indices)
             )
-        return fields.abs().square().sum(dim=(1, 2, 3, 4))
+        intensity = fields.abs().square().sum(dim=(1, 2, 3, 4))
+        if self.background is not None:
+            intensity = intensity + self.background
+        return intensity
