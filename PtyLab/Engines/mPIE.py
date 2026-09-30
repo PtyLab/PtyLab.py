@@ -328,7 +328,7 @@ class mPIE(BaseEngine):
                 # self.reconstruction.push_probe_update(self.reconstruction.probe, positionIndex, self.experimentalData.ptychogram.shape[0])
 
                 if self.params.positionCorrectionSwitch:
-                    shifter = self.positionCorrection(
+                    self.positionCorrection(
                         objectPatch, positionIndex, sy, sx
                     )
                     # self.pbar_pos.write(f'Corr: {shifter[0]*1e6:.2f} um x {shifter[1]*1e6:.2f} um')
@@ -559,3 +559,48 @@ class mPIE(BaseEngine):
             frac * DELTA, axis=1, keepdims=True
         )
         return r
+
+
+class pcPIE(mPIE):
+    """
+    Backward-compatible wrapper for :class:`mPIE`.
+
+    Position correction is now provided by `mPIE` through
+    `params.positionCorrectionSwitch`. This class is retained only for
+    compatibility with existing code using `Engines.pcPIE`.
+    """
+
+    def __init__(
+        self,
+        reconstruction: Reconstruction,
+        experimentalData: ExperimentalData,
+        params: Params,
+        monitor: Monitor,
+    ):
+        super().__init__(
+            reconstruction,
+            experimentalData,
+            params,
+            monitor,
+        )
+
+        self.name = "pcPIE"
+        self.logger = logging.getLogger("pcPIE")
+
+    @property
+    def betaM(self):
+        """Deprecated alias for `feedbackM`."""
+        return self.feedbackM
+
+    @betaM.setter
+    def betaM(self, value):
+        self.feedbackM = value
+
+    @property
+    def stepM(self):
+        """Deprecated alias for `frictionM`."""
+        return self.frictionM
+
+    @stepM.setter
+    def stepM(self, value):
+        self.frictionM = value

@@ -14,16 +14,24 @@ __all__ = [
     "mqNewton",
     "multiPIE",
     "OPR",
-    "pcPIE",
     "qNewton",
     "zPIE",
 ]
 from .e3PIE import e3PIE
 from .ePIE import ePIE
-from .mPIE import mPIE
+from .mPIE import mPIE, pcPIE
 from .mqNewton import mqNewton
 from .multiPIE import multiPIE
 from .OPR import OPR
-from .pcPIE import pcPIE
 from .qNewton import qNewton
 from .zPIE import zPIE
+
+
+import warnings
+
+warnings.warn(
+    "`pcPIE` is deprecated. Use `mPIE` with "
+    "`params.positionCorrectionSwitch = True` instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
