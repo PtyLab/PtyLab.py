@@ -31,9 +31,10 @@ dev = [
     "pytest~=9.0",
     "imageio~=2.0",
 ]
-gpu = ["cupy-cuda12x[ctk]"]
+gpu = ["cupy-cuda12x[ctk]; sys_platform != 'darwin'"]
 tensorflow = ["tensorflow~=2.14"]
 docs = [
+    "jetblack-markdown",
     "mkdocs>=1.6.1",
     "mkdocs-material>=9.7.6",
     "mkdocs-jupyter>=0.24",
@@ -53,3 +54,10 @@ build-backend = "uv_build"
 [tool.uv.build-backend]
 module-name = "PtyLab"
 module-root = ""
+
+[tool.uv]
+required-environments = [
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "sys_platform == 'win32' and platform_machine == 'AMD64'",
+    "sys_platform == 'darwin' and platform_machine == 'arm64'",
+]

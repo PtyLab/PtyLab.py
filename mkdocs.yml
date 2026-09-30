@@ -5,6 +5,12 @@ repo_url: https://github.com/PtyLab/PtyLab.py
 repo_name: PtyLab/PtyLab.py
 dev_addr: '127.0.0.1:8000'
 
+hooks:
+  - scripts/docs_notebooks.py
+
+watch:
+  - jupyter_tutorials
+
 theme:
   name: material
   logo: assets/ptylab_logo.svg
@@ -92,7 +98,9 @@ markdown_extensions:
   - tables
   - toc:
       permalink: true
-
+  - jetblack_markdown.latex2mathml
+  - footnotes
+  
 plugins:
   - search
   - mkdocstrings:
