@@ -11,6 +11,7 @@ except ImportError:
 
 import logging
 import sys
+import warnings
 
 import tqdm
 
@@ -577,6 +578,12 @@ class pcPIE(mPIE):
         params: Params,
         monitor: Monitor,
     ):
+        warnings.warn(
+            "`pcPIE` is deprecated. Use `mPIE` with "
+            "`params.positionCorrectionSwitch = True` instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         super().__init__(
             reconstruction,
             experimentalData,
