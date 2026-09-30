@@ -50,6 +50,20 @@ class GradientEngine(BaseEngine):
     set an integer only to bound memory. For Fraunhofer data
     ``measuredIntensities`` is stored in unshifted FFT order, see
     ``KernelPropagator.intensity_field``.
+
+    ``background`` (default ``None``) is an incoherent detector background that
+    the model adds to every predicted frame, so the data are compared with
+    ``|D{psi}|^2 + background`` instead of being background-subtracted. Give a
+    nonnegative scalar or one frame-shaped image in PtyLab's centered order, as
+    a NumPy array or tensor. It becomes the model parameter ``"background"``:
+    fixed by default, estimated (and kept nonnegative) when selected in
+    ``parameters``. Assigning ``background`` or calling ``reset()`` imports it
+    again; otherwise a learned value is retained between runs.
+
+    NumPy is used only at PtyLab boundaries: reading ``ExperimentalData`` and
+    ``Reconstruction`` arrays, building propagation kernels, and publishing
+    detached results. Measurements, backgrounds and all per-iteration work are
+    tensors on ``device``.
     """
 
     unsupportedSettings = (
@@ -98,6 +112,17 @@ class GradientEngine(BaseEngine):
         self.optimizerType = "adam"
         self.preconditionerAlpha = 0.1
         self.updatePerBatch = False
+        self.background = None
+
+    @property
+    def background(self):
+        """The detector background imported into the model at the next run."""
+        return self._background
+
+    @background.setter
+    def background(self, value):
+        self._background = value
+        self._backgroundPending = True
 
     def validateSettings(self):
         """Reject inputs outside the Stage 1 CPM and single-state contract."""
@@ -196,19 +221,26 @@ class GradientEngine(BaseEngine):
             self.model.to(self.device)
             self.model.reset_from_reconstruction(self.reconstruction)
         self.model.to(self.device)
+        self._backgroundPending = True
         return self
 
     def snapshot(self):
-        """Return detached CPU NumPy copies of the current physical parameters."""
+        """Return detached CPU NumPy copies of the current physical parameters.
+
+        A model background is included as ``"background"`` in centered order.
+        """
         if self.model is None:
             return {
                 "object": np.array(self.reconstruction.object, copy=True),
                 "probe.field": np.array(self.reconstruction.probe, copy=True),
             }
-        return {
+        state = {
             "object": self.model.object.detach().cpu().numpy().copy(),
             "probe.field": self.model.probe.field.detach().cpu().numpy().copy(),
         }
+        if getattr(self.model, "background", None) is not None:
+            state["background"] = self.centeredIntensity(self.model.background)
+        return state
 
     def _sync_reconstruction(self):
         """Publish detached object/probe snapshots for monitoring and persistence."""
@@ -305,42 +337,76 @@ class GradientEngine(BaseEngine):
             parameter.grad.div_(denominator / self.totalPower)
 
     def _validate_data(self):
+        """Return the measurements as a device tensor after checking them there.
+
+        Negative values are allowed: raw offset-subtracted frames with readout
+        noise contain them, and losses that need ``y >= 0`` clamp internally.
+        """
         r = self.reconstruction
         self.positions = np.asarray(r.positions)
-        intensity = np.asarray(self.experimentalData.ptychogram)
+        # A copy, so the engine never aliases ExperimentalData's array.
+        intensity = torch.tensor(
+            self.experimentalData.ptychogram, dtype=torch.float32, device=self.device
+        )
         if intensity.shape != (len(self.positions), r.Np, r.Np) or not len(
             self.positions
         ):
             raise ValueError(
                 "Expected one probe-sized diffraction frame per scan position."
             )
-        if (
-            not np.isfinite(intensity).all()
-            or np.any(intensity < 0)
-            or not intensity.sum() > 0
-        ):
+        if not torch.isfinite(intensity).all() or not intensity.sum() > 0:
             raise ValueError(
-                "Diffraction intensities must be finite, nonnegative and have positive power."
+                "Diffraction intensities must be finite and have positive total power."
             )
         if np.any(self.positions < 0) or np.any(self.positions + r.Np > r.No):
             raise ValueError("Scan positions place a probe patch outside the object.")
         return intensity
 
+    def _background_tensor(self):
+        """Return ``background`` as a device tensor in measurement pixel order."""
+        background = torch.as_tensor(self.background, device=self.device)
+        if background.dtype == torch.bool or background.is_complex():
+            raise TypeError("background must be a real scalar or image.")
+        background = background.to(torch.float32)
+        frame_shape = self.measuredIntensities.shape[-2:]
+        if background.ndim not in (0, 2) or (
+            background.ndim == 2 and background.shape != frame_shape
+        ):
+            raise ValueError(
+                f"background must be a scalar or an image of shape {tuple(frame_shape)}."
+            )
+        if not torch.isfinite(background).all() or (background < 0).any():
+            raise ValueError("background must be finite and nonnegative.")
+        if self.fftOrderIntensity and background.ndim == 2:
+            background = torch.fft.ifftshift(background, dim=(-2, -1))
+        return background
+
+    def _import_background(self):
+        """Copy a newly assigned ``background`` into the model."""
+        if not self._backgroundPending:
+            return
+        if self.background is None:
+            if getattr(self.model, "background", None) is not None:
+                self.model.set_background(None)
+        elif not hasattr(self.model, "set_background"):
+            raise TypeError("A custom model must implement set_background().")
+        else:
+            self.model.set_background(self._background_tensor())
+        self._backgroundPending = False
+
     def prepareReconstruction(self):
         """Prepare data, retained components, propagation, and a fresh optimizer."""
         self.validateSettings()
-        intensity = self._validate_data()
+        self.measuredIntensities = self._validate_data()
         self.preparePropagation()
         self.fftOrderIntensity = getattr(self.propagation, "fftOrderIntensity", False)
-        self.measuredIntensities = torch.tensor(
-            intensity, dtype=torch.float32, device=self.device
-        )
         if self.fftOrderIntensity:
             self.measuredIntensities = torch.fft.ifftshift(
                 self.measuredIntensities, dim=(-2, -1)
             )
         self.totalPower = self.measuredIntensities.sum()
         self.initializeParameters()
+        self._import_background()
         self.optimizer = self.createOptimizer()
         self.reconstruction.error = []
         self._sync_reconstruction()
@@ -404,6 +470,9 @@ class GradientEngine(BaseEngine):
                 self.preconditionGradients(step_indices)
             self.optimizer.step()
             with torch.no_grad():
+                background = getattr(self.model, "background", None)
+                if background is not None and background.requires_grad:
+                    background.clamp_(min=0)
                 self.afterStep(iteration)
 
         self.reconstruction.Iestimated = self.centeredIntensity(last_intensity)
@@ -414,7 +483,7 @@ class GradientEngine(BaseEngine):
 
     def centeredIntensity(self, intensity):
         """Return a detached NumPy detector image in PtyLab's centered order."""
-        if self.fftOrderIntensity:
+        if self.fftOrderIntensity and intensity.ndim >= 2:
             intensity = torch.fft.fftshift(intensity, dim=(-2, -1))
         return intensity.detach().cpu().numpy().copy()
 
