@@ -26,6 +26,77 @@ from PtyLab.utils.utils import fft2c, ifft2c
 
 
 class mPIE(BaseEngine):
+    r"""
+    Momentum-accelerated ptychographic iterative engine (mPIE).
+
+    mPIE extends the standard ePIE reconstruction by combining
+    regularized PIE (rPIE) object/probe updates with momentum
+    acceleration.[^maiden2017]
+
+    As in ePIE, the exit-wave correction at scan position $j$ is
+
+    $$
+    \Delta\Psi_j = \Psi'_j - \Psi_j
+    $$
+
+    For conventional ptychography, the object update is regularized as
+
+    $$
+    O'_j = O_j + \beta_O \frac{P^*}{\alpha_O P_{\max} + (1-\alpha_O)|P|^2}\Delta\Psi_j
+    $$
+
+    where $P_{\max}=\max |P|^2$, $\beta_O$ controls the object update
+    step size, and $\alpha_O$ controls the spatial regularization.
+
+    The probe is updated analogously:
+
+    $$
+    P' = P + \beta_P \frac{O_j^*}{\alpha_P O_{\max} + (1-\alpha_P)|O_j|^2}\Delta\Psi_j
+    $$
+
+    where $O_{\max}=\max |O_j|^2$, and $\alpha_P$ and $\beta_P$ control
+    probe regularization and update strength.
+
+    Compared with ePIE, these denominators retain stronger updates in
+    moderately illuminated regions while suppressing unstable updates where
+    the corresponding probe or object intensity is small.
+
+    Momentum acceleration is periodically applied to both object and probe.
+    In the PtyLab implementation, the momentum state is updated as
+
+    $$
+    M^{(n)} = G^{(n)} + \eta M^{(n-1)}
+    $$
+
+    followed by
+
+    $$
+    X^{(n+1)} = X^{(n)} - \gamma M^{(n)}
+    $$
+
+    where $X$ denotes the object or probe, $\eta$ is `frictionM`, and
+    $\gamma$ is `feedbackM`. The current implementation applies these
+    momentum updates stochastically during the scan-position loop.
+
+    The default mPIE parameters are `betaObject = 0.25`,
+    `betaProbe = 0.25`, `alphaObject = 0.1`, `alphaProbe = 0.1`,
+    `feedbackM = 0.3`, and `frictionM = 0.7`.
+
+    [^maiden2017]: A. M. Maiden, D. Johnson, and P. Li,
+            "Further improvements to the ptychographical iterative engine,"
+            Optica 4, 736-745 (2017).
+            https://doi.org/10.1364/OPTICA.4.000736
+
+    Attributes:
+        keepPatches (bool):
+            If enabled, store the reconstructed object patch associated with each
+            scan position for debugging or detailed analysis. This option can
+            require substantial additional memory.
+    See Also:
+        `ePIE`
+            Baseline ePIE reconstruction without rPIE regularization or
+            momentum acceleration.
+    """
     def __init__(
         self,
         reconstruction: Reconstruction,
@@ -33,11 +104,32 @@ class mPIE(BaseEngine):
         params: Params,
         monitor: Monitor,
     ):
-        # This contains reconstruction parameters that are specific to the reconstruction
-        # but not necessarily to ePIE reconstruction
+        """
+        Initialize the mPIE reconstruction engine.
+
+        Shared reconstruction state is initialized through `BaseEngine`, followed
+        by the mPIE-specific reconstruction parameters and momentum buffers.
+
+        Momentum acceleration is enabled through
+        `params.momentumAcceleration`, allowing shared BaseEngine operations such
+        as modal orthogonalization to keep the corresponding momentum and buffer
+        arrays consistent with the reconstructed object and probe.
+
+        Args:
+            reconstruction (Reconstruction):
+                Reconstruction state containing the current object, probe, and
+                geometry.
+            experimentalData (ExperimentalData):
+                Experimental diffraction data and acquisition parameters.
+            params (Params):
+                Shared reconstruction parameters and constraint settings.
+            monitor (Monitor):
+                Monitor used for reconstruction visualization and progress
+                reporting.
+    """
         super().__init__(reconstruction, experimentalData, params, monitor)
         self.logger = logging.getLogger("mPIE")
-        self.logger.info("Sucesfully created mPIE mPIE_engine")
+        self.logger.info("Successfully created mPIE engine")
         self.logger.info("Wavelength attribute: %s", self.reconstruction.wavelength)
         # initialize mPIE Params
         self.initializeReconstructionParams()
@@ -46,10 +138,12 @@ class mPIE(BaseEngine):
 
     @property
     def keepPatches(self):
-        """Wether or not to keep track of the individual object update patches.
+        """
+        Whether to store the reconstructed object patch for every scan position.
 
-        This strongly increases the amount of memory required, only use when absolutely required.
+        Enable with `engine.keepPatches = True` and disable with `engine.keepPatches = False`.
 
+        This option is intended for debugging or detailed analysis and may require a large amount of additional memory.
         """
         return hasattr(self, "patches")
 
@@ -72,8 +166,20 @@ class mPIE(BaseEngine):
 
     def initializeReconstructionParams(self):
         """
-        Set parameters that are specific to the mPIE settings.
-        :return:
+        Initialize mPIE-specific reconstruction parameters and momentum state.
+
+        The default mPIE parameters are:
+
+        - `betaObject = 0.25`: object update step size.
+        - `betaProbe = 0.25`: probe update step size.
+        - `alphaObject = 0.1`: object-update regularization parameter.
+        - `alphaProbe = 0.1`: probe-update regularization parameter.
+        - `feedbackM = 0.3`: momentum feedback strength.
+        - `frictionM = 0.7`: momentum memory coefficient.
+        - `numIterations = 50`: number of reconstruction iterations.
+
+        Object and probe momentum arrays are initialized together with corresponding
+        buffers that store the reconstruction state used by the momentum updates.
         """
         # self.eswUpdate = self.reconstruction.esw.copy()
         self.betaProbe = 0.25
@@ -144,12 +250,11 @@ class mPIE(BaseEngine):
                 else:
                     object_patch = self.objectPatchUpdate(objectPatch, DELTA)
 
+                self.reconstruction.object[..., sy, sx] = object_patch
                 if self.keepPatches:
                     self.patches[positionIndex, ..., sy, sx] = asNumpyArray(
                         abs(object_patch) ** 2
                     )
-                else:
-                    self.reconstruction.object[..., sy, sx] = object_patch
 
                 # probe update
                 weight = 1

@@ -36,19 +36,7 @@
       show_root_full_path: false
       inherited_members: false
 
-::: PtyLab.Engines.ePIE_TV.ePIE_TV
-    options:
-      show_root_heading: true
-      show_root_full_path: false
-      inherited_members: false
-
 ::: PtyLab.Engines.mPIE.mPIE
-    options:
-      show_root_heading: true
-      show_root_full_path: false
-      inherited_members: false
-
-::: PtyLab.Engines.mPIE_tv.mPIE_tv
     options:
       show_root_heading: true
       show_root_full_path: false
