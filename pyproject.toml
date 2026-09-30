@@ -31,7 +31,7 @@ dev = [
     "pytest~=9.0",
     "imageio~=2.0",
 ]
-gpu = ["cupy-cuda12x[ctk]"]
+gpu = ["cupy-cuda12x[ctk]; sys_platform != 'darwin'"]
 tensorflow = ["tensorflow~=2.14"]
 docs = [
     "jetblack-markdown",
