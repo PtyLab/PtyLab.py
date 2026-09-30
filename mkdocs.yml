@@ -112,6 +112,8 @@ plugins:
             show_root_heading: true
             show_source: true
             members_order: source
+            docstring_options:
+              returns_named_value: false
   - mkdocs-jupyter:
       include: ["*.ipynb"]
       execute: false
