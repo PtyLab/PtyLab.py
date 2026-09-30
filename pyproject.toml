@@ -1,6 +1,6 @@
 [project]
 name = "ptylab"
-version = "0.3.2"
+version = "0.3.3"
 description = "A cross-platform, open-source inverse modeling toolbox for conventional and Fourier ptychography"
 authors = [
     { name = "Lars Loetgering", email = "lars.loetgering@fulbrightmail.org" },
@@ -31,9 +31,10 @@ dev = [
     "pytest~=9.0",
     "imageio~=2.0",
 ]
-gpu = ["cupy-cuda12x[ctk]"]
+gpu = ["cupy-cuda12x[ctk]; sys_platform != 'darwin'"]
 torch = ["torch>=2.6"]
 docs = [
+    "jetblack-markdown",
     "mkdocs>=1.6.1",
     "mkdocs-material>=9.7.6",
     "mkdocs-jupyter>=0.24",
@@ -65,3 +66,10 @@ torch = [
 name = "pytorch-cu126"
 url = "https://download.pytorch.org/whl/cu126"
 explicit = true
+
+[tool.uv]
+required-environments = [
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "sys_platform == 'win32' and platform_machine == 'AMD64'",
+    "sys_platform == 'darwin' and platform_machine == 'arm64'",
+]

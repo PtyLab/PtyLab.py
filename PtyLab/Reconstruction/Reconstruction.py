@@ -20,7 +20,31 @@ from PtyLab.utils.gpuUtils import asNumpyArray
 
 def calculate_pixel_positions(encoder_corrected, dxo, No, Np, asint):
     """
-    Calculate the pixel positions.
+    Convert real-space scan positions to object-array pixel indices.
+
+    The returned positions correspond to the upper-left corner of the
+    object patch illuminated by the probe.
+
+    Args:
+        encoder_corrected (np.ndarray):
+            Corrected scan positions in meters, typically with shape
+            ``(numFrames, 2)``.
+
+        dxo (float):
+            Object-plane pixel size in meters.
+
+        No (int):
+            Number of pixels along one dimension of the object array.
+
+        Np (int):
+            Number of pixels along one dimension of the probe array.
+
+        asint (bool):
+            If True, return positions as integer pixel indices.
+
+    Returns:
+        np.ndarray:
+            Pixel coordinates of the upper-left corner of each object patch.
     """
     positions = np.round(
         encoder_corrected / dxo
@@ -33,13 +57,176 @@ def calculate_pixel_positions(encoder_corrected, dxo, No, Np, asint):
 
 class Reconstruction(object):
     """
-    This object will contain all the things that can be modified by a reconstruction.
+    Store and manage the mutable state of a PtyLab reconstruction.
 
-    In itself, it's little more than a data holder. It is initialized with an ExperimentalData object.
+    The reconstruction state is initialized from an ``ExperimentalData`` object
+    and a ``Params`` instance. Experimental quantities that may change during
+    reconstruction are copied from ``ExperimentalData``, while derived sampling,
+    coordinate grids, scan positions, object/probe settings, and reconstruction
+    state are maintained by this class.
 
-    Some parameters which are "immutable" within the ExperimentalData can be modified
-    (e.g. zo modification by zPIE during the reconstruction routine). All of them
-    are defined in the listOfReconstructionProperties
+    Args:
+        data (ExperimentalData):
+            Experimental data and acquisition geometry used to initialize the
+            reconstruction.
+
+        params (Params):
+            Reconstruction parameters and algorithm settings.
+
+    Attributes:
+        wavelength (float or np.ndarray):
+            Illumination wavelength in meters.
+
+        dxd (float):
+            Detector pixel size in meters.
+
+        zo (float):
+            Propagation distance used by the reconstruction. For CPM, this is the
+            sample-to-detector distance. Updating ``zo`` also updates ``dxp``.
+
+        dxp (float):
+            Probe-plane pixel size in meters. For CPM, it is derived from the
+            wavelength, propagation distance, and detector field of view. For FPM,
+            it is derived from the detector pixel size and microscope magnification.
+
+        theta (float or None):
+            Angular geometry parameter used for CPM, when provided by the
+            experimental dataset.
+
+        spectralDensity (np.ndarray or None):
+            Spectral weight used for polychromatic CPM reconstruction.
+
+        entrancePupilDiameter (float or None):
+            Effective probe or pupil diameter associated with the reconstruction.
+
+        zled (float):
+            LED-to-sample distance in meters for FPM.
+
+        NA (float or None):
+            Numerical aperture used for FPM.
+
+        encoder_corrected (np.ndarray):
+            Measurement coordinates currently used by the reconstruction,
+            including any applied position corrections.
+
+        positions0 (np.ndarray):
+            Reconstruction positions at initialization, in pixel coordinates.
+
+        nlambda (int):
+            Number of reconstructed wavelength modes.
+
+        nosm (int):
+            Number of object modes.
+
+        npsm (int):
+            Number of probe modes.
+
+        nslice (int):
+            Number of object slices.
+
+        No (int):
+            Number of pixels along one dimension of the reconstructed object.
+
+        initialObject (str):
+            Object initialization method.
+
+        initialProbe (str):
+            Probe initialization method.
+
+        object (np.ndarray):
+            Current complex-valued reconstructed object.
+
+        probe (np.ndarray):
+            Current complex-valued reconstructed probe.
+
+        error (np.ndarray):
+            Reconstruction error history. Available after reconstruction has
+            produced an error metric.
+
+        purityProbe (float):
+            Current probe-purity value used by reconstruction diagnostics.
+
+        purityObject (float):
+            Current object-purity value used by reconstruction diagnostics.
+
+        Nd (int):
+            Number of detector pixels along one dimension.
+
+        xd (np.ndarray):
+            One-dimensional detector-plane coordinates in meters.
+
+        Xd (np.ndarray):
+            Two-dimensional detector-plane x-coordinate grid in meters.
+
+        Yd (np.ndarray):
+            Two-dimensional detector-plane y-coordinate grid in meters.
+
+        Ld (float):
+            Physical width of the detector grid in meters.
+
+        Np (int):
+            Number of pixels along one dimension of the probe grid.
+
+        xp (np.ndarray):
+            One-dimensional probe-plane coordinates in meters.
+
+        Xp (np.ndarray):
+            Two-dimensional probe-plane x-coordinate grid in meters.
+
+        Yp (np.ndarray):
+            Two-dimensional probe-plane y-coordinate grid in meters.
+
+        Lp (float):
+            Physical field of view of the probe grid in meters.
+
+        dxo (float):
+            Object-grid pixel size in meters. In the current implementation this
+            is equal to ``dxp``. For the real-space FPM object sampling, use
+            ``dxo_fpm``.
+
+        xo (np.ndarray):
+            One-dimensional object-grid coordinates in meters.
+
+        Xo (np.ndarray):
+            Two-dimensional object-grid x-coordinate array in meters.
+
+        Yo (np.ndarray):
+            Two-dimensional object-grid y-coordinate array in meters.
+
+        Lo (float):
+            Physical field of view associated with the object grid.
+
+        dxo_fpm (float):
+            Real-space object pixel size for FPM in meters.
+
+        Lo_fpm (float):
+            Real-space field of view of the FPM object in meters.
+
+        dfp (float):
+            Spatial-frequency sampling of the FPM probe grid in inverse meters.
+
+        positions (np.ndarray):
+            Reconstruction positions in pixel coordinates. Positions are given in
+            row-column order and refer to the upper-left corner of each
+            reconstructed patch. For CPM they refer to real-space object patches;
+            for FPM they refer to patches in the high-resolution Fourier-space
+            representation.
+
+        NAd (float):
+            Effective detection numerical aperture.
+
+        DoF (float):
+            Estimated depth of field in meters.
+
+        TV (float):
+            Total-variation metric of the current reconstructed object.
+
+    Notes:
+        ``Reconstruction`` contains quantities that may evolve during an
+        iterative reconstruction.
+
+        Several geometric and sampling quantities are exposed as properties and
+        are derived from the experimental data and current reconstruction state.
     """
 
     _Nd = None
@@ -62,7 +249,16 @@ class Reconstruction(object):
     ]
 
     def __init__(self, data: ExperimentalData, params: Params):
+        """
+        Initialize the reconstruction state from experimental data and parameters.
 
+        Args:
+            data (ExperimentalData):
+                Experimental data and acquisition geometry.
+
+            params (Params):
+                Reconstruction parameters and algorithm settings.
+        """
         self.zMomentum = 0
         self.wavelength = None
         self._zo = None
@@ -110,7 +306,22 @@ class Reconstruction(object):
 
     def copyAttributesFromExperiment(self, data: ExperimentalData):
         """
-        Copy all the attributes from the experiment that are in listOfReconstructionProperties (CPM or FPM)
+        Copy reconstruction-relevant attributes from the experimental data.
+
+        The attributes copied depend on the selected operation mode. The propagation distance
+        and corrected measurement positions are handled separately.
+
+        Args:
+            data (ExperimentalData):
+                Experimental data object from which reconstruction parameters and
+                measurement positions are copied.
+
+        Notes:
+            For CPM, ``zo`` is assigned after the other geometry parameters because
+            setting ``zo`` also updates the probe-plane sampling ``dxp``.
+
+            ``encoder_corrected`` is initialized from ``data.encoder`` only if it
+            has not already been set, preserving any existing position corrections.
         """
         self.logger.debug("Copying attributes from Experimental Data")
         if self.data.operationMode == "CPM":
@@ -134,12 +345,23 @@ class Reconstruction(object):
             self.encoder_corrected = data.encoder.copy()
 
     def reset_positioncorrection(self):
-        """Reset the position corrections."""
+        """
+        Reset corrected measurement positions to the original encoder positions.
+
+        The current ``encoder_corrected`` values are replaced by a copy of
+        ``ExperimentalData.encoder``, removing any position corrections applied
+        during reconstruction.
+        """
         self.encoder_corrected = self.data.encoder.copy()
 
     @property
     def zo(self):
-        """Distance from sample to detector. Also updates all derived qualities."""
+        """
+        Propagation distance used by the reconstruction.
+
+        For CPM, this represents the sample-to-detector distance. Updating
+        ``zo`` also updates the probe-plane pixel size ``dxp``.
+        """
         return self._zo
 
     @zo.setter
@@ -154,7 +376,22 @@ class Reconstruction(object):
              
     def computeParameters(self):
         """
-        compute parameters that can be altered by the user later.
+        Compute reconstruction geometry and mode-dependent default parameters.
+
+        For CPM, missing probe and spectral parameters are initialized from the current reconstruction geometry. 
+        For FPM, the sample-plane sampling and pupil geometry are derived from the microscope magnification and numerical
+        aperture.
+
+        The object-array size is determined from the range of reconstruction
+        positions with additional space for the probe.
+
+        Notes:
+            This method may update both the ``Reconstruction`` instance and its
+            associated ``ExperimentalData`` object.
+
+            If ``No`` has not been defined, a temporary value is assigned first so
+            that pixel positions can be evaluated before the final object size is
+            determined.
         """
 
         if self.data.operationMode == "CPM":
@@ -204,8 +441,26 @@ class Reconstruction(object):
             self.No = np.max([self.Np, range_pixels])
 
     def make_alignment_plot(self, saveit=False):
-        import time
+        """
+        Create diagnostic plots for position alignment and autofocus history.
 
+        The main plot compares the initial reconstruction positions with the
+        current corrected positions. Additional plots are included when autofocus
+        or total-variation history is available.
+
+        Args:
+            saveit (bool, optional):
+                If True, save the diagnostic plots to
+                ``plots/alignment.html``. Defaults to False.
+
+        Returns:
+            bokeh.layouts.LayoutDOM:
+                Bokeh layout containing the available diagnostic plots.
+
+        Notes:
+            Position coordinates are derived from ``positions`` and ``positions0``.
+            These quantities are expressed in reconstruction pixels.
+        """
         t0 = time.time()
         p_new = self.positions.T
         p_old = self.positions0.T
@@ -230,11 +485,11 @@ class Reconstruction(object):
             title=f'alignment (updated {time.strftime("%Y%h%d, %H:%M:%S")})',
         )
         p.match_aspect = True
-        square = p.square(
+        p.square(
             p_old[0], p_old[1], fill_color="yellow", size=5, legend_label="original"
         )
         # add a circle renderer for the new points
-        circle = p.circle(
+        p.circle(
             p_new[0], p_new[1], fill_color="red", size=5, legend_label="new"
         )
 
@@ -301,19 +556,26 @@ class Reconstruction(object):
 
     def initializeSettings(self):
         """
-        Initialize the attributes that have to do with a reconstruction
-        or experimentalData fields which will become "reconstruction"
+        Initialize the default reconstruction model and initialization settings.
 
-        This method just sets the settings. It sets the what kind of initial guess should be used for initialObject
-        and initialProbe but it does not compute them yet. That will be done by calling initializeObjectProbe()
+        This method sets the number of wavelength, object, probe, and slice modes,
+        initializes purity-related state ``purityProbe`` and ``purityObject``, stores the initial reconstruction
+        positions, and selects the default object and probe initialization methods.
 
-        :return:
+        The object and probe arrays are not created by this method. They are
+        initialized later by ``initializeObjectProbe()``.
+
+        Notes:
+            The default reconstruction model uses one wavelength, one object mode,
+            one probe mode, and one object slice.
+
+            CPM initializes the object with ``"ones"`` and the probe with
+            ``"circ"``, while FPM uses ``"upsampled"`` for the object and
+            ``"circ"`` for the probe.
         """
-        # create a 6D object where which allows to have:
-        # 1. polychromatic = nlambda
-        # 2. mixed state object - nosm
-        # 3. mixed state probe - npsm
-        # 4. multislice object (thick) - nslice
+        # Configure the reconstruction model dimensions.
+        # These support multiple wavelengths, mixed object/probe states,
+        # and multislice reconstruction.
         self.nlambda = 1
         self.nosm = 1
         self.npsm = 1
@@ -337,14 +599,35 @@ class Reconstruction(object):
             self.initialObject = "ones"
 
     def prepare_probe(self, i):
-        """Replace probe with the i-th TSVD estimate.
+        """
+        Replace the current probe with a selected TSVD probe estimate.
 
-        This function is used in OPRP
+        This method is intended for OPRP implementations and must be overridden
+        by a reconstruction class that provides the corresponding probe estimates.
+
+        Args:
+            i (int):
+                Index of the TSVD probe estimate to use.
+
+        Raises:
+            NotImplementedError:
+                Always raised by the base ``Reconstruction`` implementation.
         """
         raise NotImplementedError()
 
     def initializeObjectProbe(self, force=True):
+        """
+        Initialize the object and probe used for reconstruction.
 
+        Initial object and probe estimates are generated using
+        ``initializeObject()`` and ``initializeProbe()``, then copied to
+        ``self.object`` and ``self.probe`` as the mutable reconstruction state.
+
+        Args:
+            force (bool, optional):
+                Forwarded to the object and probe initialization methods.
+                Defaults to True.
+        """ 
         # initialize object and probe
         self.initializeObject(force=force)
         self.initializeProbe(force=force)
@@ -354,6 +637,32 @@ class Reconstruction(object):
         self.probe = self.initialGuessProbe.copy()
 
     def initializeObject(self, type_of_init=None, force=True):
+        """
+        Initialize the object estimate used for reconstruction.
+
+        The object shape is determined from the configured wavelength, object-mode,
+        slice, and spatial dimensions. The initial object is either generated using
+        the selected initialization method or loaded from a previous reconstruction.
+
+        Args:
+            type_of_init (str, optional):
+                Object initialization method. If provided, this overrides
+                ``self.initialObject``. If None, the currently configured
+                initialization method is used.
+
+            force (bool, optional):
+                Whether to force object initialization. Defaults to True.
+                The current implementation does not support ``False``.
+
+        Raises:
+            NotImplementedError:
+                If ``force`` is False.
+
+        Notes:
+            The initialized object has shape
+            ``(nlambda, nosm, 1, nslice, No, No)`` and is stored as
+            ``complex64`` when generated by ``initialProbeOrObject()``.
+        """
         if not force:
             raise NotImplementedError()
         if type_of_init is not None:
@@ -368,7 +677,7 @@ class Reconstruction(object):
             self.No,
         )
         if self.initialObject == 'recon':
-            # Load the object from an existing reconstruction
+            # Load the object from an existing reconstruction. Confusing filename, but it contains both object and probe.
             self.initialGuessObject = self.loadResults(self.initialProbe_filename, datatype='object')
         else:
             self.initialGuessObject = initialProbeOrObject(self.shape_O, self.initialObject, self, self.logger).astype(np.complex64)
@@ -378,13 +687,45 @@ class Reconstruction(object):
     @staticmethod
     def loadResults(fileName, datatype='probe'):
         '''
-        Loads data from a ptylab reconstruction file.
+        Load an object or probe from a saved PtyLab reconstruction.
+
+        Args:
+            fileName (str or Path):
+                Path to the reconstruction HDF5 file.
+
+            datatype (str, optional):
+                Name of the dataset to load, typically ``"probe"`` or
+                ``"object"``. Defaults to ``"probe"``.
+
+        Returns:
+            np.ndarray:
+                Copy of the requested reconstruction dataset.
         '''
         with h5py.File(fileName) as archive:
             data = np.copy(np.array(archive[datatype]))
         return data
 
     def initializeProbe(self, force=False):
+        """
+        Initialize the probe estimate used for reconstruction.
+
+        The probe shape is determined from the configured wavelength, probe-mode,
+        slice, and spatial dimensions. The initial probe is either generated using
+        the selected initialization method or loaded from a previous reconstruction.
+
+        Args:
+            force (bool, optional):
+                Whether to reset the existing initial probe before generating a new
+                estimate. Defaults to False.
+
+        Notes:
+            The initialized probe has shape
+            ``(nlambda, 1, npsm, nslice, Np, Np)`` and is stored as
+            ``complex64`` when generated by ``initialProbeOrObject()``.
+
+            If ``entrancePupilDiameter`` is not available, it is set to one third
+            of the probe field of view before initialization.
+        """
         if self.data.entrancePupilDiameter is None:
             # if it is not set, set it to something reasonable
             self.logger.warning(
@@ -414,23 +755,31 @@ class Reconstruction(object):
 
     # initialize momentum, called in specific engines with momentum accelaration
     def initializeObjectMomentum(self):
+        """Initialize the object momentum buffer with zeros."""
         self.objectMomentum = np.zeros_like(self.initialGuessObject)
 
     def initializeProbeMomentum(self):
+        """Initialize the probe momentum buffer with zeros."""
         self.probeMomentum = np.zeros_like(self.initialGuessProbe)
 
     def load_object(self, filename):
         """
-        Load the object from a previous reconstruction
+        Load an object from a previous reconstruction.
 
-        Parameters
-        ----------
-        filename: .hdf5 file
-            Filenamne of the reconstruction whose object should be loaded.
+        The saved object is truncated to the dimensions required by the current
+        reconstruction and assigned to ``self.object``.
 
-        Returns
-        -------
+        Args:
+            filename (str or Path):
+                Path to a PtyLab reconstruction HDF5 file containing an
+                ``"object"`` dataset.
 
+        Raises:
+            RuntimeError:
+                If the loaded object cannot be matched to ``self.shape_O``.
+
+        Notes:
+            ``shape_O`` must already be defined before calling this method.
         """
         with h5py.File(filename, "r") as archive:
             obj = np.array(archive["object"])
@@ -446,20 +795,36 @@ class Reconstruction(object):
                 self.object = obj
             else:
                 raise RuntimeError(
-                    f'Shape of saved probe cannot be extended to shape of required probe. File: {archive["object"].shape}. Need: {self.shape_O}'
+                    f'Shape of saved object cannot be extended to shape of required object. File: {archive["object"].shape}. Need: {self.shape_O}'
                 )
 
     def load_probe(self, filename, expand_npsm=False, center_phase=False):
         """
-        Load the probe from a previous reconstruction.
+        Load a probe from a previous reconstruction.
 
-        Parameters
-        ----------
-        filename: .hdf5 file
-            The filename of the reconstruction whose probe should be loaded.
+        The saved probe is center-cropped to the current probe size and truncated
+        to the wavelength, probe-mode, and slice dimensions required by the
+        current reconstruction.
 
-        Returns
-        -------
+        Args:
+            filename (str or Path):
+                Path to a PtyLab reconstruction HDF5 file containing a
+                ``"probe"`` dataset.
+
+            expand_npsm (bool, optional):
+                Reserved for probe-mode expansion. This argument is currently not
+                used by the implementation. Defaults to False.
+
+            center_phase (bool, optional):
+                If True, center the probe propagation angle after loading.
+                Defaults to False.
+
+        Raises:
+            RuntimeError:
+                If the loaded probe cannot be matched to ``self.shape_P``.
+
+        Notes:
+            ``shape_P`` must already be defined before calling this method.
 
         """
         with h5py.File(filename, "r") as archive:
@@ -484,7 +849,12 @@ class Reconstruction(object):
             self._center_probe_angle()
 
     def _center_probe_angle(self):
-        """ Center the angle of propagation for the probe. """
+        """
+        Remove the global propagation-angle offset from the probe.
+
+        The offset is estimated from the first probe mode and corrected by
+        applying a compensating phase factor.
+        """
         from skimage.registration import phase_cross_correlation
         from scipy.ndimage import fourier_shift
         p0 = np.squeeze(self.probe)[0]
@@ -493,7 +863,25 @@ class Reconstruction(object):
         self.probe *= phexp
 
     def load(self, filename):
-        """Load the results given by saveResults."""
+        """
+        Load a previously saved reconstruction state.
+
+        This method restores the reconstructed object and probe together with
+        selected reconstruction metadata from a PtyLab HDF5 result file.
+
+        Args:
+            filename (str or Path):
+                Path to a reconstruction HDF5 file produced by
+                ``saveResults(type="all")``.
+
+        Notes:
+            The current implementation expects only CPM-style result fields and does
+            not restore all saved reconstruction state, such as
+            ``encoder_corrected``.
+
+            Unlike ``load_object()`` and ``load_probe()``, this method does not
+            adapt or validate the loaded object and probe shapes.
+        """
         with h5py.File(filename, "r") as archive:
 
             self.probe = np.array(archive["probe"])
@@ -509,18 +897,30 @@ class Reconstruction(object):
 
     def saveResults(self, fileName="recent", type="all", squeeze=False):
         """
-        Save reconstruction results.
+        Save reconstruction results to an HDF5 file.
 
+        Args:
+            fileName (str or Path, optional):
+                Output filename. Defaults to ``"recent"``.
 
-        Parameters
-        ----------
-        fileName
-        type
-        squeeze
+            type (str, optional):
+                Type of reconstruction data to save. Supported values are
+                ``"all"``, ``"object"``, ``"probe"``, and ``"probe_stack"``.
+                Defaults to ``"all"``.
 
+            squeeze (bool, optional):
+                If True, remove singleton dimensions when saving only the object
+                or probe. This option does not affect ``type="all"``.
+                Defaults to False.
 
-        Returns
-        -------
+        Raises:
+            NotImplementedError:
+                If an unsupported save type is requested.
+
+        Notes:
+            The datasets saved by ``type="all"`` depend on the operation mode.
+            CPM and FPM reconstruction files currently contain different sets of
+            reconstruction metadata.
 
         """
 
@@ -690,17 +1090,15 @@ class Reconstruction(object):
     # scan positions in pixel
     @property
     def positions(self):
-        """estimated positions in pixel numbers(real space for CPM, Fourier space for FPM)
-        note: Positions are given in row-column order and refer to the
-        pixel in the upper left corner of the respective data matrix;
-        -1st example: suppose the 2nd row of positions0 is [3, 4] and the
-        operation mode is 'CPM'. That implies that the second intensity
-        in the spectrogram updates an object patch that has
-        its left uppper corner pixel at the pixel coordinates [3, 4]
-        -2nd example: suppose the 2nd row of positions0 is [3, 4] and the
-        operation mode is 'FPM'. That implies that the second intensity
-        in the spectrogram is updates a patch which has pixel coordinates
-        [3,4] in the high-resolution Fourier transform
+        """
+        Reconstruction positions in pixel coordinates.
+
+        Positions are stored in row-column order and refer to the upper-left
+        corner of the reconstructed patch associated with each measurement.
+
+        For CPM, the positions identify patches in the real-space object array.
+        For FPM, they identify patches in the high-resolution Fourier-space
+        object representation.
         """
         if self.data.operationMode == "FPM":
             conv = -(1 / self.wavelength) * self.dxo * self.Np
@@ -728,13 +1126,13 @@ class Reconstruction(object):
     # system property list
     @property
     def NAd(self):
-        """Detection NA"""
+        """Effective detection numerical aperture."""
         NAd = self.Ld / (2 * self.zo)
         return NAd
 
     @property
     def DoF(self):
-        """expected Depth of field"""
+        """Estimated depth of field in meters."""
         DoF = self.wavelength / self.NAd**2
         # self.Dof2 = 5.2 *self.dxp**2 /self.wavelength
         return DoF
@@ -750,6 +1148,17 @@ class Reconstruction(object):
         transfer_fields_to_gpu(self, self.possible_GPU_fields, self.logger)
 
     def describe_reconstruction(self):
+        """
+        Print a summary of the reconstruction parameters and derived quantities.
+        The summary includes experimental-data dimensions and sampling, reconstruction-grid parameters, propagation geometry, and derived
+        quantities such as detector numerical aperture and depth of field.
+
+        The summary is also written to the reconstruction logger.
+
+        Returns:
+            str:
+                Formatted reconstruction summary.
+        """
         minmax_tv = ''
         try:
             minmax_tv = f'(min: {self.params.TV_autofocus_min_z*1e3}, max: {self.params.TV_autofocus_max_z*1e3}.)'
@@ -757,8 +1166,8 @@ class Reconstruction(object):
             pass
         info = f"""
         Experimental data:
-        - Number of ptychograms: {self.data.ptychogram.shape}
-        - Number of pixels ptychogram: {self.data.Nd}
+        - Ptychogram shape: {self.data.ptychogram.shape}
+        - Ptychogram size[px]: {self.data.Nd}
         - Ptychogram size: {self.data.Ld*1e3} mm
         - Pixel pitch: {self.data.dxd*1e6} um
         - Scan size: {1e3*(self.data.encoder.max(axis=0) - self.data.encoder.min(axis=0))} mm 
@@ -773,7 +1182,7 @@ class Reconstruction(object):
         
         Derived parameters:
         - NA detector: {self.NAd}
-        - DOF: {self.DoF*1e6} um
+        - Depth of field: {self.DoF*1e6} um
         
         """
         self.logger.info(info)
@@ -781,26 +1190,53 @@ class Reconstruction(object):
 
     @property
     def quadraticPhase(self):
-        """These functions are cached internally in Python and therefore no longer required."""
+        """Deprecated property; quadratic phase is no longer cached."""
         raise NotImplementedError("Quadratic phase is no longer cached. ")
 
     @property
     def transferFunction(self):
-        raise NotImplementedError("Quad phase is not longer cached")
+        """Deprecated property; transfer function is no longer cached."""
+        raise NotImplementedError("Transfer function is not longer cached")
 
     @property
     def Q1(self):
+        """Deprecated property; Q1 is no longer available."""
         raise NotImplementedError("Q1 is no longer available")
 
     @property
     def Q2(self):
+        """Deprecated property; Q2 is no longer available."""
         raise NotImplementedError("Q2 is no longer available")
 
     def TV_autofocus(self, params: Params, loop):
 
-        """Perform an autofocusing step based on optimizing the total variation.
+        """
+        Perform one autofocus update by optimizing a propagated-field metric.
 
-        If not required, returns none. Otherwise, returns the value of the TV at the current z0."""
+        The selected object or probe field is propagated over a range of axial
+        positions around the current propagation distance. A focus metric is
+        evaluated at each plane and used to compute a momentum-based update of
+        ``zo``.
+
+        Args:
+            params (Params):
+                Reconstruction parameters controlling autofocus range, metric,
+                update frequency, momentum, and axial bounds.
+
+            loop (int or None):
+                Current reconstruction iteration. If provided, autofocus is only
+                run according to ``TV_autofocus_run_every``.
+
+        Returns:
+            tuple:
+                Normalized metric at the current plane, selected propagated fields,
+                and autofocus score information. Returns ``(None, None, None)``
+                when no autofocus update is required.
+
+        Raises:
+            NotImplementedError:
+                If used with FPM or with an unsupported autofocus target.
+        """
         start_time = time.time()
 
         if self.data.operationMode == "FPM":
@@ -883,10 +1319,14 @@ class Reconstruction(object):
         return merit[nplanes//2] / asNumpyArray(abs(self.object[..., sy, sx]).mean()), np.hstack(OEs), (scores, self.zo)
 
     def reset_TV_autofocus(self):
-        """Reset the settings of TV autofocus. Can be useful to reset the memory effect if the steps are getting really large."""
+        """
+        Reset the autofocus momentum.
+
+        This clears the accumulated ``zMomentum`` used by TV autofocus and can be useful when the autofocus updates become excessively large.
+        """
         self.zMomentum = 0
 
     @property
     def TV(self):
-        """Return the TV of the object"""
+        """Total-variation metric of the current reconstructed object."""
         return TV(self.object, 1e-2)

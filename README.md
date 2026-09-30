@@ -2,6 +2,7 @@
 ![Python 3.10+](https://img.shields.io/badge/python-3.10+-green.svg)
 [![PyPI](https://img.shields.io/pypi/v/ptylab.svg)](https://pypi.org/project/ptylab/)
 ![Tests](https://github.com/PtyLab/PtyLab.py/actions/workflows/test.yml/badge.svg)
+[![Docs](https://github.com/PtyLab/PtyLab.py/actions/workflows/docs.yml/badge.svg)](https://ptylab.github.io/PtyLab.py/)
 
 [**Getting Started**](#getting-started) | [**Installation**](#installation) | [**Development**](#development) | [**Documentation**](https://ptylab.github.io/PtyLab.py/)
 
@@ -10,7 +11,7 @@ PtyLab is an inverse modeling toolbox for Conventional (CP) and Fourier (FP) pty
 ## Key Features
 
 - **Classic engines**: ePIE, mPIE, mqNewton, qNewton
-- **Advanced corrections**: position correction (pcPIE), defocus correction (zPIE), angle correction (aPIE), orthogonal probe relaxation (OPR)
+- **Advanced corrections**: position correction, defocus correction (zPIE), angle correction (aPIE), orthogonal probe relaxation (OPR)
 - **Multi-modal**: multi-slice, multi-wavelength, mixed-state object and probe
 - **Multiple propagators**: Fraunhofer, Fresnel, Angular Spectrum (ASP), scaled ASP, polychromatic variants
 - **GPU acceleration**: same code runs on CPU and GPU

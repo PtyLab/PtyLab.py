@@ -1,4 +1,17 @@
 # Quick Start
+PtyLab supports both **conventional ptychography (CPM)** and **Fourier ptychography (FPM)**. This quick start uses CPM as the main example.
+
+If you are new to PtyLab, a good place to start a ptychography reconstruction is the example script:
+```text
+example_scripts/exampleReconstructionCPM.py
+```
+The script shows a complete CPM reconstruction workflow and can be used as a reference while reading the sections below.
+
+To get started without your own dataset, use the bundled simulation data `simu.hdf5`. If it has not yet been generated， run
+```text
+example_scripts/simulationData.py
+``` 
+for example data generation.
 
 ## Using `easyInitialize`
 
@@ -19,29 +32,9 @@ for loop, posLoop in engine.reconstruct():
     pass
 
 reconstruction.saveResults("result.hdf5")
+
 ```
-
-`easyInitialize` returns a 5-tuple for CPM:
-
-| Object | Type | Description |
-|--------|------|-------------|
-| `experimentalData` | `ExperimentalData` | Diffraction data and geometry from the HDF5 file |
-| `reconstruction` | `Reconstruction` | Mutable state: object array, probe array, scan positions |
-| `params` | `Params` | Shared configuration (propagator type, constraints, switches) |
-| `monitor` | `Monitor` | Real-time visualization during reconstruction |
-| `engine` | `BaseEngine` | The reconstruction algorithm instance (e.g. `mPIE`) |
-
-## Using built-in example data
-
-To get started without your own dataset, use the bundled simulation data:
-
-```python
-experimentalData, reconstruction, params, monitor, engine = PtyLab.easyInitialize(
-    "example:simulation_cpm",
-    engine=Engines.ePIE,
-    operationMode="CPM",
-)
-```
+The alias `"example:simulation_cpm"` resolves to the synthetic CPM dataset `simu.hdf5`.
 
 Available example datasets:
 
@@ -49,6 +42,28 @@ Available example datasets:
 |------|-------------|
 | `"example:simulation_cpm"` | Synthetic CPM dataset |
 | `"example:simulation_fpm"` | Synthetic FPM dataset |
+
+
+`easyInitialize` returns a 5-tuple for CPM:
+
+| Object | Type | Description |
+|--------|------|-------------|
+| `experimentalData` | `ExperimentalData` | Diffraction data and experimental geometry from the HDF5 file |
+| `reconstruction` | `Reconstruction` | Mutable reconstruction state, including object, probe, and scan positions |
+| `params` | `Params` | Shared configuration (propagator type, constraints, switches) |
+| `monitor` | `Monitor` | Real-time visualization during reconstruction |
+| `engine` | `BaseEngine` | The reconstruction algorithm instance (e.g. `mPIE`) |
+
+A minimal reconstruction can then be run as:
+
+```python
+engine.numIterations = 50
+
+for loop, posLoop in engine.reconstruct():
+    pass
+
+reconstruction.saveResults("result.hdf5")
+```
 
 ## Headless mode
 
@@ -116,7 +131,7 @@ reconstruction.load_object("previous_result.hdf5")
 ## Next steps
 
 - [CPM Workflow Overview](../cpm/overview.md) — understand the full reconstruction pipeline
-- [Engines](../cpm/engines.md) — choose the right reconstruction algorithm
 - [Configuration Reference](../cpm/configuration.md) — all available `Params` options
-- [FPM Workflow](../fpm/overview.md) — Fourier ptychography with LED arrays
+- [Engines](../cpm/engines.md) — choose the right reconstruction algorithm
 - [Tutorial Notebooks](../tutorials/tutorial_CPM_sim.ipynb) — worked examples end to end
+- [FPM Workflow](../fpm/overview.md) — Fourier ptychography with LED arrays
