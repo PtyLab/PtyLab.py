@@ -4,9 +4,9 @@
 
 Scan position errors are common in practice — mechanical stage imperfections, thermal drift, and vibration all introduce deviations between the nominal encoder positions and the true sample positions. Even small position errors (a fraction of a pixel) degrade reconstruction quality. Position-correcting ptychography estimates and corrects these errors as part of the reconstruction.
 
-## Using `pcPIE`
+## Enabling position correction
 
-The `pcPIE` engine extends the standard PIE update with a cross-correlation based position correction step:
+Position correction is a cross-correlation based step built into the engines (`mPIE`, `mqNewton`). Turn it on with `params.positionCorrectionSwitch`:
 
 ```python
 import PtyLab
@@ -14,7 +14,7 @@ from PtyLab import Engines
 
 data, recon, params, monitor, engine = PtyLab.easyInitialize(
     "data.hdf5",
-    engine=Engines.pcPIE,
+    engine=Engines.mPIE,
     operationMode="CPM",
 )
 
@@ -34,6 +34,9 @@ recon.saveResults("corrected_result.hdf5")
 |-----------|---------|-------------|
 | `params.positionCorrectionSwitch` | `False` | Enable position correction |
 | `params.positionCorrectionSwitch_radius` | `1` | Search radius (pixels) around each nominal position |
+
+!!! note
+    `Engines.pcPIE` is deprecated. It is kept as a thin wrapper around `mPIE` for backward compatibility.
 
 !!! tip
     Start with a small radius (1–2 pixels). Large radii slow down reconstruction and can cause instabilities early in convergence. Run a few iterations without position correction first to let the object and probe stabilize.
@@ -76,5 +79,5 @@ recon.positions0          # original pixel positions (before correction)
 
 ## Related
 
-- [Engines](../cpm/engines.md) — `pcPIE` and other specialized engines
+- [Engines](../cpm/engines.md) — engines that support position correction
 - [Configuration Reference](../cpm/configuration.md) — full parameter list
