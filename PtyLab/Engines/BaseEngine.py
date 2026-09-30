@@ -2627,39 +2627,51 @@ class BaseEngine(object):
 
     def objectPatchUpdate_TV(self, objectPatch: np.ndarray, DELTA: np.ndarray):
         r"""
-        Update an object patch with an additional total-variation regularization
-        term.
+        Apply total-variation regularization to the engine-specific object update.
 
-        The data-driven object update is weighted by the conjugated probe:
-
-        $$
-        W_P = \frac{P^*}{\max\left(\sum |P|^2\right)}
-        $$
-
-        and the object patch is updated as
+        The data-driven object update is first calculated using the current
+        engine's `objectPatchUpdate()` implementation:
 
         $$
-        O_{\mathrm{new}} = O + \beta_O \sum W_P\Delta\Psi + \lambda\beta_O G_{\mathrm{TV}}(O)
+        O_{\mathrm{data}} = U_{\mathrm{engine}}(O_j,\Delta\Psi_j)
         $$
 
-        where $\Delta\Psi$ is the exit-wave correction, $\beta_O$ is the object
-        update step size, $\lambda$ is `objectTVregStepSize`, and
-        $G_{\mathrm{TV}}(O)$ is the TV update returned by `grad_TV()`.
+        where $U_{\mathrm{engine}}$ denotes the object-update rule implemented by
+        the active reconstruction engine. For example, `ePIE` uses the standard
+        ePIE update, while `mPIE` uses its regularized mPIE/rPIE update.
+
+        A total-variation regularization term is then added:
+
+        $$
+        O'_j = O_{\mathrm{data}} + \lambda\beta_O G_{\mathrm{TV}}(O_j)
+        $$
+
+        where $G_{\mathrm{TV}}(O_j)$ is calculated by `grad_TV()` using
+        `epsilon=1e-2`, $\beta_O$ is the engine's object update step size, and
+        $\lambda$ is controlled by `params.objectTVregStepSize`.
+
+        This design keeps the TV regularization independent of the underlying
+        reconstruction engine, allowing different engines to retain their native
+        object-update rules while sharing the same TV regularizer.
+
+        The activation and application frequency of this update are controlled by
+        `params.objectTVregSwitch` and `params.objectTVfreq` in the reconstruction
+        loop.
 
         Args:
             objectPatch (ndarray):
-                Current object patch.
+                Current object patch at the active scan position.
             DELTA (ndarray):
-                Exit-wave correction used for the object update.
+                Exit-wave correction, typically
+                `reconstruction.eswUpdate - reconstruction.esw`.
 
         Returns:
             ndarray:
-                Updated object patch including the TV regularization term.
-        Notes:
-            This function is only called by engines supporting TV-regularized object update.
+                Engine-specific object update with the additional TV
+                regularization term.
         """
 
-        xp = getArrayModule(objectPatch)
+        #xp = getArrayModule(objectPatch)
         #frac = self.reconstruction.probe.conj() / xp.max(
         #    xp.sum(xp.abs(self.reconstruction.probe) ** 2, axis=(0, 1, 2, 3))
         #)

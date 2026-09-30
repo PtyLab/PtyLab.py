@@ -200,8 +200,70 @@ class mPIE(BaseEngine):
         self.reconstruction.probeWindow = np.abs(self.reconstruction.probe)
 
     def reconstruct(self, experimentalData=None, reconstruction=None, vis_after_each_iteration=None):
-        """Reconstruct object. If experimentalData is given, it replaces the current data. Idem for reconstruction."""
+        r"""
+        Run the mPIE reconstruction to completion.
 
+        The reconstruction follows the standard ptychographic position loop.
+        At each scan position $j$, the current object patch and probe form the
+        exit surface wave
+
+        $$
+        \Psi_j = O_j P
+        $$
+
+        which is propagated to the detector plane and constrained by the measured
+        diffraction intensity through `intensityProjection()`. The corresponding
+        exit-wave correction is
+
+        $$
+        \Delta\Psi_j = \Psi'_j - \Psi_j
+        $$
+
+        The object and probe are then updated using the mPIE/rPIE update rules
+        implemented by `objectPatchUpdate()` and `probeUpdate()`.
+
+        If `params.objectTVregSwitch` is enabled, the TV-regularized object update
+        `objectPatchUpdate_TV()` is used every `params.objectTVfreq` iterations.
+        The native mPIE object update is retained and an additional TV
+        regularization term is added with strength controlled by
+        `params.objectTVregStepSize`.
+
+        If `params.weigh_probe_updates_by_intensity` is enabled, the probe update
+        is scaled by the relative intensity of the current diffraction frame.
+
+        If `params.positionCorrectionSwitch` is enabled, scan-position correction
+        is applied after the object and probe updates.
+
+        Momentum acceleration is applied stochastically during the scan-position
+        loop. In the current implementation, each position update has
+        approximately a 5% probability of triggering `objectMomentumUpdate()` and
+        `probeMomentumUpdate()`.
+
+        If `keepPatches` is enabled, the reconstructed patch associated with each
+        scan position is additionally stored in `self.patches` for diagnostics or
+        further analysis.
+
+        After all scan positions in an iteration have been processed,
+        `getErrorMetrics()` evaluates the reconstruction error,
+        `applyConstraints()` applies the enabled reconstruction constraints, and
+        `showReconstruction()` updates the reconstruction monitor.
+
+        Args:
+            experimentalData (ExperimentalData, optional):
+                Experimental dataset to use for the reconstruction. If provided,
+                it replaces the currently attached experimental data.
+            reconstruction (Reconstruction, optional):
+                Reconstruction state to optimize. If provided, it replaces the
+                currently attached reconstruction object.
+            vis_after_each_iteration (callable, optional):
+                Callback executed after each reconstruction iteration as
+                `vis_after_each_iteration(loop, reconstruction)`.
+
+        Notes:
+            The object and probe momentum buffers are reset after
+            `_prepareReconstruction()` so that they remain synchronized with any
+            initialization changes applied before reconstruction starts.
+        """
         self.changeExperimentalData(experimentalData)
         self.changeOptimizable(reconstruction)
 
@@ -299,9 +361,38 @@ class mPIE(BaseEngine):
             # todo clearMemory implementation
 
     def objectMomentumUpdate(self):
-        """
-        momentum update object, save updated objectMomentum and objectBuffer.
-        :return:
+        r"""
+        Apply the mPIE momentum update to the reconstructed object.
+
+        The change in the object since the previous momentum update is estimated
+        from the stored object buffer:
+
+        $$
+        G_O^{(n)} = O_{\mathrm{buf}}^{(n)} - O^{(n)}
+        $$
+
+        The object momentum is updated according to
+
+        $$
+        M_O^{(n)} = G_O^{(n)} + \eta M_O^{(n-1)}
+        $$
+
+        where $\eta$ is `frictionM`.
+
+        The accumulated momentum is then fed back into the object estimate:
+
+        $$
+        O^{(n+1)} = O^{(n)} - \gamma M_O^{(n)}
+        $$
+
+        where $\gamma$ is `feedbackM`.
+
+        After the momentum correction, `objectBuffer` is updated with the current
+        object estimate for the next momentum step.
+
+        Notes:
+            This update is triggered stochastically from `reconstruct()` rather
+            than after every scan-position update.
         """
         gradient = self.reconstruction.objectBuffer - self.reconstruction.object
         self.reconstruction.objectMomentum = (
@@ -314,9 +405,12 @@ class mPIE(BaseEngine):
         self.reconstruction.objectBuffer = self.reconstruction.object.copy()
 
     def probeMomentumUpdate(self):
-        """
-        momentum update probe, save updated probeMomentum and probeBuffer.
-        :return:
+        r"""
+        Apply the mPIE momentum update to the reconstructed probe. Similar to `objectMomentumUpdate()`.
+
+        See Also:
+            `objectMomentumUpdate`
+                Equivalent momentum update applied to the reconstructed object.
         """
         gradient = self.reconstruction.probeBuffer - self.reconstruction.probe
         self.reconstruction.probeMomentum = (
@@ -329,11 +423,56 @@ class mPIE(BaseEngine):
         self.reconstruction.probeBuffer = self.reconstruction.probe.copy()
 
     def objectPatchUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
-        """
-        Todo add docstring
-        :param objectPatch:
-        :param DELTA:
-        :return:
+        r"""
+        Update the object patch using the regularized mPIE/rPIE object-update rule.
+
+        The probe intensity is first evaluated and its maximum value is used as a
+        global normalization scale:
+
+        $$
+        P_{\max} = \max_{x,y}\sum |P(x,y)|^2
+        $$
+
+        For conventional ptychography, the probe weighting is
+
+        $$
+        W_P =\frac{P^*}{\alpha_O P_{\max} + (1-\alpha_O)|P|^2}
+        $$
+
+        and the object patch is updated according to
+
+        $$
+        O'_j =O_j + \beta_O \sum W_P\Delta\Psi_j
+        $$
+
+        where $\Delta\Psi_j$ is the exit-wave correction, $\beta_O$ is
+        `betaObject`, and $\alpha_O$ is `alphaObject`.
+
+        The parameter `alphaObject` controls the balance between global
+        normalization by the maximum probe intensity and local normalization by
+        the spatially varying probe intensity.
+
+        For Fourier ptychography (`operationMode == "FPM"`), an additional
+        probe-amplitude weighting is applied:
+
+        $$
+        W_P^{\mathrm{FPM}} =\frac{|P|}{P_{\max}}\frac{P^*}{\alpha_O P_{\max} + (1-\alpha_O)|P|^2}
+        $$
+
+        In the multidimensional PtyLab representation, the object correction is
+        summed over the probe-mode axis before being added to the current object
+        patch.
+
+        Args:
+            objectPatch (ndarray):
+                Current object patch at the active scan position.
+            DELTA (ndarray):
+                Exit-wave correction
+                `reconstruction.eswUpdate - reconstruction.esw`.
+
+        Returns:
+            ndarray:
+                Updated object patch.
         """
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
@@ -356,11 +495,58 @@ class mPIE(BaseEngine):
         )
 
     def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray, weight: float):
-        """
-        Todo add docstring
-        :param objectPatch:
-        :param DELTA:
-        :return:
+        r"""
+        Update the probe using the regularized mPIE/rPIE probe-update rule.
+
+        The object intensity is first evaluated and its maximum value is used as
+        a global normalization scale:
+
+        $$
+        O_{\max} = \max_{x,y}\sum |O_j(x,y)|^2
+        $$
+
+        The object weighting is then calculated as
+
+        $$
+        W_O = \frac{O_j^*}{\alpha_P O_{\max} + (1-\alpha_P)|O_j|^2}
+        $$
+
+        and the probe is updated according to
+
+        $$
+        P' = P + w\beta_P\sum W_O\Delta\Psi_j
+        $$
+
+        where $\Delta\Psi_j$ is the exit-wave correction, $\beta_P$ is
+        `betaProbe`, $\alpha_P$ is `alphaProbe`, and $w$ is the optional
+        intensity-dependent update weight.
+
+        The parameter `alphaProbe` controls the balance between global
+        normalization by the maximum object intensity and local normalization by
+        the spatially varying object intensity.
+
+        By default, $w=1$. If `params.weigh_probe_updates_by_intensity` is
+        enabled in `reconstruct()`, $w$ is set to the relative intensity of the
+        current diffraction frame.
+
+        In the current multidimensional PtyLab representation, the probe
+        correction is summed over axis `1` before being added to the current
+        probe estimate.
+
+        Args:
+            objectPatch (ndarray):
+                Current object patch at the active scan position.
+            DELTA (ndarray):
+                Exit-wave correction
+                `reconstruction.eswUpdate - reconstruction.esw`.
+            weight (float):
+                Multiplicative weight applied to the probe update. Typically `1`,
+                or the relative intensity of the current diffraction frame when
+                intensity-weighted probe updates are enabled.
+
+        Returns:
+            ndarray:
+                Updated probe.
         """
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)

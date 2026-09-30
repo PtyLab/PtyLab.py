@@ -152,14 +152,21 @@ class ePIE(BaseEngine):
         \Delta\Psi_j = \Psi'_j - \Psi_j
         $$
 
-        and is subsequently used by `objectPatchUpdate()` and `probeUpdate()` to
-        update the object and probe.
+        By default, the object is updated using the standard ePIE rule implemented
+        by `objectPatchUpdate()`.
+
+        If `params.objectTVregSwitch` is enabled, the TV-regularized update
+        `objectPatchUpdate_TV()` is used every `params.objectTVfreq` iterations.
+        The standard ePIE object update is retained and an additional TV
+        regularization term is added with strength controlled by
+        `params.objectTVregStepSize`.
+
+        The probe is updated using `probeUpdate()` after each object update.
 
         If `params.OPRP` is enabled, position-dependent probe estimates are
         retrieved from `reconstruction.probe_storage` before each scan-position
-        update and stored again after the probe update. Without OPRP, the same
-        probe estimate is shared and updated sequentially across all scan
-        positions.
+        update and stored again after the probe update. Without OPRP, a shared
+        probe estimate is updated sequentially across all scan positions.
 
         After all scan positions in an iteration have been processed,
         `getErrorMetrics()` evaluates the reconstruction error and
@@ -175,7 +182,7 @@ class ePIE(BaseEngine):
 
         Yields:
             tuple:
-                ``(iteration, positionLoop)`` after each scan-position update.
+                `(iteration, positionLoop)` after each scan-position update.
         """
         if experimentalData is not None:
             self.reconstruction.data = experimentalData
