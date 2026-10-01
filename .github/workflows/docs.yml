@@ -22,10 +22,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.1
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.0.0
+        uses: astral-sh/setup-uv@v10.2.0
         with:
           cache-dependency-glob: "pyproject.toml"
 
@@ -60,8 +60,8 @@ jobs:
 
     steps:
       - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: Deploy documentation
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
