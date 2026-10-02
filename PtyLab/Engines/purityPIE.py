@@ -24,8 +24,12 @@ from PtyLab.Reconstruction.Reconstruction import Reconstruction
 from PtyLab.utils.gpuUtils import asNumpyArray, getArrayModule
 from PtyLab.utils.utils import fft2c, ifft2c
 
+from copy import deepcopy
 
-class purityPIE(BaseEngine):
+from PtyLab.Monitor.Monitor import DummyMonitor
+
+from PtyLab.Engines.mPIE import mPIE
+class purityPIE(mPIE):
     '''
     purityPIE extends mPIE-style reconstruction with purity-based axial calibration.
     '''
@@ -36,100 +40,21 @@ class purityPIE(BaseEngine):
         params: Params,
         monitor: Monitor,
     ):
-        """
-        Initialize the mPIE reconstruction engine.
+        super().__init__(
+            reconstruction,
+            experimentalData,
+            params,
+            monitor,
+        )
 
-        Shared reconstruction state is initialized through `BaseEngine`, followed
-        by the mPIE-specific reconstruction parameters and momentum buffers.
-
-        Momentum acceleration is enabled through
-        `params.momentumAcceleration`, allowing shared BaseEngine operations such
-        as modal orthogonalization to keep the corresponding momentum and buffer
-        arrays consistent with the reconstructed object and probe.
-
-        Args:
-            reconstruction (Reconstruction):
-                Reconstruction state containing the current object, probe, and
-                geometry.
-            experimentalData (ExperimentalData):
-                Experimental diffraction data and acquisition parameters.
-            params (Params):
-                Shared reconstruction parameters and constraint settings.
-            monitor (Monitor):
-                Monitor used for reconstruction visualization and progress
-                reporting.
-    """
-        super().__init__(reconstruction, experimentalData, params, monitor)
         self.logger = logging.getLogger("purityPIE")
         self.logger.info("Successfully created purityPIE engine")
-        self.logger.info("Wavelength attribute: %s", self.reconstruction.wavelength)
+        self.logger.info(
+            "Wavelength attribute: %s",
+            self.reconstruction.wavelength,
+        )
 
-        self.initializeReconstructionParams()
-        self.params.momentumAcceleration = True
         self.name = "purityPIE"
-
-    @property
-    def keepPatches(self):
-        """
-        Whether to store the reconstructed object patch for every scan position.
-
-        Enable with `engine.keepPatches = True` and disable with `engine.keepPatches = False`.
-
-        This option is intended for debugging or detailed analysis and may require a large amount of additional memory.
-        """
-        return hasattr(self, "patches")
-
-    @keepPatches.setter
-    def keepPatches(self, keep_them):
-
-        if keep_them:
-            self.logger.info("Keeping patches!")
-            self.patches = np.zeros(
-                (
-                    self.experimentalData.ptychogram.shape[0],
-                    *self.reconstruction.shape_O,
-                ),
-                np.complex64,
-            )
-        else:
-            self.logger.info("Not keeping patches")
-            if hasattr(self, "patches"):
-                del self.patches
-
-    def initializeReconstructionParams(self):
-        """
-        Initialize mPIE-specific reconstruction parameters and momentum state.
-
-        The default mPIE parameters are:
-
-        - `betaObject = 0.25`: object update step size.
-        - `betaProbe = 0.25`: probe update step size.
-        - `alphaObject = 0.1`: object-update regularization parameter.
-        - `alphaProbe = 0.1`: probe-update regularization parameter.
-        - `feedbackM = 0.3`: momentum feedback strength.
-        - `frictionM = 0.7`: momentum memory coefficient.
-        - `numIterations = 50`: number of reconstruction iterations.
-
-        Object and probe momentum arrays are initialized together with corresponding
-        buffers that store the reconstruction state used by the momentum updates.
-        """
-        # self.eswUpdate = self.reconstruction.esw.copy()
-        self.betaProbe = 0.25
-        self.betaObject = 0.25
-        self.alphaProbe = 0.1  # probe regularization
-        self.alphaObject = 0.1  # object regularization
-        self.feedbackM = 0.3  # feedback
-        self.frictionM = 0.7  # friction
-        self.numIterations = 50
-
-        # initialize momentum
-        self.reconstruction.initializeObjectMomentum()
-        self.reconstruction.initializeProbeMomentum()
-        # set object and probe buffers
-        self.reconstruction.objectBuffer = self.reconstruction.object.copy()
-        self.reconstruction.probeBuffer = self.reconstruction.probe.copy()
-
-        self.reconstruction.probeWindow = np.abs(self.reconstruction.probe)
 
     def reconstruct(
         self,
@@ -186,13 +111,63 @@ class purityPIE(BaseEngine):
 
         return best_z, best_purity
 
+    def _createCandidateReconstruction(self, z):
+        """
+        Create an independent reconstruction state for one candidate z.
+
+        The candidate inherits the user's reconstruction settings but is built
+        from a fresh geometry at the requested propagation distance.
+        """
+
+        # Independent copies so one candidate cannot modify another
+        candidate_data = deepcopy(self.experimentalData)
+        candidate_params = deepcopy(self.params)
+
+        # Set candidate geometry before creating Reconstruction
+        candidate_data.zo = z
+
+        candidate_reconstruction = Reconstruction(
+            candidate_data,
+            candidate_params,
+        )
+
+        # Copy user-defined reconstruction settings
+        candidate_reconstruction.npsm = self.reconstruction.npsm
+        candidate_reconstruction.nosm = self.reconstruction.nosm
+        candidate_reconstruction.nlambda = self.reconstruction.nlambda
+        candidate_reconstruction.nslice = self.reconstruction.nslice
+
+        #candidate_reconstruction.No = self.reconstruction.No
+
+        candidate_reconstruction.initialProbe = self.reconstruction.initialProbe
+        candidate_reconstruction.initialObject = self.reconstruction.initialObject
+
+        if hasattr(self.reconstruction, "initialProbe_filename"):
+            candidate_reconstruction.initialProbe_filename = (
+                self.reconstruction.initialProbe_filename
+            )
+
+        if hasattr(self.reconstruction, "initialObject_filename"):
+            candidate_reconstruction.initialObject_filename = (
+                self.reconstruction.initialObject_filename
+            )
+
+        # Fresh object/probe for this candidate geometry
+        candidate_reconstruction.initializeObjectProbe()
+
+        return (
+            candidate_data,
+            candidate_reconstruction,
+            candidate_params,
+        )
+
     def purityZScan(self):
         """
         Scan a fixed axial range and select the distance that maximizes
         reconstructed probe purity.
 
-        Every candidate z is evaluated from the same initial reconstruction
-        state using `numIterations` mPIE iterations.
+        Each candidate z is evaluated using an independent reconstruction
+        state and a standard mPIE reconstruction.
         """
 
         if self.reconstruction.npsm < 2:
@@ -201,7 +176,10 @@ class purityPIE(BaseEngine):
                 "(reconstruction.npsm >= 2)."
             )
 
-        # Initial z guess defines the center of the scan
+        # ------------------------------------------------------------------
+        # Scan grid
+        # ------------------------------------------------------------------
+
         z0 = self.reconstruction.zo
         self.purityZInitialGuess = z0
 
@@ -211,26 +189,16 @@ class purityPIE(BaseEngine):
             self.params.purityZScanPoints,
         )
 
-        # Save the common starting state
-        object0 = self.reconstruction.object.copy()
-        probe0 = self.reconstruction.probe.copy()
-
-        objectMomentum0 = self.reconstruction.objectMomentum.copy()
-        probeMomentum0 = self.reconstruction.probeMomentum.copy()
-
-        objectBuffer0 = self.reconstruction.objectBuffer.copy()
-        probeBuffer0 = self.reconstruction.probeBuffer.copy()
-
         purity_values = []
 
         best_purity = -np.inf
         best_z = z0
-        best_state = None
 
-        # Do not allow orthogonalization during the internal mPIE iterations.
-        # Purity is evaluated once after each candidate reconstruction.
-        #orthogonalization_switch = self.params.orthogonalizationSwitch
-        #self.params.orthogonalizationSwitch = False
+        best_reconstruction = None
+
+        # ------------------------------------------------------------------
+        # Scan information
+        # ------------------------------------------------------------------
 
         tqdm.tqdm.write("")
         tqdm.tqdm.write("Starting purity-based z scan")
@@ -242,21 +210,11 @@ class purityPIE(BaseEngine):
         )
         tqdm.tqdm.write("")
 
-        #try:
+        # ------------------------------------------------------------------
+        # Candidate-z loop
+        # ------------------------------------------------------------------
+
         for z_index, z in enumerate(z_values):
-
-            # Restore exactly the same starting state for every candidate z
-            self.reconstruction.object = object0.copy()
-            self.reconstruction.probe = probe0.copy()
-
-            self.reconstruction.objectMomentum = objectMomentum0.copy()
-            self.reconstruction.probeMomentum = probeMomentum0.copy()
-
-            self.reconstruction.objectBuffer = objectBuffer0.copy()
-            self.reconstruction.probeBuffer = probeBuffer0.copy()
-
-            # Set candidate propagation distance
-            self.reconstruction.zo = z
 
             dz_um = (z - z0) * 1e6
 
@@ -266,43 +224,99 @@ class purityPIE(BaseEngine):
                 f"(Δz = {dz_um:+.2f} µm)"
             )
 
-            # Run mPIE reconstruction at this z
-            for loop in range(self.numIterations):
-                self._run_single_iteration(loop)
-                #self.showReconstruction(loop)
+            # --------------------------------------------------------------
+            # Create a completely independent reconstruction for this z
+            # --------------------------------------------------------------
+            #np.random.seed(0)
+            (
+                candidate_data,
+                candidate_reconstruction,
+                candidate_params,
+            ) = self._createCandidateReconstruction(z)
 
-            # Orthogonalize once and evaluate purity
-            self.orthogonalization()
-            
+            # Candidate reconstructions do not need their own GUI monitor
+            candidate_monitor = DummyMonitor()
+
+            # --------------------------------------------------------------
+            # Run standard mPIE
+            # --------------------------------------------------------------
+
+            candidate_engine = mPIE(
+                candidate_reconstruction,
+                candidate_data,
+                candidate_params,
+                candidate_monitor,
+            )
+
+            # Match the purityPIE reconstruction settings
+            candidate_engine.numIterations = self.numIterations
+
+            candidate_engine.betaProbe = self.betaProbe
+            candidate_engine.betaObject = self.betaObject
+
+            candidate_engine.alphaProbe = self.alphaProbe
+            candidate_engine.alphaObject = self.alphaObject
+
+            candidate_engine.feedbackM = self.feedbackM
+            candidate_engine.frictionM = self.frictionM
+
+            candidate_engine.reconstruct()
+
+            # --------------------------------------------------------------
+            # Final modal decomposition and purity evaluation
+            # --------------------------------------------------------------
+
+            candidate_engine.orthogonalization()
 
             purity = float(
                 np.asarray(
-                    asNumpyArray(self.reconstruction.purityProbe)
+                    asNumpyArray(candidate_reconstruction.purityProbe)
                 ).squeeze()
             )
 
             purity_values.append(purity)
-            # Force monitor to display the final state and final purity
-            self.showReconstruction(
-                self.numIterations - 1,
-                force=True,
-            )
+
             tqdm.tqdm.write(
                 f"    Probe purity = {purity:.6f}"
             )
 
+            # --------------------------------------------------------------
+            # Update main monitor with the completed candidate state
+            # --------------------------------------------------------------
+
+            self.reconstruction.zo = z
+            self.reconstruction.object = (
+                asNumpyArray(candidate_reconstruction.object).copy()
+            )
+            self.reconstruction.probe = (
+                asNumpyArray(candidate_reconstruction.probe).copy()
+            )
+
+            self.reconstruction.purityProbe = purity
+
+            if hasattr(candidate_reconstruction, "error"):
+                self.reconstruction.error = np.asarray(
+                    asNumpyArray(candidate_reconstruction.error)
+                ).copy()
+
+            # Display only completed candidate reconstructions
+            self.showReconstruction(
+                self.numIterations - 1,
+                force=True,
+            )
+
+            # --------------------------------------------------------------
+            # Keep best candidate
+            # --------------------------------------------------------------
+
             if purity > best_purity:
+
                 best_purity = purity
                 best_z = z
 
-                best_state = {
-                    "object": self.reconstruction.object.copy(),
-                    "probe": self.reconstruction.probe.copy(),
-                    "objectMomentum": self.reconstruction.objectMomentum.copy(),
-                    "probeMomentum": self.reconstruction.probeMomentum.copy(),
-                    "objectBuffer": self.reconstruction.objectBuffer.copy(),
-                    "probeBuffer": self.reconstruction.probeBuffer.copy(),
-                }
+                # Candidate objects are independent, so keeping this reference
+                # preserves the complete best reconstruction state.
+                best_reconstruction = candidate_reconstruction
 
                 tqdm.tqdm.write(
                     f"    NEW BEST: z = {best_z * 1e3:.6f} mm, "
@@ -311,33 +325,94 @@ class purityPIE(BaseEngine):
 
             tqdm.tqdm.write("")
 
-        #finally:
-        #        self.params.orthogonalizationSwitch = orthogonalization_switch
+        # ------------------------------------------------------------------
+        # Safety check
+        # ------------------------------------------------------------------
 
-        if best_state is None:
+        if best_reconstruction is None:
             raise RuntimeError(
                 "Purity z scan did not produce a valid purity value."
             )
 
-        # Restore best-z reconstruction state
-        self.reconstruction.object = best_state["object"]
-        self.reconstruction.probe = best_state["probe"]
-
-        self.reconstruction.objectMomentum = best_state["objectMomentum"]
-        self.reconstruction.probeMomentum = best_state["probeMomentum"]
-
-        self.reconstruction.objectBuffer = best_state["objectBuffer"]
-        self.reconstruction.probeBuffer = best_state["probeBuffer"]
+        # ------------------------------------------------------------------
+        # Restore the best candidate into the original Reconstruction object
+        #
+        # Keep the original object identity because external scripts may still
+        # hold a reference to self.reconstruction.
+        # ------------------------------------------------------------------
 
         self.reconstruction.zo = best_z
 
+        self.reconstruction.object = (
+            asNumpyArray(best_reconstruction.object).copy()
+        )
+
+        self.reconstruction.probe = (
+            asNumpyArray(best_reconstruction.probe).copy()
+        )
+
+        self.reconstruction.purityProbe = best_purity
+
+        if hasattr(best_reconstruction, "encoder_corrected"):
+            self.reconstruction.encoder_corrected = (
+                asNumpyArray(
+                    best_reconstruction.encoder_corrected
+                ).copy()
+            )
+
+        if hasattr(best_reconstruction, "objectMomentum"):
+            self.reconstruction.objectMomentum = (
+                asNumpyArray(
+                    best_reconstruction.objectMomentum
+                ).copy()
+            )
+
+        if hasattr(best_reconstruction, "probeMomentum"):
+            self.reconstruction.probeMomentum = (
+                asNumpyArray(
+                    best_reconstruction.probeMomentum
+                ).copy()
+            )
+
+        if hasattr(best_reconstruction, "objectBuffer"):
+            self.reconstruction.objectBuffer = (
+                asNumpyArray(
+                    best_reconstruction.objectBuffer
+                ).copy()
+            )
+
+        if hasattr(best_reconstruction, "probeBuffer"):
+            self.reconstruction.probeBuffer = (
+                asNumpyArray(
+                    best_reconstruction.probeBuffer
+                ).copy()
+            )
+
+        if hasattr(best_reconstruction, "error"):
+            self.reconstruction.error = np.asarray(
+                asNumpyArray(best_reconstruction.error)
+            ).copy()
+
+        # ------------------------------------------------------------------
         # Store scan results
-        self.purityZValues = z_values
+        # ------------------------------------------------------------------
+
+        self.purityZValues = np.asarray(z_values)
         self.purityZMetrics = np.asarray(purity_values)
+
         self.purityBestZ = best_z
         self.purityBestValue = best_purity
 
-        # Final summary
+        # Final monitor update with the selected best candidate
+        self.showReconstruction(
+            self.numIterations - 1,
+            force=True,
+        )
+
+        # ------------------------------------------------------------------
+        # Summary
+        # ------------------------------------------------------------------
+
         tqdm.tqdm.write("=" * 60)
         tqdm.tqdm.write("Purity-based z scan finished")
         tqdm.tqdm.write(
@@ -353,162 +428,7 @@ class purityPIE(BaseEngine):
 
         return best_z, best_purity
 
-    def purityZScan_X(self):
-        """
-        Scan a fixed axial range and select the distance that maximizes
-        reconstructed probe purity.
 
-        Every candidate z is evaluated from the same initial reconstruction
-        state using `numIterations` mPIE iterations.
-        """
-
-        if self.reconstruction.npsm < 2:
-            raise ValueError(
-                "Purity-based z scanning requires at least two probe modes "
-                "(reconstruction.npsm >= 2)."
-            )
-
-        # Initial z guess defines the center of the scan
-        z0 = self.reconstruction.zo
-        self.purityZInitialGuess = z0
-
-        z_values = np.linspace(
-            z0 - self.params.purityZScanRange,
-            z0 + self.params.purityZScanRange,
-            self.params.purityZScanPoints,
-        )
-
-        # Save the common starting state
-        object0 = self.reconstruction.object.copy()
-        probe0 = self.reconstruction.probe.copy()
-
-        objectMomentum0 = self.reconstruction.objectMomentum.copy()
-        probeMomentum0 = self.reconstruction.probeMomentum.copy()
-
-        objectBuffer0 = self.reconstruction.objectBuffer.copy()
-        probeBuffer0 = self.reconstruction.probeBuffer.copy()
-
-        purity_values = []
-
-        best_purity = -np.inf
-        best_z = z0
-        best_state = None
-
-        # Do not allow orthogonalization during the internal mPIE iterations.
-        # Purity is evaluated once after each candidate reconstruction.
-        orthogonalization_switch = self.params.orthogonalizationSwitch
-        self.params.orthogonalizationSwitch = False
-
-        tqdm.tqdm.write("")
-        tqdm.tqdm.write("Starting purity-based z scan")
-        tqdm.tqdm.write(
-            f"Initial z = {z0 * 1e3:.6f} mm | "
-            f"range = ±{self.params.purityZScanRange * 1e6:.1f} µm | "
-            f"points = {len(z_values)} | "
-            f"iterations/z = {self.numIterations}"
-        )
-        tqdm.tqdm.write("")
-
-        try:
-            for z_index, z in enumerate(z_values):
-
-                self._resetCandidateState(z)
-                #np.random.seed(0)
-                
-
-                dz_um = (z - z0) * 1e6
-
-                tqdm.tqdm.write(
-                    f"[{z_index + 1}/{len(z_values)}] "
-                    f"Reconstructing z = {z * 1e3:.6f} mm "
-                    f"(Δz = {dz_um:+.2f} µm)"
-                )
-
-                # Run mPIE reconstruction at this z
-                for loop in range(self.numIterations):
-                    self._run_single_iteration(loop)
-                    self.showReconstruction(loop)
-
-                # Orthogonalize once and evaluate purity
-                self.orthogonalization()
-                
-
-                purity = float(
-                    np.asarray(
-                        asNumpyArray(self.reconstruction.purityProbe)
-                    ).squeeze()
-                )
-                self.showReconstruction(0)
-
-                purity_values.append(purity)
-
-                tqdm.tqdm.write(
-                    f"    Probe purity = {purity:.6f}"
-                )
-
-                if purity > best_purity:
-                    best_purity = purity
-                    best_z = z
-
-                    best_state = {
-                        "object": self.reconstruction.object.copy(),
-                        "probe": self.reconstruction.probe.copy(),
-                        "objectMomentum": self.reconstruction.objectMomentum.copy(),
-                        "probeMomentum": self.reconstruction.probeMomentum.copy(),
-                        "objectBuffer": self.reconstruction.objectBuffer.copy(),
-                        "probeBuffer": self.reconstruction.probeBuffer.copy(),
-                    }
-
-                    tqdm.tqdm.write(
-                        f"    NEW BEST: z = {best_z * 1e3:.6f} mm, "
-                        f"purity = {best_purity:.6f}"
-                    )
-
-                tqdm.tqdm.write("")
-
-        finally:
-                self.params.orthogonalizationSwitch = orthogonalization_switch
-
-        if best_state is None:
-            raise RuntimeError(
-                "Purity z scan did not produce a valid purity value."
-            )
-
-        # Restore best-z reconstruction state
-        self.reconstruction.object = best_state["object"]
-        self.reconstruction.probe = best_state["probe"]
-
-        self.reconstruction.objectMomentum = best_state["objectMomentum"]
-        self.reconstruction.probeMomentum = best_state["probeMomentum"]
-
-        self.reconstruction.objectBuffer = best_state["objectBuffer"]
-        self.reconstruction.probeBuffer = best_state["probeBuffer"]
-
-        self.reconstruction.zo = best_z
-
-        # Store scan results
-        self.purityZValues = z_values
-        self.purityZMetrics = np.asarray(purity_values)
-        self.purityBestZ = best_z
-        self.purityBestValue = best_purity
-
-        # Final summary
-        tqdm.tqdm.write("=" * 60)
-        tqdm.tqdm.write("Purity-based z scan finished")
-        tqdm.tqdm.write(
-            f"Best z      = {best_z * 1e3:.6f} mm"
-        )
-        tqdm.tqdm.write(
-            f"Best Δz     = {(best_z - z0) * 1e6:+.2f} µm"
-        )
-        tqdm.tqdm.write(
-            f"Best purity = {best_purity:.6f}"
-        )
-        tqdm.tqdm.write("=" * 60)
-
-        return best_z, best_purity
-
-    def _resetCandidateState(self, z):
         """
         Reset the reconstruction state for one candidate z.
 
@@ -628,7 +548,7 @@ class purityPIE(BaseEngine):
 
         return fig, ax
     
-    def _run_single_iteration(self, loop):
+    
         """
         Run one complete mPIE reconstruction iteration.
         """
@@ -716,51 +636,6 @@ class purityPIE(BaseEngine):
         self.getErrorMetrics()
         self.applyConstraints(loop)
 
-    def objectMomentumUpdate(self):
-        r"""
-        Apply the mPIE momentum update to the reconstructed object.
-
-        The change in the object since the previous momentum update is estimated
-        from the stored object buffer:
-
-        $$
-        G_O^{(n)} = O_{\mathrm{buf}}^{(n)} - O^{(n)}
-        $$
-
-        The object momentum is updated according to
-
-        $$
-        M_O^{(n)} = G_O^{(n)} + \eta M_O^{(n-1)}
-        $$
-
-        where $\eta$ is `frictionM`.
-
-        The accumulated momentum is then fed back into the object estimate:
-
-        $$
-        O^{(n+1)} = O^{(n)} - \gamma M_O^{(n)}
-        $$
-
-        where $\gamma$ is `feedbackM`.
-
-        After the momentum correction, `objectBuffer` is updated with the current
-        object estimate for the next momentum step.
-
-        Notes:
-            This update is triggered stochastically from `reconstruct()` rather
-            than after every scan-position update.
-        """
-        gradient = self.reconstruction.objectBuffer - self.reconstruction.object
-        self.reconstruction.objectMomentum = (
-            gradient + self.frictionM * self.reconstruction.objectMomentum
-        )
-        self.reconstruction.object = (
-            self.reconstruction.object
-            - self.feedbackM * self.reconstruction.objectMomentum
-        )
-        self.reconstruction.objectBuffer = self.reconstruction.object.copy()
-
-    def probeMomentumUpdate(self):
         r"""
         Apply the mPIE momentum update to the reconstructed probe. Similar to `objectMomentumUpdate()`.
 
@@ -778,140 +653,4 @@ class purityPIE(BaseEngine):
         )
         self.reconstruction.probeBuffer = self.reconstruction.probe.copy()
 
-    def objectPatchUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
-        r"""
-        Update the object patch using the regularized mPIE/rPIE object-update rule.
-
-        The probe intensity is first evaluated and its maximum value is used as a
-        global normalization scale:
-
-        $$
-        P_{\max} = \max_{x,y}\sum |P(x,y)|^2
-        $$
-
-        For conventional ptychography, the probe weighting is
-
-        $$
-        W_P =\frac{P^*}{\alpha_O P_{\max} + (1-\alpha_O)|P|^2}
-        $$
-
-        and the object patch is updated according to
-
-        $$
-        O'_j =O_j + \beta_O \sum W_P\Delta\Psi_j
-        $$
-
-        where $\Delta\Psi_j$ is the exit-wave correction, $\beta_O$ is
-        `betaObject`, and $\alpha_O$ is `alphaObject`.
-
-        The parameter `alphaObject` controls the balance between global
-        normalization by the maximum probe intensity and local normalization by
-        the spatially varying probe intensity.
-
-        For Fourier ptychography (`operationMode == "FPM"`), an additional
-        probe-amplitude weighting is applied:
-
-        $$
-        W_P^{\mathrm{FPM}} =\frac{|P|}{P_{\max}}\frac{P^*}{\alpha_O P_{\max} + (1-\alpha_O)|P|^2}
-        $$
-
-        In the multidimensional PtyLab representation, the object correction is
-        summed over the probe-mode axis before being added to the current object
-        patch.
-
-        Args:
-            objectPatch (ndarray):
-                Current object patch at the active scan position.
-            DELTA (ndarray):
-                Exit-wave correction
-                `reconstruction.eswUpdate - reconstruction.esw`.
-
-        Returns:
-            ndarray:
-                Updated object patch.
-        """
-        # find out which array module to use, numpy or cupy (or other...)
-        xp = getArrayModule(objectPatch)
-        absP2 = xp.abs(self.reconstruction.probe) ** 2
-        Pmax = xp.max(xp.sum(absP2, axis=(0, 1, 2, 3)), axis=(-1, -2))
-        if self.experimentalData.operationMode == "FPM":
-            frac = (
-                abs(self.reconstruction.probe)
-                / Pmax
-                * self.reconstruction.probe.conj()
-                / (self.alphaObject * Pmax + (1 - self.alphaObject) * absP2)
-            )
-        else:
-            frac = self.reconstruction.probe.conj() / (
-                self.alphaObject * Pmax + (1 - self.alphaObject) * absP2
-            )
-
-        return objectPatch + self.betaObject * xp.sum(
-            frac * DELTA, axis=2, keepdims=True
-        )
-
-    def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray, weight: float):
-        r"""
-        Update the probe using the regularized mPIE/rPIE probe-update rule.
-
-        The object intensity is first evaluated and its maximum value is used as
-        a global normalization scale:
-
-        $$
-        O_{\max} = \max_{x,y}\sum |O_j(x,y)|^2
-        $$
-
-        The object weighting is then calculated as
-
-        $$
-        W_O = \frac{O_j^*}{\alpha_P O_{\max} + (1-\alpha_P)|O_j|^2}
-        $$
-
-        and the probe is updated according to
-
-        $$
-        P' = P + w\beta_P\sum W_O\Delta\Psi_j
-        $$
-
-        where $\Delta\Psi_j$ is the exit-wave correction, $\beta_P$ is
-        `betaProbe`, $\alpha_P$ is `alphaProbe`, and $w$ is the optional
-        intensity-dependent update weight.
-
-        The parameter `alphaProbe` controls the balance between global
-        normalization by the maximum object intensity and local normalization by
-        the spatially varying object intensity.
-
-        By default, $w=1$. If `params.weigh_probe_updates_by_intensity` is
-        enabled in `reconstruct()`, $w$ is set to the relative intensity of the
-        current diffraction frame.
-
-        In the current multidimensional PtyLab representation, the probe
-        correction is summed over axis `1` before being added to the current
-        probe estimate.
-
-        Args:
-            objectPatch (ndarray):
-                Current object patch at the active scan position.
-            DELTA (ndarray):
-                Exit-wave correction
-                `reconstruction.eswUpdate - reconstruction.esw`.
-            weight (float):
-                Multiplicative weight applied to the probe update. Typically `1`,
-                or the relative intensity of the current diffraction frame when
-                intensity-weighted probe updates are enabled.
-
-        Returns:
-            ndarray:
-                Updated probe.
-        """
-        # find out which array module to use, numpy or cupy (or other...)
-        xp = getArrayModule(objectPatch)
-        absO2 = xp.abs(objectPatch) ** 2
-        Omax = xp.max(xp.sum(absO2, axis=(0, 1, 2, 3)), axis=(-1, -2))
-        frac = objectPatch.conj() / (
-            self.alphaProbe * Omax + (1 - self.alphaProbe) * absO2
-        )
-        r = self.reconstruction.probe + weight * self.betaProbe * xp.sum(
-            frac * DELTA, axis=1, keepdims=True
-        )
-        return r
+ 
