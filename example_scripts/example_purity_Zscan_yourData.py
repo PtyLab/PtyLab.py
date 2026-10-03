@@ -14,6 +14,10 @@ from PtyLab import Engines
 logging.basicConfig(level=logging.INFO)
 
 
+# =============================================================================
+# File selection
+# =============================================================================
+
 def select_hdf5_file(title):
     root = Tk()
     root.withdraw()
@@ -29,23 +33,79 @@ def select_hdf5_file(title):
 
     root.destroy()
 
-    if not file_path:
-        raise RuntimeError(f"No file selected: {title}")
-
     return file_path
 
 
-# -------------------------------------------------------------------------
-# Select input files
-# -------------------------------------------------------------------------
+print()
+print("=" * 70)
+print("Purity-based axial calibration")
+print("=" * 70)
+
+print()
+print(
+    "Step 1: Select the ptychography dataset to calibrate.\n"
+    "This should be the HDF5 file containing the measured diffraction data."
+)
 
 filePath = select_hdf5_file(
     "Select ptychography dataset"
 )
 
-filePath_recon = select_hdf5_file(
-    "Select seed reconstruction"
+if not filePath:
+    raise RuntimeError(
+        "No ptychography dataset was selected."
+    )
+
+
+print()
+print("Selected dataset:")
+print(filePath)
+
+
+print()
+print(
+    "Step 2: Choose the initial probe.\n"
+    "If you already have a previous reconstruction, it can be used as a "
+    "seed probe.\n"
+    "Otherwise, purityPIE can start from a circular probe estimate."
 )
+
+use_seed = input(
+    "Use an existing reconstruction as seed probe? [y/N]: "
+).strip().lower() in ("y", "yes")
+
+
+filePath_recon = None
+
+if use_seed:
+
+    print()
+    print(
+        "Select the HDF5 reconstruction file containing the seed probe."
+    )
+
+    filePath_recon = select_hdf5_file(
+        "Select seed reconstruction"
+    )
+
+    if not filePath_recon:
+        raise RuntimeError(
+            "Seed probe was requested, but no reconstruction file "
+            "was selected."
+        )
+
+    print()
+    print("Selected seed reconstruction:")
+    print(filePath_recon)
+
+else:
+
+    print()
+    print(
+        "No seed reconstruction selected.\n"
+        "The reconstruction will start from a circular probe "
+        "and a uniform object."
+    )
 
 # -------------------------------------------------------------------------
 # Load data
@@ -66,9 +126,16 @@ print("Initial z:", reconstruction.zo)
 print("Wavelength:", reconstruction.wavelength)
 
 
-initial_z = reconstruction.zo 
+# Use the z value stored in the dataset by default.
+initial_z = reconstruction.zo
 
-print(f"Initial z guess: {reconstruction.zo * 1e3:.6f} mm")
+# Uncomment to set the initial z guess manually.
+# initial_z = 32.5e-3
+
+experimentalData.zo = initial_z
+reconstruction.zo = initial_z
+
+print(f"Initial z guess: {initial_z * 1e3:.6f} mm")
 
 
 # -------------------------------------------------------------------------
@@ -83,17 +150,55 @@ reconstruction.nlambda = 1
 reconstruction.nslice = 1
 
 
-# -------------------------------------------------------------------------
+# =============================================================================
 # Object and probe initialization
-# -------------------------------------------------------------------------
+# =============================================================================
 
-reconstruction.initialProbe = "recon"
-reconstruction.initialProbe_filename = filePath_recon
 reconstruction.initialObject = "ones"
 
-reconstruction.initializeObjectProbe()
+if filePath_recon is not None:
 
-reconstruction.describe_reconstruction()
+    reconstruction.initialProbe = "recon"
+    reconstruction.initialProbe_filename = (
+        filePath_recon
+    )
+
+    print()
+    print(
+        "Initial probe: loaded from seed reconstruction"
+    )
+
+else:
+
+    reconstruction.initialProbe = "circ"
+
+    print()
+    print(
+        "Initial probe: circular estimate"
+    )
+
+    # Circular initialization requires an entrance pupil diameter.
+    pupil_diameter = getattr(
+        experimentalData,
+        "entrancePupilDiameter",
+        None,
+    )
+
+    if pupil_diameter is None:
+        raise RuntimeError(
+            "Circular probe initialization requires "
+            "`experimentalData.entrancePupilDiameter`.\n"
+            "Define the probe / entrance pupil diameter before calling "
+            "`initializeObjectProbe()`, or provide a seed reconstruction."
+        )
+
+    print(
+        f"Entrance pupil diameter: "
+        f"{pupil_diameter * 1e6:.2f} um"
+    )
+
+
+reconstruction.initializeObjectProbe()
 
 
 # -------------------------------------------------------------------------
@@ -138,7 +243,6 @@ params.couplingAleph = 1
 # -------------------------------------------------------------------------
 
 params.purityZScanSwitch = True
-
 # Half-range around the current reconstruction.zo.
 #
 # Example:
@@ -152,10 +256,18 @@ params.purityZScanRange = 2e-3
 # Number of candidate z values.
 params.purityZScanPoints = 10
 
+params.purityZAdaptive = True
+
+params.purityZInitialStep = 200e-6
+params.purityZStepGrowth = 1.5
+params.purityZStepShrink = 0.5
+
+params.purityZMinStep = 20e-6
+params.purityZPurityTolerance = 1e-4
+params.purityZMaxEvaluations = 20
+
 # Plot purity versus z after the scan.
 params.purityZScanPlot = True
-
-
 monitor.describe_parameters(params)
 
 
@@ -199,6 +311,8 @@ if params.purityZScanSwitch:
             f"delta z = {(z - purity_engine.purityZInitialGuess) * 1e6:+.2f} um, "
             f"purity = {purity:.6f}"
         )
+
+
 
 # -------------------------------------------------------------------------
 # Optional: continue reconstruction using the best-z state

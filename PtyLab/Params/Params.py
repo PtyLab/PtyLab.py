@@ -154,10 +154,20 @@ class Params(object):
         self.map_position_to_z_change = False
 
         # purity based Zscan
-        self.purityZScanSwitch = False
         self.purityZScanRange = 100e-6
         self.purityZScanPoints = 11
+
         self.purityZScanPlot = True
+
+        self.purityZAdaptive = False
+
+        self.purityZInitialStep = 200e-6
+        self.purityZStepGrowth = 1.5
+        self.purityZStepShrink = 0.5
+
+        self.purityZMinStep = 20e-6
+        self.purityZPurityTolerance = 1e-4
+        self.purityZMaxEvaluations = 20
 
         self.OPRP = False
 
