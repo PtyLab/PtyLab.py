@@ -257,7 +257,7 @@ class TensorboardMonitor(AbstractMonitor):
 
         axes["O"].set_title("Original positions")
         axes["N"].set_title("Updated positions")
-        axes["S"].set_title(f"Diff. Mean: {meandiff} $\mu$m")
+        axes["S"].set_title(rf"Diff. Mean: {meandiff} $\mu$m")
 
         # plot the original one everywhere
 
