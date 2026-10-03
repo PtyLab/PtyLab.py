@@ -25,6 +25,77 @@ from PtyLab.utils.gpuUtils import asNumpyArray, getArrayModule
 
 
 class zPIE(BaseEngine):
+    r"""
+    Ptychographic iterative engine with axial-distance refinement.
+
+    zPIE extends the standard PIE reconstruction by jointly refining the
+    object/probe estimate and the axial propagation distance $z$.[^loetgering2020]
+
+    During reconstruction, a set of candidate axial offsets is generated
+    around the current propagation distance:
+
+    $$
+    \Delta z_k \in [-d\,\mathrm{DoF},\, d\,\mathrm{DoF}]
+    $$
+
+    For each candidate offset, either the reconstructed object or probe is
+    propagated to the corresponding defocus plane using angular-spectrum
+    propagation. The quantity used for axial optimization is selected through
+    `focusObject`.
+
+    A total-variation-based focus metric is evaluated from the propagated
+    complex field:
+
+    $$
+    M_k = \sum \sqrt{|\nabla_x U_k|^2 + |\nabla_y U_k|^2 + \epsilon}
+    $$
+
+    where $U_k$ is the propagated field at axial offset $\Delta z_k$ and
+    $\epsilon$ is a small numerical stabilization term.
+
+    The axial feedback is calculated from the merit values as
+
+    $$
+    f_z = \frac{\sum_k \Delta z_k M_k}{\sum_k M_k}
+    $$
+
+    and accumulated using a momentum-like update:
+
+    $$
+    m_z^{(n)} = \gamma m_z^{(n-1)} + \eta f_z
+    $$
+
+    followed by
+
+    $$
+    z^{(n+1)} = z^{(n)} + m_z^{(n)}
+    $$
+
+    where $\gamma$ is `zPIEfriction` and $\eta$ is
+    `zPIEgradientStepSize`.
+
+    The updated axial distance is stored in `reconstruction.zo`. For
+    propagation schemes whose sampling depends explicitly on distance, the
+    corresponding propagation coordinates are updated after each axial
+    correction.
+
+    The object and probe are subsequently updated using the standard PIE
+    object and probe update rules.
+
+    Parameters specific to zPIE include:
+
+    - `DoF`: depth-of-field scale used to define the axial search range.
+    - `zPIEgradientStepSize`: strength of the axial feedback update.
+    - `zPIEfriction`: momentum retention factor for axial refinement.
+    - `focusObject`: if `True`, evaluate the focus metric on the object;
+      otherwise evaluate it on the probe.
+    - `zMomentun`: accumulated axial momentum.
+
+    [^loetgering2020]: L. Loetgering, M. Du, K. S. E. Eikema, and S. Witte,
+        "zPIE: an autofocusing algorithm for ptychography,"
+        Optics Letters 45, 2030-2033 (2020).
+        https://doi.org/10.1364/OL.389492
+    """
     def __init__(
         self,
         reconstruction: Reconstruction,

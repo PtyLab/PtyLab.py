@@ -153,6 +153,22 @@ class Params(object):
         # map a change in positions to a change in z. Experimental, do not use
         self.map_position_to_z_change = False
 
+        # purity based Zscan
+        self.purityZScanRange = 100e-6
+        self.purityZScanPoints = 11
+
+        self.purityZScanPlot = True
+
+        self.purityZAdaptive = False
+
+        self.purityZInitialStep = 200e-6
+        self.purityZStepGrowth = 1.5
+        self.purityZStepShrink = 0.5
+
+        self.purityZMinStep = 20e-6
+        self.purityZPurityTolerance = 1e-4
+        self.purityZMaxEvaluations = 20
+
         self.OPRP = False
 
         # Default values of all OPR parameters
