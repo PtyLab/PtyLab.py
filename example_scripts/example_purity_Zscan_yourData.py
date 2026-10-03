@@ -241,8 +241,6 @@ params.couplingAleph = 1
 # -------------------------------------------------------------------------
 # Purity-based z calibration parameters
 # -------------------------------------------------------------------------
-
-params.purityZScanSwitch = True
 # Half-range around the current reconstruction.zo.
 #
 # Example:
@@ -275,42 +273,42 @@ monitor.describe_parameters(params)
 # Run purity-based axial calibration
 # -------------------------------------------------------------------------
 
-if params.purityZScanSwitch:
 
-    purity_engine = Engines.purityPIE(
-        reconstruction,
-        experimentalData,
-        params,
-        monitor,
-    )
 
-    # Number of mPIE iterations used to evaluate EACH candidate z.
-    purity_engine.numIterations = 5
+purity_engine = Engines.purityPIE(
+    reconstruction,
+    experimentalData,
+    params,
+    monitor,
+)
 
-    best_z, best_purity = purity_engine.reconstruct()
+# Number of mPIE iterations used to evaluate EACH candidate z.
+purity_engine.numIterations = 5
 
-    print()
-    print("Purity-based axial calibration finished")
-    print("---------------------------------------")
-    print(f"Initial z : {purity_engine.purityZInitialGuess * 1e3:.6f} mm")
-    print(f"Best z    : {best_z * 1e3:.6f} mm")
+best_z, best_purity = purity_engine.reconstruct()
+
+print()
+print("Purity-based axial calibration finished")
+print("---------------------------------------")
+print(f"Initial z : {purity_engine.purityZInitialGuess * 1e3:.6f} mm")
+print(f"Best z    : {best_z * 1e3:.6f} mm")
+print(
+    f"Delta z   : "
+    f"{(best_z - purity_engine.purityZInitialGuess) * 1e6:.3f} um"
+)
+print(f"Best purity: {best_purity:.6f}")
+
+print()
+print("z scan:")
+for z, purity in zip(
+    purity_engine.purityZValues,
+    purity_engine.purityZMetrics,
+):
     print(
-        f"Delta z   : "
-        f"{(best_z - purity_engine.purityZInitialGuess) * 1e6:.3f} um"
+        f"z = {z * 1e3:.6f} mm, "
+        f"delta z = {(z - purity_engine.purityZInitialGuess) * 1e6:+.2f} um, "
+        f"purity = {purity:.6f}"
     )
-    print(f"Best purity: {best_purity:.6f}")
-
-    print()
-    print("z scan:")
-    for z, purity in zip(
-        purity_engine.purityZValues,
-        purity_engine.purityZMetrics,
-    ):
-        print(
-            f"z = {z * 1e3:.6f} mm, "
-            f"delta z = {(z - purity_engine.purityZInitialGuess) * 1e6:+.2f} um, "
-            f"purity = {purity:.6f}"
-        )
 
 
 
