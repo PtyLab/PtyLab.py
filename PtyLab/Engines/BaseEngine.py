@@ -1577,7 +1577,7 @@ class BaseEngine(object):
             axis=-2,
         )
 
-    def showReconstruction(self, loop):
+    def showReconstruction(self, loop, force=False):
         """
         Update reconstruction monitoring and optional iteration output.
 
@@ -1597,7 +1597,7 @@ class BaseEngine(object):
             loop (int):
                 Current reconstruction iteration.
         """
-        if np.mod(loop, self.monitor.figureUpdateFrequency) == 0:
+        if force or np.mod(loop, self.monitor.figureUpdateFrequency) == 0:
             if self.experimentalData.operationMode == "FPM":
                 object_estimate = np.squeeze(
                     asNumpyArray(
