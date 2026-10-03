@@ -148,7 +148,7 @@ monitor.probeZoom = None  # 0.5   # control probe plot FoV
 # Params = Params()
 ## main parameters
 params.positionOrder = "random"  # 'sequential' or 'random'
-params.propagatorType = "ASP"  # Fresnel'# 'Fresnel' #aunhofer'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
+params.propagatorType = "Fraunhofer"  # Fresnel'# 'Fresnel' #aunhofer'  # Fraunhofer Fresnel ASP scaledASP polychromeASP scaledPolychromeASP
 
 params.positionCorrectionSwitch = False
 params.modulusEnforcedProbeSwitch = False

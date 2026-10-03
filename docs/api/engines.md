@@ -42,6 +42,12 @@
       show_root_full_path: false
       inherited_members: false
 
+::: PtyLab.Engines.mPIE.pcPIE
+    options:
+      show_root_heading: true
+      show_root_full_path: false
+      inherited_members: false
+
 ::: PtyLab.Engines.zPIE.zPIE
     options:
       show_root_heading: true

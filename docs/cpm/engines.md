@@ -13,7 +13,6 @@ Engines implement the iterative reconstruction algorithms. All engines inherit f
 | `multiPIE` | Multi-mode PIE | Multiple probe or object modes simultaneously |
 | `zPIE` | Defocus-correcting PIE | Unknown or uncertain sample-detector distance |
 | `aPIE` | Angle-correcting PIE | Reflection geometry with uncertain tilt angle |
-| `pcPIE` | Position-correcting PIE | Corrects scan position errors during reconstruction |
 | `e3PIE` | Enhanced ePIE | Multislice (thick sample) reconstruction |
 | `OPR` | Orthogonal Probe Relaxation | Spatially varying probe (e.g. aberrations, drift) |
 
@@ -45,7 +44,9 @@ engine.betaProbe = 0.25    # probe update step size (0 < beta ≤ 1)
 
 These engines use quasi-Newton updates and generally require fewer iterations than PIE-based methods.
 
-### pcPIE (position correction)
+### Position correction (mPIE, mqNewton)
+
+`pcPIE` is deprecated; enable position correction on `mPIE` or `mqNewton` instead:
 
 ```python
 params.positionCorrectionSwitch = True
@@ -84,7 +85,7 @@ Is the sample thick (multislice)?
   No  → continue
 
 Are scan positions unreliable?
-  Yes → pcPIE
+  Yes → mPIE with params.positionCorrectionSwitch = True
   No  → continue
 
 Do you want the fastest convergence?
