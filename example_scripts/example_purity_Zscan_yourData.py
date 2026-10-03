@@ -1,79 +1,51 @@
-import argparse
 import logging
+from tkinter import Tk, filedialog
 
 import matplotlib
-
-matplotlib.use("qt5agg")
+matplotlib.use("QtAgg")
 
 import matplotlib.pyplot as plt
 import numpy as np
 
 import PtyLab
 from PtyLab import Engines
-from PtyLab.io import getExampleDataFolder
 
 
 logging.basicConfig(level=logging.INFO)
 
 
-"""
-Purity-based axial calibration example.
+def select_hdf5_file(title):
+    root = Tk()
+    root.withdraw()
+    root.attributes("-topmost", True)
 
-Workflow
---------
-1. Load a conventional ptychography dataset.
-2. Initialize a multimode reconstruction.
-3. Run purityPIE over a fixed z range.
-4. Select the z value that gives the highest reconstructed probe purity.
-5. Optionally continue the reconstruction with mPIE from the best-z state.
-"""
+    file_path = filedialog.askopenfilename(
+        title=title,
+        filetypes=[
+            ("HDF5 files", "*.hdf5"),
+            ("All files", "*.*"),
+        ],
+    )
 
+    root.destroy()
 
-# -------------------------------------------------------------------------
-# Command-line arguments
-# -------------------------------------------------------------------------
+    if not file_path:
+        raise RuntimeError(f"No file selected: {title}")
 
-import logging
-import os
-
-import matplotlib
-matplotlib.use("QtAgg")
-import matplotlib.pyplot as plt
-
-import PtyLab
-from PtyLab import Engines
-
-
-logging.basicConfig(level=logging.INFO)
-
-logging.basicConfig(level=logging.INFO)
+    return file_path
 
 
 # -------------------------------------------------------------------------
-# Data path
+# Select input files
 # -------------------------------------------------------------------------
 
-PATH = r"\\dionysios.iap.uni-jena.de\faserlaser$\AG_Imaging/2023_XUV_Bio-imaging\XUV imaging\_RAWDATA"
-subdir = "20240522/176"
-
-filePath = os.path.join(
-    PATH,
-    f"{subdir}/dp/dp_processed.hdf5",
+filePath = select_hdf5_file(
+    "Select ptychography dataset"
 )
 
-filePath_recon = os.path.join(
-    PATH,
-    f"{subdir}/recons/seed.hdf5",
+filePath_recon = select_hdf5_file(
+    "Select seed reconstruction"
 )
-
-
-# -------------------------------------------------------------------------
-# Experimental parameters
-# -------------------------------------------------------------------------
-
-initial_z = 32.0e-3
-wavelength = 13.5e-9
-bin_factor = 1
 
 # -------------------------------------------------------------------------
 # Load data
@@ -86,26 +58,15 @@ experimentalData, reconstruction, params, monitor, _ = (
     )
 )
 
-experimentalData.setOrientation(4)
+#experimentalData.setOrientation(0)
 
 print("Loaded file:", experimentalData.filename)
 print("Ptychogram shape:", experimentalData.ptychogram.shape)
 print("Initial z:", reconstruction.zo)
 print("Wavelength:", reconstruction.wavelength)
 
-# -------------------------------------------------------------------------
-# Optional initial z offset for testing
-# -------------------------------------------------------------------------
 
-# Uncomment this to deliberately start from an incorrect distance.
-#
-# experimentalData.zo += 100e-6
-# reconstruction.zo += 100e-6
-
-
-
-experimentalData.zo = initial_z
-reconstruction.zo = initial_z
+initial_z = reconstruction.zo 
 
 print(f"Initial z guess: {reconstruction.zo * 1e3:.6f} mm")
 
@@ -132,19 +93,6 @@ reconstruction.initialObject = "ones"
 
 reconstruction.initializeObjectProbe()
 
-
-# Optional quadratic phase initialization, if required for your dataset.
-#
-# reconstruction.probe *= np.exp(
-#     1.0j
-#     * 2
-#     * np.pi
-#     / (reconstruction.wavelength * reconstruction.zo * 2)
-#     * (reconstruction.Xp**2 + reconstruction.Yp**2)
-#     / 2
-# )
-
-
 reconstruction.describe_reconstruction()
 
 
@@ -170,37 +118,19 @@ params.positionOrder = "random"
 params.propagatorType = "Fraunhofer"
 
 params.gpuSwitch = True
-params.fftshiftSwitch = False
 
 params.intensityConstraint = "standard"
 
-params.positionCorrectionSwitch = False
-
-params.modulusEnforcedProbeSwitch = False
 params.probePowerCorrectionSwitch = True
 
 params.probeSmoothenessSwitch = True
 params.probeSmoothnessAleph = 1e-2
 params.probeSmoothenessWidth = 10
-
 params.comStabilizationSwitch = 10
-
-# purityPIE performs an explicit orthogonalization after each candidate-z
-# reconstruction. Automatic orthogonalization during the internal
-# reconstruction is temporarily disabled by purityZScan().
 params.orthogonalizationSwitch = True
 params.orthogonalizationFrequency = 10
-
-params.absorbingProbeBoundary = False
-params.objectContrastSwitch = False
-params.absObjectSwitch = False
-params.backgroundModeSwitch = False
-
 params.couplingSwitch = True
 params.couplingAleph = 1
-
-params.TV_autofocus = False
-params.l2reg = False
 
 
 # -------------------------------------------------------------------------
