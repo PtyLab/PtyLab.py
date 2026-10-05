@@ -304,9 +304,6 @@ class zPIE(BaseEngine):
                 Reconstruction state to optimize. If provided, it replaces the
                 reconstruction currently attached to the engine.
 
-        Returns:
-            None
-
         See Also:
             `show_defocus`
                 Visualize the reconstructed object over a range of axial defocus
