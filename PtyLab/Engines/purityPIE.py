@@ -14,7 +14,7 @@ import sys
 
 import tqdm
 
-from PtyLab.Engines.BaseEngine import BaseEngine
+#from PtyLab.Engines.BaseEngine import BaseEngine
 from PtyLab.ExperimentalData.ExperimentalData import ExperimentalData
 from PtyLab.Monitor.Monitor import Monitor
 from PtyLab.Params.Params import Params
@@ -30,9 +30,89 @@ from PtyLab.Monitor.Monitor import DummyMonitor
 
 from PtyLab.Engines.mPIE import mPIE
 class purityPIE(mPIE):
-    '''
-    purityPIE extends mPIE-style reconstruction with purity-based axial calibration.
-    '''
+    r"""
+    Purity-based axial self-calibration for ptychographic reconstruction.
+
+    `purityPIE` extends `mPIE` by estimating the sample-to-detector
+    axial distance from the reconstructed probe purity.[^liu2025]
+
+    In mixed-state ptychography, the measured diffraction intensity at
+    scan position $j$ is modeled as an incoherent sum over multiple probe
+    modes:
+
+    $$
+    I_j(\mathbf{q}) = \sum_m \left| \mathcal{F}\left[P_m(\mathbf{r}) O(\mathbf{r}-\mathbf{r}_j)\right] \right|^2
+    $$
+
+    where $P_m$ denotes probe mode $m$, $O$ is the object transmission
+    function, and $\mathcal{F}$ denotes propagation to the detector plane.
+
+    The mutual intensity of the reconstructed probe is
+
+    $$
+    J(\mathbf{r}_1,\mathbf{r}_2) = \sum_m P_m^*(\mathbf{r}_1)P_m(\mathbf{r}_2)
+    $$
+
+    and can be decomposed into orthonormal coherent modes as
+
+    $$
+    J(\mathbf{r}_1,\mathbf{r}_2) = \sum_m \lambda_m \phi_m^*(\mathbf{r}_1)\phi_m(\mathbf{r}_2)
+    $$
+
+    where $\lambda_m$ represents the intensity contribution, or relative
+    power content, of the corresponding orthonormal mode.
+
+    The probe purity is defined as
+
+    $$
+    \mu = \frac{\sqrt{\sum_m \lambda_m^2}}{\sum_m \lambda_m}
+    $$
+
+    with $\mu \in [0,1]$.
+
+    If the assumed axial distance is incorrect, a mismatch is introduced
+    in the diffraction integral connecting real and reciprocal space.
+    This produces stretching deformation and resolution degradation in
+    the reconstructed object and probe, which appears as a reduction in
+    reconstructed purity.
+
+    The calibrated axial distance is obtained by maximizing the
+    reconstructed probe purity:
+
+    $$
+    z_{\mathrm{opt}} = \operatorname*{arg\,max}_z \mu(z)
+    $$
+
+    For each candidate axial distance, `purityPIE` creates an independent
+    reconstruction initialized with the corresponding geometry, performs
+    an `mPIE` reconstruction, orthogonalizes the reconstructed probe
+    modes, and evaluates the resulting purity. The candidate with the
+    highest purity is retained as the calibrated reconstruction.
+
+    Two search strategies are available:
+
+    - A fixed-grid scan evaluates uniformly spaced axial positions defined
+    by `params.purityZScanRange` and `params.purityZScanPoints`.
+
+    - An adaptive scan expands the axial step while purity improves and
+    subsequently refines the search around the best candidate with
+    progressively smaller steps. It is enabled with
+    `params.purityZAdaptive = True`.
+
+    Purity-based axial calibration requires at least two reconstructed
+    probe modes, i.e. `reconstruction.npsm >= 2`.
+
+    [^liu2025]: C. Liu, W. Eschen, D. S. Penagos Molina,
+            L. Licht, M. Abdelaal, and J. Rothhardt,
+            "Purity-based self-calibration in ptychography,"
+            Opt. Lett. 50, 1581-1584 (2025).
+            https://doi.org/10.1364/OL.543865
+
+    See Also:
+        `mPIE`
+            Momentum-accelerated reconstruction engine used for each
+            candidate axial distance.
+    """
     def __init__(
         self,
         reconstruction: Reconstruction,
@@ -62,29 +142,41 @@ class purityPIE(mPIE):
         reconstruction=None,
     ):
         """
-        Run purity-based axial calibration.
+        Run purity-based axial self-calibration.
 
-        Each candidate propagation distance is reconstructed from the same
-        initial state using `numIterations` mPIE-style iterations. The distance
-        yielding the highest probe purity is selected, and the corresponding
-        reconstruction state is retained.
+        The reconstruction first prepares the current object, probe, geometry,
+        constraints, and optional GPU state using the standard `mPIE` setup.
+
+        The axial calibration is then performed using one of two search strategies:
+
+        - If `params.purityZAdaptive = False`, `purityZScan()` evaluates a fixed
+        grid of candidate axial distances.
+
+        - If `params.purityZAdaptive = True`, `adaptivePurityZScan()` searches the
+        axial distance using adaptive step-size expansion and refinement.
+
+        Each candidate distance is evaluated using an independent `mPIE`
+        reconstruction. The candidate yielding the highest reconstructed probe
+        purity is selected, and its reconstruction state is restored to the
+        original `Reconstruction` object.
 
         If `params.purityZScanPlot` is enabled, the resulting purity-versus-z
         curve is displayed after calibration.
 
         Args:
             experimentalData (ExperimentalData, optional):
-                Experimental dataset to use. If provided, it replaces the
-                currently attached dataset.
+                Experimental dataset to use for the calibration. If provided, it
+                replaces the dataset currently attached to the engine.
+
             reconstruction (Reconstruction, optional):
                 Reconstruction state to calibrate. If provided, it replaces the
-                currently attached reconstruction.
+                reconstruction currently attached to the engine.
 
         Returns:
             tuple:
-                `(best_z, best_purity)`, where `best_z` is the selected axial
-                propagation distance and `best_purity` is the corresponding
-                probe purity.
+                `(best_z, best_purity)`, where `best_z` is the calibrated axial
+                propagation distance in meters and `best_purity` is the
+                corresponding reconstructed probe purity.
         """
 
         self.changeExperimentalData(experimentalData)
@@ -116,10 +208,33 @@ class purityPIE(mPIE):
 
     def _createCandidateReconstruction(self, z):
         """
-        Create an independent reconstruction state for one candidate z.
+        Create an independent reconstruction for one candidate axial distance.
 
-        The candidate inherits the user's reconstruction settings but is built
-        from a fresh geometry at the requested propagation distance.
+        A deep copy of the experimental data and reconstruction parameters is
+        created so that evaluating one candidate distance cannot modify the state
+        of another candidate.
+
+        The candidate axial distance is assigned before constructing the new
+        `Reconstruction` object. This ensures that all geometry-dependent
+        quantities, including sampling and scan positions, are initialized
+        consistently for the requested distance.
+
+        User-defined reconstruction settings such as the number of probe modes,
+        object modes, wavelengths, slices, and object/probe initialization method
+        are copied from the parent reconstruction.
+
+        The object and probe are then initialized independently for the candidate
+        geometry.
+
+        Args:
+            z (float):
+                Candidate sample-to-detector propagation distance in meters.
+
+        Returns:
+            tuple:
+                `(candidate_data, candidate_reconstruction, candidate_params)`,
+                containing the independent experimental data, reconstruction state,
+                and parameter set for the candidate distance.
         """
 
         # Independent copies so one candidate cannot modify another
@@ -164,336 +279,30 @@ class purityPIE(mPIE):
             candidate_params,
         )
 
-   
-        """
-        Scan a fixed axial range and select the distance that maximizes
-        reconstructed probe purity.
-
-        Each candidate z is evaluated using an independent reconstruction
-        state and a standard mPIE reconstruction.
-        """
-
-        if self.reconstruction.npsm < 2:
-            raise ValueError(
-                "Purity-based z scanning requires at least two probe modes "
-                "(reconstruction.npsm >= 2)."
-            )
-
-        # ------------------------------------------------------------------
-        # Scan grid
-        # ------------------------------------------------------------------
-
-        z0 = self.reconstruction.zo
-        self.purityZInitialGuess = z0
-
-        z_values = np.linspace(
-            z0 - self.params.purityZScanRange,
-            z0 + self.params.purityZScanRange,
-            self.params.purityZScanPoints,
-        )
-
-        purity_values = []
-
-        best_purity = -np.inf
-        best_z = z0
-
-        best_reconstruction = None
-
-        # ------------------------------------------------------------------
-        # Scan information
-        # ------------------------------------------------------------------
-
-        tqdm.tqdm.write("")
-        tqdm.tqdm.write("Starting purity-based z scan")
-        tqdm.tqdm.write(
-            f"Initial z = {z0 * 1e3:.6f} mm | "
-            f"range = ±{self.params.purityZScanRange * 1e6:.1f} µm | "
-            f"points = {len(z_values)} | "
-            f"iterations/z = {self.numIterations}"
-        )
-        tqdm.tqdm.write("")
-
-        # ------------------------------------------------------------------
-        # Candidate-z loop
-        # ------------------------------------------------------------------
-
-        for z_index, z in enumerate(z_values):
-
-            dz_um = (z - z0) * 1e6
-
-            tqdm.tqdm.write(
-                f"[{z_index + 1}/{len(z_values)}] "
-                f"Reconstructing z = {z * 1e3:.6f} mm "
-                f"(Δz = {dz_um:+.2f} µm)"
-            )
-
-            # --------------------------------------------------------------
-            # Create a completely independent reconstruction for this z
-            # --------------------------------------------------------------
-            #np.random.seed(0)
-            (
-                candidate_data,
-                candidate_reconstruction,
-                candidate_params,
-            ) = self._createCandidateReconstruction(z)
-
-            # Candidate reconstructions do not need their own GUI monitor
-            candidate_monitor = DummyMonitor()
-
-            # --------------------------------------------------------------
-            # Run standard mPIE
-            # --------------------------------------------------------------
-
-            candidate_engine = mPIE(
-                candidate_reconstruction,
-                candidate_data,
-                candidate_params,
-                candidate_monitor,
-            )
-
-            # Match the purityPIE reconstruction settings
-            candidate_engine.numIterations = self.numIterations
-
-            candidate_engine.betaProbe = self.betaProbe
-            candidate_engine.betaObject = self.betaObject
-
-            candidate_engine.alphaProbe = self.alphaProbe
-            candidate_engine.alphaObject = self.alphaObject
-
-            candidate_engine.feedbackM = self.feedbackM
-            candidate_engine.frictionM = self.frictionM
-
-            candidate_engine.reconstruct()
-
-            # --------------------------------------------------------------
-            # Final modal decomposition and purity evaluation
-            # --------------------------------------------------------------
-
-            candidate_engine.orthogonalization()
-
-            purity = float(
-                np.asarray(
-                    asNumpyArray(candidate_reconstruction.purityProbe)
-                ).squeeze()
-            )
-
-            purity_values.append(purity)
-
-            tqdm.tqdm.write(
-                f"    Probe purity = {purity:.6f}"
-            )
-
-            # --------------------------------------------------------------
-            # Update main monitor with the completed candidate state
-            # --------------------------------------------------------------
-
-            self.reconstruction.zo = z
-            self.reconstruction.object = (
-                asNumpyArray(candidate_reconstruction.object).copy()
-            )
-            self.reconstruction.probe = (
-                asNumpyArray(candidate_reconstruction.probe).copy()
-            )
-
-            self.reconstruction.purityProbe = purity
-
-            if hasattr(candidate_reconstruction, "error"):
-                self.reconstruction.error = np.asarray(
-                    asNumpyArray(candidate_reconstruction.error)
-                ).copy()
-
-            # Display only completed candidate reconstructions
-            self.showReconstruction(
-                self.numIterations - 1,
-                force=True,
-            )
-
-            # --------------------------------------------------------------
-            # Keep best candidate
-            # --------------------------------------------------------------
-
-            if purity > best_purity:
-
-                best_purity = purity
-                best_z = z
-
-                # Candidate objects are independent, so keeping this reference
-                # preserves the complete best reconstruction state.
-                best_reconstruction = candidate_reconstruction
-
-                tqdm.tqdm.write(
-                    f"    NEW BEST: z = {best_z * 1e3:.6f} mm, "
-                    f"purity = {best_purity:.6f}"
-                )
-
-            tqdm.tqdm.write("")
-
-        # ------------------------------------------------------------------
-        # Safety check
-        # ------------------------------------------------------------------
-
-        if best_reconstruction is None:
-            raise RuntimeError(
-                "Purity z scan did not produce a valid purity value."
-            )
-
-        # ------------------------------------------------------------------
-        # Restore the best candidate into the original Reconstruction object
-        #
-        # Keep the original object identity because external scripts may still
-        # hold a reference to self.reconstruction.
-        # ------------------------------------------------------------------
-
-        self.reconstruction.zo = best_z
-
-        self.reconstruction.object = (
-            asNumpyArray(best_reconstruction.object).copy()
-        )
-
-        self.reconstruction.probe = (
-            asNumpyArray(best_reconstruction.probe).copy()
-        )
-
-        self.reconstruction.purityProbe = best_purity
-
-        if hasattr(best_reconstruction, "encoder_corrected"):
-            self.reconstruction.encoder_corrected = (
-                asNumpyArray(
-                    best_reconstruction.encoder_corrected
-                ).copy()
-            )
-
-        if hasattr(best_reconstruction, "objectMomentum"):
-            self.reconstruction.objectMomentum = (
-                asNumpyArray(
-                    best_reconstruction.objectMomentum
-                ).copy()
-            )
-
-        if hasattr(best_reconstruction, "probeMomentum"):
-            self.reconstruction.probeMomentum = (
-                asNumpyArray(
-                    best_reconstruction.probeMomentum
-                ).copy()
-            )
-
-        if hasattr(best_reconstruction, "objectBuffer"):
-            self.reconstruction.objectBuffer = (
-                asNumpyArray(
-                    best_reconstruction.objectBuffer
-                ).copy()
-            )
-
-        if hasattr(best_reconstruction, "probeBuffer"):
-            self.reconstruction.probeBuffer = (
-                asNumpyArray(
-                    best_reconstruction.probeBuffer
-                ).copy()
-            )
-
-        if hasattr(best_reconstruction, "error"):
-            self.reconstruction.error = np.asarray(
-                asNumpyArray(best_reconstruction.error)
-            ).copy()
-
-        # ------------------------------------------------------------------
-        # Store scan results
-        # ------------------------------------------------------------------
-
-        self.purityZValues = np.asarray(z_values)
-        self.purityZMetrics = np.asarray(purity_values)
-
-        self.purityBestZ = best_z
-        self.purityBestValue = best_purity
-
-        # Final monitor update with the selected best candidate
-        self.showReconstruction(
-            self.numIterations - 1,
-            force=True,
-        )
-
-        # ------------------------------------------------------------------
-        # Summary
-        # ------------------------------------------------------------------
-
-        tqdm.tqdm.write("=" * 60)
-        tqdm.tqdm.write("Purity-based z scan finished")
-        tqdm.tqdm.write(
-            f"Best z      = {best_z * 1e3:.6f} mm"
-        )
-        tqdm.tqdm.write(
-            f"Best Δz     = {(best_z - z0) * 1e6:+.2f} µm"
-        )
-        tqdm.tqdm.write(
-            f"Best purity = {best_purity:.6f}"
-        )
-        tqdm.tqdm.write("=" * 60)
-
-        return best_z, best_purity
-
-
-        """
-        Reset the reconstruction state for one candidate z.
-
-        This implementation is intended for analytic initialization:
-        initialProbe = "circ"
-        initialObject = "ones"
-
-        The object/probe are regenerated after setting the candidate z so that
-        their physical sampling is consistent with the candidate geometry.
-        Momentum and buffers are also reset.
-        """
-        if self.reconstruction.initialProbe != "circ":
-            raise NotImplementedError(
-                "Candidate-z reinitialization is currently implemented "
-                "only for initialProbe='circ'."
-            )
-
-        if self.reconstruction.initialObject != "ones":
-            raise NotImplementedError(
-                "Candidate-z reinitialization is currently implemented "
-                "only for initialObject='ones'."
-            )
-
-        # Set candidate geometry first
-        self.reconstruction.zo = z
-
-        # Rebuild object/probe on the candidate-z geometry
-        self.reconstruction.initializeObjectProbe()
-
-        self._initialProbePowerCorrection()
-
-        # Reset momentum
-        self.reconstruction.initializeObjectMomentum()
-        self.reconstruction.initializeProbeMomentum()
-
-        # Reset buffers
-        self.reconstruction.objectBuffer = self.reconstruction.object.copy()
-        self.reconstruction.probeBuffer = self.reconstruction.probe.copy()
-
-        self._prepareReconstruction()
-
     def _evaluatePurityAtZ(self, z):
         """
-        Evaluate probe purity for one candidate propagation distance.
+        Evaluate reconstructed probe purity at one candidate axial distance.
 
-        A fresh reconstruction is created at the requested z value and
-        reconstructed using the standard mPIE engine. Probe modes are
-        orthogonalized after reconstruction and the resulting probe purity
-        is returned together with the candidate reconstruction state.
+        An independent reconstruction is first created for the requested distance
+        using `_createCandidateReconstruction()`.
 
-        Parameters
-        ----------
-        z : float
-            Candidate propagation distance in meters.
+        A standard `mPIE` reconstruction is then performed using the same iteration
+        count and update parameters as the parent `purityPIE` engine. After the
+        reconstruction, the probe modes are orthogonalized and the resulting probe
+        purity is extracted.
 
-        Returns
-        -------
-        purity : float
-            Reconstructed probe purity at the candidate distance.
+        This helper contains the common candidate-evaluation procedure shared by
+        both the fixed-grid and adaptive axial scans.
 
-        candidate_reconstruction : Reconstruction
-            Reconstruction state obtained at the candidate distance.
+        Args:
+            z (float):
+                Candidate sample-to-detector propagation distance in meters.
+
+        Returns:
+            tuple:
+                `(purity, candidate_reconstruction)`, where `purity` is the
+                reconstructed probe purity and `candidate_reconstruction` is the
+                completed reconstruction state for the candidate distance.
         """
 
         # ------------------------------------------------------------------
@@ -550,12 +359,58 @@ class purityPIE(mPIE):
         return purity, candidate_reconstruction
 
     def purityZScan(self):
-        """
-        Scan a fixed axial range and select the distance that maximizes
-        reconstructed probe purity.
+        r"""
+        Perform a fixed-grid purity-based axial calibration.
 
-        Each candidate z is evaluated using an independent reconstruction
-        state and a standard mPIE reconstruction.
+        The scan is centered on the current propagation distance
+        `reconstruction.zo`. Candidate axial positions are generated uniformly
+        within the interval
+
+        $$
+        z \in [z_0-\Delta z,\; z_0+\Delta z]
+        $$
+
+        where $z_0$ is the current axial-distance estimate and
+        `params.purityZScanRange` defines the half-width $\Delta z$ of the scan.
+
+        The number of evaluated candidate positions is controlled by
+        `params.purityZScanPoints`.
+
+        Each candidate distance is evaluated independently using
+        `_evaluatePurityAtZ()`, which creates a fresh reconstruction geometry,
+        performs an `mPIE` reconstruction, orthogonalizes the reconstructed probe
+        modes, and evaluates the resulting probe purity.
+
+        The candidate with the highest purity is selected as the calibrated axial
+        distance. Its object, probe, momentum state, reconstruction buffers, and
+        error history are restored to the original `Reconstruction` object.
+
+        The scan results are stored in:
+
+        - `purityZValues`: evaluated axial distances in meters.
+        - `purityZMetrics`: reconstructed probe purity at each distance.
+        - `purityBestZ`: axial distance corresponding to the highest purity.
+        - `purityBestValue`: maximum reconstructed probe purity.
+        - `purityZInitialGuess`: axial distance used as the center of the scan.
+
+        Returns:
+            tuple:
+                `(best_z, best_purity)`, where `best_z` is the calibrated axial
+                propagation distance in meters and `best_purity` is the maximum
+                reconstructed probe purity.
+
+        Raises:
+            ValueError:
+                If fewer than two probe modes are reconstructed
+                (`reconstruction.npsm < 2`).
+
+            RuntimeError:
+                If no valid candidate reconstruction produces a purity value.
+
+        See Also:
+            `adaptivePurityZScan`
+                Adaptive alternative using variable axial step sizes.
+
         """
 
         if self.reconstruction.npsm < 2:
@@ -848,16 +703,105 @@ class purityPIE(mPIE):
         return best_z, best_purity
 
     def adaptivePurityZScan(self):
-        """
-        Adaptively search for the propagation distance that maximizes
-        reconstructed probe purity.
+        r"""
+        Perform adaptive purity-based axial calibration.
 
-        The search first determines the uphill direction, then expands the
-        axial step while purity keeps increasing. Once the maximum is bracketed,
-        the step size is reduced and the search is refined around the current
-        best position.
-        """
+        The adaptive scan searches for the axial distance that maximizes the
+        reconstructed probe purity while reducing the number of candidate
+        reconstructions compared with a dense fixed-grid scan.
 
+        The search starts from the current propagation distance
+        `reconstruction.zo` and evaluates three initial positions:
+
+        $$
+        z_0-\Delta z,\quad z_0,\quad z_0+\Delta z
+        $$
+
+        where the initial step size $\Delta z$ is defined by
+        `params.purityZInitialStep`.
+
+        If the purity increases toward one side, the search continues in that
+        direction and progressively expands the axial step:
+
+        $$
+        \Delta z_{k+1} = g\,\Delta z_k
+        $$
+
+        where the expansion factor $g$ is set by `params.purityZStepGrowth`.
+        Expansion continues while the increase in purity between consecutive
+        candidate positions exceeds `params.purityZPurityTolerance`.
+
+        Once the purity stops increasing, the search enters a refinement phase.
+        The axial step is progressively reduced according to
+
+        $$
+        \Delta z_{k+1} = s\,\Delta z_k
+        $$
+
+        where the reduction factor $s$ is set by `params.purityZStepShrink`.
+        Candidate positions on both sides of the current best distance are then
+        evaluated until the requested axial resolution is reached.
+
+        The adaptive search is controlled by the following parameters:
+
+        - `params.purityZInitialStep`:
+        Initial axial step size used for the three-point search around the
+        starting distance.
+
+        - `params.purityZStepGrowth`:
+        Multiplicative factor used to increase the step size while moving
+        toward higher purity.
+
+        - `params.purityZStepShrink`:
+        Multiplicative factor used to reduce the step size during refinement.
+
+        - `params.purityZMinStep`:
+        Minimum axial step size. Refinement stops once the current step becomes
+        smaller than this value.
+
+        - `params.purityZPurityTolerance`:
+        Minimum purity improvement considered significant when determining
+        whether the search should continue in the current direction.
+
+        - `params.purityZMaxEvaluations`:
+        Maximum number of candidate axial distances that may be reconstructed
+        during one adaptive scan.
+
+        Candidate distances that have already been evaluated are cached and reused,
+        avoiding repeated `mPIE` reconstructions at the same axial position.
+
+        Each new candidate is evaluated independently using
+        `_evaluatePurityAtZ()`. The candidate with the highest reconstructed probe
+        purity is retained as the calibrated axial distance, and its reconstruction
+        state is restored to the original `Reconstruction` object.
+
+        The adaptive scan results are stored in:
+
+        - `purityZValues`: evaluated axial distances in meters, sorted by z.
+        - `purityZMetrics`: reconstructed probe purity corresponding to each
+        evaluated distance.
+        - `purityBestZ`: axial distance corresponding to the highest purity.
+        - `purityBestValue`: maximum reconstructed probe purity.
+        - `purityZInitialGuess`: axial distance used as the starting point.
+
+        Returns:
+            tuple:
+                `(best_z, best_purity)`, where `best_z` is the calibrated axial
+                propagation distance in meters and `best_purity` is the maximum
+                reconstructed probe purity.
+
+        Raises:
+            ValueError:
+                If fewer than two probe modes are reconstructed
+                (`reconstruction.npsm < 2`).
+
+            RuntimeError:
+                If no valid candidate reconstruction produces a purity value.
+
+        See Also:
+            `purityZScan`
+                Fixed-grid purity-based axial calibration.
+        """
         if self.reconstruction.npsm < 2:
             raise ValueError(
                 "Purity-based z scanning requires at least two probe modes "
@@ -1256,110 +1200,3 @@ class purityPIE(mPIE):
             plt.show()
 
         return fig, ax
-    
-    
-        """
-        Run one complete mPIE reconstruction iteration.
-        """
-
-        # set position order
-        self.setPositionOrder()
-
-        self.pbar_pos = tqdm.tqdm(
-            self.positionIndices,
-            leave=False,
-            desc="ptychogram",
-            file=sys.stdout,
-        )
-
-        for positionLoop, positionIndex in enumerate(self.pbar_pos):
-
-            row, col = self.reconstruction.positions[positionIndex]
-            sy = slice(row, row + self.reconstruction.Np)
-            sx = slice(col, col + self.reconstruction.Np)
-
-            objectPatch = self.reconstruction.object[..., sy, sx].copy()
-
-            # exit surface wave
-            self.reconstruction.esw = (
-                objectPatch * self.reconstruction.probe
-            )
-
-            # intensity constraint
-            self.intensityProjection(positionIndex)
-
-            DELTA = (
-                self.reconstruction.eswUpdate
-                - self.reconstruction.esw
-            )
-
-            # object update
-            if (
-                self.params.objectTVregSwitch
-                and loop % self.params.objectTVfreq == 0
-            ):
-                object_patch = self.objectPatchUpdate_TV(
-                    objectPatch,
-                    DELTA,
-                )
-            else:
-                object_patch = self.objectPatchUpdate(
-                    objectPatch,
-                    DELTA,
-                )
-
-            self.reconstruction.object[..., sy, sx] = object_patch
-
-            if self.keepPatches:
-                self.patches[positionIndex, ..., sy, sx] = (
-                    asNumpyArray(abs(object_patch) ** 2)
-                )
-
-            # probe update
-            weight = 1
-            if self.params.weigh_probe_updates_by_intensity:
-                weight = self.experimentalData.relative_intensity(
-                    positionIndex
-                )
-
-            self.reconstruction.probe = self.probeUpdate(
-                objectPatch,
-                DELTA,
-                weight,
-            )
-
-            # position correction
-            if self.params.positionCorrectionSwitch:
-                self.positionCorrection(
-                    objectPatch,
-                    positionIndex,
-                    sy,
-                    sx,
-                )
-
-            # momentum updates
-            if np.random.rand(1) > 0.95:
-                self.objectMomentumUpdate()
-                self.probeMomentumUpdate()
-
-        self.getErrorMetrics()
-        self.applyConstraints(loop)
-
-        r"""
-        Apply the mPIE momentum update to the reconstructed probe. Similar to `objectMomentumUpdate()`.
-
-        See Also:
-            `objectMomentumUpdate`
-                Equivalent momentum update applied to the reconstructed object.
-        """
-        gradient = self.reconstruction.probeBuffer - self.reconstruction.probe
-        self.reconstruction.probeMomentum = (
-            gradient + self.frictionM * self.reconstruction.probeMomentum
-        )
-        self.reconstruction.probe = (
-            self.reconstruction.probe
-            - self.feedbackM * self.reconstruction.probeMomentum
-        )
-        self.reconstruction.probeBuffer = self.reconstruction.probe.copy()
-
-    

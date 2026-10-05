@@ -73,21 +73,6 @@ class ePIE(BaseEngine):
         params: Params,
         monitor: Monitor,
     ):
-        """
-        Initialize the ePIE reconstruction engine.
-
-        Args:
-            reconstruction (Reconstruction):
-                Reconstruction state containing the current object, probe, and
-                geometry.
-            experimentalData (ExperimentalData):
-                Experimental diffraction data and acquisition parameters.
-            params (Params):
-                Shared reconstruction parameters and constraint settings.
-            monitor (Monitor):
-                Monitor used for reconstruction visualization and progress
-                reporting.
-        """
         super().__init__(reconstruction, experimentalData, params, monitor)
         self.logger = logging.getLogger("ePIE")
         self.logger.info("Sucesfully created ePIE ePIE_engine")

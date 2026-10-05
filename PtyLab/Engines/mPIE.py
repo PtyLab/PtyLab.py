@@ -105,29 +105,6 @@ class mPIE(BaseEngine):
         params: Params,
         monitor: Monitor,
     ):
-        """
-        Initialize the mPIE reconstruction engine.
-
-        Shared reconstruction state is initialized through `BaseEngine`, followed
-        by the mPIE-specific reconstruction parameters and momentum buffers.
-
-        Momentum acceleration is enabled through
-        `params.momentumAcceleration`, allowing shared BaseEngine operations such
-        as modal orthogonalization to keep the corresponding momentum and buffer
-        arrays consistent with the reconstructed object and probe.
-
-        Args:
-            reconstruction (Reconstruction):
-                Reconstruction state containing the current object, probe, and
-                geometry.
-            experimentalData (ExperimentalData):
-                Experimental diffraction data and acquisition parameters.
-            params (Params):
-                Shared reconstruction parameters and constraint settings.
-            monitor (Monitor):
-                Monitor used for reconstruction visualization and progress
-                reporting.
-    """
         super().__init__(reconstruction, experimentalData, params, monitor)
         self.logger = logging.getLogger("mPIE")
         self.logger.info("Successfully created mPIE engine")
@@ -564,7 +541,7 @@ class mPIE(BaseEngine):
 
 class pcPIE(mPIE):
     """
-    Backward-compatible wrapper for :class:`mPIE`.
+    Backward-compatible wrapper for `mPIE`.
 
     Position correction is now provided by `mPIE` through
     `params.positionCorrectionSwitch`. This class is retained only for
