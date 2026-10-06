@@ -43,18 +43,14 @@ Install from PyPI within your virtual environment:
 ```bash
 pip install ptylab
 ```
-For faster installs, we recommend [uv](https://docs.astral.sh/uv/getting-started/installation/):
+For faster installs, we recommend [uv](https://docs.astral.sh/uv/getting-started/installation/): `uv pip install ptylab`
 
-```bash
-uv pip install ptylab
-```
-
-This package uses `cupy` to utilize GPU for faster reconstruction. To enable GPU support:
+To utilize GPU for faster reconstruction, enable GPU support:
 
 ```bash
 uv pip install "ptylab[gpu]"
 ```
-The `gpu` extra installs CuPy for NVIDIA CUDA 12. Check whether GPU is correctly configured with `uv run ptylab check gpu`.
+The `gpu` extra installs CuPy for CUDA 12 (no support yet for CUDA 13). Check whether GPU is correctly configured with `uv run ptylab check gpu`.
 
 For the latest unreleased changes on `main`:
 
@@ -62,14 +58,14 @@ For the latest unreleased changes on `main`:
 pip install git+https://github.com/PtyLab/PtyLab.py.git
 ```
 
-### Gradient-based reconstruction with PyTorch
+### Optional: Differentiable Ptychography
 
-The new module `PtyLab.Engines.GradientEngine` is a work-in-progress that leverages automatic differentiation from PyTorch for gradient-based reconstruction and custom forward models. Note that it will undergo substantial refactoring in the coming versions and would most likely include breaking changes. 
+The new module `PtyLab.Engines.GradientEngine` based on PyTorch is a work-in-progress that implements differentiable (gradient-based) ptychography to allow custom models. The API should stay fixed, however this is not guarenteed for time being. 
 
-To enable the module's use, install it with an additional `torch` flag:
+To enable the usage, install `ptylab` with an additional `torch` flag:
 
 ```bash
-uv pip install "ptylab[gpu,torch]" --torch-backend=cu126
+uv pip install "ptylab[gpu,torch]" --torch-backend=cu126 # higher versions of torch would work, but < CUDA 13.0
 ```
 
 See the [CPM tutorial](/jupyter_tutorials/jupyter_tutorials_tutorial_CPM_sim_GradientEngine.ipynb) and [component guide](/PtyLab/Engines/GradientEngine/README.md).
