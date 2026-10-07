@@ -153,7 +153,7 @@ def squared_modulus(field):
     return torch.view_as_real(field).square().sum(dim=-1)
 
 
-def _power_of _two(value):
+def _power_of_two(value):
     value = float(value)
     if not math.isfinite(value) or value <= 0:
         raise ValueError("Probe scale must be positive and finite.")
