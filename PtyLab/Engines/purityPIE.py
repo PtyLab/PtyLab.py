@@ -185,92 +185,156 @@ class purityPIE(mPIE):
         self._prepareReconstruction()
 
         # Reset momentum buffers after preparation
-        self.reconstruction.objectBuffer = self.reconstruction.object.copy()
-        self.reconstruction.probeBuffer = self.reconstruction.probe.copy()
-        
-        # Purity-based axial calibration
-        if self.params.purityZAdaptive:
-            best_z, best_purity = self.adaptivePurityZScan()
+        self.reconstruction.objectBuffer = (
+            self.reconstruction.object.copy()
+        )
+
+        self.reconstruction.probeBuffer = (
+            self.reconstruction.probe.copy()
+        )
+
+        target = self.params.purityCalibrationTarget.lower()
+
+        # ------------------------------------------------------------------
+        # Axial-distance calibration
+        # ------------------------------------------------------------------
+
+        if target == "z":
+
+            if self.params.purityAdaptive:
+                best_value, best_purity = (
+                    self.adaptivePurityZScan()
+                )
+            else:
+                best_value, best_purity = (
+                    self.purityZScan()
+                )
+
+        # ------------------------------------------------------------------
+        # Wavelength calibration
+        # ------------------------------------------------------------------
+
+        elif target == "wavelength":
+
+            if self.params.purityAdaptive:
+                best_value, best_purity = (
+                    self.adaptivePurityWavelengthScan()
+                )
+            else:
+                best_value, best_purity = (
+                    self.purityWavelengthScan()
+                )
+
+        # ------------------------------------------------------------------
+        # Unsupported target
+        # ------------------------------------------------------------------
+
         else:
-            best_z, best_purity = self.purityZScan()
 
-        # Optional scan visualization
-        if self.params.purityZScanPlot:
-            self.plotPurityZScan()
+            raise ValueError(
+                "Unsupported purity calibration target: "
+                f"{self.params.purityCalibrationTarget!r}. "
+                "Supported targets are 'z' and 'wavelength'."
+            )
 
+        if self.params.purityScanPlot:
+            self.plotPurityScan()
+
+        # ------------------------------------------------------------------
         # Return reconstruction data to CPU
+        # ------------------------------------------------------------------
+
         if self.params.gpuFlag:
             self.logger.info("switch to cpu")
             self._move_data_to_cpu()
             self.params.gpuFlag = 0
 
-        return best_z, best_purity
+        return best_value, best_purity
 
-    def _createCandidateReconstruction(self, z):
+    def _createCandidateReconstruction(
+        self,
+        target,
+        value,
+    ):
         """
-        Create an independent reconstruction for one candidate axial distance.
-
-        A deep copy of the experimental data and reconstruction parameters is
-        created so that evaluating one candidate distance cannot modify the state
-        of another candidate.
-
-        The candidate axial distance is assigned before constructing the new
-        `Reconstruction` object. This ensures that all geometry-dependent
-        quantities, including sampling and scan positions, are initialized
-        consistently for the requested distance.
-
-        User-defined reconstruction settings such as the number of probe modes,
-        object modes, wavelengths, slices, and object/probe initialization method
-        are copied from the parent reconstruction.
-
-        The object and probe are then initialized independently for the candidate
-        geometry.
-
-        Args:
-            z (float):
-                Candidate sample-to-detector propagation distance in meters.
-
-        Returns:
-            tuple:
-                `(candidate_data, candidate_reconstruction, candidate_params)`,
-                containing the independent experimental data, reconstruction state,
-                and parameter set for the candidate distance.
+        Create an independent reconstruction for one candidate calibration value.
         """
 
-        # Independent copies so one candidate cannot modify another
-        candidate_data = deepcopy(self.experimentalData)
-        candidate_params = deepcopy(self.params)
+        candidate_data = deepcopy(
+            self.experimentalData
+        )
 
-        # Set candidate geometry before creating Reconstruction
-        candidate_data.zo = z
+        candidate_params = deepcopy(
+            self.params
+        )
 
+        # --------------------------------------------------------------
+        # Set candidate parameter before creating Reconstruction
+        # --------------------------------------------------------------
+
+        if target == "z":
+            candidate_data.zo = value
+
+        elif target == "wavelength":
+            candidate_data.wavelength = value
+            
+            if self.reconstruction.nlambda == 1:
+                candidate_data.spectralDensity = np.atleast_1d(value)
+        else:
+            raise ValueError(
+                f"Unsupported purity calibration target: {target!r}"
+            )
+
+        # Fresh geometry for this candidate
         candidate_reconstruction = Reconstruction(
             candidate_data,
             candidate_params,
         )
 
-        # Copy user-defined reconstruction settings
-        candidate_reconstruction.npsm = self.reconstruction.npsm
-        candidate_reconstruction.nosm = self.reconstruction.nosm
-        candidate_reconstruction.nlambda = self.reconstruction.nlambda
-        candidate_reconstruction.nslice = self.reconstruction.nslice
+        # --------------------------------------------------------------
+        # Copy reconstruction settings
+        # --------------------------------------------------------------
 
-        #candidate_reconstruction.No = self.reconstruction.No
+        candidate_reconstruction.npsm = (
+            self.reconstruction.npsm
+        )
 
-        candidate_reconstruction.initialProbe = self.reconstruction.initialProbe
-        candidate_reconstruction.initialObject = self.reconstruction.initialObject
+        candidate_reconstruction.nosm = (
+            self.reconstruction.nosm
+        )
 
-        if hasattr(self.reconstruction, "initialProbe_filename"):
+        candidate_reconstruction.nlambda = (
+            self.reconstruction.nlambda
+        )
+
+        candidate_reconstruction.nslice = (
+            self.reconstruction.nslice
+        )
+
+        candidate_reconstruction.initialProbe = (
+            self.reconstruction.initialProbe
+        )
+
+        candidate_reconstruction.initialObject = (
+            self.reconstruction.initialObject
+        )
+
+        if hasattr(
+            self.reconstruction,
+            "initialProbe_filename",
+        ):
             candidate_reconstruction.initialProbe_filename = (
                 self.reconstruction.initialProbe_filename
             )
 
-        if hasattr(self.reconstruction, "initialObject_filename"):
+        if hasattr(
+            self.reconstruction,
+            "initialObject_filename",
+        ):
             candidate_reconstruction.initialObject_filename = (
                 self.reconstruction.initialObject_filename
             )
 
-        # Fresh object/probe for this candidate geometry
         candidate_reconstruction.initializeObjectProbe()
 
         return (
@@ -280,46 +344,39 @@ class purityPIE(mPIE):
         )
 
     def _evaluatePurityAtZ(self, z):
+        return self._evaluatePurityAtParameter(
+            "z",
+            z,
+        )
+
+    def _evaluatePurityAtWavelength(
+        self,
+        wavelength,
+    ):
+        return self._evaluatePurityAtParameter(
+            "wavelength",
+            wavelength,
+        )
+
+    def _evaluatePurityAtParameter(
+        self,
+        target,
+        value,
+    ):
         """
-        Evaluate reconstructed probe purity at one candidate axial distance.
-
-        An independent reconstruction is first created for the requested distance
-        using `_createCandidateReconstruction()`.
-
-        A standard `mPIE` reconstruction is then performed using the same iteration
-        count and update parameters as the parent `purityPIE` engine. After the
-        reconstruction, the probe modes are orthogonalized and the resulting probe
-        purity is extracted.
-
-        This helper contains the common candidate-evaluation procedure shared by
-        both the fixed-grid and adaptive axial scans.
-
-        Args:
-            z (float):
-                Candidate sample-to-detector propagation distance in meters.
-
-        Returns:
-            tuple:
-                `(purity, candidate_reconstruction)`, where `purity` is the
-                reconstructed probe purity and `candidate_reconstruction` is the
-                completed reconstruction state for the candidate distance.
+        Evaluate reconstructed probe purity for one candidate calibration value.
         """
-
-        # ------------------------------------------------------------------
-        # Create independent candidate reconstruction
-        # ------------------------------------------------------------------
 
         (
             candidate_data,
             candidate_reconstruction,
             candidate_params,
-        ) = self._createCandidateReconstruction(z)
+        ) = self._createCandidateReconstruction(
+            target,
+            value,
+        )
 
         candidate_monitor = DummyMonitor()
-
-        # ------------------------------------------------------------------
-        # Run standard mPIE
-        # ------------------------------------------------------------------
 
         candidate_engine = mPIE(
             candidate_reconstruction,
@@ -328,23 +385,35 @@ class purityPIE(mPIE):
             candidate_monitor,
         )
 
-        # Match the purityPIE engine settings
-        candidate_engine.numIterations = self.numIterations
+        candidate_engine.numIterations = (
+            self.numIterations
+        )
 
-        candidate_engine.betaProbe = self.betaProbe
-        candidate_engine.betaObject = self.betaObject
+        candidate_engine.betaProbe = (
+            self.betaProbe
+        )
 
-        candidate_engine.alphaProbe = self.alphaProbe
-        candidate_engine.alphaObject = self.alphaObject
+        candidate_engine.betaObject = (
+            self.betaObject
+        )
 
-        candidate_engine.feedbackM = self.feedbackM
-        candidate_engine.frictionM = self.frictionM
+        candidate_engine.alphaProbe = (
+            self.alphaProbe
+        )
+
+        candidate_engine.alphaObject = (
+            self.alphaObject
+        )
+
+        candidate_engine.feedbackM = (
+            self.feedbackM
+        )
+
+        candidate_engine.frictionM = (
+            self.frictionM
+        )
 
         candidate_engine.reconstruct()
-
-        # ------------------------------------------------------------------
-        # Final modal decomposition and purity evaluation
-        # ------------------------------------------------------------------
 
         candidate_engine.orthogonalization()
 
@@ -356,61 +425,18 @@ class purityPIE(mPIE):
             ).squeeze()
         )
 
-        return purity, candidate_reconstruction
+        return (
+            purity,
+            candidate_reconstruction,
+        )
 
     def purityZScan(self):
-        r"""
-        Perform a fixed-grid purity-based axial calibration.
+        """
+        Scan a fixed axial range and select the distance that maximizes
+        reconstructed probe purity.
 
-        The scan is centered on the current propagation distance
-        `reconstruction.zo`. Candidate axial positions are generated uniformly
-        within the interval
-
-        $$
-        z \in [z_0-\Delta z,\; z_0+\Delta z]
-        $$
-
-        where $z_0$ is the current axial-distance estimate and
-        `params.purityZScanRange` defines the half-width $\Delta z$ of the scan.
-
-        The number of evaluated candidate positions is controlled by
-        `params.purityZScanPoints`.
-
-        Each candidate distance is evaluated independently using
-        `_evaluatePurityAtZ()`, which creates a fresh reconstruction geometry,
-        performs an `mPIE` reconstruction, orthogonalizes the reconstructed probe
-        modes, and evaluates the resulting probe purity.
-
-        The candidate with the highest purity is selected as the calibrated axial
-        distance. Its object, probe, momentum state, reconstruction buffers, and
-        error history are restored to the original `Reconstruction` object.
-
-        The scan results are stored in:
-
-        - `purityZValues`: evaluated axial distances in meters.
-        - `purityZMetrics`: reconstructed probe purity at each distance.
-        - `purityBestZ`: axial distance corresponding to the highest purity.
-        - `purityBestValue`: maximum reconstructed probe purity.
-        - `purityZInitialGuess`: axial distance used as the center of the scan.
-
-        Returns:
-            tuple:
-                `(best_z, best_purity)`, where `best_z` is the calibrated axial
-                propagation distance in meters and `best_purity` is the maximum
-                reconstructed probe purity.
-
-        Raises:
-            ValueError:
-                If fewer than two probe modes are reconstructed
-                (`reconstruction.npsm < 2`).
-
-            RuntimeError:
-                If no valid candidate reconstruction produces a purity value.
-
-        See Also:
-            `adaptivePurityZScan`
-                Adaptive alternative using variable axial step sizes.
-
+        Each candidate z is evaluated using an independent reconstruction
+        state and a standard mPIE reconstruction.
         """
 
         if self.reconstruction.npsm < 2:
@@ -433,6 +459,7 @@ class purityPIE(mPIE):
         )
 
         purity_values = []
+        error_values = []
 
         best_purity = -np.inf
         best_z = z0
@@ -474,10 +501,20 @@ class purityPIE(mPIE):
                 self._evaluatePurityAtZ(z)
             )
 
+            candidate_error = float(
+                np.asarray(
+                    asNumpyArray(
+                        candidate_reconstruction.error
+                    )
+                ).reshape(-1)[-1]
+            )
+
             purity_values.append(purity)
+            error_values.append(candidate_error)
 
             tqdm.tqdm.write(
-                f"    Probe purity = {purity:.6f}"
+                f"    Probe purity = {purity:.6f} | "
+                f"reconstruction error = {candidate_error:.6e}"
             )
 
             # --------------------------------------------------------------
@@ -669,6 +706,10 @@ class purityPIE(mPIE):
             purity_values
         )
 
+        self.purityZErrors = np.asarray(
+            error_values
+        )
+
         self.purityBestZ = best_z
         self.purityBestValue = best_purity
 
@@ -816,10 +857,9 @@ class purityPIE(mPIE):
         shrink = self.params.purityZStepShrink
         min_step = self.params.purityZMinStep
         purity_tol = self.params.purityZPurityTolerance
-        max_evaluations = self.params.purityZMaxEvaluations
+        max_evaluations = self.params.purityMaxEvaluations
 
         evaluated = {}
-        reconstruction_states = {}
 
         best_z = None
         best_purity = -np.inf
@@ -827,6 +867,7 @@ class purityPIE(mPIE):
 
         z_history = []
         purity_history = []
+        error_history = []
 
         def evaluate(z):
             nonlocal best_z
@@ -842,15 +883,23 @@ class purityPIE(mPIE):
             purity, candidate_reconstruction = (
                 self._evaluatePurityAtZ(z)
             )
-
+            candidate_error = float(
+                np.asarray(
+                    asNumpyArray(
+                        candidate_reconstruction.error
+                    )
+                ).reshape(-1)[-1]
+            )
+            
             evaluated[key] = purity
 
             z_history.append(z)
             purity_history.append(purity)
-
+            error_history.append(candidate_error)
             tqdm.tqdm.write(
                 f"z = {z * 1e3:.6f} mm | "
-                f"purity = {purity:.6f}"
+                f"purity = {purity:.6f} | "
+                f"error = {candidate_error:.6e}"
             )
 
             # Store best candidate state
@@ -1092,6 +1141,7 @@ class purityPIE(mPIE):
 
         self.purityZValues = np.asarray(z_history)[order]
         self.purityZMetrics = np.asarray(purity_history)[order]
+        self.purityZErrors = np.asarray(error_history)[order]
 
         self.purityBestZ = best_z
         self.purityBestValue = best_purity
@@ -1122,81 +1172,1746 @@ class purityPIE(mPIE):
         tqdm.tqdm.write("=" * 60)
 
         return best_z, best_purity
+  
+    def purityWavelengthScan(self):
 
-    def plotPurityZScan(self, show=True):
+
         """
-        Plot probe purity as a function of axial distance.
+        Scan a fixed wavelength range and select the wavelength that maximizes
+        reconstructed probe purity.
 
-        The axial coordinate is shown relative to the initial z guess used
-        for the purity scan.
+        Each candidate wavelength is evaluated using an independent reconstruction
+        state and a standard mPIE reconstruction.
+        """
+
+        if self.reconstruction.npsm < 2:
+            raise ValueError(
+                "Purity-based wavelength scanning requires at least two probe modes "
+                "(reconstruction.npsm >= 2)."
+            )
+
+        wavelength0 = float(
+            self.reconstruction.wavelength
+        )
+
+        self.purityWavelengthInitialGuess = (
+            wavelength0
+        )
+
+        wavelength_values = np.linspace(
+            wavelength0
+            - self.params.purityWavelengthScanRange,
+            wavelength0
+            + self.params.purityWavelengthScanRange,
+            self.params.purityWavelengthScanPoints,
+        )
+
+        purity_values = []
+        error_values = []
+
+        best_purity = -np.inf
+        best_wavelength = wavelength0
+        best_state = None
+
+        tqdm.tqdm.write("")
+        tqdm.tqdm.write(
+            "Starting purity-based wavelength scan"
+        )
+
+        tqdm.tqdm.write(
+            f"Initial wavelength = "
+            f"{wavelength0 * 1e9:.6f} nm | "
+            f"range = ±"
+            f"{self.params.purityWavelengthScanRange * 1e9:.4f} nm | "
+            f"points = {len(wavelength_values)} | "
+            f"iterations/wavelength = {self.numIterations}"
+        )
+
+        tqdm.tqdm.write("")
+
+        for wavelength_index, wavelength in enumerate(
+            wavelength_values
+        ):
+
+            delta_wavelength_nm = (
+                wavelength - wavelength0
+            ) * 1e9
+
+            tqdm.tqdm.write(
+                f"[{wavelength_index + 1}/"
+                f"{len(wavelength_values)}] "
+                f"Reconstructing wavelength = "
+                f"{wavelength * 1e9:.6f} nm "
+                f"(Δλ = {delta_wavelength_nm:+.4f} nm)"
+            )
+
+            (
+                purity,
+                candidate_reconstruction,
+            ) = self._evaluatePurityAtWavelength(
+                wavelength
+            )
+
+            candidate_error = float(
+                np.asarray(
+                    asNumpyArray(
+                        candidate_reconstruction.error
+                    )
+                ).reshape(-1)[-1]
+            )
+
+            purity_values.append(
+                purity
+            )
+
+            error_values.append(
+                candidate_error
+            )
+
+            tqdm.tqdm.write(
+                f"    Probe purity = {purity:.6f} | "
+                f"reconstruction error = {candidate_error:.6e}"
+            )
+
+            # Update monitor with current candidate
+            self.reconstruction.wavelength = (
+                wavelength
+            )
+
+            self.reconstruction.dxp = (
+                candidate_reconstruction.dxp
+            )
+
+            self.reconstruction.object = (
+                asNumpyArray(
+                    candidate_reconstruction.object
+                ).copy()
+            )
+
+            self.reconstruction.probe = (
+                asNumpyArray(
+                    candidate_reconstruction.probe
+                ).copy()
+            )
+
+            self.reconstruction.purityProbe = (
+                purity
+            )
+
+            if hasattr(
+                candidate_reconstruction,
+                "error",
+            ):
+                self.reconstruction.error = (
+                    np.asarray(
+                        asNumpyArray(
+                            candidate_reconstruction.error
+                        )
+                    ).copy()
+                )
+
+            self.showReconstruction(
+                self.numIterations - 1,
+                force=True,
+            )
+
+            if purity > best_purity:
+
+                best_purity = purity
+                best_wavelength = wavelength
+
+                best_state = {
+                    "object": asNumpyArray(
+                        candidate_reconstruction.object
+                    ).copy(),
+
+                    "probe": asNumpyArray(
+                        candidate_reconstruction.probe
+                    ).copy(),
+
+                    "purityProbe": purity,
+
+                    "dxp": float(
+                        candidate_reconstruction.dxp
+                    ),
+                }
+
+                if hasattr(
+                    candidate_reconstruction,
+                    "spectralDensity",
+                ):
+                    best_state["spectralDensity"] = (
+                        np.asarray(
+                            candidate_reconstruction.spectralDensity
+                        ).copy()
+                    )
+
+                if hasattr(
+                    candidate_reconstruction,
+                    "encoder_corrected",
+                ):
+                    best_state["encoder_corrected"] = (
+                        asNumpyArray(
+                            candidate_reconstruction.encoder_corrected
+                        ).copy()
+                    )
+
+                if hasattr(
+                    candidate_reconstruction,
+                    "objectMomentum",
+                ):
+                    best_state["objectMomentum"] = (
+                        asNumpyArray(
+                            candidate_reconstruction.objectMomentum
+                        ).copy()
+                    )
+
+                if hasattr(
+                    candidate_reconstruction,
+                    "probeMomentum",
+                ):
+                    best_state["probeMomentum"] = (
+                        asNumpyArray(
+                            candidate_reconstruction.probeMomentum
+                        ).copy()
+                    )
+
+                if hasattr(
+                    candidate_reconstruction,
+                    "objectBuffer",
+                ):
+                    best_state["objectBuffer"] = (
+                        asNumpyArray(
+                            candidate_reconstruction.objectBuffer
+                        ).copy()
+                    )
+
+                if hasattr(
+                    candidate_reconstruction,
+                    "probeBuffer",
+                ):
+                    best_state["probeBuffer"] = (
+                        asNumpyArray(
+                            candidate_reconstruction.probeBuffer
+                        ).copy()
+                    )
+
+                if hasattr(
+                    candidate_reconstruction,
+                    "error",
+                ):
+                    best_state["error"] = (
+                        np.asarray(
+                            asNumpyArray(
+                                candidate_reconstruction.error
+                            )
+                        ).copy()
+                    )
+
+                tqdm.tqdm.write(
+                    f"    NEW BEST: wavelength = "
+                    f"{best_wavelength * 1e9:.6f} nm | "
+                    f"purity = {best_purity:.6f}"
+                )
+
+            tqdm.tqdm.write("")
+
+        if best_state is None:
+            raise RuntimeError(
+                "Purity wavelength scan did not produce "
+                "a valid purity value."
+            )
+
+        # Restore best candidate
+        self.reconstruction.wavelength = (
+            best_wavelength
+        )
+
+        self.reconstruction.dxp = (
+            best_state["dxp"]
+        )
+
+        if "spectralDensity" in best_state:
+            self.reconstruction.spectralDensity = (
+                best_state["spectralDensity"]
+            )
+
+        self.reconstruction.object = (
+            best_state["object"]
+        )
+
+        self.reconstruction.probe = (
+            best_state["probe"]
+        )
+
+        self.reconstruction.purityProbe = (
+            best_state["purityProbe"]
+        )
+
+        if "encoder_corrected" in best_state:
+            self.reconstruction.encoder_corrected = (
+                best_state["encoder_corrected"]
+            )
+
+        if "objectMomentum" in best_state:
+            self.reconstruction.objectMomentum = (
+                best_state["objectMomentum"]
+            )
+
+        if "probeMomentum" in best_state:
+            self.reconstruction.probeMomentum = (
+                best_state["probeMomentum"]
+            )
+
+        if "objectBuffer" in best_state:
+            self.reconstruction.objectBuffer = (
+                best_state["objectBuffer"]
+            )
+
+        if "probeBuffer" in best_state:
+            self.reconstruction.probeBuffer = (
+                best_state["probeBuffer"]
+            )
+
+        if "error" in best_state:
+            self.reconstruction.error = (
+                best_state["error"]
+            )
+
+        # Store scan results
+        self.purityWavelengthValues = (
+            np.asarray(
+                wavelength_values
+            )
+        )
+
+        self.purityWavelengthMetrics = (
+            np.asarray(
+                purity_values
+            )
+        )
+
+        self.purityWavelengthErrors = (
+            np.asarray(
+                error_values
+            )
+        )
+
+        self.purityBestWavelength = (
+            best_wavelength
+        )
+
+        self.purityBestWavelengthValue = (
+            best_purity
+        )
+
+        self.showReconstruction(
+            self.numIterations - 1,
+            force=True,
+        )
+
+        tqdm.tqdm.write("=" * 60)
+        tqdm.tqdm.write(
+            "Purity-based wavelength scan finished"
+        )
+
+        tqdm.tqdm.write(
+            f"Best wavelength = "
+            f"{best_wavelength * 1e9:.6f} nm"
+        )
+
+        tqdm.tqdm.write(
+            f"Best Δλ         = "
+            f"{(best_wavelength - wavelength0) * 1e9:+.4f} nm"
+        )
+
+        tqdm.tqdm.write(
+            f"Best purity     = "
+            f"{best_purity:.6f}"
+        )
+
+        tqdm.tqdm.write("=" * 60)
+
+        return (
+            best_wavelength,
+            best_purity,
+        )
+
+    def adaptivePurityWavelengthScan(self):
+
+        """
+        Adaptively search for the wavelength that maximizes reconstructed
+        probe purity.
+
+        The search first determines the uphill direction, then expands the
+        wavelength step while purity keeps increasing. Once the maximum is
+        bracketed, the step size is reduced and the search is refined around
+        the current best wavelength.
+        """
+
+        if self.reconstruction.npsm < 2:
+            raise ValueError(
+                "Purity-based wavelength scanning requires at least two probe modes "
+                "(reconstruction.npsm >= 2)."
+            )
+
+        wavelength0 = float(
+            self.reconstruction.wavelength
+        )
+
+        self.purityWavelengthInitialGuess = (
+            wavelength0
+        )
+
+        step = self.params.purityWavelengthInitialStep
+        growth = self.params.purityWavelengthStepGrowth
+        shrink = self.params.purityWavelengthStepShrink
+        min_step = self.params.purityWavelengthMinStep
+        purity_tol = self.params.purityWavelengthPurityTolerance
+        max_evaluations = self.params.purityMaxEvaluations
+
+        evaluated = {}
+
+        best_wavelength = None
+        best_purity = -np.inf
+        best_state = None
+
+        wavelength_history = []
+        purity_history = []
+        error_history = []
+
+        def evaluate(wavelength):
+
+            nonlocal best_wavelength
+            nonlocal best_purity
+            nonlocal best_state
+
+            if wavelength <= 0:
+                return -np.inf
+
+            key = float(wavelength)
+
+            if key in evaluated:
+                return evaluated[key]
+
+            (
+                purity,
+                candidate_reconstruction,
+            ) = self._evaluatePurityAtWavelength(
+                wavelength
+            )
+
+            candidate_error = float(
+                np.asarray(
+                    asNumpyArray(
+                        candidate_reconstruction.error
+                    )
+                ).reshape(-1)[-1]
+            )
+
+            evaluated[key] = purity
+
+            wavelength_history.append(
+                wavelength
+            )
+
+            purity_history.append(
+                purity
+            )
+
+            error_history.append(
+                candidate_error
+            )
+
+            tqdm.tqdm.write(
+                f"wavelength = {wavelength * 1e9:.6f} nm | "
+                f"purity = {purity:.6f} | "
+                f"error = {candidate_error:.6e}"
+            )
+
+            if purity > best_purity:
+
+                best_purity = purity
+                best_wavelength = wavelength
+
+                best_state = {
+                    "object": asNumpyArray(
+                        candidate_reconstruction.object
+                    ).copy(),
+
+                    "probe": asNumpyArray(
+                        candidate_reconstruction.probe
+                    ).copy(),
+
+                    "purityProbe": purity,
+
+                    "dxp": float(
+                        candidate_reconstruction.dxp
+                    ),
+                }
+
+                if hasattr(
+                    candidate_reconstruction,
+                    "spectralDensity",
+                ):
+                    best_state["spectralDensity"] = (
+                        np.asarray(
+                            candidate_reconstruction.spectralDensity
+                        ).copy()
+                    )
+
+                if hasattr(
+                    candidate_reconstruction,
+                    "encoder_corrected",
+                ):
+                    best_state["encoder_corrected"] = (
+                        asNumpyArray(
+                            candidate_reconstruction.encoder_corrected
+                        ).copy()
+                    )
+
+                if hasattr(
+                    candidate_reconstruction,
+                    "objectMomentum",
+                ):
+                    best_state["objectMomentum"] = (
+                        asNumpyArray(
+                            candidate_reconstruction.objectMomentum
+                        ).copy()
+                    )
+
+                if hasattr(
+                    candidate_reconstruction,
+                    "probeMomentum",
+                ):
+                    best_state["probeMomentum"] = (
+                        asNumpyArray(
+                            candidate_reconstruction.probeMomentum
+                        ).copy()
+                    )
+
+                if hasattr(
+                    candidate_reconstruction,
+                    "objectBuffer",
+                ):
+                    best_state["objectBuffer"] = (
+                        asNumpyArray(
+                            candidate_reconstruction.objectBuffer
+                        ).copy()
+                    )
+
+                if hasattr(
+                    candidate_reconstruction,
+                    "probeBuffer",
+                ):
+                    best_state["probeBuffer"] = (
+                        asNumpyArray(
+                            candidate_reconstruction.probeBuffer
+                        ).copy()
+                    )
+
+                if hasattr(
+                    candidate_reconstruction,
+                    "error",
+                ):
+                    best_state["error"] = (
+                        np.asarray(
+                            asNumpyArray(
+                                candidate_reconstruction.error
+                            )
+                        ).copy()
+                    )
+
+                tqdm.tqdm.write(
+                    f"NEW BEST: wavelength = "
+                    f"{best_wavelength * 1e9:.6f} nm | "
+                    f"purity = {best_purity:.6f}"
+                )
+
+            return purity
+
+        tqdm.tqdm.write("")
+        tqdm.tqdm.write(
+            "Starting adaptive purity-based wavelength scan"
+        )
+
+        tqdm.tqdm.write(
+            f"Initial wavelength = "
+            f"{wavelength0 * 1e9:.6f} nm | "
+            f"initial step = {step * 1e9:.4f} nm"
+        )
+
+        tqdm.tqdm.write("")
+
+        # ------------------------------------------------------------------
+        # 1. Initial three-point evaluation
+        # ------------------------------------------------------------------
+
+        p0 = evaluate(
+            wavelength0
+        )
+
+        wavelength_left = (
+            wavelength0 - step
+        )
+
+        wavelength_right = (
+            wavelength0 + step
+        )
+
+        p_left = evaluate(
+            wavelength_left
+        )
+
+        p_right = evaluate(
+            wavelength_right
+        )
+
+        # ------------------------------------------------------------------
+        # 2. Determine uphill direction
+        # ------------------------------------------------------------------
+
+        if (
+            p_left > p0
+            and p_left >= p_right
+        ):
+            direction = -1
+
+        elif (
+            p_right > p0
+            and p_right > p_left
+        ):
+            direction = +1
+
+        else:
+            direction = 0
+
+        # ------------------------------------------------------------------
+        # 3. Expansion phase
+        # ------------------------------------------------------------------
+
+        if direction != 0:
+
+            current_wavelength = (
+                wavelength0
+                + direction * step
+            )
+
+            current_purity = evaluate(
+                current_wavelength
+            )
+
+            while (
+                len(evaluated)
+                < max_evaluations
+            ):
+
+                step *= growth
+
+                next_wavelength = (
+                    current_wavelength
+                    + direction * step
+                )
+
+                if next_wavelength <= 0:
+                    break
+
+                next_purity = evaluate(
+                    next_wavelength
+                )
+
+                improvement = (
+                    next_purity
+                    - current_purity
+                )
+
+                if improvement > purity_tol:
+
+                    current_wavelength = (
+                        next_wavelength
+                    )
+
+                    current_purity = (
+                        next_purity
+                    )
+
+                    continue
+
+                break
+
+        # ------------------------------------------------------------------
+        # 4. Refinement phase
+        # ------------------------------------------------------------------
+
+        step *= shrink
+
+        while (
+            step >= min_step
+            and len(evaluated)
+            < max_evaluations
+        ):
+
+            left_wavelength = (
+                best_wavelength - step
+            )
+
+            right_wavelength = (
+                best_wavelength + step
+            )
+
+            if left_wavelength > 0:
+                left_purity = evaluate(
+                    left_wavelength
+                )
+            else:
+                left_purity = -np.inf
+
+            if (
+                len(evaluated)
+                >= max_evaluations
+            ):
+                break
+
+            right_purity = evaluate(
+                right_wavelength
+            )
+
+            if (
+                left_purity
+                <= best_purity + purity_tol
+                and right_purity
+                <= best_purity + purity_tol
+            ):
+                step *= shrink
+                continue
+
+        if best_state is None:
+            raise RuntimeError(
+                "Adaptive purity wavelength scan did not "
+                "produce a valid result."
+            )
+
+        # ------------------------------------------------------------------
+        # Restore best candidate
+        # ------------------------------------------------------------------
+
+        self.reconstruction.wavelength = (
+            best_wavelength
+        )
+
+        self.reconstruction.dxp = (
+            best_state["dxp"]
+        )
+
+        if "spectralDensity" in best_state:
+            self.reconstruction.spectralDensity = (
+                best_state["spectralDensity"]
+            )
+
+        self.reconstruction.object = (
+            best_state["object"]
+        )
+
+        self.reconstruction.probe = (
+            best_state["probe"]
+        )
+
+        self.reconstruction.purityProbe = (
+            best_state["purityProbe"]
+        )
+
+        if "encoder_corrected" in best_state:
+            self.reconstruction.encoder_corrected = (
+                best_state["encoder_corrected"]
+            )
+
+        if "objectMomentum" in best_state:
+            self.reconstruction.objectMomentum = (
+                best_state["objectMomentum"]
+            )
+
+        if "probeMomentum" in best_state:
+            self.reconstruction.probeMomentum = (
+                best_state["probeMomentum"]
+            )
+
+        if "objectBuffer" in best_state:
+            self.reconstruction.objectBuffer = (
+                best_state["objectBuffer"]
+            )
+
+        if "probeBuffer" in best_state:
+            self.reconstruction.probeBuffer = (
+                best_state["probeBuffer"]
+            )
+
+        if "error" in best_state:
+            self.reconstruction.error = (
+                best_state["error"]
+            )
+
+        # ------------------------------------------------------------------
+        # Store results
+        # ------------------------------------------------------------------
+
+        order = np.argsort(
+            wavelength_history
+        )
+
+        self.purityWavelengthValues = (
+            np.asarray(
+                wavelength_history
+            )[order]
+        )
+
+        self.purityWavelengthMetrics = (
+            np.asarray(
+                purity_history
+            )[order]
+        )
+
+        self.purityWavelengthErrors = (
+            np.asarray(
+                error_history
+            )[order]
+        )
+
+        self.purityBestWavelength = (
+            best_wavelength
+        )
+
+        self.purityBestWavelengthValue = (
+            best_purity
+        )
+
+        self.showReconstruction(
+            self.numIterations - 1,
+            force=True,
+        )
+
+        tqdm.tqdm.write("=" * 60)
+        tqdm.tqdm.write(
+            "Adaptive purity-based wavelength scan finished"
+        )
+
+        tqdm.tqdm.write(
+            f"Best wavelength = "
+            f"{best_wavelength * 1e9:.6f} nm"
+        )
+
+        tqdm.tqdm.write(
+            f"Best Δλ         = "
+            f"{(best_wavelength - wavelength0) * 1e9:+.4f} nm"
+        )
+
+        tqdm.tqdm.write(
+            f"Best purity     = "
+            f"{best_purity:.6f}"
+        )
+
+        tqdm.tqdm.write(
+            f"Evaluations     = "
+            f"{len(evaluated)}"
+        )
+
+        tqdm.tqdm.write("=" * 60)
+
+        return (
+            best_wavelength,
+            best_purity,
+        )
+
+    def plotPurityScan_X(
+    self,
+    show=True,
+    fit=True,
+    fit_points=5,
+):
+        """
+        Plot probe purity and reconstruction error for the selected
+        purity-calibration target.
+
+        Optionally fit a quadratic curve locally around the measured purity
+        maximum and estimate the fitted calibration optimum.
 
         Args:
             show (bool, optional):
                 Display the figure immediately. Default is `True`.
 
+            fit (bool, optional):
+                If `True`, perform a local quadratic fit around the measured
+                purity maximum. Default is `True`.
+
+            fit_points (int, optional):
+                Number of measured points used for the local quadratic fit.
+                Default is 5.
+
         Returns:
             tuple:
-                Matplotlib `(figure, axis)` objects.
+                Matplotlib `(figure, purity_axis, error_axis)` objects.
         """
 
-        if not hasattr(self, "purityZValues"):
-            raise RuntimeError(
-                "No purity z-scan results are available. "
-                "Run purityZScan() first."
+        target = (
+            self.params.purityCalibrationTarget.lower()
+        )
+
+        # ------------------------------------------------------------------
+        # Select calibration results
+        # ------------------------------------------------------------------
+
+        if target == "z":
+
+            if not hasattr(
+                self,
+                "purityZValues",
+            ):
+                raise RuntimeError(
+                    "No purity z-scan results are available."
+                )
+
+            values = (
+                np.asarray(
+                    self.purityZValues
+                )
+                * 1e3
             )
 
-        if not hasattr(self, "purityZInitialGuess"):
-            raise RuntimeError(
-                "Initial z guess is not available."
+            purity = np.asarray(
+                self.purityZMetrics
             )
 
-        z_relative_um = (
-            np.asarray(self.purityZValues)
-            - self.purityZInitialGuess
-        ) * 1e6
+            errors = (
+                np.asarray(
+                    self.purityZErrors
+                )
+                if hasattr(
+                    self,
+                    "purityZErrors",
+                )
+                else None
+            )
 
-        purity = np.asarray(self.purityZMetrics)
+            initial_value = (
+                self.purityZInitialGuess
+                * 1e3
+            )
 
-        best_index = np.argmax(purity)
+            xlabel = (
+                "Sample-to-detector distance z (mm)"
+            )
 
-        fig, ax = plt.subplots(figsize=(6, 4))
+            title = (
+                "Purity-based axial calibration"
+            )
 
-        ax.plot(
-            z_relative_um,
+            value_symbol = "z"
+            value_unit = "mm"
+            value_format = ".3f"
+
+        elif target == "wavelength":
+
+            if not hasattr(
+                self,
+                "purityWavelengthValues",
+            ):
+                raise RuntimeError(
+                    "No purity wavelength-scan results are available."
+                )
+
+            values = (
+                np.asarray(
+                    self.purityWavelengthValues
+                )
+                * 1e9
+            )
+
+            purity = np.asarray(
+                self.purityWavelengthMetrics
+            )
+
+            errors = (
+                np.asarray(
+                    self.purityWavelengthErrors
+                )
+                if hasattr(
+                    self,
+                    "purityWavelengthErrors",
+                )
+                else None
+            )
+
+            initial_value = (
+                self.purityWavelengthInitialGuess
+                * 1e9
+            )
+
+            xlabel = (
+                "Wavelength λ (nm)"
+            )
+
+            title = (
+                "Purity-based wavelength calibration"
+            )
+
+            value_symbol = "λ"
+            value_unit = "nm"
+            value_format = ".4f"
+
+        else:
+
+            raise ValueError(
+                "Unsupported purity calibration target: "
+                f"{self.params.purityCalibrationTarget!r}"
+            )
+
+        # ------------------------------------------------------------------
+        # Best measured purity
+        # ------------------------------------------------------------------
+
+        best_purity_index = np.argmax(
+            purity
+        )
+
+        fig, ax_purity = plt.subplots(
+            figsize=(7, 4.5)
+        )
+
+        ax_purity.plot(
+            values,
             purity,
             marker="o",
             label="Probe purity",
         )
 
-        # Initial z guess
-        ax.axvline(
-            0,
-            linestyle="--",
-            alpha=0.5,
-            label="Initial z guess",
-        )
-
-        # Best z
-        ax.plot(
-            z_relative_um[best_index],
-            purity[best_index],
+        ax_purity.plot(
+            values[
+                best_purity_index
+            ],
+            purity[
+                best_purity_index
+            ],
             marker="*",
             markersize=12,
             linestyle="None",
             label=(
-                f"Best Δz = {z_relative_um[best_index]:.1f} µm"
+                f"Measured maximum: "
+                f"{value_symbol} = "
+                f"{format(values[best_purity_index], value_format)} "
+                f"{value_unit}"
             ),
         )
 
-        ax.set_xlabel("Axial offset from initial z (µm)")
-        ax.set_ylabel("Probe purity")
-        ax.set_title("Purity-based axial calibration")
+        # ------------------------------------------------------------------
+        # Local quadratic fitting
+        # ------------------------------------------------------------------
 
-        ax.grid(alpha=0.3)
-        ax.legend()
+        if fit:
+
+            if fit_points < 3:
+                raise ValueError(
+                    "`fit_points` must be at least 3."
+                )
+
+            if fit_points > len(values):
+                fit_points = len(values)
+
+            half_window = (
+                fit_points // 2
+            )
+
+            start = max(
+                0,
+                best_purity_index
+                - half_window,
+            )
+
+            stop = min(
+                len(values),
+                start + fit_points,
+            )
+
+            start = max(
+                0,
+                stop - fit_points,
+            )
+
+            fit_x = values[
+                start:stop
+            ]
+
+            fit_y = purity[
+                start:stop
+            ]
+
+            if len(fit_x) >= 3:
+
+                coefficients = np.polyfit(
+                    fit_x,
+                    fit_y,
+                    deg=2,
+                )
+
+                a, b, c = coefficients
+
+                if a < 0:
+
+                    fitted_best_value = (
+                        -b / (2 * a)
+                    )
+
+                    fitted_best_purity = (
+                        np.polyval(
+                            coefficients,
+                            fitted_best_value,
+                        )
+                    )
+
+                    fit_curve_x = np.linspace(
+                        fit_x.min(),
+                        fit_x.max(),
+                        200,
+                    )
+
+                    fit_curve_y = np.polyval(
+                        coefficients,
+                        fit_curve_x,
+                    )
+
+                    ax_purity.plot(
+                        fit_curve_x,
+                        fit_curve_y,
+                        linestyle="--",
+                        label="Quadratic fit",
+                    )
+
+                    ax_purity.plot(
+                        fitted_best_value,
+                        fitted_best_purity,
+                        marker="X",
+                        markersize=9,
+                        linestyle="None",
+                        label=(
+                            f"Fitted maximum: "
+                            f"{value_symbol} = "
+                            f"{format(fitted_best_value, value_format)} "
+                            f"{value_unit}"
+                        ),
+                    )
+
+                    if target == "z":
+                        self.purityBestZFitted = (
+                            fitted_best_value
+                            * 1e-3
+                        )
+
+                        self.purityBestZFittedValue = (
+                            fitted_best_purity
+                        )
+
+                    elif target == "wavelength":
+                        self.purityBestWavelengthFitted = (
+                            fitted_best_value
+                            * 1e-9
+                        )
+
+                        self.purityBestWavelengthFittedValue = (
+                            fitted_best_purity
+                        )
+
+                else:
+
+                    self.logger.warning(
+                        "Quadratic fit does not produce a local maximum "
+                        "(fitted curvature is non-negative)."
+                    )
+
+        ax_purity.set_xlabel(
+            xlabel
+        )
+
+        ax_purity.set_ylabel(
+            "Probe purity"
+        )
+
+        # ------------------------------------------------------------------
+        # Reconstruction error
+        # ------------------------------------------------------------------
+
+        ax_error = ax_purity.twinx()
+
+        if errors is not None:
+
+            ax_error.plot(
+                values,
+                errors,
+                marker="s",
+                linestyle="--",
+                label="Reconstruction error",
+            )
+
+            best_error_index = np.argmin(
+                errors
+            )
+
+            ax_error.plot(
+                values[
+                    best_error_index
+                ],
+                errors[
+                    best_error_index
+                ],
+                marker="*",
+                markersize=12,
+                linestyle="None",
+                label=(
+                    f"Minimum error: "
+                    f"{value_symbol} = "
+                    f"{format(values[best_error_index], value_format)} "
+                    f"{value_unit}"
+                ),
+            )
+
+            ax_error.set_ylabel(
+                "Reconstruction error"
+            )
+
+        # ------------------------------------------------------------------
+        # Initial guess
+        # ------------------------------------------------------------------
+
+        ax_purity.axvline(
+            initial_value,
+            linestyle="--",
+            alpha=0.5,
+            label=(
+                f"Initial {value_symbol}: "
+                f"{format(initial_value, value_format)} "
+                f"{value_unit}"
+            ),
+        )
+
+        # ------------------------------------------------------------------
+        # Combined legend
+        # ------------------------------------------------------------------
+
+        purity_handles, purity_labels = (
+            ax_purity.get_legend_handles_labels()
+        )
+
+        error_handles, error_labels = (
+            ax_error.get_legend_handles_labels()
+        )
+
+        ax_purity.legend(
+            purity_handles + error_handles,
+            purity_labels + error_labels,
+            loc="best",
+        )
+
+        ax_purity.set_title(
+            title
+        )
+
+        ax_purity.grid(
+            alpha=0.3
+        )
+
         fig.tight_layout()
 
         if show:
             plt.show()
 
-        return fig, ax
+        return (
+            fig,
+            ax_purity,
+            ax_error,
+        )
+
+
+    def plotPurityScan(
+        self,
+        show=True,
+        fit=True,
+        fit_range=None,
+        fit_fraction=0.25,
+    ):
+        """
+        Plot probe purity and reconstruction error for the selected
+        purity-calibration target.
+
+        A local quadratic fit can optionally be performed around the measured
+        purity maximum. The fitting window can either be specified explicitly
+        through `fit_range` or determined automatically as a fraction of the
+        scanned parameter range.
+
+        Args:
+            show (bool, optional):
+                Display the figure immediately. Default is `True`.
+
+            fit (bool, optional):
+                Perform a local quadratic fit around the measured purity maximum.
+                Default is `True`.
+
+            fit_range (float, optional):
+                Half-width of the fitting window in the displayed unit
+                (mm for z and nm for wavelength). If `None`, the fitting window
+                is determined from `fit_fraction`.
+
+            fit_fraction (float, optional):
+                Fraction of the total scanned parameter range used as the
+                fitting half-width when `fit_range` is `None`.
+                Default is `0.25`.
+
+        Returns:
+            tuple:
+                Matplotlib `(figure, purity_axis, error_axis)` objects.
+        """
+
+        target = (
+            self.params.purityCalibrationTarget.lower()
+        )
+
+        # ------------------------------------------------------------------
+        # Select calibration results
+        # ------------------------------------------------------------------
+
+        if target == "z":
+
+            if not hasattr(
+                self,
+                "purityZValues",
+            ):
+                raise RuntimeError(
+                    "No purity z-scan results are available."
+                )
+
+            values = (
+                np.asarray(
+                    self.purityZValues
+                )
+                * 1e3
+            )
+
+            purity = np.asarray(
+                self.purityZMetrics
+            )
+
+            errors = (
+                np.asarray(
+                    self.purityZErrors
+                )
+                if hasattr(
+                    self,
+                    "purityZErrors",
+                )
+                else None
+            )
+
+            initial_value = (
+                self.purityZInitialGuess
+                * 1e3
+            )
+
+            xlabel = (
+                "Sample-to-detector distance z (mm)"
+            )
+
+            title = (
+                "Purity-based axial calibration"
+            )
+
+            value_symbol = "z"
+            value_unit = "mm"
+            value_format = ".3f"
+
+        elif target == "wavelength":
+
+            if not hasattr(
+                self,
+                "purityWavelengthValues",
+            ):
+                raise RuntimeError(
+                    "No purity wavelength-scan results are available."
+                )
+
+            values = (
+                np.asarray(
+                    self.purityWavelengthValues
+                )
+                * 1e9
+            )
+
+            purity = np.asarray(
+                self.purityWavelengthMetrics
+            )
+
+            errors = (
+                np.asarray(
+                    self.purityWavelengthErrors
+                )
+                if hasattr(
+                    self,
+                    "purityWavelengthErrors",
+                )
+                else None
+            )
+
+            initial_value = (
+                self.purityWavelengthInitialGuess
+                * 1e9
+            )
+
+            xlabel = (
+                "Wavelength λ (nm)"
+            )
+
+            title = (
+                "Purity-based wavelength calibration"
+            )
+
+            value_symbol = "λ"
+            value_unit = "nm"
+            value_format = ".4f"
+
+        else:
+
+            raise ValueError(
+                "Unsupported purity calibration target: "
+                f"{self.params.purityCalibrationTarget!r}"
+            )
+
+        # ------------------------------------------------------------------
+        # Measured maximum
+        # ------------------------------------------------------------------
+
+        best_purity_index = np.argmax(
+            purity
+        )
+
+        measured_best_value = (
+            values[
+                best_purity_index
+            ]
+        )
+
+        measured_best_purity = (
+            purity[
+                best_purity_index
+            ]
+        )
+
+        fig, ax_purity = plt.subplots(
+            figsize=(7, 4.5)
+        )
+
+        ax_purity.plot(
+            values,
+            purity,
+            marker="o",
+            label="Probe purity",
+        )
+
+        ax_purity.plot(
+            measured_best_value,
+            measured_best_purity,
+            marker="*",
+            markersize=12,
+            linestyle="None",
+            label=(
+                f"Measured maximum: "
+                f"{value_symbol} = "
+                f"{format(measured_best_value, value_format)} "
+                f"{value_unit}"
+            ),
+        )
+
+        # ------------------------------------------------------------------
+        # Local quadratic fit
+        # ------------------------------------------------------------------
+
+        if fit:
+
+            if fit_range is None:
+
+                total_range = (
+                    values.max()
+                    - values.min()
+                )
+
+                fit_half_range = (
+                    fit_fraction
+                    * total_range
+                )
+
+            else:
+
+                fit_half_range = (
+                    float(fit_range)
+                )
+
+            fit_mask = (
+                np.abs(
+                    values
+                    - measured_best_value
+                )
+                <= fit_half_range
+            )
+
+            fit_x = values[
+                fit_mask
+            ]
+
+            fit_y = purity[
+                fit_mask
+            ]
+
+            if len(fit_x) < 3:
+
+                self.logger.warning(
+                    "Quadratic fit skipped because fewer than "
+                    "three scan points fall inside the fitting window."
+                )
+
+            else:
+
+                coefficients = np.polyfit(
+                    fit_x,
+                    fit_y,
+                    deg=2,
+                )
+
+                a, b, c = coefficients
+
+                fitted_y = np.polyval(
+                    coefficients,
+                    fit_x,
+                )
+
+                residual_sum = np.sum(
+                    (
+                        fit_y
+                        - fitted_y
+                    )
+                    ** 2
+                )
+
+                total_sum = np.sum(
+                    (
+                        fit_y
+                        - np.mean(fit_y)
+                    )
+                    ** 2
+                )
+
+                if total_sum > 0:
+
+                    fit_r2 = (
+                        1
+                        - residual_sum
+                        / total_sum
+                    )
+
+                else:
+
+                    fit_r2 = np.nan
+
+                fitted_best_value = (
+                    -b
+                    / (2 * a)
+                    if a != 0
+                    else np.nan
+                )
+
+                valid_fit = (
+                    a < 0
+                    and np.isfinite(
+                        fitted_best_value
+                    )
+                    and fit_x.min()
+                    <= fitted_best_value
+                    <= fit_x.max()
+                )
+
+                if valid_fit:
+
+                    fitted_best_purity = (
+                        np.polyval(
+                            coefficients,
+                            fitted_best_value,
+                        )
+                    )
+
+                    fit_curve_x = np.linspace(
+                        fit_x.min(),
+                        fit_x.max(),
+                        300,
+                    )
+
+                    fit_curve_y = np.polyval(
+                        coefficients,
+                        fit_curve_x,
+                    )
+
+                    ax_purity.plot(
+                        fit_curve_x,
+                        fit_curve_y,
+                        linestyle="--",
+                        label=(
+                            f"Quadratic fit "
+                            f"($R^2$ = {fit_r2:.3f})"
+                        ),
+                    )
+
+                    ax_purity.plot(
+                        fitted_best_value,
+                        fitted_best_purity,
+                        marker="X",
+                        markersize=9,
+                        linestyle="None",
+                        label=(
+                            f"Fitted maximum: "
+                            f"{value_symbol} = "
+                            f"{format(fitted_best_value, value_format)} "
+                            f"{value_unit}"
+                        ),
+                    )
+
+                    if target == "z":
+
+                        self.purityBestZFitted = (
+                            fitted_best_value
+                            * 1e-3
+                        )
+
+                        self.purityBestZFittedValue = (
+                            fitted_best_purity
+                        )
+
+                        self.purityBestZFitR2 = (
+                            fit_r2
+                        )
+
+                    elif target == "wavelength":
+
+                        self.purityBestWavelengthFitted = (
+                            fitted_best_value
+                            * 1e-9
+                        )
+
+                        self.purityBestWavelengthFittedValue = (
+                            fitted_best_purity
+                        )
+
+                        self.purityBestWavelengthFitR2 = (
+                            fit_r2
+                        )
+
+                else:
+
+                    self.logger.warning(
+                        "Quadratic fit did not produce a valid local maximum. "
+                        "The fitted curvature may be non-negative or the fitted "
+                        "maximum may lie outside the fitting window."
+                    )
+
+        ax_purity.set_xlabel(
+            xlabel
+        )
+
+        ax_purity.set_ylabel(
+            "Probe purity"
+        )
+
+        # ------------------------------------------------------------------
+        # Reconstruction error
+        # ------------------------------------------------------------------
+
+        ax_error = ax_purity.twinx()
+
+        if errors is not None:
+
+            ax_error.plot(
+                values,
+                errors,
+                marker="s",
+                linestyle="--",
+                label="Reconstruction error",
+            )
+
+            best_error_index = np.argmin(
+                errors
+            )
+
+            ax_error.plot(
+                values[
+                    best_error_index
+                ],
+                errors[
+                    best_error_index
+                ],
+                marker="*",
+                markersize=12,
+                linestyle="None",
+                label=(
+                    f"Minimum error: "
+                    f"{value_symbol} = "
+                    f"{format(values[best_error_index], value_format)} "
+                    f"{value_unit}"
+                ),
+            )
+
+            ax_error.set_ylabel(
+                "Reconstruction error"
+            )
+
+        # ------------------------------------------------------------------
+        # Initial guess
+        # ------------------------------------------------------------------
+
+        ax_purity.axvline(
+            initial_value,
+            linestyle="--",
+            alpha=0.5,
+            label=(
+                f"Initial {value_symbol}: "
+                f"{format(initial_value, value_format)} "
+                f"{value_unit}"
+            ),
+        )
+
+        # ------------------------------------------------------------------
+        # Combined legend
+        # ------------------------------------------------------------------
+
+        purity_handles, purity_labels = (
+            ax_purity.get_legend_handles_labels()
+        )
+
+        error_handles, error_labels = (
+            ax_error.get_legend_handles_labels()
+        )
+
+        ax_purity.legend(
+            purity_handles + error_handles,
+            purity_labels + error_labels,
+            loc="best",
+        )
+
+        ax_purity.set_title(
+            title
+        )
+
+        ax_purity.grid(
+            alpha=0.3
+        )
+
+        fig.tight_layout()
+
+        if show:
+            plt.show()
+
+        return (
+            fig,
+            ax_purity,
+            ax_error,
+        )
