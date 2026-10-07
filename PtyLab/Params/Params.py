@@ -154,20 +154,34 @@ class Params(object):
         self.map_position_to_z_change = False
 
         # purity based Zscan
+        self.purityCalibrationTarget = "z"  # aternatively wavelength
+
+        self.purityWavelengthScanRange = 1e-9
+        self.purityWavelengthScanPoints = 11
+        self.purityWavelengthScanPlot = True
+
         self.purityZScanRange = 100e-6
         self.purityZScanPoints = 11
-
         self.purityZScanPlot = True
 
-        self.purityZAdaptive = False
+        # Shared adaptive-scan settings
+        self.purityAdaptive = True
+        self.purityMaxEvaluations = 50
 
+        # z-specific adaptive settings
         self.purityZInitialStep = 200e-6
         self.purityZStepGrowth = 1.5
         self.purityZStepShrink = 0.5
-
         self.purityZMinStep = 20e-6
-        self.purityZPurityTolerance = 1e-4
-        self.purityZMaxEvaluations = 20
+        self.purityZPurityTolerance = 1e-5
+
+        # wavelength-specific adaptive settings
+        self.purityWavelengthInitialStep = 0.1e-9
+        self.purityWavelengthStepGrowth = 1.5
+        self.purityWavelengthStepShrink = 0.5
+        self.purityWavelengthMinStep = 0.01e-9
+        self.purityWavelengthPurityTolerance = 1e-5
+    
 
         self.OPRP = False
 
