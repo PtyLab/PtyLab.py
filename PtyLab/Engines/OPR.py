@@ -19,14 +19,114 @@ from PtyLab.ExperimentalData.ExperimentalData import ExperimentalData
 from PtyLab.Monitor.Monitor import Monitor
 from PtyLab.Params.Params import Params
 
-# fracPy imports
+
 from PtyLab.Reconstruction.Reconstruction import Reconstruction
 from PtyLab.utils.fsvd import rsvd
 from PtyLab.utils.gpuUtils import asNumpyArray, getArrayModule, isGpuArray
 
 
 class OPR(BaseEngine):
+    r"""
+    Orthogonal Probe Relaxation (OPR) for position-dependent probe reconstruction.
 
+    `OPR` extends conventional ptychographic reconstruction by allowing the
+    illumination probe to vary between scan positions while constraining these
+    variations to a low-dimensional orthogonal probe subspace.[^odstrcil2016]
+
+    For scan position $j$, the exit surface wave is formed as
+
+    $$
+    \Psi_j(\mathbf{r}) = O_j(\mathbf{r}) P_j(\mathbf{r})
+    $$
+
+    where $O_j$ is the object patch illuminated at position $j$ and $P_j$ is
+    the position-dependent probe.
+
+    Instead of enforcing a single identical probe for all diffraction frames,
+    OPR maintains a probe estimate for each scan position. The set of
+    position-dependent probes is stored in `reconstruction.probe_stack`.
+
+    At initialization, the selected probe modes defined by `params.OPR_modes`
+    are copied to all scan positions. During reconstruction, the probe
+    corresponding to the current diffraction frame is loaded from the probe
+    stack, updated by the PIE step, and written back to the same scan position.
+
+    Allowing an independent probe at every scan position introduces many
+    additional degrees of freedom. OPR therefore constrains the probe
+    variations to a low-dimensional subspace. For one selected probe mode,
+    the position-dependent probes are arranged as columns of the matrix
+
+    $$
+    A = \begin{bmatrix} | & | & & | \\ P_1 & P_2 & \cdots & P_N \\ | & | & & | \end{bmatrix}
+    $$
+
+    where each probe is flattened into a vector and $N$ is the number of scan
+    positions.
+
+    A truncated singular-value decomposition is used to approximate the probe
+    stack as
+
+    $$
+    A \approx U_K S_K V_K^{\dagger}
+    $$
+
+    where $K = \mathrm{params.OPR_subspace}$ is the retained subspace
+    dimension. Equivalently, the probe at scan position $j$ can be represented
+    as a linear combination of a small number of orthogonal probe basis
+    functions,
+
+    $$
+    P_j(\mathbf{r}) = \sum_{k=1}^{K} c_{k,j}\Phi_k(\mathbf{r})
+    $$
+
+    thereby allowing systematic probe variations while suppressing
+    unconstrained frame-to-frame fluctuations.
+
+    The low-rank probe estimate is blended with the current probe stack using
+    $\alpha =$ `params.OPR_alpha`,
+
+    $$
+    P^{\mathrm{new}} = \alpha P^{\mathrm{old}} + (1-\alpha)P^{\mathrm{low-rank}}
+    $$
+
+    The truncated decomposition can be computed using the method selected by
+    `params.OPR_tsvd_type`. The current implementation supports standard SVD,
+    randomized SVD, and a Gram-matrix-based truncated SVD.
+
+    If `params.OPR_neighbor_constraint` is enabled, the position-dependent
+    coefficients are additionally averaged over neighboring scan positions to
+    encourage smooth probe evolution along the scan sequence.
+
+    OPR can also be combined with mixed-state ptychography. Multiple
+    incoherent probe modes can be selected through `params.OPR_modes`, and
+    `orthogonalizeIncoherentModes()` can optionally orthogonalize these modes
+    independently at every scan position.
+
+    For each reconstruction iteration, the engine:
+
+    - loads the position-dependent probe for the current scan position;
+    - forms the exit surface wave and applies `intensityProjection()`;
+    - updates the object and probe using PIE-style updates;
+    - stores the updated probe back into `reconstruction.probe_stack`;
+    - optionally orthogonalizes incoherent probe modes;
+    - projects the complete probe stack onto the selected low-dimensional
+    subspace using `orthogonalizeProbeStack()`;
+    - applies the remaining reconstruction constraints and updates the monitor.
+
+    If `params.OPR_tv` is enabled, total-variation object updates are applied
+    at the interval specified by `params.OPR_tv_freq`.
+
+    The OPR formulation therefore separates two probe degrees of freedom:
+    incoherent probe modes describe mixed-state illumination within a single
+    diffraction frame, while the orthogonal probe relaxation describes
+    systematic probe variations between scan positions.
+
+    [^odstrcil2016]: M. Odstrčil, P. Baksh, S. A. Boden,
+            R. Card, J. E. Chad, J. G. Frey, and W. S. Brocklesby,
+            "Ptychographic coherent diffractive imaging with orthogonal probe relaxation,"
+            Opt. Express 24, 8360-8369 (2016).
+            https://doi.org/10.1364/OE.24.008360
+    """
     def __init__(
         self,
         reconstruction: Reconstruction,

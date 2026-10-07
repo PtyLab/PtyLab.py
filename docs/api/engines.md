@@ -72,12 +72,6 @@
       show_root_full_path: false
       inherited_members: false
 
-::: PtyLab.Engines.multiPIE.multiPIE
-    options:
-      show_root_heading: true
-      show_root_full_path: false
-      inherited_members: false
-
 ::: PtyLab.Engines.OPR.OPR
     options:
       show_root_heading: true
