@@ -87,10 +87,10 @@ class purityPIE(mPIE):
 
     Two calibration targets are supported:
 
-    - **Axial-distance calibration:** optimizes the sample-to-detector
+    - Axial-distance calibration: optimizes the sample-to-detector
     distance `z`.
 
-    - **Wavelength calibration:** optimizes the illumination wavelength
+    - Wavelength calibration: optimizes the illumination wavelength
     `λ`.
 
     The calibration target is selected through
@@ -99,13 +99,13 @@ class purityPIE(mPIE):
 
     For either calibration target, two search strategies are available:
 
-    - **Fixed-grid search:** evaluates uniformly spaced candidate values over
+    - Fixed-grid search: evaluates uniformly spaced candidate values over
     a predefined range. Axial-distance scans are controlled by
     `params.purityZScanRange` and `params.purityZScanPoints`, while
     wavelength scans are controlled by `params.purityWavelengthScanRange`
     and `params.purityWavelengthScanPoints`.
 
-    - **Adaptive search:** starts from the current parameter estimate,
+    - Adaptive search: starts from the current parameter estimate,
     determines the direction of increasing probe purity, expands the search
     step while the purity continues to improve, and then refines the search
     around the best candidate using progressively smaller steps. Adaptive
