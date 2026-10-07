@@ -1,4 +1,6 @@
-"""Propagation of a Torch field, independent of optimization and monitoring."""
+"""
+Propagation of a Torch field, independent of optimization and monitoring.
+"""
 
 import numpy as np
 import torch
@@ -8,18 +10,33 @@ from PtyLab.Operators.Operators import aspw, scaledASP
 
 
 class KernelPropagator:
-    """Callable with fixed geometry; preserves all leading field dimensions.
+    """
+    Propagate exit waves to the detector with fixed geometry.
 
     Construct once per reconstruction, then call with a complex Torch exit wave.
-    Kernels follow the existing PtyLab propagation conventions.
+    All leading field dimensions are preserved, and the kernels follow the
+    existing PtyLab propagation conventions.
     """
 
     @staticmethod
     def fft2c(field):
-        """Apply a centered, unitary 2D FFT over the last two dimensions.
+        r"""
+        Apply a centered, unitary 2D FFT over the last two dimensions.
 
-        F_c(u) = fftshift(fft2(ifftshift(u))) / sqrt(H * W).
-        H and W are the spatial sizes; leading batch/mode axes are preserved.
+        $$
+        \mathcal{F}_c\lbrace u\rbrace = \frac{1}{\sqrt{HW}}\, \mathrm{fftshift}\left(\mathrm{fft2}\left(\mathrm{ifftshift}(u)\right)\right)
+        $$
+
+        where $H$ and $W$ are the spatial sizes. Leading batch and mode axes are
+        preserved.
+
+        Args:
+            field (torch.Tensor):
+                Complex field with spatial axes last.
+
+        Returns:
+            torch.Tensor:
+                Centered spectrum with the shape of `field`.
         """
         field = torch.fft.ifftshift(field, dim=(-2, -1))
         field = torch.fft.fft2(field, norm="ortho")
@@ -27,21 +44,56 @@ class KernelPropagator:
 
     @staticmethod
     def ifft2c(field):
-        """Invert fft2c over the last two dimensions, preserving leading axes.
+        r"""
+        Invert `fft2c` over the last two dimensions.
 
-        F_c^{-1}(U) = fftshift(ifft2(ifftshift(U))) * sqrt(H * W),
-        with H and W the spatial sizes and ifft2 in its default normalization.
+        $$
+        \mathcal{F}_c^{-1}\lbrace U\rbrace = \sqrt{HW}\, \mathrm{fftshift}\left(\mathrm{ifft2}\left(\mathrm{ifftshift}(U)\right)\right)
+        $$
+
+        where $H$ and $W$ are the spatial sizes and $\mathrm{ifft2}$ has its
+        default normalization. Leading axes are preserved.
+
+        Args:
+            field (torch.Tensor):
+                Complex centered spectrum with spatial axes last.
+
+        Returns:
+            torch.Tensor:
+                Field with the shape of `field`.
         """
         field = torch.fft.ifftshift(field, dim=(-2, -1))
         field = torch.fft.ifft2(field, norm="ortho")
         return torch.fft.fftshift(field, dim=(-2, -1))
 
     def __init__(self, reconstruction, propagator, device="cpu"):
-        """Build fixed geometry kernels once per run using PtyLab's conventions.
+        """
+        Build the fixed geometry kernels once per run.
 
-        No optimizable fields enter NumPy here. Subclasses learning geometry should
-        instead build their kernels in Torch inside __call__(), on each forward
-        pass, so those kernels remain part of the current autograd graph.
+        No optimizable fields enter NumPy here. Subclasses that learn the
+        geometry should instead build their kernels in Torch inside
+        `__call__()`, on each forward pass, so those kernels remain part of the
+        current autograd graph.
+
+        Args:
+            reconstruction (Reconstruction):
+                Reconstruction state providing the geometry (`Np`, `dxp`,
+                `dxd`, `dxo`, `zo`, `wavelength`, `Lp`).
+
+            propagator (str):
+                `"Fraunhofer"`, `"Fresnel"`, `"ASP"` or `"scaledASP"`, in any
+                case.
+
+            device (str or torch.device, optional):
+                Device of the kernels. Defaults to `"cpu"`.
+
+        Raises:
+            ValueError:
+                If Fresnel or scaledASP has zero propagation distance, or ASP
+                has different object and detector pixel sizes.
+
+            NotImplementedError:
+                For any other propagator.
         """
         r = reconstruction
         self.propagator = propagator.lower()
@@ -80,11 +132,30 @@ class KernelPropagator:
         )
 
     def __call__(self, exit_wave):
-        """Return a complex detector field with the exit wave's shape.
+        r"""
+        Propagate an exit wave $\psi$ to the detector.
 
-        exit_wave has spatial axes last and resides on the kernel device.
-        Fixed kernels are cast to its dtype; gradients flow through the field.
-        F_c below denotes fft2c and F denotes an unshifted unitary FFT.
+        With $\mathcal{F}_c$ the centered and $\mathcal{F}$ the unshifted
+        unitary FFT, the detector field is
+
+        - Fraunhofer: $u = \mathcal{F}_c\lbrace \psi\rbrace$,
+        - Fresnel: $u = \mathcal{F}_c\lbrace \psi Q\rbrace$, with the quadratic phase $Q$,
+        - ASP: $u = \mathcal{F}^{-1}\lbrace \mathcal{F}\lbrace \psi\rbrace H\rbrace$, with the
+          angular-spectrum transfer function $H$,
+        - scaledASP:
+          $u = \mathcal{F}_c^{-1}\lbrace \mathcal{F}_c\lbrace \psi Q_s\rbrace H_s\rbrace$,
+          with the source phase $Q_s$ and scaled transfer function $H_s$.
+
+        Fixed kernels are cast to the field's dtype; gradients flow through
+        the field.
+
+        Args:
+            exit_wave (torch.Tensor):
+                Complex exit wave with spatial axes last, on the kernel device.
+
+        Returns:
+            torch.Tensor:
+                Complex detector field with the shape of `exit_wave`.
         """
         kernels = [
             kernel.to(dtype=exit_wave.dtype) for kernel in self.propagationKernels
@@ -106,13 +177,28 @@ class KernelPropagator:
         raise NotImplementedError(f"Unsupported propagator: {self.propagator}")
 
     def intensity_field(self, exit_wave):
-        """Return a field whose squared modulus is the detector intensity.
+        r"""
+        Return a field whose squared modulus is the detector intensity.
 
-        With ``fftOrderIntensity`` the intensity is in unshifted FFT order and
-        compares with ``ifftshift`` of centered data. Fraunhofer uses the plain
-        F(psi): the input ifftshift of F_c is a linear far-field phase and the
-        output fftshift a pixel permutation, so |F_c(psi)|^2 = fftshift(|F(psi)|^2),
+        With `fftOrderIntensity` (Fraunhofer) the intensity is in unshifted FFT
+        order and compares with `ifftshift` of centered data. The plain
+        $\mathcal{F}\lbrace \psi\rbrace$ is used: the input `ifftshift` of
+        $\mathcal{F}_c$ is a linear far-field phase and the output `fftshift` a
+        pixel permutation, so
+
+        $$
+        |\mathcal{F}_c\lbrace \psi\rbrace |^2 = \mathrm{fftshift}\left(|\mathcal{F}\lbrace \psi\rbrace |^2\right),
+        $$
+
         also for odd grids. Other propagators return the centered field.
+
+        Args:
+            exit_wave (torch.Tensor):
+                Complex exit wave with spatial axes last.
+
+        Returns:
+            torch.Tensor:
+                Complex detector field.
         """
         if self.fftOrderIntensity:
             return torch.fft.fft2(exit_wave, norm="ortho")
