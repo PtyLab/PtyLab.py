@@ -134,18 +134,32 @@ class aPIE(BaseEngine):
         current angle and a randomly perturbed angle within the current search
         radius, both including the accumulated angular momentum.
 
-        For each candidate angle, the original ptychogram is transformed into the
-        corresponding detector coordinates. A standard PIE reconstruction is then
-        performed over all scan positions, including object and probe updates,
-        constraint application, and reconstruction-error evaluation.
+        For each candidate angle, the detector-coordinate transformation is
+        computed. The original diffraction data stored in
+        `ptychogramUntransformed` are then resampled onto the transformed detector
+        coordinates using linear interpolation.
 
-        The candidate producing the lower reconstruction error is retained. The
-        accepted angular change is used to update `reconstruction.thetaMomentum`,
-        which contributes to the candidate angles in the following iteration.
+        After the angle-dependent coordinate correction, a standard PIE
+        reconstruction is performed over all scan positions. The scan order is
+        prepared with `setPositionOrder()`. For each position, the exit surface
+        wave is formed from the current object patch and probe, and
+        `intensityProjection()` applies the measured-intensity constraint in the
+        detector plane.
 
-        The accepted detector angle is appended to
-        `reconstruction.thetaHistory`, and the reconstruction monitor is updated
-        throughout the optimization.
+        The difference between the updated and current exit surface waves is used
+        to update the object and probe through `objectPatchUpdate()` and
+        `probeUpdate()`, respectively. Reconstruction errors are evaluated with
+        `getErrorMetrics()`, and the reconstruction constraints are applied with
+        `applyConstraints()`.
+
+        The two candidate angles are compared using their reconstruction errors.
+        The candidate producing the lower error is retained together with its
+        corresponding object and probe. The accepted angular change is then used to
+        update `reconstruction.thetaMomentum`.
+
+        The accepted detector angle is stored in
+        `reconstruction.thetaHistory`, while `showReconstruction()` is used to
+        update the reconstruction monitor during the optimization.
 
         If GPU acceleration is enabled, the reconstruction data are returned to
         CPU memory after completion.
@@ -365,10 +379,13 @@ class aPIE(BaseEngine):
 
     def objectPatchUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
         """
-        Todo add docstring
-        :param objectPatch:
-        :param DELTA:
-        :return:
+        Update the object patch using the standard ePIE object-update rule.
+
+        This implementation is identical to `ePIE.objectPatchUpdate()`.
+
+        See Also:
+            `ePIE.objectPatchUpdate`
+                Standard ePIE object update.
         """
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
@@ -382,10 +399,13 @@ class aPIE(BaseEngine):
 
     def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
         """
-        Todo add docstring
-        :param objectPatch:
-        :param DELTA:
-        :return:
+        Update the probe using the standard ePIE probe-update rule.
+
+        This implementation is identical to `ePIE.probeUpdate()`.
+
+        See Also:
+            `ePIE.probeUpdate`
+                Standard ePIE probe update.
         """
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
