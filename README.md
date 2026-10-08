@@ -4,7 +4,7 @@
 ![Tests](https://github.com/PtyLab/PtyLab.py/actions/workflows/test.yml/badge.svg)
 [![Docs](https://github.com/PtyLab/PtyLab.py/actions/workflows/docs.yml/badge.svg)](https://ptylab.github.io/PtyLab.py/)
 
-[**Getting Started**](#getting-started) | [**Installation**](#installation) | [**Development**](#development) | [**Documentation**](https://ptylab.github.io/PtyLab.py/)
+[**Key Features**](#key-features) | [**Getting Started**](#getting-started) | [**Installation**](#installation) | [**Documentation**](https://ptylab.github.io/PtyLab.py/)
 
 PtyLab is an inverse modeling toolbox for Conventional (CP) and Fourier (FP) ptychography in a unified framework. For more information please check the [paper](https://opg.optica.org/oe/fulltext.cfm?uri=oe-31-9-13763&id=529026).
 
@@ -26,6 +26,9 @@ The reconstructed output is a 6D array of shape `(nlambda, nosm, npsm, nslice, N
 | `nslice` | depth slices |
 | `No` | output frame size |
 
+### Optional: Differentiable Ptychography
+
+The new module `PtyLab.Engines.GradientEngine`, based on PyTorch, implements differentiable (gradient-based) ptychography for modeling flexibility. The API should stay fixed, but this is a work-in-progress and therefore not guaranteed for time being. See the [GradientEngine usage guide](PtyLab/Engines/GradientEngine/README.md) for installing additional dependencies and API.
 
 ## Getting started
 
@@ -55,45 +58,12 @@ The `gpu` extra installs CuPy for CUDA 12 (no support yet for CUDA 13). Check wh
 For the latest unreleased changes on `main`:
 
 ```bash
-pip install git+https://github.com/PtyLab/PtyLab.py.git
+uv pip install git+https://github.com/PtyLab/PtyLab.py.git
 ```
-
-### Optional: Differentiable Ptychography
-
-The new module `PtyLab.Engines.GradientEngine` based on PyTorch is a work-in-progress that implements differentiable (gradient-based) ptychography to allow custom models. The API should stay fixed, however this is not guarenteed for time being. 
-
-To enable the usage, install `ptylab` with an additional `torch` flag:
-
-```bash
-uv pip install "ptylab[gpu,torch]" --torch-backend=cu126 # higher versions of torch would work, but < CUDA 13.0
-```
-
-See the [CPM tutorial](/jupyter_tutorials/jupyter_tutorials_tutorial_CPM_sim_GradientEngine.ipynb) and [component guide](/PtyLab/Engines/GradientEngine/README.md).
 
 ### Development
 
-Clone the repo and install dev and gpu dependencies with [uv](https://docs.astral.sh/uv/getting-started/installation/):
-
-```bash
-git clone git@github.com:PtyLab/PtyLab.py.git
-cd PtyLab.py
-uv sync --extra dev --extra gpu # omit --extra gpu if you are on CPU
-```
-This creates a `.venv` virtual environment in the project root. Select this environment from your IDE. Add `--extra torch` for `GradientEngine` development.
-
-Add tests for new implementations and run the suite with the additional `--extra test` flag:
-
-```bash
-uv run pytest tests
-```
-
-### Documentation
-
-Any documentation changes would be deployed automatically after a PR merges main. However, please verify locally first with
-
-```bash
-uv run --extra docs mkdocs serve
-```
+For the development setup, running the tests and building the documentation locally, see the [development guide](https://ptylab.github.io/PtyLab.py/getting-started/installation/#development-setup) in the documentation.
 
 ## Citation
 
