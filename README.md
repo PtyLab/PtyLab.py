@@ -51,15 +51,9 @@ For faster installs, we recommend [uv](https://docs.astral.sh/uv/getting-started
 To utilize GPU for faster reconstruction, enable GPU support:
 
 ```bash
-uv pip install "ptylab[gpu]"
+uv pip install "ptylab[gpu]" # supports CUDA 12
 ```
-The `gpu` extra installs CuPy for CUDA 12 (no support yet for CUDA 13). Check whether GPU is correctly configured with `uv run ptylab check gpu`.
-
-For the latest unreleased changes on `main`:
-
-```bash
-uv pip install git+https://github.com/PtyLab/PtyLab.py.git
-```
+Check whether GPU is correctly configured with `uv run ptylab check gpu`. For additional information, check the [installation guide](https://ptylab.github.io/PtyLab.py/getting-started/installation/).
 
 ### Development
 
