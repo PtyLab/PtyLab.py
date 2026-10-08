@@ -538,7 +538,6 @@ class mPIE(BaseEngine):
         )
         return r
 
-
 class pcPIE(mPIE):
     """
     Backward-compatible wrapper for `mPIE`.
@@ -570,6 +569,66 @@ class pcPIE(mPIE):
 
         self.name = "pcPIE"
         self.logger = logging.getLogger("pcPIE")
+
+    @property
+    def betaM(self):
+        """Deprecated alias for `feedbackM`."""
+        return self.feedbackM
+
+    @betaM.setter
+    def betaM(self, value):
+        self.feedbackM = value
+
+    @property
+    def stepM(self):
+        """Deprecated alias for `frictionM`."""
+        return self.frictionM
+
+    @stepM.setter
+    def stepM(self, value):
+        self.frictionM = value
+
+class multiPIE(mPIE):
+    """
+    Backward-compatible wrapper for `mPIE`.
+
+    Mixed-state reconstruction is supported directly by `mPIE` through
+    the reconstruction mode dimensions, such as `reconstruction.npsm`,
+    `reconstruction.nosm`, and `reconstruction.nlambda`.
+
+    The former `multiPIE` engine used the same regularized object/probe
+    updates and momentum-acceleration scheme now provided by `mPIE`.
+    This class is retained only for compatibility with existing code
+    using `Engines.multiPIE`.
+    """
+
+    def __init__(
+        self,
+        reconstruction: Reconstruction,
+        experimentalData: ExperimentalData,
+        params: Params,
+        monitor: Monitor,
+    ):
+        warnings.warn(
+            "`multiPIE` is deprecated. Use `mPIE` directly and configure "
+            "mixed-state reconstruction through `reconstruction.npsm`, "
+            "`reconstruction.nosm`, and `reconstruction.nlambda`.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
+        # Preserve the behavior of the former multiPIE engine.
+        params.momentumAcceleration = True
+
+        super().__init__(
+            reconstruction,
+            experimentalData,
+            params,
+            monitor,
+        )
+
+        self.name = "multiPIE"
+        self.logger = logging.getLogger("multiPIE")
 
     @property
     def betaM(self):

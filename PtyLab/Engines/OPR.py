@@ -70,7 +70,7 @@ class OPR(BaseEngine):
     A \approx U_K S_K V_K^{\dagger}
     $$
 
-    where $K = \mathrm{params.OPR_subspace}$ is the retained subspace
+    where $K =$ `params.OPR_subspace` is the retained subspace
     dimension. Equivalently, the probe at scan position $j$ can be represented
     as a linear combination of a small number of orthogonal probe basis
     functions,
@@ -93,39 +93,59 @@ class OPR(BaseEngine):
     `params.OPR_tsvd_type`. The current implementation supports standard SVD,
     randomized SVD, and a Gram-matrix-based truncated SVD.
 
-    If `params.OPR_neighbor_constraint` is enabled, the position-dependent
-    coefficients are additionally averaged over neighboring scan positions to
-    encourage smooth probe evolution along the scan sequence.
+    OPR regularization acts at two complementary levels. Despite of a low-rank
+    constraint on the position-dependent probe stack, if `params.OPR_neighbor_constraint` is enabled, the subspace
+    coefficients $c_{k,j}$ are additionally averaged over neighboring scan
+    positions. This imposes smoothness along the scan sequence and suppresses
+    abrupt changes in the contribution of each probe basis mode. The two constraints therefore regularize different aspects of the probe
+    variation: the low-rank constraint limits which spatial variations are
+    allowed, while the neighbor constraint limits how rapidly their coefficients
+    may change between successive scan positions.
 
-    OPR can also be combined with mixed-state ptychography. Multiple
-    incoherent probe modes can be selected through `params.OPR_modes`, and
-    `orthogonalizeIncoherentModes()` can optionally orthogonalize these modes
-    independently at every scan position.
+    OPR can also be combined with mixed-state ptychography.[^eschen2022]
+    Multiple mutually incoherent probe modes are used to describe partial
+    coherence within each diffraction frame, while OPR accounts for systematic
+    changes of these probe modes between scan positions.
 
-    For each reconstruction iteration, the engine:
+    These two descriptions address different probe degrees of freedom. The
+    mixed-state model represents the illumination as an incoherent sum of probe
+    modes,
 
-    - loads the position-dependent probe for the current scan position;
-    - forms the exit surface wave and applies `intensityProjection()`;
-    - updates the object and probe using PIE-style updates;
-    - stores the updated probe back into `reconstruction.probe_stack`;
-    - optionally orthogonalizes incoherent probe modes;
-    - projects the complete probe stack onto the selected low-dimensional
-    subspace using `orthogonalizeProbeStack()`;
-    - applies the remaining reconstruction constraints and updates the monitor.
+    $$
+    I_j(\mathbf{q}) = \sum_m \left| \mathcal{F}\left[P_{m,j}(\mathbf{r}) O_j(\mathbf{r})\right] \right|^2
+    $$
+
+    where $m$ indexes the mutually incoherent probe modes. OPR additionally
+    allows the individual probe modes $P_{m,j}$ to vary with scan position $j$
+    while constraining their position dependence to a low-dimensional
+    orthogonal subspace.
+
+    In the current implementation, the probe modes included in OPR are selected
+    through `params.OPR_modes`. If `params.OPR_orthogonalize_modes` is enabled,
+    `orthogonalizeIncoherentModes()` orthogonalizes the incoherent probe modes
+    independently at each scan position before the position-dependent probe stack
+    is projected onto the OPR subspace.
 
     If `params.OPR_tv` is enabled, total-variation object updates are applied
     at the interval specified by `params.OPR_tv_freq`.
-
-    The OPR formulation therefore separates two probe degrees of freedom:
-    incoherent probe modes describe mixed-state illumination within a single
-    diffraction frame, while the orthogonal probe relaxation describes
-    systematic probe variations between scan positions.
 
     [^odstrcil2016]: M. Odstrčil, P. Baksh, S. A. Boden,
             R. Card, J. E. Chad, J. G. Frey, and W. S. Brocklesby,
             "Ptychographic coherent diffractive imaging with orthogonal probe relaxation,"
             Opt. Express 24, 8360-8369 (2016).
             https://doi.org/10.1364/OE.24.008360
+    
+    [^eschen2022]: W. Eschen, C. Liu, M. Steinert,
+            J. Müller, M. P. Ochmann, J. Limpert, and J. Rothhardt,
+            "Material-specific high-resolution table-top extreme ultraviolet microscopy,"
+            Light Sci. Appl. 11, 117 (2022).
+            https://doi.org/10.1038/s41377-022-00797-6
+    
+    Implementation Notes:
+            The current OPR implementation requires CuPy and GPU execution.
+            Several probe-stack operations are implemented directly with CuPy
+            rather than through the NumPy/CuPy abstraction used elsewhere in
+            PtyLab. CPU-only execution is therefore not currently supported.
     """
     def __init__(
         self,
@@ -144,7 +164,31 @@ class OPR(BaseEngine):
 
     def initializeReconstructionParams(self):
         """
-        Set parameters that are specific to the ePIE/OPR engine
+        Initialize parameters specific to the OPR reconstruction.
+
+        The OPR relaxation strength, selected probe modes, and retained
+        position-dependent probe subspace dimension are read from
+        `params.OPR_alpha`, `params.OPR_modes`, and `params.OPR_subspace`,
+        respectively.
+
+        This method also sets the default object and probe update strengths and
+        the number of reconstruction iterations. In addition, it defines the
+        working-memory budget used by the batched incoherent-mode
+        orthogonalization routine.
+
+        The main OPR parameters initialized here are:
+
+        - `alpha`:
+        Blending factor between the current probe stack and its low-rank OPR
+        approximation.
+
+        - `OPR_modes`:
+        Probe-mode indices for which position-dependent probe relaxation is
+        applied.
+
+        - `n_subspace`:
+        Number of dominant OPR subspace components retained during the
+        truncated singular-value decomposition.
         """
         self.alpha = self.params.OPR_alpha
         self.betaProbe = 0.25
@@ -157,6 +201,46 @@ class OPR(BaseEngine):
         self._orthogonalization_chunk_bytes = 128 * 2**20
 
     def reconstruct(self):
+        r"""
+        Run the Orthogonal Probe Relaxation reconstruction.
+
+        For each reconstruction iteration, a position-dependent probe is loaded
+        from `reconstruction.probe_stack` for the current scan position. The exit
+        surface wave is then formed from the local object patch and the selected
+        probe, followed by `intensityProjection()` to apply the measured
+        diffraction-intensity constraint.
+
+        The resulting exit-wave correction
+
+        $$
+        \Delta\Psi_j = \Psi'_j - \Psi_j
+        $$
+
+        is used to update the object and probe through `objectPatchUpdate()` and
+        `probeUpdate()`. If `params.OPR_tv` is enabled, the object update is
+        periodically replaced by `objectPatchUpdate_TV()` according to
+        `params.OPR_tv_freq`.
+
+        After each probe update, the selected probe modes are written back to
+        `reconstruction.probe_stack` at the corresponding scan position.
+
+        Once all scan positions have been processed, the position-dependent probe
+        stack is regularized. If `params.OPR_orthogonalize_modes` is enabled,
+        `orthogonalizeIncoherentModes()` first orthogonalizes the incoherent probe
+        modes independently at each scan position.
+
+        The complete probe stack is then projected onto a low-dimensional
+        position-dependent subspace using `orthogonalizeProbeStack()`, with the
+        retained subspace dimension given by `params.OPR_subspace`.
+
+        Finally, reconstruction errors are evaluated with `getErrorMetrics()`,
+        the remaining reconstruction constraints are applied with
+        `applyConstraints()`, and `showReconstruction()` updates the monitor.
+
+        If GPU acceleration is enabled, the reconstruction data are returned to
+        CPU memory after completion.
+        """
+
         self._prepareReconstruction()
 
         # OPR parameters
@@ -250,9 +334,54 @@ class OPR(BaseEngine):
             self.params.gpuFlag = 0
 
     def orthogonalizeIncoherentModes(self):
-        """
-        Function which cycles through the probe stack and orthogonalizes
-        all incoherent modes of all postions
+        r"""
+        Orthogonalize the incoherent probe modes at each scan position.
+
+        For every position in `reconstruction.probe_stack`, the selected probe
+        modes are reshaped into a two-dimensional matrix with one row per
+        incoherent mode and one column per probe pixel.
+
+        An SVD is then performed,
+
+        $$
+        P = U S V^\dagger
+        $$
+
+        and the probe modes are replaced by
+
+        $$
+        S V^\dagger
+        $$
+
+        which provides an equivalent orthogonal representation of the same
+        mixed-state probe subspace.
+
+        The orthogonalization is applied independently at every scan position and
+        does not alter the position-dependent OPR subspace itself.
+
+        If `params.OPR_fast_orthogonalization` is enabled, the batched
+        Gram-matrix implementation `_orthogonalizeIncoherentModes_batched()` is
+        used instead of the frame-by-frame SVD. For a probe-mode matrix $P$, the left singular vectors of $P$ are also
+        the eigenvectors of the much smaller Gram matrix
+
+        $$
+        G = P P^\dagger
+        $$
+
+        Since the number of incoherent probe modes is typically much smaller than
+        the number of probe pixels, $G$ has shape
+        `(nModes, nModes)` and can be factorized much more efficiently than the
+        full probe matrix. The orthogonal modes are then obtained from
+
+        $$
+        U^\dagger P
+        $$
+
+        which is equivalent to $S V^\dagger$.
+
+        The batched implementation performs this operation for multiple scan
+        positions simultaneously and processes the probe stack in chunks to limit
+        temporary memory usage.
         """
         if self.params.OPR_fast_orthogonalization:
             return self._orthogonalizeIncoherentModes_batched()
@@ -324,11 +453,35 @@ class OPR(BaseEngine):
 
     def average(self, arr):
         """
-        Calculates the average from neighboring values of a numpy array
-        :param arr: 1-dimensional input array, which is used to
-        calculate the average
-        :return: 1-dimensionl array with the same shape as the input array
+        Smooth a one-dimensional array by averaging neighboring values.
+
+        Each interior element is replaced by the average of itself and its two
+        nearest neighbors,
+
+        $$
+        a_j^{\mathrm{new}} = \frac{a_{j-1} + a_j + a_{j+1}}{3}
+        $$
+
+        while the first and last elements are averaged only with their single
+        available neighbor.
+
+        In OPR, this operation is used to smooth the position-dependent subspace
+        coefficients when `params.OPR_neighbor_constraint` is enabled, thereby
+        suppressing abrupt probe variations between successive scan positions.
+
+        Args:
+            arr (array-like):
+                One-dimensional array of position-dependent coefficients.
+
+        Returns:
+            array-like:
+                Smoothed array with the same shape as the input.
+        
+        Notes:
+            This implementation currently operates on CuPy arrays and therefore
+            requires GPU support.
         """
+
         arr_start = arr[:-1]
         arr_end = arr[1:]
         arr_end = cp.append(arr_end, 0)
@@ -339,6 +492,28 @@ class OPR(BaseEngine):
         return (arr + arr_end + arr_start) / divider
 
     def svd(self, P):
+        r"""
+        Compute the reduced singular-value decomposition of a matrix.
+
+        The decomposition
+
+        $$
+        P = U S V^\dagger
+        $$
+
+        is evaluated with CuPy when `P` is stored on the GPU and with NumPy
+        otherwise. In both cases, `full_matrices=False` is used to return the
+        reduced SVD.
+
+        Args:
+            P (array-like):
+                Input matrix to decompose.
+
+        Returns:
+            tuple:
+                `(U, s, Vh)`, where `U` and `Vh` contain the left and right
+                singular vectors and `s` contains the singular values.
+        """
         if isGpuArray(P):
             try:
                 return cp.linalg.svd(P, full_matrices=False)
@@ -355,6 +530,25 @@ class OPR(BaseEngine):
         return A, v, At
 
     def rsvd(self, P, n_dim):
+        """
+        Compute a randomized truncated singular-value decomposition.
+
+        This method delegates to `PtyLab.utils.fsvd.rsvd()` and returns a
+        low-rank approximation of the input matrix using the requested subspace
+        dimension.
+
+        Args:
+            P (array-like):
+                Input matrix to decompose.
+
+            n_dim (int):
+                Number of singular components to retain.
+
+        Returns:
+            tuple:
+                `(U, s, Vh)`, containing the truncated left singular vectors,
+                singular values, and right singular vectors.
+        """
         return rsvd(P, n_dim)
         # A, v, At = self.svd(P)
         # v[n_dim:] = 0
@@ -362,27 +556,43 @@ class OPR(BaseEngine):
 
     @staticmethod
     def gram_tsvd(A, n_dim):
-        """Rank-``n_dim`` truncated SVD of a tall matrix via its Gram matrix.
+        """
+        Compute a truncated SVD through the Gram matrix.
 
-        ``A`` is ``(Np**2, nFrames)`` -- very tall and thin. A full SVD of it
-        costs O(Np**2 * nFrames**2) and allocates a ``(Np**2, nFrames)`` U. The
-        right singular vectors are the eigenvectors of the much smaller
-        ``(nFrames, nFrames)`` Gram matrix ``A^H A``, so::
+        For a tall matrix $A$, the method forms the smaller Gram matrix
 
-            V, s**2 = eigh(A^H A)      ->      U = A V / s
+        $$
+        G = A^\dagger A
+        $$
 
-        Measured against the full SVD of the same matrix: 1.8x faster on 5.3x
-        less peak memory at 364 px / 202 frames, and 1.9x on 4.3x less at
-        512 px / 890 frames. The memory saving is the point -- it is what keeps
-        a large OPR run inside a 32 GB card.
+        and uses
 
-        The Gram matrix squares the condition number, so it is formed in double
-        precision -- it is only ``nFrames x nFrames``, which is negligible next
-        to the probe stack.
+        $$
+        A^\dagger A = V S^2 V^\dagger
+        $$
 
-        Returns ``(U, s, Vh)`` truncated to ``n_dim`` components, matching the
-        layout of ``xp.linalg.svd(..., full_matrices=False)`` after zeroing the
-        tail of ``s``.
+        to recover the truncated singular-value decomposition of `A`. The retained
+        left singular vectors are reconstructed from
+
+        $$
+        U = A V S^{-1}
+        $$
+
+        using the first `n_dim` components.
+
+        The Gram matrix is formed in double precision for improved numerical
+        stability, and division by numerically zero singular values is guarded.
+
+        Args:
+            A (array-like):
+                Input matrix.
+
+            n_dim (int):
+                Number of singular components to retain.
+
+        Returns:
+            tuple:
+                `(U, s, Vh)` containing the truncated singular-value decomposition.
         """
         xp = getArrayModule(A)
         n_dim = int(min(n_dim, A.shape[1]))
@@ -407,12 +617,46 @@ class OPR(BaseEngine):
         return U, s.astype(A.real.dtype), V.conj().T
 
     def orthogonalizeProbeStack(self, probe_stack, n_dim):
-        """
-        Takes the probe stack maps it by a truncated singular value decomposition in to
-        a lower dimensional (n_dim) space.
-        :param probe_stack: Probes of all positions
-        :param n_dim: Dimension of the lower dimensional sub space
-        :return: reduced probe stack
+        r"""
+        Project the position-dependent probe stack onto a low-dimensional subspace.
+
+        For each probe mode selected by `params.OPR_modes`, the probes from all
+        scan positions are reshaped into a matrix
+
+        $$
+        A \in \mathbb{C}^{N_p^2 \times N_{\mathrm{frames}}}
+        $$
+
+        whose columns contain the flattened probe estimates at individual scan
+        positions.
+
+        A truncated singular-value decomposition is then computed using the method
+        selected by `params.OPR_tsvd_type`. Only `n_dim` dominant components are
+        retained, yielding a low-rank approximation of the position-dependent
+        probe stack.
+
+        If `params.OPR_neighbor_constraint` is enabled, the position-dependent
+        subspace coefficients are smoothed over neighboring scan positions before
+        the probe stack is reconstructed.
+
+        The low-rank approximation is blended with the current probe stack using
+
+        $$
+        P^{\mathrm{new}} = \alpha P^{\mathrm{old}} + (1-\alpha)P^{\mathrm{low-rank}}
+        $$
+
+        where `alpha = params.OPR_alpha`.
+
+        Args:
+            probe_stack (array-like):
+                Position-dependent probe stack.
+
+            n_dim (int):
+                Number of OPR subspace components to retain.
+
+        Returns:
+            array-like:
+                Regularized probe stack with the same shape as the input.
         """
         xp = getArrayModule(probe_stack)
         n = self.reconstruction.Np
@@ -453,10 +697,21 @@ class OPR(BaseEngine):
 
     def objectPatchUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
         """
-        ePIE object update function
-        :param objectPatch: Slice of the object array
-        :param DELTA:
-        :return: updated object patch
+        Update the object patch using the ePIE correction.
+
+        The object update uses the current probe and exit-wave correction `DELTA`
+        with normalization by the maximum probe intensity.
+
+        Args:
+            objectPatch (np.ndarray):
+                Current object patch at the scan position.
+
+            DELTA (np.ndarray):
+                Exit-wave correction after the intensity projection.
+
+        Returns:
+            np.ndarray:
+                Updated object patch.
         """
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
@@ -472,10 +727,33 @@ class OPR(BaseEngine):
         self, objectPatch: np.ndarray, DELTA: np.ndarray, weight: float, gimmel=0.1
     ):
         """
-        Update the probe
-        :param objectPatch: Slice of the object array
-        :param DELTA:
-        :return: updated probe
+        Update the probe using the ePIE correction.
+
+        The probe update is computed from the current object patch and exit-wave
+        correction `DELTA`. The normalization includes the regularization term
+        `gimmel` to avoid excessively large updates when the object intensity is
+        small.
+
+        The update can additionally be scaled by `weight`. In the current OPR
+        reconstruction workflow, `weight` is set to 1.
+
+        Args:
+            objectPatch (np.ndarray):
+                Current object patch at the scan position.
+
+            DELTA (np.ndarray):
+                Exit-wave correction after the intensity projection.
+
+            weight (float):
+                Multiplicative weight applied to the probe update.
+
+            gimmel (float, optional):
+                Small positive regularization term added to the normalization
+                denominator. Default is `0.1`.
+
+        Returns:
+            np.ndarray:
+                Updated probe.
         """
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
