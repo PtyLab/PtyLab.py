@@ -1596,6 +1596,10 @@ class BaseEngine(object):
         Args:
             loop (int):
                 Current reconstruction iteration.
+            force (bool, optional):
+                Force an immediate monitor update regardless of
+                `monitor.figureUpdateFrequency`. Default is `False`.
+                
         """
         if force or np.mod(loop, self.monitor.figureUpdateFrequency) == 0:
             if self.experimentalData.operationMode == "FPM":
