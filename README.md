@@ -28,7 +28,7 @@ The reconstructed output is a 6D array of shape `(nlambda, nosm, npsm, nslice, N
 
 ### Optional: Differentiable Ptychography
 
-The new module `PtyLab.Engines.GradientEngine`, based on PyTorch, implements differentiable (gradient-based) ptychography for modeling flexibility. The API should stay fixed, but this is a work-in-progress and therefore not guaranteed for time being. See the [GradientEngine usage guide](PtyLab/Engines/GradientEngine/README.md) for installing additional dependencies and API.
+The new module `PtyLab.Engines.GradientEngine` implements differentiable (gradient-based) ptychography for modeling flexibility. The API for this should stay fixed, but this is not guaranteed because this is a work-in-progress. See the [GradientEngine usage guide](PtyLab/Engines/GradientEngine/README.md) for more details.
 
 ## Getting started
 
