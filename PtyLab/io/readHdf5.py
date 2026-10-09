@@ -50,6 +50,8 @@ def loadInputData(filename: Path, requiredFields, optionalFields):
         with h5py.File(str(filename), "r") as hdf5File:
             # load the required fields
             for key in requiredFields:
+                if key not in hdf5File:
+                    raise KeyError("hdf5 file misses key %s" % key)
                 value = hdf5File[key][()]
                 dataset[key] = scalify(value)
 
