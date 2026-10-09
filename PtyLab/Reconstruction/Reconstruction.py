@@ -967,13 +967,13 @@ class Reconstruction(object):
                             hf.create_dataset("theta", data=self.theta, dtype="f")
 
             if self.data.operationMode == "FPM":
-                hf = h5py.File(fileName, "w")
-                hf.create_dataset("probe", data=self.probe, dtype="complex64")
-                hf.create_dataset("object", data=self.object, dtype="complex64")
-                hf.create_dataset("error", data=self.error, dtype="f")
-                hf.create_dataset("zled", data=self.zled, dtype="f")
-                hf.create_dataset("wavelength", data=self.wavelength, dtype="f")
-                hf.create_dataset("dxp", data=self.dxp, dtype="f")
+                with h5py.File(fileName, "w") as hf:
+                    hf.create_dataset("probe", data=self.probe, dtype="complex64")
+                    hf.create_dataset("object", data=self.object, dtype="complex64")
+                    hf.create_dataset("error", data=self.error, dtype="f")
+                    hf.create_dataset("zled", data=self.zled, dtype="f")
+                    hf.create_dataset("wavelength", data=self.wavelength, dtype="f")
+                    hf.create_dataset("dxp", data=self.dxp, dtype="f")
         elif type == "probe":
             with h5py.File(fileName, "w") as hf:
                 hf.create_dataset(
@@ -985,10 +985,10 @@ class Reconstruction(object):
                     "object", data=squeezefun(self.object), dtype="complex64"
                 )
         elif type == "probe_stack":
-            hf = h5py.File(fileName + "_probe_stack.hdf5", "w")
-            hf.create_dataset(
-                "probe_stack", data=self.probe_stack.get(), dtype="complex64"
-            )
+            with h5py.File(fileName + "_probe_stack.hdf5", "w") as hf:
+                hf.create_dataset(
+                    "probe_stack", data=self.probe_stack.get(), dtype="complex64"
+                )
         print("The reconstruction results (%s) have been saved" % type)
 
         if snapshot is not None:
