@@ -1,8 +1,6 @@
 import logging
 
 import numpy as np
-from scipy import linalg
-import scipy.stats as st
 
 from PtyLab.utils.gpuUtils import asNumpyArray, getArrayModule
 
