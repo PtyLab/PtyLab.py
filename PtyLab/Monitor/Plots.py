@@ -1,5 +1,4 @@
 import math
-import warnings
 
 import matplotlib as mpl
 import numpy as np
@@ -86,14 +85,11 @@ class ObjectProbeErrorPlot(_LiveFigure):
         # interactive mode only matters for GUI windows; leave notebook sessions alone
         if not is_inline():
             plt.ion()
-        self.figure, axes = plt.subplot_mosaic(
-            """Ape""",
-            num=self.figNum,
-            clear=True,  # a new monitor must not draw on top of an old figure
-            figsize=(10, 3),
-            empty_sentinel=" ",
-            constrained_layout=False,
-        )
+        # a new monitor must not draw on top of an old figure with the same number;
+        # the size is set separately because pyplot ignores figsize for a reused one
+        self.figure = plt.figure(num=self.figNum, clear=True)
+        self.figure.set_size_inches(10, 3)
+        axes = self.figure.subplot_mosaic("""Ape""", empty_sentinel=" ")
 
         self.ax_object = axes["A"]
         self.ax_probe = axes["p"]
@@ -224,6 +220,7 @@ class ObjectProbeErrorPlot(_LiveFigure):
                     f"Error metric (it {len(error_estimate)})"
                 )
 
+
 class DiffractionDataPlot(_LiveFigure):
     def __init__(self, figNum=2):
         """Create a monitor.
@@ -248,9 +245,10 @@ class DiffractionDataPlot(_LiveFigure):
         # interactive mode only matters for GUI windows; leave notebook sessions alone
         if not is_inline():
             plt.ion()
-        self.figure, axes = plt.subplots(
-            1, 2, num=self.figNum, squeeze=False, clear=True, figsize=(8, 3)
-        )
+        # see ObjectProbeErrorPlot._createFigure for why size is set separately
+        self.figure = plt.figure(num=self.figNum, clear=True)
+        self.figure.set_size_inches(8, 3)
+        axes = self.figure.subplots(1, 2, squeeze=False)
         self.ax_Iestimated = axes[0][0]
         self.ax_Imeasured = axes[0][1]
         self.ax_Iestimated.set_title("Estimated intensity")
@@ -263,7 +261,6 @@ class DiffractionDataPlot(_LiveFigure):
         Iestimate = gpuUtils.asNumpyArray(Iestimate)
 
         if self.firstrun:
-
             self.im_Iestimated: AxesImage = self.ax_Iestimated.imshow(
                 np.log10(np.squeeze(Iestimate + 1)), cmap=cmap, interpolation=None
             )
@@ -313,7 +310,7 @@ class ParameterHistoryPlot(_LiveFigure):
     """Traces of the quantities an engine changes besides object and probe.
 
     Each update records one value per line, grouped into panels (e.g. the panel
-    "beam width [um]" with lines "x" and "y"). A panel is only drawn once one of
+    "purity [%]" with lines "object" and "probe"). A panel is only drawn once one of
     its lines has changed from its first value, so quantities the engine never
     touches (a fixed zo, a single-mode purity) stay hidden. The scan-position
     panel appears once position correction has moved a position.
@@ -388,6 +385,8 @@ class ParameterHistoryPlot(_LiveFigure):
                 ax.plot(its, vals, ".-", label=label)
             ax.set_title(panel)
             ax.set_xlabel("iterations")
+            # show absolute values (49.99 mm), not an offset plus tiny ticks
+            ax.ticklabel_format(axis="y", useOffset=False)
             ax.grid(True, alpha=0.3)
             if len(self.history[panel]) > 1:
                 ax.legend(fontsize="small")
