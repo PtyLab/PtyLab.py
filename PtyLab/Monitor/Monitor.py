@@ -1,5 +1,6 @@
 import warnings
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
 
@@ -12,6 +13,10 @@ from .Plots import (
     ParameterHistoryPlot,
     is_inline,
 )
+
+# allowed values of the Monitor settings; type hints only, values are not checked
+ObjectPlot = Literal["complex", "abs", "angle"]
+VerboseLevel = Literal["low", "high"]
 
 
 def tracked_values(frame: MonitorFrame) -> dict:
@@ -206,8 +211,8 @@ class Monitor(AbstractMonitor):
     def __init__(self):
         # settings for visualization
         self._figureUpdateFrequency = 1
-        self.objectPlot = "complex"
-        self._verboseLevel = "low"
+        self.objectPlot: ObjectPlot = "complex"
+        self._verboseLevel: VerboseLevel = "low"
         self.objectZoom = 1
         self.probeZoom = 1
         self.objectPlotContrast = 1
@@ -222,30 +227,30 @@ class Monitor(AbstractMonitor):
         self.parameterHistoryMonitor = None
 
     @property
-    def figureUpdateFrequency(self):
+    def figureUpdateFrequency(self) -> int:
         return self._figureUpdateFrequency
 
     @figureUpdateFrequency.setter
-    def figureUpdateFrequency(self, value):
+    def figureUpdateFrequency(self, value: int):
         self._figureUpdateFrequency = value
         if is_inline() and self.figureUpdateFrequency < 5:
-            warnings.simplefilter("always", UserWarning)
             warnings.warn(
-                "For faster update of the reconstruction plot, set `monitor.figureUpdateFrequency = 5` or higher."
+                "For faster update of the reconstruction plot, set `monitor.figureUpdateFrequency = 5` or higher.",
+                stacklevel=2,
             )
 
     @property
-    def verboseLevel(self):
+    def verboseLevel(self) -> VerboseLevel:
         return self._verboseLevel
 
     @verboseLevel.setter
-    def verboseLevel(self, value):
+    def verboseLevel(self, value: VerboseLevel):
         self._verboseLevel = value
         if is_inline() and self._verboseLevel == "high":
-            warnings.simplefilter("always", UserWarning)
             warnings.warn(
                 "For diffraction data plot, preferably use an interactive matplotlib backend or"
-                ' set `monitor.verboseLevel = "low"`. '
+                ' set `monitor.verboseLevel = "low"`. ',
+                stacklevel=2,
             )
 
     def initializeMonitors(self):
