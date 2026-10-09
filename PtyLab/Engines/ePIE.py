@@ -170,8 +170,9 @@ class ePIE(BaseEngine):
         probe estimate is updated sequentially across all scan positions.
 
         After all scan positions in an iteration have been processed,
-        `getErrorMetrics()` evaluates the reconstruction error and
-        `applyConstraints()` applies the enabled reconstruction constraints.
+        `getErrorMetrics()` evaluates the reconstruction error,
+        `applyConstraints()` applies the enabled reconstruction constraints and
+        `showReconstruction()` updates the monitor.
 
         The method yields after every scan-position update, allowing custom code
         to be interleaved with the reconstruction.
@@ -254,8 +255,8 @@ class ePIE(BaseEngine):
             # apply Constraints
             self.applyConstraints(loop)
 
-            # show reconstruction
-            # self.showReconstruction(loop)
+            # update the monitor, as every other engine does after the constraints
+            self.showReconstruction(loop)
 
         if self.params.gpuFlag:
             self.logger.info("switch to cpu")
