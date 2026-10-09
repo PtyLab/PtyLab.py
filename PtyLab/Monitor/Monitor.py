@@ -41,18 +41,14 @@ def tracked_values(frame: MonitorFrame) -> dict:
     return values
 
 
-class AbstractMonitor(object):
-    """
-    This monitor implements all the basic features that you have to override for a custom monitor.
+class AbstractMonitor:
+    """Base class of the reconstruction monitors; on its own it shows nothing.
 
     The engines call `update` with one `MonitorFrame` per update. A custom monitor
     can either override `update` and read the frame directly, or override the
-    per-quantity hooks below (`updateObjectProbeErrorMonitor`, `update_encoder`, ...),
-    which the default `update` calls.
-
-    Alternatively, you can instantiate this class to create a monitor that does not do anything and therefore,
-    will not take time to run.
-
+    per-quantity hooks below (`updateObjectProbeErrorMonitor`, `update_encoder`,
+    ...), which the default `update` calls. Every hook is a no-op here, so a
+    subclass only implements the ones it uses.
     """
 
     def update(self, frame: MonitorFrame):
@@ -91,13 +87,7 @@ class AbstractMonitor(object):
             self.update_overlap(frame.area_overlap, frame.linear_overlap)
 
     def initializeMonitors(self):
-        """
-        This code is run after __init__, use it to build a.k.a. GUI elements.
-
-        :return: Nothing
-        """
-
-        pass
+        """Create the figures or other outputs; the engine calls it before the first update."""
 
     def saveFigures(self, fileName="recent", dpi=150):
         """Save the monitor figures as PNG files. This monitor has none.
@@ -107,77 +97,50 @@ class AbstractMonitor(object):
         """
         return []
 
+    def describe_parameters(self, params):
+        """Record the reconstruction parameters, e.g. as text in a log.
+
+        Args:
+            params (Params): Parameters of the reconstruction.
+        """
+
     def update_focusing_metric(self, TV_value, AOI_image, metric_name, allmerits=None):
+        """Show the result of one TV autofocus step.
+
+        Args:
+            TV_value (float): Focus metric at the current distance.
+            AOI_image (np.ndarray): Propagated field in the area of interest.
+            metric_name (str): Name of the focus metric, e.g. `"TV"`.
+            allmerits (np.ndarray, optional): Focus metric at every distance that
+                was tried. Defaults to None.
         """
-        Show the total variation of the object estimate inside the area of interest.
-        :param TV_value: Value of TV
-        :return:
-        """
-        pass
 
     def writeEngineName(self, name):
+        """Record which engine produced the current update.
+
+        Args:
+            name (str): Engine name.
         """
-        Save the engine name for this particular iteration.
-
-        :param name:  Name of the engine that is used for this iteration.
-
-        :return:
-        """
-        pass
-
-    def visualize_probe_engine(self, estimate):
-        """
-        For nonlinear imaging only. Return the electric field of the probe.
-        """
-        pass
-
-    def updatePlot(
-        self,
-        object_estimate: np.ndarray,
-        probe_estimate: np.ndarray,
-        zo=None,
-        encoder_positions=None,
-    ):
-        """
-        Update the visualisation of both probe and and object estimate.
-
-        Please note, that only the part that is defined by probeZoom and objectZoom is uploaded.
-
-        #TODO: Change that, upload the entire image and make the monitor decide which parts to show.
-
-        :param object_estimate: Array with the object estimate.
-        :param probe_estimate:  Array with the probe estimate.
-        :return:
-        """
-        pass
-
-    def getOverlap(self, *args, **kwargs):
-        """
-        Get the overlap between subsequent probes.
-
-        Todo(dbs660): Move this.
-
-        :param args:
-        :param kwargs:
-        :return:
-        """
-        # TODO: remove this from here, it should go in some utils
-        pass
-
-    def update_positions(self, *args, **kwargs):
-        """Update the position information."""
-        pass
 
     def update_encoder(self, corrected_positions, original_positions, *args, **kwargs):
-        """Update the image of the encoder positions."""
-        pass
+        """Show the scan positions before and after position correction.
+
+        Args:
+            corrected_positions (np.ndarray): Corrected encoder positions in m.
+            original_positions (np.ndarray): Measured encoder positions in m.
+        """
 
     def update_overlap(self, overlap_area, linear_overlap):
-        pass
+        """Show the estimated probe overlap between neighbouring scan positions.
+
+        Args:
+            overlap_area (float): Area overlap, between 0 and 1.
+            linear_overlap (float): Linear overlap, between 0 and 1.
+        """
 
     def updateObjectProbeErrorMonitor(
         self,
-        error: float,
+        error,
         object_estimate: np.ndarray,
         probe_estimate: np.ndarray,
         zo=None,
@@ -185,51 +148,59 @@ class AbstractMonitor(object):
         purity_object=None,
         encoder_positions=None,
     ):
+        """Show the object and probe estimates and the error metric.
+
+        Args:
+            error (array-like): Error metric of every iteration so far.
+            object_estimate (np.ndarray): Object inside the display region.
+            probe_estimate (np.ndarray): Probe inside the display region.
+            zo (float, optional): Sample-detector distance in m. Defaults to None.
+            purity_probe (float, optional): Probe purity. Defaults to None.
+            purity_object (float, optional): Object purity. Defaults to None.
+            encoder_positions (np.ndarray, optional): Scan positions in object
+                pixels. Defaults to None.
         """
-        Update the Object and Probe error monitor, and any associated metrics.
 
-        :param error: Value of the loss for the current iteration.
-        :param object_estimate: Current object estimate
-        :param probe_estimate: Current probe estimate
-        :param zo: Sample-detector distance
-        :param purity_probe: purity of the probe
-        :param purity_object: purity of the object
-        :return:
+    def updateBeamWidth(self, beamwidth_y, beamwidth_x):
+        """Show the probe width.
+
+        Args:
+            beamwidth_y (float): FWHM along y in m.
+            beamwidth_x (float): FWHM along x in m.
         """
-
-        pass
-
-    def updateBeamWidth(self, beamwidth_x, beamwidth_y):
-        """
-        Update the beam width in X and Y
-
-        Parameters
-        ----------
-        beamwidth_x: beamwidth x in meter
-        beamwidth_y: beamwidth y in meter
-
-        Returns
-        -------
-
-        """
-        pass
 
     def updateDiffractionDataMonitor(self, Iestimated, Imeasured):
-        """
-        Update the diffraction data estimate at the current iteration.
+        """Show the estimated and measured intensity at the last scan position.
 
-        :param Iestimated: Estimated intensity at the current position
-        :param Imeasured:  Measured intensity at the current position
-        :return:
+        Args:
+            Iestimated (np.ndarray): Estimated detector intensity.
+            Imeasured (np.ndarray): Measured detector intensity.
         """
-
-        pass
 
 
 class Monitor(AbstractMonitor):
-    """
-    Monitor contains two submonitors: ObjectProbeErrorPlot (object,probe,error) and DiffractionDataPlot (diffraction
-    intensity estimate and measurement)
+    """Live matplotlib monitor, in GUI windows or in Jupyter cell outputs.
+
+    Shows up to three figures:
+
+    - object, probe and error metric (`ObjectProbeErrorPlot`), always
+    - estimated vs measured intensity (`DiffractionDataPlot`), for
+      `verboseLevel = "high"`
+    - zo, theta, purity and scan positions (`ParameterHistoryPlot`), once the
+      engine changes one of them and while `showParameterHistory` is True
+
+    Attributes:
+        figureUpdateFrequency (int): Update the figures every this many iterations.
+        verboseLevel (str): `"low"`, or `"high"` to add the diffraction figure.
+        objectPlot (str): `"complex"`, `"abs"` or `"angle"`.
+        objectZoom (float or None): Shrinks the shown object region around the
+            scanned area; `None` or `"full"` shows the whole object.
+        probeZoom (float or None): Same for the probe, around the pupil size.
+        objectPlotContrast (float): Brightness scaling of the complex object plot.
+        probePlotContrast (float): Brightness scaling of the complex probe plot.
+        showParameterHistory (bool): Whether to show the third figure.
+        screenshot_directory (str or None): If set, the first figure is saved
+            there after every update as `frame_<iteration>.png`.
     """
 
     def __init__(self):
@@ -278,11 +249,7 @@ class Monitor(AbstractMonitor):
             )
 
     def initializeMonitors(self):
-        """
-        Create the figure and axes etc.
-        :return:
-        """
-        # only initialize if it hasn't been done
+        """Create the figures; a figure that already exists is reused."""
         if self.defaultMonitor is None:
             self.defaultMonitor = ObjectProbeErrorPlot()
 
@@ -380,12 +347,9 @@ class Monitor(AbstractMonitor):
             saved.append(path)
         return saved
 
-    def describe_parameters(self, *args, **kwargs):
-        pass
-
 
 class DummyMonitor(AbstractMonitor):
-    """Monitor without any visualisation so it won't consume any time.
+    """Monitor that shows nothing, for runs where plotting would only cost time.
 
     Inherits every no-op hook from `AbstractMonitor`, so any hook an engine calls
     (e.g. `update_focusing_metric` when `params.TV_autofocus` is on) exists here too.
@@ -401,13 +365,15 @@ class DummyMonitor(AbstractMonitor):
         # the default would crop and copy object and probe to the CPU for nothing
         pass
 
-    def initializeVisualisation(self):
-        pass
-
 
 class NapariMonitor(DummyMonitor):
+    """Shows the object, probe and diffraction data as layers in a napari viewer.
+
+    Needs napari, which is not a PtyLab dependency.
+    """
 
     def initializeVisualisation(self):
+        """Open the viewer and create its image layers."""
         # currently a hacky way for this class, these napari implementations must
         # later be moved an optional sub-package.
         try:
@@ -470,12 +436,3 @@ class NapariMonitor(DummyMonitor):
     def updateDiffractionDataMonitor(self, Iestimated, Imeasured):
         self.Iestimated.data = Iestimated
         self.Imeasured.data = Imeasured
-
-    def update_positions(self, *args, **kwargs):
-        """
-        Update the positions. USeful for position correction.
-        :param args:
-        :param kwargs:
-        :return:
-        """
-        pass
