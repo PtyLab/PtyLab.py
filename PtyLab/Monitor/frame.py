@@ -68,6 +68,7 @@ class MonitorFrame:
         purity_object (Any): Object purity, meaningful only when `nosm > 1`.
         purity_probe (Any): Probe purity, meaningful only when `npsm > 1`.
         zo (Any): Sample-detector distance in meters.
+        theta (Any): Reflection angle in degrees (aPIE), `None` if not used.
         positions (np.ndarray | None): Scan positions in object pixels.
         engine_name (str | None): Name of the engine that produced the frame.
         encoder_original (np.ndarray | None): Measured encoder positions.
@@ -97,6 +98,7 @@ class MonitorFrame:
     purity_object: Any = None
     purity_probe: Any = None
     zo: Any = None
+    theta: Any = None
     positions: np.ndarray | None = None
     engine_name: str | None = None
     encoder_original: np.ndarray | None = None
@@ -133,6 +135,7 @@ class MonitorFrame:
             purity_object=reconstruction.purityObject,
             purity_probe=reconstruction.purityProbe,
             zo=reconstruction.zo,
+            theta=reconstruction.theta,
             positions=reconstruction.positions,
             **fields,
         )
