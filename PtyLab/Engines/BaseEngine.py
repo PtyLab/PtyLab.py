@@ -1604,8 +1604,9 @@ class BaseEngine(object):
 
         For Fourier ptychography, the object is transformed to real space before
         visualization. When the monitor verbosity is set to ``"high"``, the
-        current measured and estimated diffraction intensities, reconstruction
-        error, and estimated scan overlap are also displayed.
+        current measured and estimated diffraction intensities and the estimated
+        scan overlap are also sent, and the last iteration prints a summary of
+        the final error and overlap.
 
         If object dumping is enabled, the current reconstructed object is written
         to disk for each iteration.
@@ -1614,6 +1615,21 @@ class BaseEngine(object):
             loop (int):
                 Current reconstruction iteration.
         """
+        if self.monitor.verboseLevel == "high" and loop == self.numIterations - 1:
+            # one summary at the end of the run, not one per monitor update
+            self.getOverlap(0, 1)
+            self.pbar.write("")
+            self.pbar.write("final iteration: %i" % loop)
+            self.pbar.write("error: %.1f" % self.reconstruction.error[-1])
+            self.pbar.write(
+                "estimated linear overlap: %.1f %%"
+                % (100 * self.reconstruction.linearOverlap)
+            )
+            self.pbar.write(
+                "estimated area overlap: %.1f %%"
+                % (100 * self.reconstruction.areaOverlap)
+            )
+
         if np.mod(loop, self.monitor.figureUpdateFrequency) == 0:
             fields = {
                 "engine_name": repr(type(self)),
@@ -1633,18 +1649,6 @@ class BaseEngine(object):
 
                 # sets reconstruction.areaOverlap and .linearOverlap
                 self.getOverlap(0, 1)
-
-                self.pbar.write("")
-                self.pbar.write("iteration: %i" % loop)
-                self.pbar.write("error: %.1f" % self.reconstruction.error[-1])
-                self.pbar.write(
-                    "estimated linear overlap: %.1f %%"
-                    % (100 * self.reconstruction.linearOverlap)
-                )
-                self.pbar.write(
-                    "estimated area overlap: %.1f %%"
-                    % (100 * self.reconstruction.areaOverlap)
-                )
 
                 fields.update(
                     I_estimated=Iestimated,
@@ -1997,7 +2001,9 @@ class BaseEngine(object):
 
         # fit the scaling out, to put in the z
         if len(self.reconstruction.error) > self.startAtIteration:
-            self._logOnce("Position correction: updating scan positions every iteration")
+            self._logOnce(
+                "Position correction: updating scan positions every iteration"
+            )
 
             # update positions
             if self.experimentalData.operationMode == "FPM":
