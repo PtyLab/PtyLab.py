@@ -65,7 +65,7 @@ class TensorboardMonitor(AbstractMonitor):
     downsample_everything = 1
 
     def __init__(self, logdir="./logs_tensorboard", name=None):
-        super(AbstractMonitor).__init__()
+        super().__init__()
         # if true, all phases are centered in such a way that the average phase in the center of any RGB plot is zero.
         self.center_phases = True
         if name is None:
