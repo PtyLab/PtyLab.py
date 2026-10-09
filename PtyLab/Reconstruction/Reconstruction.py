@@ -1,4 +1,6 @@
 import time
+from pathlib import Path
+
 import numpy as np
 from PtyLab.ExperimentalData.ExperimentalData import ExperimentalData
 from copy import copy
@@ -877,7 +879,7 @@ class Reconstruction(object):
             if "theta" in archive.keys():
                 self.theta = np.array(archive["theta"])
 
-    def saveResults(self, fileName="recent", type="all", squeeze=False):
+    def saveResults(self, fileName="recent", type="all", squeeze=False, snapshot=None):
         """
         Save reconstruction results to an HDF5 file.
 
@@ -894,6 +896,13 @@ class Reconstruction(object):
                 If True, remove singleton dimensions when saving only the object
                 or probe. This option does not affect ``type="all"``.
                 Defaults to False.
+
+            snapshot (AbstractMonitor, optional):
+                Monitor whose current figures are saved as PNG files next to the
+                HDF5 file, via ``snapshot.saveFigures``. The PNG names reuse
+                ``fileName`` without its ``.hdf5``/``.h5`` extension, e.g.
+                ``run.hdf5`` gives ``run_reconstruction.png``. Defaults to None,
+                which saves no figures.
 
         Raises:
             NotImplementedError:
@@ -956,6 +965,15 @@ class Reconstruction(object):
             hf = h5py.File(fileName + '_probe_stack.hdf5', 'w')
             hf.create_dataset('probe_stack', data=self.probe_stack.get(), dtype='complex64')
         print("The reconstruction results (%s) have been saved" % type)
+
+        if snapshot is not None:
+            # "results/run.hdf5" -> "results/run_reconstruction.png", ...; other
+            # suffixes are kept, as they may be part of the name ("run.v2")
+            prefix = Path(fileName)
+            if prefix.suffix.lower() in (".hdf5", ".h5"):
+                prefix = prefix.with_suffix("")
+            for path in snapshot.saveFigures(prefix):
+                print("Saved monitor figure %s" % path)
 
     # detector coordinates
     @property

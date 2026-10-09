@@ -99,6 +99,14 @@ class AbstractMonitor(object):
 
         pass
 
+    def saveFigures(self, fileName="recent", dpi=150):
+        """Save the monitor figures as PNG files. This monitor has none.
+
+        Returns:
+            list[Path]: Empty, as nothing is saved.
+        """
+        return []
+
     def update_focusing_metric(self, TV_value, AOI_image, metric_name, allmerits=None):
         """
         Show the total variation of the object estimate inside the area of interest.
@@ -333,6 +341,44 @@ class Monitor(AbstractMonitor):
                     frame.encoder_original, frame.encoder_corrected
                 )
             history.draw()
+
+    def saveFigures(self, fileName="recent", dpi=150):
+        """Save the current monitor figures as PNG files.
+
+        Call it after `engine.reconstruct()` to keep the final state, or let
+        `reconstruction.saveResults(fileName, snapshot=monitor)` call it next to
+        the HDF5 file. Each figure that exists is written as
+        `<fileName>_<figure>.png`:
+
+        - `reconstruction`: object, probe and error metric
+        - `diffraction`: estimated vs measured intensity (`verboseLevel = "high"`)
+        - `history`: zo, theta, purity and scan positions, if any of them changed
+
+        Args:
+            fileName (str or Path, optional): Path prefix of the PNG files; missing
+                parent directories are created. Defaults to `"recent"`.
+            dpi (int, optional): Resolution of the PNG files. Defaults to 150.
+
+        Returns:
+            list[Path]: The files written.
+        """
+        figures = {
+            "reconstruction": self.defaultMonitor,
+            "diffraction": self.diffractionDataMonitor,
+            "history": self.parameterHistoryMonitor,
+        }
+        prefix = Path(fileName)
+        prefix.parent.mkdir(parents=True, exist_ok=True)
+        saved = []
+        for name, plot in figures.items():
+            # a plot object can exist without a figure, e.g. the history window
+            # before any quantity changed
+            if plot is None or getattr(plot, "figure", None) is None:
+                continue
+            path = prefix.with_name(f"{prefix.name}_{name}.png")
+            plot.figure.savefig(path, dpi=dpi, bbox_inches="tight")
+            saved.append(path)
+        return saved
 
     def describe_parameters(self, *args, **kwargs):
         pass
