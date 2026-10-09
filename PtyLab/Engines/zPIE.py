@@ -1,6 +1,6 @@
 import numpy as np
-import tqdm
 from matplotlib import pyplot as plt
+from tqdm.auto import trange  # widget bar in Jupyter, text bar in a terminal
 
 try:
     import cupy as cp
@@ -112,7 +112,7 @@ class zPIE(BaseEngine):
         X, Y = xp.meshgrid(xp.arange(-n // 2, n // 2), xp.arange(-n // 2, n // 2))
         w = xp.exp(-((xp.sqrt(X**2 + Y**2) / self.reconstruction.Np) ** 4))
 
-        self.pbar = tqdm.trange(
+        self.pbar = trange(
             self.numIterations, desc="zPIE", file=sys.stdout, leave=True
         )  # in order to change description to the tqdm progress bar
         for loop in self.pbar:

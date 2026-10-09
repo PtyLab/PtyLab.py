@@ -4,7 +4,7 @@ import pytest
 from numpy.testing import assert_allclose
 
 from PtyLab.ExperimentalData.ExperimentalData import ExperimentalData
-from PtyLab.Monitor.Monitor import Monitor
+from PtyLab.Monitor.frame import panel_geometry
 from PtyLab.Params.Params import Params
 from PtyLab.Reconstruction.Reconstruction import Reconstruction
 from PtyLab.utils.visualisation import plotExtent
@@ -50,13 +50,12 @@ def test_fpm_object_sampling_preserves_field_of_view(fpm_reconstruction):
 
 
 def test_monitor_plots_fpm_object_with_fpm_pixel_size(fpm_reconstruction):
-    monitor = Monitor()
-    monitor.reconstruction = fpm_reconstruction
+    panels = panel_geometry(fpm_reconstruction)
 
-    assert_allclose(monitor.objectPixelSize, fpm_reconstruction.dxo_fpm)
+    assert_allclose(panels["object_pixel_size"], fpm_reconstruction.dxo_fpm)
     # the plotted extent is the field of view of the raw images, not No * dxo
     assert_allclose(
-        fpm_reconstruction.No * monitor.objectPixelSize,
+        fpm_reconstruction.No * panels["object_pixel_size"],
         fpm_reconstruction.Np * fpm_reconstruction.dxp,
     )
 
@@ -65,10 +64,9 @@ def test_monitor_plots_cpm_object_with_dxo(generate_simu_hdf5):
     data = ExperimentalData("example:simulation_cpm")
     reconstruction = Reconstruction(data, Params())
 
-    monitor = Monitor()
-    monitor.reconstruction = reconstruction
+    panels = panel_geometry(reconstruction)
 
-    assert_allclose(monitor.objectPixelSize, reconstruction.dxo)
+    assert_allclose(panels["object_pixel_size"], reconstruction.dxo)
 
 
 def test_fpm_pupil_sampling_matches_the_numerical_aperture(fpm_reconstruction):
@@ -85,16 +83,15 @@ def test_fpm_pupil_sampling_matches_the_numerical_aperture(fpm_reconstruction):
 
 def test_monitor_plots_fpm_pupil_in_reciprocal_units(fpm_reconstruction):
     """For FPM the probe panel shows the pupil, which lives in Fourier space."""
-    monitor = Monitor()
-    monitor.reconstruction = fpm_reconstruction
+    panels = panel_geometry(fpm_reconstruction)
 
-    assert monitor.probeLabel == "Pupil estimate"
-    assert monitor.probeAxisUnit == "1/um"
-    assert_allclose(monitor.probePixelSize, fpm_reconstruction.dfp)
+    assert panels["probe_label"] == "Pupil estimate"
+    assert panels["probe_axis_unit"] == "1/um"
+    assert_allclose(panels["probe_pixel_size"], fpm_reconstruction.dfp)
 
     # the axis spans the bandwidth the low-resolution grid can carry, 1 / dxp
     assert_allclose(
-        fpm_reconstruction.Np * monitor.probePixelSize, 1 / fpm_reconstruction.dxp
+        fpm_reconstruction.Np * panels["probe_pixel_size"], 1 / fpm_reconstruction.dxp
     )
 
 
@@ -103,12 +100,11 @@ def test_monitor_probe_panel_unchanged_for_cpm(generate_simu_hdf5):
     data = ExperimentalData("example:simulation_cpm")
     reconstruction = Reconstruction(data, Params())
 
-    monitor = Monitor()
-    monitor.reconstruction = reconstruction
+    panels = panel_geometry(reconstruction)
 
-    assert monitor.probeLabel == "Probe estimate"
-    assert monitor.probeAxisUnit == "mm"
-    assert_allclose(monitor.probePixelSize, reconstruction.dxp)
+    assert panels["probe_label"] == "Probe estimate"
+    assert panels["probe_axis_unit"] == "mm"
+    assert_allclose(panels["probe_pixel_size"], reconstruction.dxp)
 
 
 def test_only_reciprocal_axes_are_centred_on_zero(generate_simu_hdf5):

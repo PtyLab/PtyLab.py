@@ -23,7 +23,7 @@ from PtyLab import Params
 from PtyLab.Monitor.Monitor import AbstractMonitor
 from PtyLab.utils.gpuUtils import asNumpyArray
 from PtyLab.utils.utils import fft2c
-from PtyLab.utils.visualisation import complex2rgb, complex2rgb_vectorized
+from PtyLab.utils.visualisation import complex2rgb_vectorized
 
 
 def center_angle(object_estimate):
@@ -65,7 +65,7 @@ class TensorboardMonitor(AbstractMonitor):
     downsample_everything = 1
 
     def __init__(self, logdir="./logs_tensorboard", name=None):
-        super(AbstractMonitor).__init__()
+        super().__init__()
         # if true, all phases are centered in such a way that the average phase in the center of any RGB plot is zero.
         self.center_phases = True
         if name is None:
@@ -110,7 +110,6 @@ class TensorboardMonitor(AbstractMonitor):
             engine.get_fundamental(), center_phase=self.center_phases
         )
         self.__safe_upload_image("original probe", np.squeeze(RGB_image), self.i)
-        pass
 
     def updateObjectProbeErrorMonitor(
         self,
@@ -222,9 +221,6 @@ class TensorboardMonitor(AbstractMonitor):
         :param scaling:
         :return:
         """
-        # convert the positions to mm
-        corrected_positions = corrected_positions
-        original_positions = original_positions
         # set them to mean 0
         corrected_positions = corrected_positions - corrected_positions.mean(
             axis=0, keepdims=True
@@ -237,9 +233,7 @@ class TensorboardMonitor(AbstractMonitor):
         import matplotlib.pyplot as plt
 
         # make a fov that makes sense
-        scale_0 = 1.1
-        if scaling > scale_0:
-            scale_0 = scaling
+        scale_0 = max(1.1, scaling)
 
         position_range = (
             np.min(original_positions.flatten()),
@@ -270,8 +264,7 @@ class TensorboardMonitor(AbstractMonitor):
 
         # plot the original one everywhere
 
-        for name, ax in axes.items():
-            ax: plt.Axes = ax
+        for ax in axes.values():
             ax.scatter(
                 original_positions[:, 0],
                 original_positions[:, 1],
@@ -375,13 +368,9 @@ class TensorboardMonitor(AbstractMonitor):
         if highres:
             I_object = abs(object_estimate**2)
 
-            std_obj = I_object.std()
-            mean_obj = I_object.mean()
-            min_int = 0  # mean_obj - 2 * std_obj
-            # max_int = np.min((mean_obj + 2 * std_obj, I_object.max()))
+            min_int = 0
             N = I_object.shape[-1]
             roi = slice(N // 2 - N // 5, N // 2 + N // 5)
-            # max_int = I_object[...,roi,roi].max()
             from scipy import ndimage
 
             max_int = ndimage.gaussian_filter(I_object, 3)[..., roi, roi].max()
@@ -416,7 +405,7 @@ class TensorboardMonitor(AbstractMonitor):
                 if zo is not None:
                     plt.title(f"z = {zo * 1e3:.3f} mm")
                 plt.savefig(f"intensities/{self.i}.png")
-                plt.savefig(f"intensities/AAA.png")
+                plt.savefig("intensities/AAA.png")
 
     def _update_probe_estimate(self, probe_estimate, highres=True):
         # first, convert it to images
@@ -498,9 +487,8 @@ class TensorboardMonitor(AbstractMonitor):
             )
 
     def __safe_upload_scalar(self, name, data, step, description=None):
-        if isinstance(data, list):
-            if data == []:
-                return  # initialization, not required for tensorboard, ignore it
+        if isinstance(data, list) and data == []:
+            return  # initialization, not required for tensorboard, ignore it
         data = asNumpyArray(data)
         try:
             # only take the last one in case of a list
@@ -539,7 +527,7 @@ class TensorboardMonitor(AbstractMonitor):
         self._update_probe_purity(probe_purity)
 
     def describe_parameters(self, params: Params):
-        text = "\n".join(["%s: %s" % (k, d) for (k, d) in params.__dict__.items()])
+        text = "\n".join([f"{k}: {d}" for (k, d) in params.__dict__.items()])
         with self.writer.as_default():
             tfs.text(
                 "summary parameters", text, step=self.i, description="initial settings"

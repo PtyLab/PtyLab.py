@@ -1,9 +1,9 @@
 from typing import Any
 
 import numpy as np
-import tqdm
 from matplotlib import pyplot as plt
 from scipy.interpolate import interp2d
+from tqdm.auto import trange  # widget bar in Jupyter, text bar in a terminal
 
 from PtyLab.utils.visualisation import hsvplot
 
@@ -83,9 +83,7 @@ class aPIE(BaseEngine):
             self.thetaSearchRadiusMax, self.thetaSearchRadiusMin, self.numIterations
         )
 
-        self.pbar = tqdm.trange(
-            self.numIterations, desc="aPIE", file=sys.stdout, leave=True
-        )
+        self.pbar = trange(self.numIterations, desc="aPIE", file=sys.stdout, leave=True)
         for loop in self.pbar:
             # save theta search history
             self.reconstruction.thetaHistory = np.append(

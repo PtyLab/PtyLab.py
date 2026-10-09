@@ -5,8 +5,6 @@
 *.vscode
 *.venv
 logs_tensorboard
-*.hdf5
-*.lock
 .python-version
 .DS_Store
 .idea
@@ -19,3 +17,8 @@ site/
 
 # misc
 notes/
+
+# files
+*.hdf5
+*.png
+*.lock

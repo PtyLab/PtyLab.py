@@ -155,7 +155,10 @@ def complexPlot(rgb, ax=None, pixelSize=1, axisUnit="pixel"):
     norm = mpl.colors.Normalize(vmin=-np.pi, vmax=np.pi)
     scalar_mappable = mpl.cm.ScalarMappable(norm=norm, cmap=mpl.cm.hsv)
     scalar_mappable.set_array([])
-    cbar = plt.colorbar(scalar_mappable, ax=ax, cax=cax, ticks=[-np.pi, 0, np.pi])
+    # colorbar on the axes' own figure, not pyplot's current one
+    cbar = ax.figure.colorbar(
+        scalar_mappable, ax=ax, cax=cax, ticks=[-np.pi, 0, np.pi]
+    )
     cbar.ax.set_yticklabels([r"$-\pi$", "0", r"$\pi$"])
     return im
 
