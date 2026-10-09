@@ -290,42 +290,20 @@ class Monitor(AbstractMonitor):
         self.diffractionDataMonitor.drawNow()
 
 
-class DummyMonitor(object):
-    """Monitor without any visualisation so it won't consume any time"""
+class DummyMonitor(AbstractMonitor):
+    """Monitor without any visualisation so it won't consume any time.
+
+    Inherits every no-op hook from `AbstractMonitor`, so any hook an engine calls
+    (e.g. `update_focusing_metric` when `params.TV_autofocus` is on) exists here too.
+    """
 
     objectZoom = 1
     probeZoom = 1
-    # remains from mPIE
+    # the engines only call the monitor every `figureUpdateFrequency` iterations
     figureUpdateFrequency = 1000000
     verboseLevel = "low"
 
-    def update_encoder(self, *args, **kwargs):
-        pass
-
-    def updateBeamWidth(self, *args, **kwargs):
-        pass
-
-
-
-    def updatePlot(self, object_estimate, probe_estimate):
-        pass
-
-    def getOverlap(self, ind1, ind2, probePixelsize):
-        pass
-
     def initializeVisualisation(self):
-        pass
-
-    def initializeMonitors(self):
-        pass
-
-    def updateObjectProbeErrorMonitor(self, *args, **kwargs):
-        pass
-
-    def updateDiffractionDataMonitor(self, *args, **kwargs):
-        pass
-
-    def writeEngineName(self, *args, **kwargs):
         pass
 
 
@@ -343,8 +321,14 @@ class NapariMonitor(DummyMonitor):
             msg = "Install napari to access this `NapariMonitor` implementation"
             raise ImportError(msg)
 
-        self.viewer.add_image(name="object estimate", data=np.random.rand(100, 100))
-        self.viewer.add_image(name="probe estimate", data=np.random.rand(100, 100))
+        # object and probe are shown as complex2rgb images, so these layers must be
+        # RGB from the start: napari fixes a layer's `rgb` flag when it is created
+        self.viewer.add_image(
+            name="object estimate", data=np.zeros((100, 100, 3)), rgb=True
+        )
+        self.viewer.add_image(
+            name="probe estimate", data=np.zeros((100, 100, 3)), rgb=True
+        )
 
         self.Iestimated = self.viewer.add_image(
             name="I estimated", data=np.random.rand(100, 100)
@@ -366,15 +350,24 @@ class NapariMonitor(DummyMonitor):
 
     def update_probe_image(self, new_probe):
         RGB_probe = complex2rgb(new_probe)
-        self.viewer.layers["probe_estimate"].data = RGB_probe
+        self.viewer.layers["probe estimate"].data = RGB_probe
 
     def update_object_image(self, object_estimate):
         RGB_object = complex2rgb(object_estimate)
         self.viewer.layers["object estimate"].data = RGB_object
 
-    def updatePlot(self, object_estimate, probe_estimate):
+    def updatePlot(
+        self, object_estimate, probe_estimate, zo=None, encoder_positions=None
+    ):
         self.update_probe_image(probe_estimate)
         self.update_object_image(object_estimate)
+
+    def updateObjectProbeErrorMonitor(
+        self, error, object_estimate, probe_estimate, *args, **kwargs
+    ):
+        # this is the hook `BaseEngine.showReconstruction` calls; without it the
+        # viewer never receives the estimates
+        self.updatePlot(object_estimate, probe_estimate)
 
     def updateDiffractionDataMonitor(self, Iestimated, Imeasured):
         self.Iestimated.data = Iestimated
