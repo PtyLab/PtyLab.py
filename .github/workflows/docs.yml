@@ -24,10 +24,10 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Install documentation dependencies
-        run: uv sync --extra docs
+        run: uv sync --group docs
 
       - name: Build documentation
-        run: uv run mkdocs build --strict
+        run: uv run --group docs mkdocs build --strict
 
       - name: Upload documentation
         if: github.event_name != 'pull_request'
