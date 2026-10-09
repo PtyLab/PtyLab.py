@@ -3,7 +3,6 @@ from pathlib import Path
 
 import h5py
 import numpy as np
-import tables
 from scipy.io import loadmat
 
 logger = logging.getLogger("readHdf5")
@@ -48,17 +47,17 @@ def loadInputData(filename: Path, requiredFields, optionalFields):
     # start h5 loading, but check data fields first (defined above)
     dataset = dict()
     try:
-        with tables.open_file(str(filename), mode="r") as hdf5File:
+        with h5py.File(str(filename), "r") as hdf5File:
             # load the required fields
             for key in requiredFields:
-                value = hdf5File.root[key].read()
+                value = hdf5File[key][()]
                 dataset[key] = scalify(value)
 
             # load optional fields, otherwise set to None and compute later
             for key in optionalFields:
                 # check if the optional field exists otherwise set to None
-                if key in hdf5File.root:
-                    value = hdf5File.root[key].read()
+                if key in hdf5File:
+                    value = hdf5File[key][()]
                     dataset[key] = scalify(value)
                 else:
                     dataset[key] = None
@@ -110,12 +109,9 @@ def checkDataFields(filename, requiredFields):
     :return: None if correct
     :raise: KeyError if one of the attributes is missing.
     """
-    with tables.open_file(str(filename), mode="r") as hdf5_file:
-        # get a list of nodes
-        nodes = hdf5_file.list_nodes("/")
-        # get the names of each node which will be the field names stored
-        # within the hdf5 file
-        fileFields = [node.name for node in nodes]
+    with h5py.File(str(filename), "r") as hdf5_file:
+        # the top-level member names are the field names stored in the file
+        fileFields = list(hdf5_file.keys())
 
     # check if all the required fields are within the file
     for k in requiredFields:
