@@ -24,7 +24,11 @@ def engine_monitor_hooks():
     """Names of every `self.monitor.<name>(...)` call in the engine sources."""
     pattern = re.compile(r"self\.monitor\.([A-Za-z_]\w*)\s*\(")
     return sorted(
-        {name for f in ENGINES_DIR.rglob("*.py") for name in pattern.findall(f.read_text())}
+        {
+            name
+            for f in ENGINES_DIR.rglob("*.py")
+            for name in pattern.findall(f.read_text())
+        }
     )
 
 
