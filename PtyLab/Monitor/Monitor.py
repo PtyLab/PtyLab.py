@@ -5,6 +5,7 @@ import numpy as np
 
 from PtyLab.utils.visualisation import complex2rgb, setColorMap
 
+from .frame import MonitorFrame
 from .Plots import DiffractionDataPlot, ObjectProbeErrorPlot, is_inline
 
 
@@ -12,10 +13,50 @@ class AbstractMonitor(object):
     """
     This monitor implements all the basic features that you have to override for a custom monitor.
 
+    The engines call `update` with one `MonitorFrame` per update. A custom monitor
+    can either override `update` and read the frame directly, or override the
+    per-quantity hooks below (`updateObjectProbeErrorMonitor`, `update_encoder`, ...),
+    which the default `update` calls.
+
     Alternatively, you can instantiate this class to create a monitor that does not do anything and therefore,
     will not take time to run.
 
     """
+
+    def update(self, frame: MonitorFrame):
+        """Show one snapshot of the reconstruction.
+
+        The default forwards the frame to the per-quantity hooks, so monitors
+        written against those hooks keep working. Fields the engine left empty
+        (`None`) are skipped.
+
+        Args:
+            frame (MonitorFrame): Current reconstruction state.
+        """
+        self.updateObjectProbeErrorMonitor(
+            error=frame.error,
+            object_estimate=frame.object_view(),
+            probe_estimate=frame.probe_view(),
+            zo=frame.zo,
+            purity_probe=frame.purity_probe,
+            purity_object=frame.purity_object,
+            encoder_positions=frame.positions,
+        )
+        if frame.engine_name is not None:
+            self.writeEngineName(frame.engine_name)
+        if frame.encoder_original is not None:
+            self.update_encoder(
+                corrected_positions=frame.encoder_corrected,
+                original_positions=frame.encoder_original,
+            )
+        if frame.beam_width is not None:
+            self.updateBeamWidth(*frame.beam_width)
+        if frame.I_estimated is not None:
+            self.updateDiffractionDataMonitor(
+                Iestimated=frame.I_estimated, Imeasured=frame.I_measured
+            )
+        if frame.area_overlap is not None:
+            self.update_overlap(frame.area_overlap, frame.linear_overlap)
 
     def initializeMonitors(self):
         """
@@ -160,7 +201,6 @@ class Monitor(AbstractMonitor):
         self.probeZoom = 1
         self.objectPlotContrast = 1
         self.probePlotContrast = 1
-        self.reconstruction = None
         self.cmapDiffraction = setColorMap()
         self.defaultMonitor = None
         self.screenshot_directory = None
@@ -205,89 +245,48 @@ class Monitor(AbstractMonitor):
         if self.verboseLevel == "high":
             self.diffractionDataMonitor = DiffractionDataPlot()
 
-    @property
-    def objectPixelSize(self):
-        """Pixel size of the object estimate that is plotted."""
-        if self.reconstruction.data.operationMode == "FPM":
-            return self.reconstruction.dxo_fpm
-        return self.reconstruction.dxo
+    def update(self, frame: MonitorFrame):
+        """Draw the object, probe and error panels, plus the diffraction data when shown.
 
-    @property
-    def probePixelSize(self):
-        """Axis step of the probe panel."""
-        if self.reconstruction.data.operationMode == "FPM":
-            return self.reconstruction.dfp
-        return self.reconstruction.dxp
-
-    @property
-    def probeAxisUnit(self):
-        """Unit of the probe panel axes: a length for CPM, a spatial frequency for FPM."""
-        if self.reconstruction.data.operationMode == "FPM":
-            return "1/um"
-        return "mm"
-
-    @property
-    def probeLabel(self):
-        """Title of the probe panel. FPM estimates a pupil instead of a probe."""
-        if self.reconstruction.data.operationMode == "FPM":
-            return "Pupil estimate"
-        return "Probe estimate"
-
-    def updateObjectProbeErrorMonitor(
-        self,
-        error,
-        object_estimate,
-        probe_estimate,
-        zo=None,
-        purity_probe=None,
-        purity_object=None,
-        encoder_positions=None,
-    ):
+        Args:
+            frame (MonitorFrame): Current reconstruction state.
         """
-        update the probe object plots
-        :param object_estimate:
-        :return:
-        """
-        self.defaultMonitor.updateError(error)  # self.reconstruction.error)
-        # print(f"Object plot: {self.objectPlot}")
-        self.defaultMonitor.updateObject(
-            object_estimate,
-            self.reconstruction,
+        plot = self.defaultMonitor
+        plot.updateError(frame.error)
+        plot.updateObject(
+            frame.object_view(),
             objectPlot=self.objectPlot,
-            pixelSize=self.objectPixelSize,
+            pixelSize=frame.object_pixel_size,
             axisUnit="mm",
             amplitudeScalingFactor=self.objectPlotContrast,
+            # purity is only defined for mixed states
+            purity=frame.purity_object if frame.nosm > 1 else None,
         )
-        self.defaultMonitor.updateProbe(
-            probe_estimate,
-            self.reconstruction,
-            pixelSize=self.probePixelSize,
-            axisUnit=self.probeAxisUnit,
-            label=self.probeLabel,
+        plot.updateProbe(
+            frame.probe_view(),
+            pixelSize=frame.probe_pixel_size,
+            axisUnit=frame.probe_axis_unit,
+            label=frame.probe_label,
             amplitudeScalingFactor=self.probePlotContrast,
+            purity=frame.purity_probe if frame.npsm > 1 else None,
         )
-        self.defaultMonitor.update_z(zo)
-        self.defaultMonitor.drawNow()
+        plot.drawNow()
 
         if self.screenshot_directory is not None:
-            self.defaultMonitor.figure.savefig(
-                Path(self.screenshot_directory) / f"frame_{len(error)}.png"
+            plot.figure.savefig(
+                Path(self.screenshot_directory) / f"frame_{frame.iteration}.png"
             )
+
+        # the diffraction figure only exists for verboseLevel "high", and the
+        # engine only fills the intensities then
+        if self.diffractionDataMonitor is not None and frame.I_estimated is not None:
+            self.diffractionDataMonitor.update_view(
+                frame.I_estimated, frame.I_measured, cmap=self.cmapDiffraction
+            )
+            self.diffractionDataMonitor.drawNow()
 
     def describe_parameters(self, *args, **kwargs):
         pass
-
-    def updateDiffractionDataMonitor(self, Iestimated, Imeasured):
-        """
-        update the diffraction plots
-        """
-
-        self.diffractionDataMonitor.update_view(
-            Iestimated, Imeasured, cmap=self.cmapDiffraction
-        )
-        # self.diffractionDataMonitor.updateIestimated(Iestimated, cmap=self.cmapDiffraction)
-        # self.diffractionDataMonitor.updateImeasured(Imeasured, cmap=self.cmapDiffraction)
-        self.diffractionDataMonitor.drawNow()
 
 
 class DummyMonitor(AbstractMonitor):
@@ -302,6 +301,10 @@ class DummyMonitor(AbstractMonitor):
     # the engines only call the monitor every `figureUpdateFrequency` iterations
     figureUpdateFrequency = 1000000
     verboseLevel = "low"
+
+    def update(self, frame):
+        # the default would crop and copy object and probe to the CPU for nothing
+        pass
 
     def initializeVisualisation(self):
         pass
