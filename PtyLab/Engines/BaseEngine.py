@@ -147,6 +147,25 @@ class BaseEngine(object):
 
         # datalogger
         self.logger = logging.getLogger("BaseEngine")
+        # messages already shown by _logOnce
+        self._loggedOnce = set()
+
+    def _logOnce(self, message, *args):
+        """
+        Log a message at INFO the first time, and at DEBUG on every repeat.
+
+        For steps that run every iteration (e.g. probe COM stabilization), so the
+        output says once that the step is active instead of once per iteration.
+
+        Args:
+            message (str):
+                Logging format string; also identifies the message.
+            *args:
+                Arguments for the format string.
+        """
+        level = logging.DEBUG if message in self._loggedOnce else logging.INFO
+        self._loggedOnce.add(message)
+        self.logger.log(level, message, *args)
 
     def _prepareReconstruction(self):
         """
@@ -1892,6 +1911,7 @@ class BaseEngine(object):
             This method is used together with position correction and is called
             periodically when `map_position_to_z_change` is enabled.
         """
+        self._logOnce("Updating zo from the scale of the corrected positions")
         X0 = self.reconstruction.encoder_corrected
         Y0 = self.experimentalData.encoder
         msqdisplacement = np.linalg.norm(1e6 * X0 - 1e6 * Y0)
@@ -1906,18 +1926,18 @@ class BaseEngine(object):
         # target distance implied by the scale change of the positions
         target_z = self.reconstruction.zo / factor
         step = target_z - self.reconstruction.zo
-        self.logger.info(
+        self.logger.debug(
             f"Naive estimate of new z: {target_z:.3f}, stepsize {step:.3f}"
         )
         if abs(step) < 2e-5:  # same skip threshold as before (it used 5 * step < 1e-4)
-            self.logger.info("Skipping update as step is too small")
+            self.logger.debug("Skipping update as step is too small")
             return
         # damped update: move a fraction of the way toward the target each call
         damping = 0.2
         z_new = self.reconstruction.zo + damping * step
 
-        self.logger.info(f"Loop: {loop} step: {step}")
-        self.logger.info(
+        self.logger.debug(f"Loop: {loop} step: {step}")
+        self.logger.debug(
             f"old z: {self.reconstruction.zo:.3f}\n new z calculated: {z_new:.3f}\n diff: {self.reconstruction.zo - z_new}\n"
         )
         # scale the coordinates accordingly
@@ -1934,7 +1954,7 @@ class BaseEngine(object):
         )
 
         self.reconstruction.encoder_corrected = new_encoder
-        self.logger.info(
+        self.logger.debug(
             f"Mean square displacement: before: {msqdisplacement:.3f} after: {msqdisplacement_a:.3f}"
         )
 
@@ -1977,7 +1997,7 @@ class BaseEngine(object):
 
         # fit the scaling out, to put in the z
         if len(self.reconstruction.error) > self.startAtIteration:
-            self.logger.info("Updating positions")
+            self._logOnce("Position correction: updating scan positions every iteration")
 
             # update positions
             if self.experimentalData.operationMode == "FPM":
@@ -2010,7 +2030,7 @@ class BaseEngine(object):
                 )
 
                 self.reconstruction.encoder_corrected = new_encoder
-                self.logger.info(
+                self.logger.debug(
                     f"Average update size: {abs(self.D).mean():.2f} pixels"
                 )
 
@@ -2195,6 +2215,11 @@ class BaseEngine(object):
             merit, AOI_image, allmerits = self.reconstruction.TV_autofocus(
                 self.params, loop=loop
             )
+            if merit is not None:  # None on iterations where autofocus is skipped
+                self._logOnce(
+                    "TV autofocus: updating zo every %d iterations",
+                    self.params.TV_autofocus_run_every,
+                )
             self.monitor.update_focusing_metric(
                 merit,
                 AOI_image,
@@ -2391,7 +2416,7 @@ class BaseEngine(object):
             For multislice reconstruction, the last probe slice is used to
             estimate the center.
         """
-        self.logger.info("Doing probe com stabilization")
+        self._logOnce("Doing probe com stabilization every iteration")
         xp = getArrayModule(self.reconstruction.probe)
         # calculate center of mass of the probe (for multislice cases, the probe for the last slice is used)
         P2 = xp.sum(
