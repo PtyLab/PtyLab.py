@@ -2,7 +2,7 @@ import warnings
 
 import matplotlib as mpl
 import numpy as np
-from IPython.display import clear_output, display
+from IPython.display import display
 from matplotlib import pyplot as plt
 from matplotlib.image import AxesImage
 from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -16,7 +16,49 @@ def is_inline():
     return True if "inline" in mpl.get_backend().lower() else False
 
 
-class ObjectProbeErrorPlot(object):
+class _LiveFigure:
+    """Drawing logic shared by the monitor figures.
+
+    In a script the figure lives in its own GUI window that is redrawn in place.
+    In Jupyter (inline backend) the figure is shown once through a display handle,
+    and every later draw replaces that output, so the rest of the cell output
+    (prints, progress bar, other figures) stays untouched.
+    """
+
+    def _attach_figure(self, figure) -> None:
+        self.figure = figure
+        self.canvas = figure.canvas
+        self.display_handle = None
+        self.firstrun = True
+        if is_inline():
+            # the display handle shows this figure; detach it from pyplot so the
+            # inline backend does not draw it a second time at the end of the cell
+            plt.close(figure)
+
+    def drawNowScript(self):
+        """Redraw the figure window, reopening it if it was closed."""
+        if self.firstrun or not plt.fignum_exists(self.figNum):
+            self.figure.show()
+        self.firstrun = False
+        self.canvas.draw_idle()
+        self.canvas.flush_events()
+
+    def drawNowIpython(self):
+        """Show the figure on the first call, then update that same output."""
+        if self.display_handle is None:
+            self.display_handle = display(self.figure, display_id=True)
+        else:
+            self.display_handle.update(self.figure)
+        self.firstrun = False
+
+    def drawNow(self):
+        if is_inline():
+            self.drawNowIpython()
+        else:
+            self.drawNowScript()
+
+
+class ObjectProbeErrorPlot(_LiveFigure):
     def __init__(self, figNum=1):
         """Create a monitor.
 
@@ -30,10 +72,6 @@ class ObjectProbeErrorPlot(object):
         self.figNum = figNum
         self._createFigure()
 
-        # Get a reference to the figure canvas
-        self.canvas = self.figure.canvas
-        self.display_id = None
-
     def update_z(self, *args, **kwargs):
         """Update the sample-detector distance. Does nothing at the moment."""
         pass
@@ -44,10 +82,13 @@ class ObjectProbeErrorPlot(object):
         :return:
         """
 
-        plt.ion()
+        # interactive mode only matters for GUI windows; leave notebook sessions alone
+        if not is_inline():
+            plt.ion()
         self.figure, axes = plt.subplot_mosaic(
             """Ape""",
             num=self.figNum,
+            clear=True,  # a new monitor must not draw on top of an old figure
             figsize=(10, 3),
             empty_sentinel=" ",
             constrained_layout=False,
@@ -76,7 +117,7 @@ class ObjectProbeErrorPlot(object):
         self.ax_error_metric.set_yscale("log")
         self.ax_error_metric.axis("image")
         self.figure.tight_layout()
-        self.firstrun = True
+        self._attach_figure(self.figure)
 
     def updateObject(
         self,
@@ -108,7 +149,7 @@ class ObjectProbeErrorPlot(object):
                 self.im_object = self.ax_object.imshow(OE, interpolation=None)
                 divider = make_axes_locatable(self.ax_object)
                 cax = divider.append_axes("right", size="5%", pad=0.1)
-                self.objectCbar = plt.colorbar(
+                self.objectCbar = self.figure.colorbar(
                     self.im_object, ax=self.ax_object, cax=cax
                 )
         else:
@@ -184,42 +225,7 @@ class ObjectProbeErrorPlot(object):
                     f"Error metric (it {len(error_estimate)})"
                 )
 
-    def drawNowScript(self):
-        """
-        Forces the image to be drawn
-        :return:
-        """
-        if self.firstrun:
-            self.figure.show()
-            self.firstrun = False
-
-        # Reopen the figure if the window is closed
-        if not plt.fignum_exists(self.figNum):
-            self.figure.show()
-
-        self.canvas.draw_idle()
-        self.canvas.flush_events()
-
-    def drawNowIpython(self):
-        if self.firstrun:
-            self.display_id = display(self.figure, display_id=True)
-            self.firstrun = False
-        else:
-            clear_output(wait=True)
-            self.display_id = display(
-                self.figure, display_id=self.display_id.display_id
-            )
-        self.canvas.draw_idle()
-        self.canvas.flush_events()
-
-    def drawNow(self):
-        if is_inline():
-            self.drawNowIpython()
-        else:
-            self.drawNowScript()
-
-
-class DiffractionDataPlot(object):
+class DiffractionDataPlot(_LiveFigure):
     def __init__(self, figNum=2):
         """Create a monitor.
 
@@ -233,10 +239,6 @@ class DiffractionDataPlot(object):
         self.figNum = figNum
         self._createFigure()
 
-        # Get a reference to the figure canvas
-        self.canvas = self.figure.canvas
-        self.display_id = None  # Added attribute
-
     def _createFigure(self) -> None:
         """
         Create the figure.
@@ -244,7 +246,9 @@ class DiffractionDataPlot(object):
         """
 
         # add an axis for the object
-        plt.ion()
+        # interactive mode only matters for GUI windows; leave notebook sessions alone
+        if not is_inline():
+            plt.ion()
         self.figure, axes = plt.subplots(
             1, 2, num=self.figNum, squeeze=False, clear=True, figsize=(8, 3)
         )
@@ -253,7 +257,7 @@ class DiffractionDataPlot(object):
         self.ax_Iestimated.set_title("Estimated intensity")
         self.ax_Imeasured.set_title("Measured intensity")
         self.figure.tight_layout()
-        self.firstrun = True
+        self._attach_figure(self.figure)
 
     def updateIestimated(self, Iestimate, cmap="gray", **kwargs):
         # move it to CPU if it's on the GPU
@@ -267,7 +271,7 @@ class DiffractionDataPlot(object):
 
             divider = make_axes_locatable(self.ax_Iestimated)
             cax = divider.append_axes("right", size="5%", pad=0.1)
-            self.IestimatedCbar = plt.colorbar(
+            self.IestimatedCbar = self.figure.colorbar(
                 self.im_Iestimated, ax=self.ax_Iestimated, cax=cax
             )
             # scale it according to I measured
@@ -286,47 +290,13 @@ class DiffractionDataPlot(object):
 
             divider = make_axes_locatable(self.ax_Imeasured)
             cax = divider.append_axes("right", size="5%", pad=0.1)
-            self.ImeasuredCbar = plt.colorbar(
+            self.ImeasuredCbar = self.figure.colorbar(
                 self.im_Imeasured, ax=self.ax_Imeasured, cax=cax
             )
 
         else:
             self.im_Imeasured.set_data(np.log10(np.squeeze(Imeasured + 1)))
         self.im_Imeasured.autoscale()
-
-    def drawNowScript(self):
-        """
-        Forces the image to be drawn
-        :return:
-        """
-        if self.firstrun:
-            self.figure.show()
-            self.firstrun = False
-
-        # Reopen the figure if the window is closed
-        if not plt.fignum_exists(self.figNum):
-            self.figure.show()
-
-        self.canvas.draw_idle()
-        self.canvas.flush_events()
-
-    def drawNowIpython(self):
-        if self.firstrun:
-            self.display_id = display(self.figure, display_id=True)
-            self.firstrun = False
-        else:
-            clear_output(wait=True)
-            self.display_id = display(
-                self.figure, display_id=self.display_id.display_id
-            )
-        self.canvas.draw_idle()
-        self.canvas.flush_events()
-
-    def drawNow(self):
-        if is_inline():
-            self.drawNowIpython()
-        else:
-            self.drawNowScript()
 
     def update_view(self, Iestimated, Imeasured, cmap):
         """Update the I measured and I estimated and make sure that the colormaps have the same limits"""
