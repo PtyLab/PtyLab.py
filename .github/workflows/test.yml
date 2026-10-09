@@ -29,7 +29,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache-dependency-glob: "pyproject.toml"
-      - name: Install the project with `dev`
-        run: uv sync --extra dev
+      - name: Install the project with the `dev` group
+        run: uv sync
       - name: Run tests
         run: uv run pytest tests

@@ -451,107 +451,89 @@ class Reconstruction(object):
         Args:
             saveit (bool, optional):
                 If True, save the diagnostic plots to
-                ``plots/alignment.html``. Defaults to False.
+                ``plots/alignment.png``. Defaults to False.
 
         Returns:
-            bokeh.layouts.LayoutDOM:
-                Bokeh layout containing the available diagnostic plots.
+            matplotlib.figure.Figure:
+                Figure with one panel per available diagnostic. In a notebook,
+                leaving the call as the last line of a cell displays it.
 
         Notes:
             Position coordinates are derived from ``positions`` and ``positions0``.
             These quantities are expressed in reconstruction pixels.
         """
+        # a bare Figure (not pyplot) never opens a window or registers with the GUI
+        # backend, so zPIE can call this every iteration headless without piling up figures
+        from matplotlib.figure import Figure
+
         t0 = time.time()
-        p_new = self.positions.T
-        p_old = self.positions0.T
+        # positions are (row, col) in pixels; plot column on x and row on y
+        p_new = np.asarray(self.positions)
+        p_old = np.asarray(self.positions0)
 
-        from bokeh.plotting import figure, output_file, save
-        from bokeh.layouts import row
+        # collect the panels that have data, then lay them out in one row
+        panels = ["alignment"]
+        if hasattr(self, "zHistory"):
+            panels.append("focus")
+        if hasattr(self, "TV_history") and len(self.TV_history) >= 1:
+            panels.append("tv")
+        if hasattr(self, "merit"):
+            panels.append("merit")
 
-        from pathlib import Path
+        fig = Figure(figsize=(4.5 * len(panels), 4.5), layout="constrained")
+        axes = dict(zip(panels, fig.subplots(1, len(panels), squeeze=False)[0]))
+
+        ax = axes["alignment"]
+        ax.scatter(
+            p_old[:, 1], p_old[:, 0], marker="s", s=12, c="gold",
+            edgecolors="k", linewidths=0.3, label="original",
+        )
+        ax.scatter(p_new[:, 1], p_new[:, 0], marker="o", s=12, c="red", label="new")
+        ax.set_aspect("equal")
+        ax.invert_yaxis()  # row 0 at the top, as in the reconstructed image
+        ax.set_xlabel("column [px]")
+        ax.set_ylabel("row [px]")
+        ax.set_title(f'alignment (updated {time.strftime("%Y%h%d, %H:%M:%S")})')
+        # legend below the axes so it never hides scan points
+        ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.15), ncol=2, frameon=False)
+
+        if "focus" in axes:  # defocus estimate per iteration
+            ax = axes["focus"]
+            ax.plot(np.array(self.zHistory) * 1e3, "o", ms=3)
+            ax.set_xlabel("Iteration #")
+            ax.set_ylabel("Position [mm]")
+            ax.set_title("focus history")
+
+        if "tv" in axes:
+            ax = axes["tv"]
+            ax.plot(self.TV_history, "s", ms=3)
+            ax.set_xlabel("Iteration")
+            ax.set_ylabel("TV score")
+            ax.set_title("TV history")
+
+        if "merit" in axes:  # TV merit per trial defocus, and its mirror image
+            ax = axes["merit"]
+            ax.plot(self.dz * 1e3, np.array(self.merit), "o", ms=3, label="original")
+            ax.plot(
+                -self.dz * 1e3, np.array(self.merit), "s", ms=3, color="red",
+                label="mirrored",
+            )
+            ax.set_xlabel("Defocus [mm]")
+            ax.set_ylabel("Score [a.u.]")
+            ax.set_title("merit TV")
+            ax.locator_params(axis="x", nbins=5)  # defocus tick labels are long
+            ax.legend()
 
         if saveit:
-            output = Path("plots/alignment.html")
-            output.parent.mkdir(exist_ok=True)
-            # set output to static HTML file
+            from pathlib import Path
 
-            output_file(filename=output, title="Static HTML file", mode="inline")
+            output = Path("plots/alignment.png")
+            output.parent.mkdir(parents=True, exist_ok=True)
+            fig.savefig(output, dpi=100)
 
-        # create a new plot with a specific size
-        p = figure(
-            sizing_mode="stretch_width",
-            max_width=500,
-            height=500,
-            title=f'alignment (updated {time.strftime("%Y%h%d, %H:%M:%S")})',
-        )
-        p.match_aspect = True
-        p.square(
-            p_old[0], p_old[1], fill_color="yellow", size=5, legend_label="original"
-        )
-        # add a circle renderer for the new points
-        p.circle(
-            p_new[0], p_new[1], fill_color="red", size=5, legend_label="new"
-        )
-
-        p.xaxis.axis_label = "Position x [um]"
-        p.yaxis.axis_label = "Position y [um]"
-
-        p2 = None
-        p3 = None
-        p4 = None
-
-        figsize = 500  # px
-
-        if hasattr(self, "zHistory"):  # display the plot of the defocus
-            p2 = figure(
-                sizing_mode="stretch_width",
-                max_width=figsize,
-                height=figsize,
-                title="focus history",
-            )
-            p2.circle(np.arange(len(self.zHistory)), np.array(self.zHistory) * 1e3)
-            p2.xaxis.axis_label = "Iteration #"
-            p2.yaxis.axis_label = "Position [mm]"
-            # p = vplot(p, p2)
-
-        if hasattr(self, "merit"):  # display the merit as well for defocii
-            p3 = figure(
-                sizing_mode="stretch_width",
-                max_width=figsize,
-                height=figsize,
-                title="merit TV",
-            )
-            p3.circle(self.dz * 1e3, np.array(self.merit), legend_label="original")
-            p3.square(
-                -self.dz * 1e3,
-                np.array(self.merit),
-                legend_label="mirrored",
-                color="red",
-            )
-            p3.xaxis.axis_label = "Defocus [mm]"
-            p3.yaxis.axis_label = "Score [a.u.]"
-            # p = vplot(p, p3)
-        if hasattr(self, "TV_history"):
-            if len(self.TV_history) >= 1:
-                p4 = figure(
-                    sizing_mode="stretch_width",
-                    max_width=figsize,
-                    height=figsize,
-                    title="TV history",
-                )
-                p4.square(np.arange(len(self.TV_history)), self.TV_history)
-                p4.xaxis.axis_label = "Iteration"
-                p4.yaxis.axis_label = "TV score"
-        # only add the plots that are available
-        p_list = filter(lambda x: x is not None, [p, p2, p4, p3])
-        p = row(*p_list)
-
-        if saveit:
-            save(
-                p,
-            )
         t1 = time.time()
         print(f"Alignment display took {t1-t0} secs")
+        return fig
         return p
 
     def initializeSettings(self):

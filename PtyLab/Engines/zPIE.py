@@ -343,22 +343,3 @@ class zPIE(BaseEngine):
             frac * DELTA, axis=(0, 1, 3), keepdims=True
         )
         return r
-
-    # def display_focus_bokeh(self):
-    #     # first, make a document
-    #     from bokeh.plotting import figure, output_file, save
-    #     from bokeh.io import hplot
-    #     from pathlib import Path
-    #
-    #     folder = Path('plots/zPIE.html')
-    #     output_file(folder)
-    #     s1, s2 = self.reconstruction.make_alignment_plot(False)
-    #     s3 = figure(width=250, height=250, title='TV per focus')
-    #
-    #
-    #     s3.xaxix.axis_label = 'Distance [um]'
-    #     s3.yaxix.axis_label = 'TV'
-    #     s3.line(self.dz*1e6, self.merit, )
-    #     pass
-    #
-    #

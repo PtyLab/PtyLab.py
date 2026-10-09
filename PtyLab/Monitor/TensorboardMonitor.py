@@ -1,20 +1,31 @@
+# NOTE: this module is optional and not tracked by the package metadata. It needs
+# TensorFlow (for tensorboard summaries), which is not a PtyLab dependency or extra.
+# To enable it, install TensorFlow separately.
 import io
-
-import numpy as np
 import time
 from pathlib import Path
+
+import matplotlib
+import numpy as np
 from matplotlib.ticker import EngFormatter
-from PtyLab.Monitor.Monitor import AbstractMonitor
+from scipy import ndimage
+
+try:
+    from tensorflow import image
+    from tensorflow import summary as tfs
+except ImportError as e:
+    raise ImportError(
+        "TensorboardMonitor needs TensorFlow, which is not a PtyLab dependency. "
+        "Install it separately."
+    ) from e
+
 from PtyLab import Params
+from PtyLab.Monitor.Monitor import AbstractMonitor
 from PtyLab.utils.gpuUtils import asNumpyArray
 from PtyLab.utils.utils import fft2c
 from PtyLab.utils.visualisation import complex2rgb, complex2rgb_vectorized
-from tensorflow import summary as tfs
-from scipy import ndimage
 
-import matplotlib
-import io
-from tensorflow import image
+
 def center_angle(object_estimate):
     # first, align the angle of the object based on the zeroth order mode
     object_estimate_0 = object_estimate.copy()
@@ -38,7 +49,6 @@ def center_angle(object_estimate):
 
 
 class TensorboardMonitor(AbstractMonitor):
-
     # maximum number of probe state mixtures that we want to show
     max_npsm = 10
     # maximum number of object state mixtures we want to show
@@ -96,7 +106,9 @@ class TensorboardMonitor(AbstractMonitor):
         )
 
     def visualize_probe_engine(self, engine):
-        RGB_image = complex2rgb_vectorized(engine.get_fundamental(), center_phase=self.center_phases)
+        RGB_image = complex2rgb_vectorized(
+            engine.get_fundamental(), center_phase=self.center_phases
+        )
         self.__safe_upload_image("original probe", np.squeeze(RGB_image), self.i)
         pass
 
@@ -172,36 +184,36 @@ class TensorboardMonitor(AbstractMonitor):
             )
         if allmerits is not None:
             import matplotlib.pyplot as plt
+
             allmerits, new_z = allmerits
-            fig, ax = plt.subplot_mosaic('A')
-            ax = ax['A']
-            ax.plot(allmerits[0], allmerits[1], '-ro')
+            fig, ax = plt.subplot_mosaic("A")
+            ax = ax["A"]
+            ax.plot(allmerits[0], allmerits[1], "-ro")
             ax.vlines(new_z, *ax.get_ylim())
-            ax.set_title(f'{metric_name}')
+            ax.set_title(f"{metric_name}")
             buf = io.BytesIO()
-            fig.savefig(buf, format='png', dpi=70)
+            fig.savefig(buf, format="png", dpi=70)
             plt.close(fig)
             buf.seek(0)
             with self.writer.as_default():
                 img = image.decode_png(buf.getvalue(), channels=4)
                 img = np.expand_dims(img, 0)
-                tfs.image('Autofocus dz score', img, self.i)
+                tfs.image("Autofocus dz score", img, self.i)
 
     def updateBeamWidth(self, beamwidth_y, beamwidth_x):
-        self.__safe_upload_scalar('beamwidth/x_um', beamwidth_x*1e6, step=self.i)
-        self.__safe_upload_scalar('beamwidth/y_um', beamwidth_y*1e6, step=self.i)
+        self.__safe_upload_scalar("beamwidth/x_um", beamwidth_x * 1e6, step=self.i)
+        self.__safe_upload_scalar("beamwidth/y_um", beamwidth_y * 1e6, step=self.i)
 
     def update_overlap(self, overlap_area, linear_overlap):
-        self.__safe_upload_scalar('overlap/area', overlap_area, step=self.i)
-        self.__safe_upload_scalar('overlap/linear', linear_overlap, step=self.i)
-
+        self.__safe_upload_scalar("overlap/area", overlap_area, step=self.i)
+        self.__safe_upload_scalar("overlap/linear", linear_overlap, step=self.i)
 
     def update_encoder(
         self,
         corrected_positions: np.ndarray,
         original_positions: np.ndarray,
         scaling: float = 1.0,
-            beamwidth=None
+        beamwidth=None,
     ) -> None:
         """
         Update the stage position images.
@@ -221,8 +233,6 @@ class TensorboardMonitor(AbstractMonitor):
             axis=0, keepdims=True
         )
 
-
-
         matplotlib.use("Agg")  # no images output
         import matplotlib.pyplot as plt
 
@@ -231,8 +241,9 @@ class TensorboardMonitor(AbstractMonitor):
         if scaling > scale_0:
             scale_0 = scaling
 
-        position_range = np.min(original_positions.flatten()), np.max(
-            original_positions.flatten()
+        position_range = (
+            np.min(original_positions.flatten()),
+            np.max(original_positions.flatten()),
         )
         diff = np.diff(position_range)
         mean = np.mean(position_range)
@@ -244,9 +255,7 @@ class TensorboardMonitor(AbstractMonitor):
             figsize=(15, 8),
         )
 
-        meandiff = np.mean(
-            abs(1e6 * corrected_positions - 1e6 * original_positions)
-        )
+        meandiff = np.mean(abs(1e6 * corrected_positions - 1e6 * original_positions))
 
         self.__safe_upload_scalar(
             "mean position displacement in micron",
@@ -330,8 +339,9 @@ class TensorboardMonitor(AbstractMonitor):
             print("Angle shifts: ", shift1, shift2)
 
         # convert the object estimate to colour
-        object_estimate_rgb = complex2rgb_vectorized(object_estimate, center_phase=self.center_phases
-                                                     )
+        object_estimate_rgb = complex2rgb_vectorized(
+            object_estimate, center_phase=self.center_phases
+        )
 
         # ensure it's 4 d as that's what is needed by tensorflow
         if object_estimate_rgb.ndim == 3:
@@ -404,7 +414,7 @@ class TensorboardMonitor(AbstractMonitor):
                 im = plt.imshow(I_object)
                 plt.colorbar(im)
                 if zo is not None:
-                    plt.title(f"z = {zo*1e3:.3f} mm")
+                    plt.title(f"z = {zo * 1e3:.3f} mm")
                 plt.savefig(f"intensities/{self.i}.png")
                 plt.savefig(f"intensities/AAA.png")
 
@@ -412,7 +422,9 @@ class TensorboardMonitor(AbstractMonitor):
         # first, convert it to images
         # while probe_estimate.ndim <= 3:
         #     probe_estimate = probe_estimate[None]
-        probe_estimate_rgb = complex2rgb_vectorized(probe_estimate, center_phase=self.center_phases)
+        probe_estimate_rgb = complex2rgb_vectorized(
+            probe_estimate, center_phase=self.center_phases
+        )
         # ensure it's 4 d as that's what is needed by tensorflow
         tag = "probe estimate"
         if not highres:
@@ -426,19 +438,24 @@ class TensorboardMonitor(AbstractMonitor):
 
         # make a probe COM estimate
         from scipy import ndimage
+
         P = probe_estimate
         while P.ndim > 2:
             P = P[0]
         cy, cx = ndimage.center_of_mass(abs(P**2))
         N = probe_estimate.shape[-1]
-        self.__safe_upload_scalar('com/cy', cy-N//2, self.i)
-        self.__safe_upload_scalar('com/cx', cx-N//2, self.i)
+        self.__safe_upload_scalar("com/cy", cy - N // 2, self.i)
+        self.__safe_upload_scalar("com/cx", cx - N // 2, self.i)
         return probe_estimate_rgb
 
-
-
     def __smart_upload_image_couldbecomplex(
-        self, name, data, step, max_outputs=3, description=None, center_phase=False,
+        self,
+        name,
+        data,
+        step,
+        max_outputs=3,
+        description=None,
+        center_phase=False,
     ):
         """
         Safely upload an image that could be complex. If it is, cast it to colour before uploading.
@@ -446,15 +463,14 @@ class TensorboardMonitor(AbstractMonitor):
         """
         data = asNumpyArray(data)
 
-
         if np.iscomplexobj(data):
             if center_phase:
-                phexp = data.sum((-2,-1), keepdims=True)
+                phexp = data.sum((-2, -1), keepdims=True)
                 phexp = phexp.conj() / (abs(phexp) + 1e-9)
             else:
                 phexp = 1
             print("Got complex datatype")
-            data = complex2rgb_vectorized(data*phexp)
+            data = complex2rgb_vectorized(data * phexp)
         else:
             print("Got real datatype")
             # auto scale

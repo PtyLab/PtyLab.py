@@ -1919,8 +1919,15 @@ class BaseEngine(object):
         z_{\mathrm{target}} = \frac{z}{s}
         $$
 
-        The distance update is filtered through an Adam optimizer before being
-        applied to `reconstruction.zo`. After updating the propagation distance,
+        Rather than jumping to $z_{\mathrm{target}}$, the distance moves a fixed
+        fraction $\alpha = 0.2$ of the way there on each call, so that noisy position
+        estimates do not make it jump:
+
+        $$
+        z \leftarrow z + \alpha \, (z_{\mathrm{target}} - z)
+        $$
+
+        After updating the propagation distance,
         the corrected scan positions are rescaled around their center so that the
         global scale change is transferred from the position correction to the
         propagation distance.
@@ -1932,25 +1939,7 @@ class BaseEngine(object):
         Notes:
             This method is used together with position correction and is called
             periodically when `map_position_to_z_change` is enabled.
-
-            The method requires JAX, which is imported when the function is
-            called.
         """
-        import jax
-        from jax.experimental import optimizers
-
-        if not hasattr(self, "optlib"):
-            self.i_z_optimizer = 0
-            # from itertools import count
-            # count
-            op_init, op_update, op_get = optimizers.adam(3e-3)
-            state = op_init(self.reconstruction.zo)
-            self.optlib = {"op_update": op_update, "op_get": op_get, "state": state}
-        else:
-            state = self.optlib["state"]
-            op_get = self.optlib["op_get"]
-            op_update = self.optlib["op_update"]
-
         X0 = self.reconstruction.encoder_corrected
         Y0 = self.experimentalData.encoder
         msqdisplacement = np.linalg.norm(1e6 * X0 - 1e6 * Y0)
@@ -1962,27 +1951,16 @@ class BaseEngine(object):
         # now, find the scaling with respect to the original one
         factor = np.std(X0) / np.std(Y0)
 
-        # update z
-        new_z = self.reconstruction.zo / factor
-        step = new_z - self.reconstruction.zo
-        self.logger.info(f"Naive estimate of new z: {new_z:.3f}, stepsize {step:.3f}")
-        step = 5 * step
-        # check if the thing should be updated.
-        if abs(step) < 1e-4:  # if it's too small, just truncate it,
-            # it may be that the distance changed due to some other update.
-            # Take that into account as if we don't the steps will be super large.
-            self.i_z_optimizer += 1
-            step = self.reconstruction.zo - op_get(state)
-            self.optlib["state"] = op_update(self.i_z_optimizer, -step, state)
-
+        # target distance implied by the scale change of the positions
+        target_z = self.reconstruction.zo / factor
+        step = target_z - self.reconstruction.zo
+        self.logger.info(f"Naive estimate of new z: {target_z:.3f}, stepsize {step:.3f}")
+        if abs(step) < 2e-5:  # same skip threshold as before (it used 5 * step < 1e-4)
             self.logger.info("Skipping update as step is too small")
-            # as we're only updating it for sake of good measure, we don't have to update anything else.
             return
-        # now, as we're actually updating, we can increase the step
-        self.i_z_optimizer += 1
-        self.optlib["state"] = op_update(self.i_z_optimizer, -step, state)
-        # get the new value
-        z_new = float(jax.device_get(op_get(self.optlib["state"])))
+        # damped update: move a fraction of the way toward the target each call
+        damping = 0.2
+        z_new = self.reconstruction.zo + damping * step
 
         self.logger.info(f"Loop: {loop} step: {step}")
         self.logger.info(

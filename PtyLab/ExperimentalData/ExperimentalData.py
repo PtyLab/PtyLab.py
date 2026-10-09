@@ -1,21 +1,19 @@
-import numpy as np
-from PtyLab.utils.gpuUtils import (transfer_fields_to_cpu,
-                                   transfer_fields_to_gpu)
-
-try:
-    import pyqtgraph as pg
-except ImportError:
-    print("Cannot use pyqtgraph")
-# from pathlib import Path
 import logging
 
 import matplotlib.pyplot as plt
-# import tables
+import numpy as np
+
 from PtyLab.io import readHdf5
-from PtyLab.utils.gpuUtils import (getArrayModule, transfer_fields_to_cpu,
-                                   transfer_fields_to_gpu)
+from PtyLab.utils.gpuUtils import (
+    getArrayModule,
+    transfer_fields_to_cpu,
+    transfer_fields_to_gpu,
+)
+
 # from PtyLab.io import readExample
 from PtyLab.utils.visualisation import setColorMap, show3Dslider
+
+# from pathlib import Path
 
 
 class ExperimentalData:
@@ -81,10 +79,10 @@ class ExperimentalData:
 
         magnification (float):
             Microscope magnification. Available for FPM datasets, Used to convert the detector pixel size to the sample-plane pixel size.
-        
+
         NA (float or None):
             Microscope numerical aperture optional for FPM. If not provided, it is estimated from the Fourier-space pupil diameter during reconstruction.
-        
+
         energyAtPos (np.ndarray):
             Integrated diffraction intensity for each measurement frame, obtained by summing the ptychogram over the detector pixels. Used to normalize the reconstruction error for each scan position.
 
@@ -107,9 +105,7 @@ class ExperimentalData:
         self.logger = logging.getLogger("ExperimentalData")
         self.logger.debug("Initializing ExperimentalData object")
 
-        self.operationMode = (
-            operationMode  # Select the data schema for CPM or FPM.
-        )
+        self.operationMode = operationMode  # Select the data schema for CPM or FPM.
         self._setFields()
         if filename is not None:
             self.loadData(filename)
@@ -222,7 +218,7 @@ class ExperimentalData:
         )
         # Expose the loaded dataset fields as ExperimentalData attributes.
         attributesToSet = measurementDict.keys()
-        
+
         # self.logger.setLevel(logging.DEBUG)
         for a in attributesToSet:
             # make sure that property is not an attribtue
@@ -251,15 +247,15 @@ class ExperimentalData:
                 Index at which to stop the selection. The measurement at this
                 index is not included.
 
-        Notes: 
+        Notes:
             This method modifies ``self.ptychogram`` and ``self.encoder`` in place.
         """
-        self.ptychogram = self.ptychogram[start: end]
-        self.encoder = self.encoder[start: end]
+        self.ptychogram = self.ptychogram[start:end]
+        self.encoder = self.encoder[start:end]
         self._setData()
 
     def cropCenter(self, size):
-        '''
+        """
         Crop each diffraction pattern to a centered square region.
 
         The ptychogram is cropped along its two detector dimensions while the
@@ -279,20 +275,22 @@ class ExperimentalData:
 
             Derived detector quantities such as ``Nd`` and ``Ld`` are currently
             not recomputed by this method.
-        '''
+        """
         if not isinstance(size, int):
-            raise TypeError('Crop value is not valid. Int expected')
+            raise TypeError("Crop value is not valid. Int expected")
 
         x = self.ptychogram.shape[-1]
         startx = x // 2 - (size // 2)
 
         startx += 1
 
-        self.ptychogram = self.ptychogram[..., startx: startx + size, startx: startx + size]
+        self.ptychogram = self.ptychogram[
+            ..., startx : startx + size, startx : startx + size
+        ]
         self._setData()
 
     def binData(self, binning):
-        '''
+        """
         Spatially bin each diffraction pattern by averaging neighboring pixels.
 
         Each ``binning × binning`` detector region is replaced by its mean value,
@@ -308,7 +306,7 @@ class ExperimentalData:
 
             The current implementation performs mean binning, so each output pixel
             contains the average intensity of the corresponding input pixel block.
-        '''
+        """
         Ndp = self.ptychogram.shape[0]
         Ny = self.ptychogram.shape[1]
         Nx = self.ptychogram.shape[2]
@@ -452,7 +450,6 @@ class ExperimentalData:
         """Move all required fata to the GPU"""
         transfer_fields_to_gpu(self, self.fields_to_transfer, self.logger)
 
-
     def relative_intensity(self, index):
         """
         Return the normalized mean intensity of a selected ptychogram frame.
@@ -475,7 +472,9 @@ class ExperimentalData:
 
             The normalized intensities are cached after the first call.
         """
-        if not hasattr(self, '_relative_intensity'):
-            self._relative_intensity = self.ptychogram.mean((-2,-1))
-            self._relative_intensity /= (self._relative_intensity.mean() + 2*self._relative_intensity.std())
+        if not hasattr(self, "_relative_intensity"):
+            self._relative_intensity = self.ptychogram.mean((-2, -1))
+            self._relative_intensity /= (
+                self._relative_intensity.mean() + 2 * self._relative_intensity.std()
+            )
         return self._relative_intensity[index]
