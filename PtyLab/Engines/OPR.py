@@ -12,7 +12,7 @@ except ImportError:
 import logging
 import sys
 
-import tqdm
+from tqdm.auto import trange  # widget bar in Jupyter, text bar in a terminal
 
 from PtyLab.Engines.BaseEngine import BaseEngine
 from PtyLab.ExperimentalData.ExperimentalData import ExperimentalData
@@ -26,7 +26,6 @@ from PtyLab.utils.gpuUtils import asNumpyArray, getArrayModule, isGpuArray
 
 
 class OPR(BaseEngine):
-
     def __init__(
         self,
         reconstruction: Reconstruction,
@@ -79,9 +78,7 @@ class OPR(BaseEngine):
             )
 
         # actual reconstruction ePIE_engine
-        self.pbar = tqdm.trange(
-            self.numIterations, desc="OPR", file=sys.stdout, leave=True
-        )
+        self.pbar = trange(self.numIterations, desc="OPR", file=sys.stdout, leave=True)
         for loop in self.pbar:
             self.it = loop
             # set position order
@@ -205,8 +202,13 @@ class OPR(BaseEngine):
         # stays bounded regardless of frame count; the batched call is already
         # wide enough at a few dozen frames to hide launch overhead.
         elements_per_frame = nModes * n * n
-        chunk = int(max(1, self._orthogonalization_chunk_bytes //
-                        (elements_per_frame * stack.dtype.itemsize)))
+        chunk = int(
+            max(
+                1,
+                self._orthogonalization_chunk_bytes
+                // (elements_per_frame * stack.dtype.itemsize),
+            )
+        )
 
         flat = stack[0, 0, :, 0, :, :, :].reshape(nModes, n * n, nFrames)
         for start in range(0, nFrames, chunk):

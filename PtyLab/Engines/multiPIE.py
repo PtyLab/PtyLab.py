@@ -12,7 +12,7 @@ except ImportError:
 import logging
 import sys
 
-import tqdm
+from tqdm.auto import trange  # widget bar in Jupyter, text bar in a terminal
 
 from PtyLab.Engines.BaseEngine import BaseEngine
 from PtyLab.ExperimentalData.ExperimentalData import ExperimentalData
@@ -68,7 +68,7 @@ class multiPIE(BaseEngine):
     def reconstruct(self):
         self._prepareReconstruction()
 
-        self.pbar = tqdm.trange(
+        self.pbar = trange(
             self.numIterations, desc="multiPIE", file=sys.stdout, leave=True
         )
 
