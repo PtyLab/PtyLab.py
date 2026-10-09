@@ -14,11 +14,8 @@ dependencies = [
     "h5py~=3.9",
     "scipy~=1.11",
     "scikit-image>=0.21.0",
-    "scikit-learn~=1.3",
     "tqdm~=4.65",
-    "pyqtgraph~=0.13",
-    "bokeh~=3.2",
-    "PyQt5~=5.15",
+    "scikit-learn~=1.3",
     "ipython~=8.18",
     "ipywidgets>=8.1.8",
 ]
@@ -28,10 +25,12 @@ dev = [
     "black~=23.7",
     "ipykernel~=6.25",
     "pytest~=9.0",
-    "imageio~=2.0",
+]
+gui = [
+    "pyqtgraph>=0.13",
+    "PySide6-Essentials>=6.2",  # only QtCore/QtGui/QtWidgets
 ]
 gpu = ["cupy-cuda12x[ctk]; sys_platform != 'darwin'"]
-tensorflow = ["tensorflow~=2.14"]
 docs = [
     "jetblack-markdown",
     "mkdocs>=1.6.1",
