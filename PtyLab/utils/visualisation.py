@@ -1,5 +1,10 @@
 # This file contains utilities required for Monitor
+import functools
+import logging
 import math
+import os
+import subprocess
+import sys
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -9,10 +14,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from PtyLab.utils.gpuUtils import asNumpyArray, getArrayModule, isGpuArray
 
-try:
-    import pyqtgraph as pg
-except ModuleNotFoundError:
-    print("Pyqtgraph not available")
+logger = logging.getLogger(__name__)
 
 
 def hsv2rgb(hsv: np.ndarray) -> np.ndarray:
@@ -289,9 +291,79 @@ def _is_notebook():
     """Return True when running inside a Jupyter kernel."""
     try:
         from IPython import get_ipython
+
         return get_ipython().__class__.__name__ == "ZMQInteractiveShell"
     except NameError:
         return False
+
+
+def _has_display():
+    """Return True when a Qt window can be shown.
+
+    On Linux (e.g. a GPU server reached over ssh) Qt needs an X11 or Wayland
+    display; without one it aborts the whole process from C++, which Python
+    cannot catch, so this has to be checked before Qt starts. Setting
+    `QT_QPA_PLATFORM` explicitly (e.g. `offscreen`) is respected as an override.
+    """
+    if not sys.platform.startswith("linux"):
+        return True
+    return any(
+        os.environ.get(v) for v in ("DISPLAY", "WAYLAND_DISPLAY", "QT_QPA_PLATFORM")
+    )
+
+
+@functools.lru_cache(maxsize=1)
+def _qt_start_error():
+    """Return None if a QApplication can start here, else Qt's error message.
+
+    A display being set is not enough on Linux: e.g. over `ssh -X` Qt >= 6.5 also
+    needs the system library libxcb-cursor0, and when anything like that is
+    missing Qt aborts the process from C++ (uncatchable from Python). So start a
+    throwaway QApplication in a subprocess first. Cached: checked once per session.
+    """
+    if not sys.platform.startswith("linux"):
+        return None
+    code = "from pyqtgraph.Qt import QtWidgets; QtWidgets.QApplication([])"
+    try:
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return str(e)
+    if result.returncode == 0:
+        return None
+    # Qt's first stderr line names the cause, e.g. "... libxcb-cursor0 is needed ..."
+    lines = [l for l in result.stderr.splitlines() if l.strip()]
+    return lines[0] if lines else f"exit code {result.returncode}"
+
+
+def _show3Dslider_matplotlib(A, cmap):
+    """Fallback 3D viewer using matplotlib's own Slider widget (no Qt needed)."""
+    from matplotlib.widgets import Slider
+
+    fig, ax = plt.subplots(figsize=(6, 6.5))
+    # leave room under the image for the slider axis
+    fig.subplots_adjust(bottom=0.15)
+    im = ax.imshow(A[0], cmap=cmap, origin="lower")
+    fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+    ax.axis("off")
+
+    slider_ax = fig.add_axes((0.2, 0.05, 0.6, 0.03))
+    slider = Slider(slider_ax, "Frame", 0, A.shape[0] - 1, valinit=0, valstep=1)
+
+    def update_frame(value):
+        im.set_data(A[int(value)])
+        fig.canvas.draw_idle()
+
+    slider.on_changed(update_frame)
+    # the canvas holds this lambda strongly, which keeps the slider alive while the
+    # figure is open (with a non-blocking plt.show it would otherwise be collected)
+    fig.canvas.mpl_connect("close_event", lambda _: slider.disconnect_events())
+    plt.show()
 
 
 def show3Dslider(A, colormap="diffraction"):
@@ -299,7 +371,9 @@ def show3Dslider(A, colormap="diffraction"):
     show a 3D plot with a slider.
 
     In a Jupyter notebook an inline ipywidgets slider is used.
-    In a script the interactive pyqtgraph viewer is used.
+    In a script the interactive pyqtgraph viewer is used. If pyqtgraph is not
+    importable or there is no display (e.g. ssh without X11 forwarding), it
+    falls back to a matplotlib slider.
 
     :param A: a 3D array
     :param colormap: matplotlib colormap, default, customized colormap for plotting diffraction data
@@ -311,12 +385,12 @@ def show3Dslider(A, colormap="diffraction"):
     if colormap == "diffraction":
         cmap = setColorMap()
     else:
-        cmap = mpl.cm.get_cmap(colormap)
+        cmap = mpl.colormaps[colormap]
 
     if _is_notebook():
         import ipywidgets as widgets
-        from IPython.display import display
         import matplotlib.pyplot as plt
+        from IPython.display import display
 
         # Create output widget for displaying figure
         out = widgets.Output()
@@ -325,7 +399,7 @@ def show3Dslider(A, colormap="diffraction"):
             # Create new figure for each frame update
             # Handle both old API (event dict) and new API (direct value)
             if isinstance(change, dict):
-                frame = int(change['new'])
+                frame = int(change["new"])
             else:
                 frame = int(change)
             fig, ax = plt.subplots(1, 1, figsize=(6, 6))
@@ -341,11 +415,7 @@ def show3Dslider(A, colormap="diffraction"):
 
         # Create slider widget
         slider = widgets.IntSlider(
-            min=0,
-            max=A.shape[0] - 1,
-            step=1,
-            value=0,
-            description="Frame"
+            min=0, max=A.shape[0] - 1, step=1, value=0, description="Frame"
         )
 
         # Link slider to update function
@@ -357,6 +427,36 @@ def show3Dslider(A, colormap="diffraction"):
         # Initial display
         update_frame(0)
     else:
+        if not _has_display():
+            logger.warning(
+                "No display found (DISPLAY/WAYLAND_DISPLAY unset); using the "
+                "matplotlib viewer instead of pyqtgraph."
+            )
+            _show3Dslider_matplotlib(A, cmap)
+            return
+        try:
+            # optional `gui` extra; pulls in the Qt binding (PySide6 by default,
+            # any binding pyqtgraph supports works)
+            import pyqtgraph as pg
+        except ImportError as e:
+            logger.warning(
+                "pyqtgraph/Qt not available (%s); using the matplotlib viewer. For the "
+                'interactive GUI, install PtyLab with `pip install "ptylab[gui]"`.',
+                e,
+            )
+            _show3Dslider_matplotlib(A, cmap)
+            return
+        # an existing QApplication proves Qt works; otherwise probe before starting one
+        if pg.Qt.QtWidgets.QApplication.instance() is None:
+            error = _qt_start_error()
+            if error is not None:
+                logger.warning(
+                    "Qt cannot start (%s); using the matplotlib viewer. On Linux, "
+                    "`sudo apt install libxcb-cursor0` usually fixes this.",
+                    error,
+                )
+                _show3Dslider_matplotlib(A, cmap)
+                return
         app = pg.mkQApp()
         imv = pg.ImageView(view=pg.PlotItem())
         imv.setWindowTitle("Close to proceed")
@@ -367,4 +467,5 @@ def show3Dslider(A, colormap="diffraction"):
         colors = [(np.array(cmap(i)[:-1]) * 255).astype("int") for i in positions]
         imv.setColorMap(pg.ColorMap(pos=positions, color=colors))
         imv.show()
-        app.exec_()
+        # exec() works on every Qt binding; exec_() is a deprecated PyQt5-era alias
+        app.exec()
