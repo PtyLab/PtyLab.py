@@ -6,7 +6,39 @@ import numpy as np
 from PtyLab.utils.visualisation import complex2rgb, setColorMap
 
 from .frame import MonitorFrame
-from .Plots import DiffractionDataPlot, ObjectProbeErrorPlot, is_inline
+from .Plots import (
+    DiffractionDataPlot,
+    ObjectProbeErrorPlot,
+    ParameterHistoryPlot,
+    is_inline,
+)
+
+
+def tracked_values(frame: MonitorFrame) -> dict:
+    """Scalars besides object and probe that an engine may change, in display units.
+
+    Quantities the frame does not carry (`None`) or that are undefined for this
+    reconstruction (purity of a single mode) are left out.
+
+    Args:
+        frame (MonitorFrame): Current reconstruction state.
+
+    Returns:
+        dict[str, dict[str, float]]: Panel title -> line label -> value.
+    """
+    values = {}
+    if frame.zo is not None:
+        values["zo [mm]"] = {"zo": 1e3 * float(frame.zo)}
+    if frame.theta is not None:
+        values["theta [deg]"] = {"theta": float(frame.theta)}
+    purity = {}
+    if frame.nosm > 1:
+        purity["object"] = 100 * float(frame.purity_object)
+    if frame.npsm > 1:
+        purity["probe"] = 100 * float(frame.purity_probe)
+    if purity:
+        values["purity [%]"] = purity
+    return values
 
 
 class AbstractMonitor(object):
@@ -205,6 +237,10 @@ class Monitor(AbstractMonitor):
         self.defaultMonitor = None
         self.screenshot_directory = None
         self.diffractionDataMonitor = None
+        # zo, theta, purity and scan positions in a third window, shown only
+        # for the quantities the engine actually changes
+        self.showParameterHistory = True
+        self.parameterHistoryMonitor = None
 
     @property
     def figureUpdateFrequency(self):
@@ -245,6 +281,10 @@ class Monitor(AbstractMonitor):
         if self.verboseLevel == "high":
             self.diffractionDataMonitor = DiffractionDataPlot()
 
+        if self.showParameterHistory and self.parameterHistoryMonitor is None:
+            # creates no figure yet; that happens once a quantity changes
+            self.parameterHistoryMonitor = ParameterHistoryPlot()
+
     def update(self, frame: MonitorFrame):
         """Draw the object, probe and error panels, plus the diffraction data when shown.
 
@@ -284,6 +324,15 @@ class Monitor(AbstractMonitor):
                 frame.I_estimated, frame.I_measured, cmap=self.cmapDiffraction
             )
             self.diffractionDataMonitor.drawNow()
+
+        if self.parameterHistoryMonitor is not None:
+            history = self.parameterHistoryMonitor
+            history.record(frame.iteration, tracked_values(frame))
+            if frame.encoder_corrected is not None:
+                history.record_positions(
+                    frame.encoder_original, frame.encoder_corrected
+                )
+            history.draw()
 
     def describe_parameters(self, *args, **kwargs):
         pass
