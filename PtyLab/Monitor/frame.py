@@ -152,9 +152,11 @@ class MonitorFrame:
         are dropped, so a single-mode object comes back as `(Ny, Nx)`.
         """
         # FPM stores the object spectrum; the monitor shows its fft2c, as it always has
-        obj =fft2c(self.object) if self.operation_mode == "FPM" else self.object
+        obj = fft2c(self.object) if self.operation_mode == "FPM" else self.object
         # crop before moving to the CPU so only the displayed region is copied
-        return np.squeeze(asNumpyArray(obj[..., self.object_roi[0], self.object_roi[1]]))
+        return np.squeeze(
+            asNumpyArray(obj[..., self.object_roi[0], self.object_roi[1]])
+        )
 
     def probe_view(self) -> np.ndarray:
         """Probe inside `probe_roi`, as a squeezed NumPy array."""
