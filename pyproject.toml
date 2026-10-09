@@ -27,7 +27,6 @@ gui = [
 ]
 gpu = ["cupy-cuda12x[ctk]; sys_platform != 'darwin'"]
 
-# contributor tooling, not user features: not published as `ptylab[...]` extras.
 # `uv sync` installs the `dev` group by default; `docs` is opt-in with `--group docs`.
 [dependency-groups]
 dev = [
