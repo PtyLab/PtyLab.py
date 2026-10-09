@@ -1,5 +1,6 @@
 """
-Live reconstruction monitor, in GUI windows or in Jupyter cells.
+Live reconstruction monitor, in GUI windows or in Jupyter cells. To mainly explore the
+monitor visualization options
 
 Runs a short mPIE reconstruction and shows the default `Monitor`: object, probe and
 error metric; the estimated vs measured diffraction intensity; and the history of
