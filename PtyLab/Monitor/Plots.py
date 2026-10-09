@@ -4,6 +4,7 @@ import matplotlib as mpl
 import numpy as np
 from IPython.display import display
 from matplotlib import pyplot as plt
+from matplotlib import ticker
 from matplotlib.image import AxesImage
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
@@ -12,8 +13,12 @@ from PtyLab.utils.visualisation import complex2rgb, complexPlot, modeTile
 
 
 def is_inline():
-    """Default IPython (jupyter notebook) backend"""
-    return True if "inline" in mpl.get_backend().lower() else False
+    """Whether matplotlib draws inline, as in a Jupyter notebook.
+
+    Returns:
+        bool: True for an inline backend, False for a GUI or file backend.
+    """
+    return "inline" in mpl.get_backend().lower()
 
 
 class _LiveFigure:
@@ -52,6 +57,7 @@ class _LiveFigure:
         self.firstrun = False
 
     def drawNow(self):
+        """Draw the figure, in a notebook output or in its window."""
         if is_inline():
             self.drawNowIpython()
         else:
@@ -59,29 +65,22 @@ class _LiveFigure:
 
 
 class ObjectProbeErrorPlot(_LiveFigure):
+    """Figure with the object estimate, the probe estimate and the error metric.
+
+    Call `updateObject`, `updateProbe` and `updateError` with the current state,
+    then `drawNow` to show it. The first round of updates creates the images; later
+    ones only replace their data.
+
+    Args:
+        figNum (int, optional): pyplot figure number. Defaults to 1.
+    """
+
     def __init__(self, figNum=1):
-        """Create a monitor.
-
-        In principle, to use this method all you have to do is initialize the monitor and then call
-
-        updateObject, updateProbe, updateErrorMetric and drawnow to ensure that something is drawn immediately.
-
-        For example usage, see test_matplot_monitor.py.
-
-        """
         self.figNum = figNum
         self._createFigure()
 
-    def update_z(self, *args, **kwargs):
-        """Update the sample-detector distance. Does nothing at the moment."""
-        pass
-
     def _createFigure(self) -> None:
-        """
-        Create the figure.
-        :return:
-        """
-
+        """Create the figure with an object, a probe and an error-metric panel."""
         # interactive mode only matters for GUI windows; leave notebook sessions alone
         if not is_inline():
             plt.ion()
@@ -93,26 +92,23 @@ class ObjectProbeErrorPlot(_LiveFigure):
 
         self.ax_object = axes["A"]
         self.ax_probe = axes["p"]
-        # self.ax_probe_ff = axes["P"]
         self.ax_error_metric = axes["e"]
-        # self.ax_probe_ff.set_title("FF probe")
-        self.ax_probe.set_title("Probe")
-        # self.ax_object = axes[0][0]
-        # self.ax_probe = axes[0][1]
-        # self.ax_error_metric = axes[0][2]
-        # self.ax_object.set_title
-        self.txt_purityProbe = self.ax_probe.set_title("Probe estimate")
         self.txt_purityObject = self.ax_object.set_title("Object estimate")
-        self.ax_error_metric.set_title("Error metric")
-        self.ax_error_metric.grid(True)
-        self.ax_error_metric.grid(
-            animated=True, which="minor", color="#999999", linestyle="-", alpha=0.2
-        )
-        self.ax_error_metric.set_xlabel("iterations")
-        self.ax_error_metric.set_ylabel("error")
-        self.ax_error_metric.set_xscale("log")
-        self.ax_error_metric.set_yscale("log")
-        self.ax_error_metric.axis("image")
+        self.txt_purityProbe = self.ax_probe.set_title("Probe estimate")
+
+        ax = self.ax_error_metric
+        ax.set_title("Error metric")
+        ax.set_xlabel("iterations")
+        ax.set_ylabel("error")
+        ax.set_xscale("log")
+        ax.set_yscale("log")
+        # plain tick labels (2, 3, 20) instead of 2x10^0, which overlap on a short
+        # axis; LogFormatter still thins out the minor labels over many decades
+        for axis in (ax.xaxis, ax.yaxis):
+            axis.set_major_formatter(ticker.LogFormatter())
+            axis.set_minor_formatter(ticker.LogFormatter(labelOnlyBase=False))
+        ax.grid(True, which="major", alpha=0.4)
+        ax.grid(True, which="minor", alpha=0.15)
         self.figure.tight_layout()
         self._attach_figure(self.figure)
 
@@ -124,18 +120,28 @@ class ObjectProbeErrorPlot(_LiveFigure):
         purity=None,
         **kwargs,
     ):
+        """Show the object estimate.
+
+        Args:
+            object_estimate (np.ndarray): Object, `(Ny, Nx)` or a stack of modes,
+                which are tiled side by side.
+            objectPlot (str): `"complex"` (phase as hue, amplitude as brightness),
+                `"abs"` or `"angle"`.
+            amplitudeScalingFactor (float, optional): Brightness scaling of the
+                complex plot. Defaults to 1.
+            purity (float, optional): Object purity, shown in the title; `None` for
+                a single object mode. Defaults to None.
+            **kwargs: Passed to `complexPlot` on the first call, e.g. `pixelSize`
+                and `axisUnit`.
+        """
         OE = modeTile(object_estimate, normalize=True)
         if objectPlot == "complex":
             OE = complex2rgb(OE, amplitudeScalingFactor=amplitudeScalingFactor)
-
         elif objectPlot == "abs":
-            # original
-            # OE = OE / abs(OE).max()
-            # better
+            # normalise to mean + std rather than the maximum, so a few hot pixels
+            # do not darken the whole image
             AOE = abs(OE)
-            OE = OE / (AOE.mean() + np.std(AOE))
-            # OE = OE / abs(OE.max())
-            OE = abs(OE)
+            OE = abs(OE / (AOE.mean() + np.std(AOE)))
         elif objectPlot == "angle":
             OE = np.angle(OE)
 
@@ -151,10 +157,9 @@ class ObjectProbeErrorPlot(_LiveFigure):
                 )
         else:
             self.im_object.set_data(OE)
-            # purity is None for a single object mode
             if purity is not None:
                 self.txt_purityObject.set_text(
-                    "Object estimate\nPurity: %i" % (100 * purity) + "%"
+                    f"Object estimate\nPurity: {int(100 * purity)}%"
                 )
 
         self.im_object.autoscale()
@@ -167,12 +172,19 @@ class ObjectProbeErrorPlot(_LiveFigure):
         purity=None,
         **kwargs,
     ):
+        """Show the probe (or, for FPM, pupil) estimate as a complex plot.
 
-        # from PtyLab.Operators.Operators import fft2c
-        #
-        # probe_estimate_ff = fft2c(probe_estimate)
-        # PE_ff = complex2rgb(modeTile(probe_estimate_ff, normalize=True))
-
+        Args:
+            probe_estimate (np.ndarray): Probe, `(Ny, Nx)` or a stack of modes,
+                which are tiled side by side.
+            amplitudeScalingFactor (float, optional): Brightness scaling of the
+                complex plot. Defaults to 1.
+            label (str, optional): Panel title. Defaults to `"Probe estimate"`.
+            purity (float, optional): Probe purity, shown in the title; `None` for
+                a single probe mode. Defaults to None.
+            **kwargs: Passed to `complexPlot` on the first call, e.g. `pixelSize`
+                and `axisUnit`.
+        """
         PE = complex2rgb(
             modeTile(probe_estimate, normalize=True),
             amplitudeScalingFactor=amplitudeScalingFactor,
@@ -181,67 +193,54 @@ class ObjectProbeErrorPlot(_LiveFigure):
         if self.firstrun:
             self.im_probe = complexPlot(PE, ax=self.ax_probe, **kwargs)
             self.txt_purityProbe = self.ax_probe.set_title(label)
-            # self.im_probe_ff = complexPlot(PE_ff, self.ax_probe_ff, **kwargs)
         else:
             self.im_probe.set_data(PE)
-            # self.im_probe_ff.set_data(PE_ff)
-            # purity is None for a single probe mode, and NaN before it is computed
+            # purity is NaN until it is first computed
             if purity is not None and not math.isnan(float(purity)):
-                self.txt_purityProbe.set_text(
-                    "%s\nPurity: %.2f" % (label, 100 * purity) + "%"
-                )
+                self.txt_purityProbe.set_text(f"{label}\nPurity: {100 * purity:.2f}%")
         self.im_probe.autoscale()
 
-    def updateError(self, error_estimate: np.ndarray) -> None:
+    def updateError(self, error_estimate) -> None:
+        """Plot the error metric of every iteration so far on log-log axes.
+
+        Args:
+            error_estimate (array-like): One error value per completed iteration.
         """
-        Update the error estimate plot.
-        :param error_estimate:
-        :return:
-        """
+        error = np.asarray(gpuUtils.asNumpyArray(error_estimate), dtype=float)
+        # iterations count from 1, as 0 cannot be shown on a log axis
+        iterations = np.arange(1, len(error) + 1)
 
         if self.firstrun:
-            self.error_metric_plot = self.ax_error_metric.plot(
-                error_estimate, "o-", mfc="none"
-            )[0]
+            (self.error_metric_plot,) = self.ax_error_metric.plot(
+                iterations, error, "o-", mfc="none"
+            )
         else:
-            if len(error_estimate) > 1 and error_estimate[-1] == error_estimate[-1]:
-                self.error_metric_plot.set_data(
-                    np.arange(len(error_estimate)) + 1, error_estimate
-                )
-                self.ax_error_metric.set_xlim(1, len(error_estimate))
-                self.ax_error_metric.set_ylim(
-                    np.min(error_estimate), np.max(error_estimate)
-                )
-                data_aspect = np.log(
-                    np.max(error_estimate) / np.min(error_estimate)
-                ) / np.log(len(error_estimate))
-                self.ax_error_metric.set_aspect(1 / data_aspect)
-                self.ax_error_metric.set_title(
-                    f"Error metric (it {len(error_estimate)})"
-                )
+            self.error_metric_plot.set_data(iterations, error)
+
+        if len(error) > 0:
+            ax = self.ax_error_metric
+            # rescale to the data; the log axes ignore non-positive and NaN values
+            ax.relim()
+            ax.autoscale_view()
+            ax.set_title(f"Error metric (it {len(error)})")
 
 
 class DiffractionDataPlot(_LiveFigure):
+    r"""Figure with the estimated and measured diffraction intensity, side by side.
+
+    Both are shown as $\log_{10}(I + 1)$, with the colour limits of the measured
+    intensity applied to the estimate so the two can be compared directly.
+
+    Args:
+        figNum (int, optional): pyplot figure number. Defaults to 2.
+    """
+
     def __init__(self, figNum=2):
-        """Create a monitor.
-
-        In principle, to use this method all you have to do is initialize the monitor and then call
-
-        updateImeasured, updateIestimated and drawnow to ensure that something is drawn immediately.
-
-        For example usage, see test_matplot_monitor.py.
-
-        """
         self.figNum = figNum
         self._createFigure()
 
     def _createFigure(self) -> None:
-        """
-        Create the figure.
-        :return:
-        """
-
-        # add an axis for the object
+        """Create the figure with an estimated and a measured intensity panel."""
         # interactive mode only matters for GUI windows; leave notebook sessions alone
         if not is_inline():
             plt.ion()
@@ -257,53 +256,57 @@ class DiffractionDataPlot(_LiveFigure):
         self._attach_figure(self.figure)
 
     def updateIestimated(self, Iestimate, cmap="gray", **kwargs):
-        # move it to CPU if it's on the GPU
-        Iestimate = gpuUtils.asNumpyArray(Iestimate)
+        """Show the estimated intensity; its colour limits are set by `update_view`.
 
+        Args:
+            Iestimate (np.ndarray): Estimated detector intensity, CPU or GPU.
+            cmap (str or Colormap, optional): Colour map. Defaults to `"gray"`.
+        """
+        Iestimate = gpuUtils.asNumpyArray(Iestimate)
         if self.firstrun:
             self.im_Iestimated: AxesImage = self.ax_Iestimated.imshow(
                 np.log10(np.squeeze(Iestimate + 1)), cmap=cmap, interpolation=None
             )
-
             divider = make_axes_locatable(self.ax_Iestimated)
             cax = divider.append_axes("right", size="5%", pad=0.1)
             self.IestimatedCbar = self.figure.colorbar(
                 self.im_Iestimated, ax=self.ax_Iestimated, cax=cax
             )
-            # scale it according to I measured
-
         else:
             self.im_Iestimated.set_data(np.log10(np.squeeze(Iestimate + 1)))
-        # self.im_Iestimated.autoscale()
-        # self.im_Iestimated.set_
 
     def updateImeasured(self, Imeasured, cmap="gray", **kwargs):
+        """Show the measured intensity, with colour limits fitted to it.
+
+        Args:
+            Imeasured (np.ndarray): Measured detector intensity, CPU or GPU.
+            cmap (str or Colormap, optional): Colour map. Defaults to `"gray"`.
+        """
         Imeasured = gpuUtils.asNumpyArray(Imeasured)
         if self.firstrun:
             self.im_Imeasured: AxesImage = self.ax_Imeasured.imshow(
                 np.log10(np.squeeze(Imeasured + 1)), cmap=cmap, interpolation=None
             )
-
             divider = make_axes_locatable(self.ax_Imeasured)
             cax = divider.append_axes("right", size="5%", pad=0.1)
             self.ImeasuredCbar = self.figure.colorbar(
                 self.im_Imeasured, ax=self.ax_Imeasured, cax=cax
             )
-
         else:
             self.im_Imeasured.set_data(np.log10(np.squeeze(Imeasured + 1)))
         self.im_Imeasured.autoscale()
 
     def update_view(self, Iestimated, Imeasured, cmap):
-        """Update the I measured and I estimated and make sure that the colormaps have the same limits"""
+        """Show both intensities with the colour limits of the measured one.
+
+        Args:
+            Iestimated (np.ndarray): Estimated detector intensity.
+            Imeasured (np.ndarray): Measured detector intensity.
+            cmap (str or Colormap): Colour map of both panels.
+        """
         self.updateImeasured(Imeasured, cmap=cmap)
         self.updateIestimated(Iestimated, cmap=cmap)
-        self._equalize_contrast()
-
-    def _equalize_contrast(self):
-        """Adopt the contrast limits from the measured data and apply them to the predicted"""
-        clims = self.im_Imeasured.get_clim()
-        self.im_Iestimated.set_clim(*clims)
+        self.im_Iestimated.set_clim(*self.im_Imeasured.get_clim())
 
 
 class ParameterHistoryPlot(_LiveFigure):
