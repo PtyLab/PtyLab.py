@@ -965,7 +965,7 @@ class Reconstruction(object):
     @property
     def xd(self):
         """Detector coordinates 1D"""
-        return np.linspace(-self.Nd / 2, self.Nd / 2, np.int(self.Nd)) * self.dxd
+        return np.linspace(-self.Nd / 2, self.Nd / 2, int(self.Nd)) * self.dxd
 
     @property
     def Xd(self):
@@ -1051,7 +1051,7 @@ class Reconstruction(object):
     def xo(self):
         """object coordinates 1D"""
         try:
-            return np.linspace(-self.No / 2, self.No / 2, np.int(self.No)) * self.dxo
+            return np.linspace(-self.No / 2, self.No / 2, int(self.No)) * self.dxo
         except AttributeError as e:
             raise AttributeError(
                 e, 'object pixel number "No" and/or pixel size "dxo" not defined yet'

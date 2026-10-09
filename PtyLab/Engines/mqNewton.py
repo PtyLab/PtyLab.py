@@ -24,6 +24,29 @@ from PtyLab.utils.utils import fft2c, ifft2c
 
 
 class mqNewton(BaseEngine):
+    r"""
+    Experimental momentum-accelerated quasi-Newton-inspired ptychographic
+    reconstruction engine.
+    `mqNewton` extends `qNewton` by combining the same locally regularized,
+    curvature-like object and probe updates with adaptive momentum
+    acceleration.
+
+    The current implementation supports three momentum schemes:
+    `"momentum"`, `"ADAM"`, and `"NADAM"`. Object and probe momentum updates
+    are applied after each scan-position update. These methods should  be interpreted as adaptive
+    momentum variants unless further theoretical validation establishes a more
+    specific correspondence.
+
+    The local object and probe updates are inherited conceptually from the
+    `qNewton` formulation, while the momentum contribution is applied through
+    `objectMomentumUpdate()` and `probeMomentumUpdate()`.
+
+    Notes:
+        This engine is retained as an experimental algorithm implementation.
+        The qNewton normalization, momentum formulation, and theoretical basis
+        should be validated against the original method or reference before
+        further development.
+    """
     def __init__(
         self,
         reconstruction: Reconstruction,
@@ -49,8 +72,18 @@ class mqNewton(BaseEngine):
 
     def initializeReconstructionParams(self):
         """
-        Set parameters that are specific to the qNewton settings.
-        :return:
+        Initialize parameters specific to the experimental mqNewton reconstruction.
+
+        This method sets the qNewton-style object and probe update strengths and
+        regularization parameters, together with the parameters used by the
+        momentum-acceleration scheme.
+
+        `beta1` and `beta2` control the first- and second-moment estimates used by
+        the adaptive momentum methods. `betaObject_m` and `betaProbe_m` determine
+        the strength of the resulting momentum corrections.
+
+        The momentum strategy is selected through `momentum_method`, with the
+        current implementation supporting `"momentum"`, `"ADAM"`, and `"NADAM"`.
         """
         self.betaProbe = 1
         self.betaObject = 1
@@ -66,6 +99,21 @@ class mqNewton(BaseEngine):
         self.numIterations = 50
 
     def initializeAdaptiveMomentum(self):
+        """
+        Initialize the selected momentum-acceleration scheme.
+
+        The update function is selected from `momentum`, `ADAM`, or `NADAM`
+        according to `momentum_method` and stored in `momentum_engine`.
+
+        For the adaptive `"ADAM"` and `"NADAM"` variants, additional second-moment
+        buffers are initialized for both the object and probe momentum terms.
+        These buffers are stored in `objectMomentum_v` and `probeMomentum_v`.
+
+        Raises:
+            AttributeError:
+                If `momentum_method` does not correspond to an implemented
+                momentum function.
+        """
         self.momentum_engine = getattr(mqNewton, self.momentum_method)
         print("Momentum Engines implemented: momentum, ADAM, NADAM")
         print("Momentum mqNewton used: {}".format(self.momentum_method))
@@ -79,6 +127,24 @@ class mqNewton(BaseEngine):
             )
 
     def reconstruct(self, experimentalData: ExperimentalData = None):
+        """
+        Run the momentum-accelerated qNewton reconstruction.
+
+        The reconstruction follows the standard PIE workflow using the
+        qNewton-specific object and probe update rules. After each scan-position
+        update, additional object and probe momentum corrections are applied
+        through `objectMomentumUpdate()` and `probeMomentumUpdate()`.
+
+        The momentum update scheme is selected by `momentum_method` and may use
+        standard momentum, ADAM, or NADAM. If
+        `params.positionCorrectionSwitch` is enabled, position correction is also
+        applied during the scan loop.
+
+        Args:
+            experimentalData (ExperimentalData, optional):
+                Experimental dataset to use for the reconstruction. If provided,
+                it replaces the dataset currently attached to the engine.
+        """
         if experimentalData is not None:
             self.experimentalData = experimentalData
             self.reconstruction.data = experimentalData
@@ -140,6 +206,64 @@ class mqNewton(BaseEngine):
             # todo clearMemory implementation
 
     def ADAM(self, grad, mt, vt, itr):
+        r"""
+        Compute an ADAM-inspired adaptive momentum update.
+
+        ADAM (Adaptive Moment Estimation) combines momentum with adaptive step
+        scaling. It tracks both the running average of the gradient direction and
+        a running estimate of the gradient magnitude, allowing the update direction
+        and effective step size to adapt during optimization.
+
+        The first-moment estimate is updated as
+
+        $$
+        m_t = \beta_1 m_{t-1} + (1-\beta_1)g_t
+        $$
+
+        while the second-moment estimate uses the global squared L2 norm of the
+        gradient,
+
+        $$
+        v_t = \beta_2 v_{t-1} + (1-\beta_2)\|g_t\|_2^2
+        $$
+
+        Bias-corrected estimates are then formed as
+
+        $$
+        \hat{m}_t = \frac{m_t}{1-\beta_1^t}
+        $$
+
+        $$
+        \hat{v}_t = \frac{v_t}{1-\beta_2^t}
+        $$
+
+        and the normalized momentum update is
+
+        $$
+        u_t = \frac{\hat{m}_t}{\sqrt{\hat{v}_t}+\epsilon}
+        $$
+
+        with $\epsilon = 10^{-8}$.
+
+
+        Args:
+            grad (array-like):
+                Current object or probe gradient.
+
+            mt (array-like):
+                Previous first-moment estimate.
+
+            vt (array-like):
+                Previous second-moment estimate.
+
+            itr (int):
+                Current iteration index used for bias correction.
+
+        Returns:
+            tuple:
+                `(update, mt, vt)`, containing the normalized momentum update and
+                the updated first- and second-moment estimates.
+        """
         xp = getArrayModule(grad)
         beta1_scale = 1 - self.beta1**itr
         beta2_scale = 1 - self.beta2**itr
@@ -153,10 +277,40 @@ class mqNewton(BaseEngine):
         return m_hat / (v_hat**0.5 + 1e-8), mt, vt
 
     def NADAM(self, grad, mt, vt, itr):
-        """
-        NADAM optimizer uses adaptive momentum updates (ADAM) with Nesterov
-        momentum acceleration
-        :return:
+        r"""
+        Compute a NADAM-inspired adaptive momentum update.
+
+        NADAM combines ADAM-style adaptive moment estimation with a
+        Nesterov-type momentum correction. Compared with ADAM, the update includes
+        an additional contribution from the current gradient, giving the momentum
+        step a more anticipatory character.
+
+        The first- and second-moment estimates are updated as in `ADAM()`, using the current gradient `g_t`.
+        The NADAM-style update is then computed as
+
+        $$
+        u_t =\frac{\beta_1 \hat{m}_t+\frac{1-\beta_1}{1-\beta_1^t}g_t}{\sqrt{\hat{v}_t}+\epsilon}
+        $$
+
+        with $\epsilon = 10^{-8}$.
+
+        Args:
+            grad (array-like):
+                Current object or probe gradient.
+
+            mt (array-like):
+                Previous first-moment estimate.
+
+            vt (array-like):
+                Previous second-moment estimate.
+
+            itr (int):
+                Current iteration index used for bias correction.
+
+        Returns:
+            tuple:
+                `(update, mt, vt)`, containing the adaptive momentum update and
+                the updated first- and second-moment estimates.
         """
         xp = getArrayModule(grad)
 
@@ -174,17 +328,75 @@ class mqNewton(BaseEngine):
         return update, mt, vt
 
     def momentum(self, grad, mt, vt, itr):
-        """
-        standard momentum update
-        :return:
+        r"""
+        Compute a standard momentum update.
+
+        The current gradient is combined with the previous momentum according to
+
+        $$
+        m_t = g_t + \gamma m_{t-1}
+        $$
+
+        where `frictionM` defines the momentum retention factor $\gamma$.
+
+        The resulting momentum is used directly as the update direction. The
+        second-moment variable `vt` is not modified and is returned unchanged so
+        that this method shares the same calling interface as `ADAM()` and
+        `NADAM()`.
+
+        Args:
+            grad (array-like):
+                Current object or probe gradient.
+
+            mt (array-like):
+                Previous momentum estimate.
+
+            vt (array-like):
+                Second-moment buffer. It is not used by standard momentum and is
+                returned unchanged.
+
+            itr (int):
+                Iteration index. It is not used by standard momentum but is
+                accepted for a common interface with the adaptive momentum methods.
+
+        Returns:
+            tuple:
+                `(update, mt, vt)`, where `update` and `mt` are the updated momentum
+                term and `vt` is returned unchanged.
         """
         mt = grad + self.frictionM * mt
         return mt, mt, vt
 
     def objectMomentumUpdate(self, loop):
-        """
-        momentum update object, save updated objectMomentum and objectBuffer.
-        :return:
+        r"""
+        Apply the selected momentum update to the reconstructed object.
+
+        The momentum gradient is defined from the difference between the
+        buffered object state and the current reconstruction,
+
+        $$
+        g_t = O_{\mathrm{buffer}} - O_t
+        $$
+
+        The selected momentum method (`momentum`, `ADAM`, or `NADAM`) is then
+        used to compute the update direction and refresh the corresponding
+        momentum buffers.
+
+        The reconstructed object is updated according to
+
+        $$
+        O_{t+1} = O_t - \beta_{O,m} u_t
+        $$
+
+        where `betaObject_m` controls the strength of the momentum correction
+        and $u_t$ is the update returned by the selected momentum method.
+
+        After the update, the object buffer is replaced by the new object state
+        for use in the next momentum step.
+
+        Args:
+            loop (int):
+                Current reconstruction iteration index.
         """
         gradient = self.reconstruction.objectBuffer - self.reconstruction.object
         (
@@ -203,9 +415,34 @@ class mqNewton(BaseEngine):
         self.reconstruction.objectBuffer = self.reconstruction.object.copy()
 
     def probeMomentumUpdate(self, loop):
-        """
-        momentum update probe, save updated probeMomentum and probeBuffer.
-        :return:
+        r"""
+        Apply the selected momentum update to the reconstructed probe.
+
+        The momentum gradient is defined from the difference between the
+        buffered probe state and the current reconstruction,
+
+        $$
+        g_t = P_{\mathrm{buffer}} - P_t
+        $$
+
+        The selected momentum method (`momentum`, `ADAM`, or `NADAM`) is used
+        to compute the probe update direction and refresh the corresponding
+        momentum buffers.
+
+        The probe is updated according to
+
+        $$
+        P_{t+1} = P_t - \beta_{P,m} u_t
+        $$
+
+        where `betaProbe_m` controls the strength of the momentum correction.
+
+        After the update, the probe buffer is replaced by the new probe state
+        for use in the next momentum step.
+
+        Args:
+            loop (int):
+                Current reconstruction iteration index.
         """
         gradient = self.reconstruction.probeBuffer - self.reconstruction.probe
         (
@@ -224,6 +461,31 @@ class mqNewton(BaseEngine):
         self.reconstruction.probeBuffer = self.reconstruction.probe.copy()
 
     def objectPatchUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
+        r"""
+        Update the object patch using the qNewton-inspired correction.
+
+        The update is weighted by the current probe according to
+
+        $$
+        \frac{|P|}{P_{\max}}\frac{P^*}{|P|^2+\lambda_O}
+        $$
+
+        where `regObject` provides the regularization term $\lambda_O$.
+
+        This local qNewton-style update is applied before the additional momentum
+        correction performed by `objectMomentumUpdate()`.
+
+        Args:
+            objectPatch (np.ndarray):
+                Current object patch at the scan position.
+
+            DELTA (np.ndarray):
+                Exit-wave correction after the intensity projection.
+
+        Returns:
+            np.ndarray:
+                Updated object patch.
+        """
         xp = getArrayModule(objectPatch)
         Pmax = xp.max(xp.sum(xp.abs(self.reconstruction.probe), axis=(0, 1, 2, 3)))
         frac = (
@@ -237,6 +499,31 @@ class mqNewton(BaseEngine):
         )
 
     def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
+        r"""
+        Update the probe using the qNewton-inspired correction.
+
+        The update is weighted by the current object patch according to
+
+        $$
+        \frac{|O|}{O_{\max}}\frac{O^*}{|O|^2+\lambda_P}
+        $$
+
+        where `regProbe` provides the regularization term $\lambda_P$.
+
+        This local qNewton-style update is applied before the additional momentum
+        correction performed by `probeMomentumUpdate()`.
+
+        Args:
+            objectPatch (np.ndarray):
+                Current object patch at the scan position.
+
+            DELTA (np.ndarray):
+                Exit-wave correction after the intensity projection.
+
+        Returns:
+            np.ndarray:
+                Updated probe.
+        """
         xp = getArrayModule(objectPatch)
         Omax = xp.max(xp.sum(xp.abs(self.reconstruction.object), axis=(0, 1, 2, 3)))
         frac = (

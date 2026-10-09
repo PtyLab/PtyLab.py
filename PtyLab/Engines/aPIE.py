@@ -30,8 +30,46 @@ from PtyLab.utils.gpuUtils import asNumpyArray, getArrayModule
 
 
 class aPIE(BaseEngine):
-    """
-    aPIE: angle correction PIE: ePIE combined with Luus-Jaakola algorithm (the latter for angle correction) + momentum
+    r"""
+    Angle-corrected ptychographic iterative engine (aPIE).
+
+    `aPIE` extends the standard PIE reconstruction by jointly refining the
+    object, probe, and detector tilt angle. The angular correction is based on
+    a Luus-Jaakola-type stochastic search combined with momentum
+    acceleration.[^debeurs2022]
+
+    The detector tilt is described by the angle `reconstruction.theta`. For
+    each reconstruction iteration, two candidate angles are evaluated: the
+    current angle and a randomly perturbed angle within the current search
+    radius. The diffraction data are transformed into the corresponding
+    detector coordinates for each candidate, followed by a standard PIE
+    object/probe reconstruction.
+
+    The candidate producing the lower reconstruction error is retained. The
+    angular update is then combined with a momentum term according to
+
+    $$
+    \theta_{\mathrm{mom}}^{(k+1)} = f\,\Delta\theta_k + \gamma\,\theta_{\mathrm{mom}}^{(k)}
+    $$
+
+    where `f = feedback`, `\gamma = aPIEfriction`, and `\Delta\theta_k` is the
+    accepted angular change.
+
+    The angular search radius is gradually reduced from
+    `thetaSearchRadiusMax` to `thetaSearchRadiusMin` over the reconstruction
+    iterations, allowing coarse angular exploration at the beginning and
+    progressively finer correction toward convergence.
+
+    The evolution of the estimated detector angle is stored in
+    `reconstruction.thetaHistory`.
+
+    Angle correction requires an initial value of `reconstruction.theta`.
+
+    [^debeurs2022]: A. de Beurs, L. Loetgering, M. Herczog,
+            M. Du, K. S. E. Eikema, and S. Witte,
+            "aPIE: an angle calibration algorithm for reflection ptychography,"
+            Opt. Lett. 47, 1949-1952 (2022).
+            https://doi.org/10.1364/OL.453655
     """
 
     def __init__(
@@ -41,8 +79,6 @@ class aPIE(BaseEngine):
         params: Params,
         monitor: Monitor,
     ):
-        # This contains reconstruction parameters that are specific to the reconstruction
-        # but not necessarily to aPIE reconstruction
         super().__init__(reconstruction, experimentalData, params, monitor)
         self.logger = logging.getLogger("aPIE")
         self.logger.info("Sucesfully created aPIE aPIE_engine")
@@ -51,8 +87,20 @@ class aPIE(BaseEngine):
 
     def initializeReconstructionParams(self):
         """
-        Set parameters that are specific to the ePIE settings.
-        :return:
+        Initialize parameters specific to the aPIE reconstruction.
+
+        This method sets the object and probe update strengths, angular momentum
+        parameters, reconstruction length, and angular search-radius limits. It
+        also initializes the detector-angle momentum and history if they are not
+        already present.
+
+        A copy of the original ptychogram is stored in
+        `self.ptychogramUntransformed` for repeated angle-dependent coordinate
+        transformations during reconstruction.
+
+        Raises:
+            ValueError:
+                If `reconstruction.theta` has not been initialized.
         """
         self.betaProbe = 0.25
         self.betaObject = 0.25
@@ -74,6 +122,48 @@ class aPIE(BaseEngine):
             raise ValueError("theta value is not given")
 
     def doReconstruction(self):
+        """
+        Run the aPIE reconstruction with iterative detector-angle correction.
+
+        The reconstruction starts from the current detector angle
+        `reconstruction.theta` and gradually reduces the angular search radius
+        from `thetaSearchRadiusMax` to `thetaSearchRadiusMin` over the requested
+        number of iterations.
+
+        At each iteration, two candidate detector angles are evaluated: the
+        current angle and a randomly perturbed angle within the current search
+        radius, both including the accumulated angular momentum.
+
+        For each candidate angle, the detector-coordinate transformation is
+        computed. The original diffraction data stored in
+        `ptychogramUntransformed` are then resampled onto the transformed detector
+        coordinates using linear interpolation.
+
+        After the angle-dependent coordinate correction, a standard PIE
+        reconstruction is performed over all scan positions. The scan order is
+        prepared with `setPositionOrder()`. For each position, the exit surface
+        wave is formed from the current object patch and probe, and
+        `intensityProjection()` applies the measured-intensity constraint in the
+        detector plane.
+
+        The difference between the updated and current exit surface waves is used
+        to update the object and probe through `objectPatchUpdate()` and
+        `probeUpdate()`, respectively. Reconstruction errors are evaluated with
+        `getErrorMetrics()`, and the reconstruction constraints are applied with
+        `applyConstraints()`.
+
+        The two candidate angles are compared using their reconstruction errors.
+        The candidate producing the lower error is retained together with its
+        corresponding object and probe. The accepted angular change is then used to
+        update `reconstruction.thetaMomentum`.
+
+        The accepted detector angle is stored in
+        `reconstruction.thetaHistory`, while `showReconstruction()` is used to
+        update the reconstruction monitor during the optimization.
+
+        If GPU acceleration is enabled, the reconstruction data are returned to
+        CPU memory after completion.
+        """
         self._prepareReconstruction()
 
         xp = getArrayModule(self.reconstruction.object)
@@ -289,10 +379,13 @@ class aPIE(BaseEngine):
 
     def objectPatchUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
         """
-        Todo add docstring
-        :param objectPatch:
-        :param DELTA:
-        :return:
+        Update the object patch using the standard ePIE object-update rule.
+
+        This implementation is identical to `ePIE.objectPatchUpdate()`.
+
+        See Also:
+            `ePIE.objectPatchUpdate`
+                Standard ePIE object update.
         """
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
@@ -306,10 +399,13 @@ class aPIE(BaseEngine):
 
     def probeUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
         """
-        Todo add docstring
-        :param objectPatch:
-        :param DELTA:
-        :return:
+        Update the probe using the standard ePIE probe-update rule.
+
+        This implementation is identical to `ePIE.probeUpdate()`.
+
+        See Also:
+            `ePIE.probeUpdate`
+                Standard ePIE probe update.
         """
         # find out which array module to use, numpy or cupy (or other...)
         xp = getArrayModule(objectPatch)
