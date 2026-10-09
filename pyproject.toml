@@ -30,7 +30,7 @@ gpu = ["cupy-cuda12x[ctk]; sys_platform != 'darwin'"]
 # `uv sync` installs the `dev` group by default; `docs` is opt-in with `--group docs`.
 [dependency-groups]
 dev = [
-    "black~=23.7",
+    "ruff>=0.16",
     "ipykernel~=6.25",
     "pytest~=9.0",
 ]

@@ -19,6 +19,14 @@ This creates a `.venv` virtual environment in the project root. Select it in you
 source .venv/bin/activate
 ```
 
+## Code style
+
+Format the files you changed with [ruff](https://docs.astral.sh/ruff/):
+
+```bash
+uv run ruff format path/to/changed_file.py
+```
+
 ## Running tests
 
 Add tests for new implementations and run the suite with:
