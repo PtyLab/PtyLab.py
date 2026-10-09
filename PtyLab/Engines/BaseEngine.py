@@ -6,6 +6,7 @@ from matplotlib import pyplot as plt
 
 from PtyLab import Operators
 from PtyLab.ExperimentalData.ExperimentalData import ExperimentalData
+from PtyLab.Monitor.frame import MonitorFrame
 from PtyLab.Monitor.Monitor import Monitor
 from PtyLab.Params.Params import Params
 from PtyLab.Reconstruction.Reconstruction import Reconstruction
@@ -143,7 +144,6 @@ class BaseEngine(object):
         self.experimentalData = experimentalData
         self.params = params
         self.monitor = monitor
-        self.monitor.reconstruction = reconstruction # share reconstruction state with monitor
 
         # datalogger
         self.logger = logging.getLogger("BaseEngine")
@@ -332,7 +332,7 @@ class BaseEngine(object):
         in frame $j$. The correction preserves the probe shape and phase while
         placing its total power on the scale of the experimental data, reducing
         large amplitude corrections at the beginning of reconstruction.
-        
+
         """
         if self.params.probePowerCorrectionSwitch:
             self.reconstruction.probe = (
@@ -399,6 +399,10 @@ class BaseEngine(object):
         """
         Set the object and probe regions of interest used for monitoring.
 
+        The regions are stored on the engine as ``objectROI`` and ``probeROI``
+        and handed to the monitor in each `MonitorFrame`. ``objectROI`` also
+        sets the reference region of ``params.objectContrastSwitch``.
+
         The object ROI is derived from the scan-position extent and probe size,
         scaled by ``monitor.objectZoom``. The probe ROI is centered on the probe
         grid and derived from the entrance pupil diameter and
@@ -412,9 +416,9 @@ class BaseEngine(object):
                 If True, recompute existing ROIs. Otherwise, ROIs are only created
                 when they are not already defined. Defaults to False.
         """
-        if not hasattr(self.monitor, "objectROI") or update:
+        if getattr(self, "objectROI", None) is None or update:
             if self.monitor.objectZoom == "full" or self.monitor.objectZoom is None:
-                self.monitor.objectROI = [
+                self.objectROI = [
                     slice(None, None, None),
                     slice(None, None, None),
                 ]
@@ -436,7 +440,7 @@ class BaseEngine(object):
                     / 2
                 ).astype(int)
 
-                # self.monitor.objectROI = [
+                # self.objectROI = [
                 #     slice(
                 #         max(0, yc - ry // 2), min(self.reconstruction.No, yc + ry // 2)
                 #     ),
@@ -444,7 +448,7 @@ class BaseEngine(object):
                 #         max(0, xc - rx // 2), min(self.reconstruction.No, xc + rx // 2)
                 #     ),
                 # ]
-                self.monitor.objectROI = [
+                self.objectROI = [
                     slice(
                         max(0, xc - rx // 2), min(self.reconstruction.No, xc + rx // 2)
                     ),
@@ -453,16 +457,16 @@ class BaseEngine(object):
                     ),
                 ]
 
-        if not hasattr(self.monitor, "probeROI") or update:
+        if getattr(self, "probeROI", None) is None or update:
             if self.monitor.probeZoom == "full" or self.monitor.probeZoom is None:
-                self.monitor.probeROI = [slice(None, None), slice(None, None)]
+                self.probeROI = [slice(None, None), slice(None, None)]
             else:
                 r = int(
                     self.experimentalData.entrancePupilDiameter
                     / self.reconstruction.dxp
                     / self.monitor.probeZoom
                 )
-                self.monitor.probeROI = [
+                self.probeROI = [
                     slice(
                         max(0, self.reconstruction.Np // 2 - r),
                         min(self.reconstruction.Np, self.reconstruction.Np // 2 + r),
@@ -476,35 +480,30 @@ class BaseEngine(object):
     def _showInitialGuesses(self):
         """
         Display the initial object and probe estimates in the reconstruction monitor.
-
-        The object and probe are cropped to the monitoring regions defined by
-        ``objectROI`` and ``probeROI`` before being passed to the monitor together
-        with the current reconstruction error, propagation distance, mode purities,
-        and scan positions.
         """
         self.monitor.initializeMonitors()
-        objectEstimate = np.squeeze(
-            self.reconstruction.object[
-                ..., self.monitor.objectROI[0], self.monitor.objectROI[1]
-            ]
-        )
-        probeEstimate = np.squeeze(
-            self.reconstruction.probe[
-                ..., self.monitor.probeROI[0], self.monitor.probeROI[1]
-            ]
-        )
+        self.monitor.update(self._monitorFrame())
 
-        self.monitor.updateObjectProbeErrorMonitor(
-            error=self.reconstruction.error,
-            object_estimate=objectEstimate,
-            probe_estimate=probeEstimate,
-            zo=self.reconstruction.zo,
-            purity_probe=self.reconstruction.purityProbe,
-            purity_object=self.reconstruction.purityObject,
-            encoder_positions=self.reconstruction.positions,
-        )
+    def _monitorFrame(self, **fields):
+        """
+        Snapshot of the current reconstruction state for the monitor.
 
-        # self.monitor.updateObjectProbeErrorMonitor()
+        Args:
+            **fields:
+                Further `MonitorFrame` fields, e.g. the encoder positions or the
+                diffraction intensities.
+
+        Returns:
+            MonitorFrame:
+                Frame holding references to the live object and probe, with the
+                engine's display regions ``objectROI`` and ``probeROI``.
+        """
+        return MonitorFrame.from_reconstruction(
+            self.reconstruction,
+            object_roi=self.objectROI,
+            probe_roi=self.probeROI,
+            **fields,
+        )
 
     def _checkMISC(self):
         """
@@ -625,7 +624,7 @@ class BaseEngine(object):
                     if self.experimentalData.PSD is not None:
                         self.experimentalData.PSD = np.fft.fftshift(
                             self.experimentalData.PSD, axes=(-1, -2)
-                    )
+                        )
                 self.params.fftshiftFlag = 0
 
     def _move_data_to_gpu(self):
@@ -974,7 +973,6 @@ class BaseEngine(object):
                         name,
                         value.astype(self.dtype_real, copy=False),
                     )
-        
 
     def object2detector(self, esw=None):
         """
@@ -1065,12 +1063,12 @@ class BaseEngine(object):
         \mathrm{FWHM}_x = 2\sqrt{2\ln 2}\sigma_x
         $$
 
-        The same calculation is applied along $y$. 
+        The same calculation is applied along $y$.
 
         Returns:
             tuple:
                 ``(beamWidthY, beamWidthX)`` in meters.
-        
+
         Notes:
             For non-Gaussian probe
             profiles, the returned values should be interpreted as second-moment
@@ -1194,7 +1192,7 @@ class BaseEngine(object):
         self.reconstruction.areaOverlap = np.mean(
             abs(
                 np.sum(
-                    abs(Q)**2 * np.exp(-1.0j * 2 * np.pi * (Fx * sx + Fy * sy)),
+                    abs(Q) ** 2 * np.exp(-1.0j * 2 * np.pi * (Fx * sx + Fy * sy)),
                     axis=(-1, -2),
                 )
             )
@@ -1598,73 +1596,23 @@ class BaseEngine(object):
                 Current reconstruction iteration.
         """
         if np.mod(loop, self.monitor.figureUpdateFrequency) == 0:
-            if self.experimentalData.operationMode == "FPM":
-                object_estimate = np.squeeze(
-                    asNumpyArray(
-                        fft2c(self.reconstruction.object)[
-                            ..., self.monitor.objectROI[0], self.monitor.objectROI[1]
-                        ]
-                    )
-                )
-                probe_estimate = np.squeeze(
-                    asNumpyArray(
-                        self.reconstruction.probe[
-                            ..., self.monitor.probeROI[0], self.monitor.probeROI[1]
-                        ]
-                    )
-                )
-            else:
-                object_estimate = np.squeeze(
-                    asNumpyArray(
-                        self.reconstruction.object[
-                            ..., self.monitor.objectROI[0], self.monitor.objectROI[1]
-                        ]
-                    )
-                )
-                probe_estimate = np.squeeze(
-                    asNumpyArray(
-                        self.reconstruction.probe[
-                            ..., self.monitor.probeROI[0], self.monitor.probeROI[1]
-                        ]
-                    )
-                )
-            self.monitor.updateObjectProbeErrorMonitor(
-                error=self.reconstruction.error,
-                object_estimate=object_estimate,
-                probe_estimate=probe_estimate,
-                zo=self.reconstruction.zo,
-                purity_probe=self.reconstruction.purityProbe,
-                purity_object=self.reconstruction.purityObject,
-                encoder_positions=self.reconstruction.positions,
-            )
-
-            self.monitor.writeEngineName(repr(type(self)))
-
-            self.monitor.update_encoder(
-                corrected_positions=self.reconstruction.encoder_corrected,
-                original_positions=self.experimentalData.encoder,
-            )
-
-            self.monitor.updateBeamWidth(*self.getBeamWidth())
-
-            # self.monitor.visualize_probe_engine(self.reconstruction.probe_storage)
+            fields = {
+                "engine_name": repr(type(self)),
+                "encoder_original": self.experimentalData.encoder,
+                "encoder_corrected": self.reconstruction.encoder_corrected,
+                "beam_width": self.getBeamWidth(),
+            }
 
             if self.monitor.verboseLevel == "high":
+                Iestimated = asNumpyArray(self.reconstruction.Iestimated)
+                Imeasured = asNumpyArray(self.reconstruction.Imeasured)
                 if self.params.fftshiftSwitch:
-                    Iestimated = np.fft.fftshift(
-                        asNumpyArray(self.reconstruction.Iestimated)
-                    )
-                    Imeasured = np.fft.fftshift(
-                        asNumpyArray(self.reconstruction.Imeasured)
-                    )
-                else:
-                    Iestimated = asNumpyArray(self.reconstruction.Iestimated)
-                    Imeasured = asNumpyArray(self.reconstruction.Imeasured)
+                    # the engine works on fftshifted detector frames; shift back
+                    # so the zero frequency is in the centre of the image
+                    Iestimated = np.fft.fftshift(Iestimated)
+                    Imeasured = np.fft.fftshift(Imeasured)
 
-                self.monitor.updateDiffractionDataMonitor(
-                    Iestimated=Iestimated, Imeasured=Imeasured
-                )
-
+                # sets reconstruction.areaOverlap and .linearOverlap
                 self.getOverlap(0, 1)
 
                 self.pbar.write("")
@@ -1679,10 +1627,14 @@ class BaseEngine(object):
                     % (100 * self.reconstruction.areaOverlap)
                 )
 
-                self.monitor.update_overlap(
-                    self.reconstruction.areaOverlap, self.reconstruction.linearOverlap
+                fields.update(
+                    I_estimated=Iestimated,
+                    I_measured=Imeasured,
+                    area_overlap=self.reconstruction.areaOverlap,
+                    linear_overlap=self.reconstruction.linearOverlap,
                 )
-                # self.pbar.write('coherence structure:')
+
+            self.monitor.update(self._monitorFrame(**fields))
 
             if self.params.positionCorrectionSwitch:
                 # show reconstruction
@@ -1954,7 +1906,9 @@ class BaseEngine(object):
         # target distance implied by the scale change of the positions
         target_z = self.reconstruction.zo / factor
         step = target_z - self.reconstruction.zo
-        self.logger.info(f"Naive estimate of new z: {target_z:.3f}, stepsize {step:.3f}")
+        self.logger.info(
+            f"Naive estimate of new z: {target_z:.3f}, stepsize {step:.3f}"
+        )
         if abs(step) < 2e-5:  # same skip threshold as before (it used 5 * step < 1e-4)
             self.logger.info("Skipping update as step is too small")
             return
@@ -2020,7 +1974,7 @@ class BaseEngine(object):
             The method updates `reconstruction.encoder_corrected` in place and is
             called when position correction is enabled.
         """
-        
+
         # fit the scaling out, to put in the z
         if len(self.reconstruction.error) > self.startAtIteration:
             self.logger.info("Updating positions")
@@ -2186,7 +2140,7 @@ class BaseEngine(object):
                 * np.mean(
                     abs(
                         self.reconstruction.object[
-                            ..., self.monitor.objectROI[0], self.monitor.objectROI[1]
+                            ..., self.objectROI[0], self.objectROI[1]
                         ]
                     )
                 )
@@ -2524,9 +2478,7 @@ class BaseEngine(object):
         self.object2detector()
 
         if self.params.FourierMaskSwitch:
-            self.reconstruction.ESW = (
-            self.reconstruction.ESW
-            * xp.sqrt(
+            self.reconstruction.ESW = self.reconstruction.ESW * xp.sqrt(
                 self.experimentalData.emptyBeam
                 / (
                     1e-10
@@ -2535,9 +2487,8 @@ class BaseEngine(object):
                         axis=(0, 1, 2, 3),
                     )
                 )
-            )
-            * self.experimentalData.W
-            + self.reconstruction.ESW * (1 - self.experimentalData.W)
+            ) * self.experimentalData.W + self.reconstruction.ESW * (
+                1 - self.experimentalData.W
             )
         else:
             self.reconstruction.ESW = self.reconstruction.ESW * np.sqrt(
@@ -2649,10 +2600,10 @@ class BaseEngine(object):
                 regularization term.
         """
 
-        #xp = getArrayModule(objectPatch)
-        #frac = self.reconstruction.probe.conj() / xp.max(
+        # xp = getArrayModule(objectPatch)
+        # frac = self.reconstruction.probe.conj() / xp.max(
         #    xp.sum(xp.abs(self.reconstruction.probe) ** 2, axis=(0, 1, 2, 3))
-        #)
+        # )
 
         # gradient = xp.gradient(objectPatch, axis=(4, 5))
         #
@@ -2660,7 +2611,7 @@ class BaseEngine(object):
         # norm = (gradient[0] + gradient[1]) ** 2
         # temp = [gradient[0] / xp.sqrt(norm + epsilon), gradient[1] / xp.sqrt(norm + epsilon)]
         # TV_update = divergence(temp)
-        
+
         TV_update = grad_TV(objectPatch, epsilon=1e-2)
 
         updated_object = self.objectPatchUpdate(objectPatch, DELTA)
