@@ -1,3 +1,4 @@
+import math
 import warnings
 
 import matplotlib as mpl
@@ -122,9 +123,9 @@ class ObjectProbeErrorPlot(_LiveFigure):
     def updateObject(
         self,
         object_estimate,
-        optimizable,
         objectPlot,
         amplitudeScalingFactor=1,
+        purity=None,
         **kwargs,
     ):
         OE = modeTile(object_estimate, normalize=True)
@@ -154,10 +155,10 @@ class ObjectProbeErrorPlot(_LiveFigure):
                 )
         else:
             self.im_object.set_data(OE)
-            if optimizable.nosm > 1:
+            # purity is None for a single object mode
+            if purity is not None:
                 self.txt_purityObject.set_text(
-                    "Object estimate\nPurity: %i" % (100 * optimizable.purityObject)
-                    + "%"
+                    "Object estimate\nPurity: %i" % (100 * purity) + "%"
                 )
 
         self.im_object.autoscale()
@@ -165,9 +166,9 @@ class ObjectProbeErrorPlot(_LiveFigure):
     def updateProbe(
         self,
         probe_estimate,
-        optimizable,
         amplitudeScalingFactor=1,
         label="Probe estimate",
+        purity=None,
         **kwargs,
     ):
 
@@ -188,12 +189,10 @@ class ObjectProbeErrorPlot(_LiveFigure):
         else:
             self.im_probe.set_data(PE)
             # self.im_probe_ff.set_data(PE_ff)
-            if (
-                optimizable.npsm > 1
-                and optimizable.purityProbe == optimizable.purityProbe
-            ):
+            # purity is None for a single probe mode, and NaN before it is computed
+            if purity is not None and not math.isnan(float(purity)):
                 self.txt_purityProbe.set_text(
-                    "%s\nPurity: %.2f" % (label, 100 * optimizable.purityProbe) + "%"
+                    "%s\nPurity: %.2f" % (label, 100 * purity) + "%"
                 )
         self.im_probe.autoscale()
 
@@ -308,3 +307,108 @@ class DiffractionDataPlot(_LiveFigure):
         """Adopt the contrast limits from the measured data and apply them to the predicted"""
         clims = self.im_Imeasured.get_clim()
         self.im_Iestimated.set_clim(*clims)
+
+
+class ParameterHistoryPlot(_LiveFigure):
+    """Traces of the quantities an engine changes besides object and probe.
+
+    Each update records one value per line, grouped into panels (e.g. the panel
+    "beam width [um]" with lines "x" and "y"). A panel is only drawn once one of
+    its lines has changed from its first value, so quantities the engine never
+    touches (a fixed zo, a single-mode purity) stay hidden. The scan-position
+    panel appears once position correction has moved a position.
+
+    The figure is created on the first draw that has something to show, so no
+    window opens for a reconstruction that changes nothing.
+    """
+
+    def __init__(self, figNum=3):
+        self.figNum = figNum
+        self.figure = None
+        # panel title -> line label -> ([iterations], [values])
+        self.history = {}
+        # (measured, corrected) positions in m, only kept once they differ
+        self.positions = None
+
+    def record(self, iteration, values):
+        """Append one value per line.
+
+        Args:
+            iteration (int): Iteration the values belong to.
+            values (dict[str, dict[str, float]]): Panel title -> line label -> value.
+        """
+        for panel, lines in values.items():
+            for label, value in lines.items():
+                its, vals = self.history.setdefault(panel, {}).setdefault(
+                    label, ([], [])
+                )
+                its.append(iteration)
+                vals.append(value)
+
+    def record_positions(self, measured, corrected):
+        """Keep the scan positions if position correction has moved any of them."""
+        measured = gpuUtils.asNumpyArray(measured)
+        corrected = gpuUtils.asNumpyArray(corrected)
+        if not np.array_equal(measured, corrected):
+            # corrected is edited in place by the engine, so keep a copy
+            self.positions = (measured, corrected.copy())
+
+    def active_panels(self):
+        """Titles of the panels whose values have changed, in recording order."""
+        return [
+            panel
+            for panel, lines in self.history.items()
+            if any(
+                not np.allclose(vals, vals[0], rtol=1e-6, atol=0)
+                for _, vals in lines.values()
+            )
+        ]
+
+    def draw(self):
+        """Redraw every active panel; does nothing while no panel is active."""
+        panels = self.active_panels()
+        n = len(panels) + (self.positions is not None)
+        if n == 0:
+            return
+
+        if self.figure is None:
+            # interactive mode only matters for GUI windows
+            if not is_inline():
+                plt.ion()
+            self._attach_figure(plt.figure(num=self.figNum, clear=True))
+        else:
+            # the number of panels can grow, so rebuild the axes on every draw;
+            # a handful of line plots is cheap next to the object/probe images
+            self.figure.clf()
+        self.figure.set_size_inches(3.2 * n, 3, forward=True)
+
+        axes = np.atleast_1d(self.figure.subplots(1, n))
+        for ax, panel in zip(axes, panels):
+            for label, (its, vals) in self.history[panel].items():
+                ax.plot(its, vals, ".-", label=label)
+            ax.set_title(panel)
+            ax.set_xlabel("iterations")
+            ax.grid(True, alpha=0.3)
+            if len(self.history[panel]) > 1:
+                ax.legend(fontsize="small")
+
+        if self.positions is not None:
+            measured, corrected = self.positions
+            ax = axes[-1]
+            # encoder positions are (y, x) in m; plot x horizontally, in mm
+            ax.plot(
+                measured[:, 1] * 1e3,
+                measured[:, 0] * 1e3,
+                "o",
+                mfc="none",
+                label="measured",
+            )
+            ax.plot(
+                corrected[:, 1] * 1e3, corrected[:, 0] * 1e3, ".", label="corrected"
+            )
+            ax.set_title("scan positions [mm]")
+            ax.set_aspect("equal", adjustable="datalim")
+            ax.legend(fontsize="small")
+
+        self.figure.tight_layout()
+        self.drawNow()
