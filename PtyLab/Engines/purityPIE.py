@@ -1847,39 +1847,23 @@ class purityPIE(mPIE):
             best_purity,
         )
 
-    def plotPurityScan(
-        self,
-        show=True,
-        fit=True,
-        fit_range=None,
-        fit_fraction=0.25,
-    ):
+    def plotPurityScan(self, show=True):
         """
         Plot probe purity and reconstruction error for the selected
         purity-calibration target.
 
-        A local quadratic fit can optionally be performed around the measured
-        purity maximum. The fitting window can either be specified explicitly
-        through `fit_range` or determined automatically as a fraction of the
-        scanned parameter range.
+        The measured purity maximum is marked together with the scan resolution
+        around it: the interval reaching halfway to the neighbouring evaluated
+        values on each side. No curve is fitted, since the shape of purity vs the
+        calibrated parameter is not known beforehand; a finer scan around the
+        maximum is the way to narrow it down.
+
+        A warning is logged if the maximum lies at the edge of the scanned range,
+        since the optimum may then lie outside it.
 
         Args:
             show (bool, optional):
                 Display the figure immediately. Default is `True`.
-
-            fit (bool, optional):
-                Perform a local quadratic fit around the measured purity maximum.
-                Default is `True`.
-
-            fit_range (float, optional):
-                Half-width of the fitting window in the displayed unit
-                (mm for z and nm for wavelength). If `None`, the fitting window
-                is determined from `fit_fraction`.
-
-            fit_fraction (float, optional):
-                Fraction of the total scanned parameter range used as the
-                fitting half-width when `fit_range` is `None`.
-                Default is `0.25`.
 
         Returns:
             tuple:
@@ -1992,120 +1976,46 @@ class purityPIE(mPIE):
         )
 
         # ------------------------------------------------------------------
-        # Local quadratic fit
+        # Scan resolution around the maximum
         # ------------------------------------------------------------------
 
-        if fit:
-            if fit_range is None:
-                total_range = values.max() - values.min()
+        # the evaluated values bracket the optimum only to within halfway to the
+        # neighbouring points; an adaptive scan stores them sorted, a fixed grid
+        # already is
+        order = np.argsort(values)
+        sorted_values = values[order]
+        position = int(np.where(order == best_purity_index)[0][0])
 
-                fit_half_range = fit_fraction * total_range
+        if position == 0 or position == len(sorted_values) - 1:
+            self.logger.warning(
+                "The purity maximum lies at the edge of the scanned range "
+                f"({value_symbol} = {format(measured_best_value, value_format)} "
+                f"{value_unit}); the optimum may lie outside it. Extend the scan "
+                "range or move the initial guess."
+            )
 
-            else:
-                fit_half_range = float(fit_range)
+        lower = (
+            0.5 * (sorted_values[position - 1] + measured_best_value)
+            if position > 0
+            else measured_best_value
+        )
+        upper = (
+            0.5 * (sorted_values[position + 1] + measured_best_value)
+            if position < len(sorted_values) - 1
+            else measured_best_value
+        )
 
-            fit_mask = np.abs(values - measured_best_value) <= fit_half_range
-
-            fit_x = values[fit_mask]
-
-            fit_y = purity[fit_mask]
-
-            if len(fit_x) < 3:
-                self.logger.warning(
-                    "Quadratic fit skipped because fewer than "
-                    "three scan points fall inside the fitting window."
-                )
-
-            else:
-                coefficients = np.polyfit(
-                    fit_x,
-                    fit_y,
-                    deg=2,
-                )
-
-                a, b, c = coefficients
-
-                fitted_y = np.polyval(
-                    coefficients,
-                    fit_x,
-                )
-
-                residual_sum = np.sum((fit_y - fitted_y) ** 2)
-
-                total_sum = np.sum((fit_y - np.mean(fit_y)) ** 2)
-
-                if total_sum > 0:
-                    fit_r2 = 1 - residual_sum / total_sum
-
-                else:
-                    fit_r2 = np.nan
-
-                fitted_best_value = -b / (2 * a) if a != 0 else np.nan
-
-                valid_fit = (
-                    a < 0
-                    and np.isfinite(fitted_best_value)
-                    and fit_x.min() <= fitted_best_value <= fit_x.max()
-                )
-
-                if valid_fit:
-                    fitted_best_purity = np.polyval(
-                        coefficients,
-                        fitted_best_value,
-                    )
-
-                    fit_curve_x = np.linspace(
-                        fit_x.min(),
-                        fit_x.max(),
-                        300,
-                    )
-
-                    fit_curve_y = np.polyval(
-                        coefficients,
-                        fit_curve_x,
-                    )
-
-                    ax_purity.plot(
-                        fit_curve_x,
-                        fit_curve_y,
-                        linestyle="--",
-                        label=(f"Quadratic fit ($R^2$ = {fit_r2:.3f})"),
-                    )
-
-                    ax_purity.plot(
-                        fitted_best_value,
-                        fitted_best_purity,
-                        marker="X",
-                        markersize=9,
-                        linestyle="None",
-                        label=(
-                            f"Fitted maximum: "
-                            f"{value_symbol} = "
-                            f"{format(fitted_best_value, value_format)} "
-                            f"{value_unit}"
-                        ),
-                    )
-
-                    if target == "z":
-                        self.purityBestZFitted = fitted_best_value * 1e-3
-
-                        self.purityBestZFittedValue = fitted_best_purity
-
-                        self.purityBestZFitR2 = fit_r2
-
-                    elif target == "wavelength":
-                        self.purityBestWavelengthFitted = fitted_best_value * 1e-9
-
-                        self.purityBestWavelengthFittedValue = fitted_best_purity
-
-                        self.purityBestWavelengthFitR2 = fit_r2
-
-                else:
-                    self.logger.warning(
-                        "Quadratic fit did not produce a valid local maximum. "
-                        "The fitted curvature may be non-negative or the fitted "
-                        "maximum may lie outside the fitting window."
-                    )
+        ax_purity.axvspan(
+            lower,
+            upper,
+            alpha=0.15,
+            color="C2",
+            label=(
+                f"Scan resolution: "
+                f"{format(lower, value_format)} to "
+                f"{format(upper, value_format)} {value_unit}"
+            ),
+        )
 
         ax_purity.set_xlabel(xlabel)
 
