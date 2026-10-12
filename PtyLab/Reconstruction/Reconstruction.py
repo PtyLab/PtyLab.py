@@ -1014,7 +1014,8 @@ class Reconstruction(object):
         Write `extraResults` to an open HDF5 file, one group per entry.
 
         Array-like values become datasets; strings become attributes of the
-        group, since they label the data rather than being data.
+        group, since they label the data rather than being data. `None` values
+        (not available) are skipped, as HDF5 has no equivalent.
 
         Args:
             hf (h5py.File): File opened for writing.
@@ -1022,6 +1023,8 @@ class Reconstruction(object):
         for group_name, entries in self.extraResults.items():
             group = hf.create_group(group_name)
             for name, value in entries.items():
+                if value is None:
+                    continue
                 if isinstance(value, str):
                     group.attrs[name] = value
                 else:
