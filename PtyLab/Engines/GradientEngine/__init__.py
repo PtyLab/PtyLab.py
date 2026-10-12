@@ -17,7 +17,6 @@ _MODULES = {
     "ProbeCentering": ".constraints",
     "ObjectAmplitudeClamp": ".constraints",
     "PhaseRampRemoval": ".constraints",
-    "NoiseModel": ".diagnostics",
 }
 __all__ = list(_MODULES)
 
