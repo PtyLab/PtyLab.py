@@ -1,11 +1,12 @@
-import pytest
 import numpy as np
-from PtyLab.Monitor.Plots import ObjectProbeErrorPlot
+import pytest
+
 from PtyLab.Engines.BaseEngine import BaseEngine
-from PtyLab.Reconstruction.Reconstruction import Reconstruction
 from PtyLab.ExperimentalData.ExperimentalData import ExperimentalData
-from PtyLab.Params.Params import Params
 from PtyLab.Monitor.Monitor import Monitor
+from PtyLab.Monitor.Plots import ObjectProbeErrorPlot
+from PtyLab.Params.Params import Params
+from PtyLab.Reconstruction.Reconstruction import Reconstruction
 
 
 @pytest.mark.skip(reason="Visual test - requires manual inspection")
@@ -21,7 +22,7 @@ class TestMatplotlibMonitor:
         error_metrics = []
         for k in range(100):
             error_metrics.append(np.random.rand())
-            self.monitor.updateObject(np.random.rand(100, 100))
+            self.monitor.updateObject(np.random.rand(100, 100), objectPlot="abs")
             self.monitor.updateError(error_metrics)
             self.monitor.drawNow()
 
@@ -35,7 +36,9 @@ class TestPlotFromBaseReconstructor:
         self.monitor = Monitor()
         self.optimizable = Reconstruction(self.experimentalData, self.params)
         self.optimizable.initializeObjectProbe()
-        self.BR = BaseEngine(self.optimizable, self.experimentalData, self.params, self.monitor)
+        self.BR = BaseEngine(
+            self.optimizable, self.experimentalData, self.params, self.monitor
+        )
 
     def test_show_reconstruction(self):
         self.BR.reconstruction.initializeObjectProbe()

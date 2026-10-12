@@ -10,13 +10,8 @@ import numpy as np
 from matplotlib import pyplot as plt
 from copy import deepcopy
 
-try:
-    from sklearn.cluster import KMeans
-except ImportError:
-    print(
-        " Could not load sklearn, will not be able to run Fourier Ptychography Calibration"
-    )
 from scipy.ndimage import map_coordinates
+from sklearn.cluster import KMeans
 
 try:
     from skimage.filters import window

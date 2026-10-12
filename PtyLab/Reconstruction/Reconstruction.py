@@ -1,21 +1,23 @@
-import time
-import numpy as np
-from PtyLab.ExperimentalData.ExperimentalData import ExperimentalData
-from copy import copy
 import logging
+import time
+from copy import copy
+from pathlib import Path
+
 import h5py
+import numpy as np
+
+from PtyLab import Params
+from PtyLab.ExperimentalData.ExperimentalData import ExperimentalData
 
 # logging.basicConfig(level=logging.DEBUG)
-from PtyLab.Regularizers import metric_at, TV
-
-from PtyLab.utils.initializationFunctions import initialProbeOrObject
+from PtyLab.Regularizers import TV, metric_at
 from PtyLab.utils.gpuUtils import (
+    asNumpyArray,
+    getArrayModule,
     transfer_fields_to_cpu,
     transfer_fields_to_gpu,
-    getArrayModule,
 )
-from PtyLab import Params
-from PtyLab.utils.gpuUtils import asNumpyArray
+from PtyLab.utils.initializationFunctions import initialProbeOrObject
 
 
 def calculate_pixel_positions(encoder_corrected, dxo, No, Np, asint):
@@ -371,14 +373,16 @@ class Reconstruction(object):
             self.logger.debug(f"Changing sample-detector distance to {new_value}")
             self.dxp = self.wavelength * self._zo / self.Ld
         elif self.data.operationMode == "FPM":
-             self.logger.debug(f"Changing illumination-to-sample distance to {new_value}")
-             self.zled = self._zo
-             
+            self.logger.debug(
+                f"Changing illumination-to-sample distance to {new_value}"
+            )
+            self.zled = self._zo
+
     def computeParameters(self):
         """
         Compute reconstruction geometry and mode-dependent default parameters.
 
-        For CPM, missing probe and spectral parameters are initialized from the current reconstruction geometry. 
+        For CPM, missing probe and spectral parameters are initialized from the current reconstruction geometry.
         For FPM, the sample-plane sampling and pupil geometry are derived from the microscope magnification and numerical
         aperture.
 
@@ -428,12 +432,14 @@ class Reconstruction(object):
                 )
 
         # set object pixel numbers
-        if not hasattr(self, 'No'):
+        if not hasattr(self, "No"):
             self.No = (
                 self.Np * 2**2
             )  # unimportant but leave it here as it's required for self.positions
             # we need space for the probe as well, on both sides that would be half the probe
-            range_pixels = np.max(self.positions, axis=0) - np.min(self.positions, axis=0)
+            range_pixels = np.max(self.positions, axis=0) - np.min(
+                self.positions, axis=0
+            )
             # print(range_pixels)
             range_pixels = np.max(range_pixels) + self.Np * 2
             if range_pixels % 2 == 1:
@@ -451,107 +457,101 @@ class Reconstruction(object):
         Args:
             saveit (bool, optional):
                 If True, save the diagnostic plots to
-                ``plots/alignment.html``. Defaults to False.
+                ``plots/alignment.png``. Defaults to False.
 
         Returns:
-            bokeh.layouts.LayoutDOM:
-                Bokeh layout containing the available diagnostic plots.
+            matplotlib.figure.Figure:
+                Figure with one panel per available diagnostic. In a notebook,
+                leaving the call as the last line of a cell displays it.
 
         Notes:
             Position coordinates are derived from ``positions`` and ``positions0``.
             These quantities are expressed in reconstruction pixels.
         """
+        # a bare Figure (not pyplot) never opens a window or registers with the GUI
+        # backend, so zPIE can call this every iteration headless without piling up figures
+        from matplotlib.figure import Figure
+
         t0 = time.time()
-        p_new = self.positions.T
-        p_old = self.positions0.T
+        # positions are (row, col) in pixels; plot column on x and row on y
+        p_new = np.asarray(self.positions)
+        p_old = np.asarray(self.positions0)
 
-        from bokeh.plotting import figure, output_file, save
-        from bokeh.layouts import row
+        # collect the panels that have data, then lay them out in one row
+        panels = ["alignment"]
+        if hasattr(self, "zHistory"):
+            panels.append("focus")
+        if hasattr(self, "TV_history") and len(self.TV_history) >= 1:
+            panels.append("tv")
+        if hasattr(self, "merit"):
+            panels.append("merit")
 
-        from pathlib import Path
+        fig = Figure(figsize=(4.5 * len(panels), 4.5), layout="constrained")
+        axes = dict(zip(panels, fig.subplots(1, len(panels), squeeze=False)[0]))
 
-        if saveit:
-            output = Path("plots/alignment.html")
-            output.parent.mkdir(exist_ok=True)
-            # set output to static HTML file
-
-            output_file(filename=output, title="Static HTML file", mode="inline")
-
-        # create a new plot with a specific size
-        p = figure(
-            sizing_mode="stretch_width",
-            max_width=500,
-            height=500,
-            title=f'alignment (updated {time.strftime("%Y%h%d, %H:%M:%S")})',
+        ax = axes["alignment"]
+        ax.scatter(
+            p_old[:, 1],
+            p_old[:, 0],
+            marker="s",
+            s=12,
+            c="gold",
+            edgecolors="k",
+            linewidths=0.3,
+            label="original",
         )
-        p.match_aspect = True
-        p.square(
-            p_old[0], p_old[1], fill_color="yellow", size=5, legend_label="original"
+        ax.scatter(p_new[:, 1], p_new[:, 0], marker="o", s=12, c="red", label="new")
+        ax.set_aspect("equal")
+        ax.invert_yaxis()  # row 0 at the top, as in the reconstructed image
+        ax.set_xlabel("column [px]")
+        ax.set_ylabel("row [px]")
+        ax.set_title(f"alignment (updated {time.strftime('%Y%h%d, %H:%M:%S')})")
+        # legend below the axes so it never hides scan points
+        ax.legend(
+            loc="upper center", bbox_to_anchor=(0.5, -0.15), ncol=2, frameon=False
         )
-        # add a circle renderer for the new points
-        p.circle(
-            p_new[0], p_new[1], fill_color="red", size=5, legend_label="new"
-        )
 
-        p.xaxis.axis_label = "Position x [um]"
-        p.yaxis.axis_label = "Position y [um]"
+        if "focus" in axes:  # defocus estimate per iteration
+            ax = axes["focus"]
+            ax.plot(np.array(self.zHistory) * 1e3, "o", ms=3)
+            ax.set_xlabel("Iteration #")
+            ax.set_ylabel("Position [mm]")
+            ax.set_title("focus history")
 
-        p2 = None
-        p3 = None
-        p4 = None
+        if "tv" in axes:
+            ax = axes["tv"]
+            ax.plot(self.TV_history, "s", ms=3)
+            ax.set_xlabel("Iteration")
+            ax.set_ylabel("TV score")
+            ax.set_title("TV history")
 
-        figsize = 500  # px
-
-        if hasattr(self, "zHistory"):  # display the plot of the defocus
-            p2 = figure(
-                sizing_mode="stretch_width",
-                max_width=figsize,
-                height=figsize,
-                title="focus history",
-            )
-            p2.circle(np.arange(len(self.zHistory)), np.array(self.zHistory) * 1e3)
-            p2.xaxis.axis_label = "Iteration #"
-            p2.yaxis.axis_label = "Position [mm]"
-            # p = vplot(p, p2)
-
-        if hasattr(self, "merit"):  # display the merit as well for defocii
-            p3 = figure(
-                sizing_mode="stretch_width",
-                max_width=figsize,
-                height=figsize,
-                title="merit TV",
-            )
-            p3.circle(self.dz * 1e3, np.array(self.merit), legend_label="original")
-            p3.square(
+        if "merit" in axes:  # TV merit per trial defocus, and its mirror image
+            ax = axes["merit"]
+            ax.plot(self.dz * 1e3, np.array(self.merit), "o", ms=3, label="original")
+            ax.plot(
                 -self.dz * 1e3,
                 np.array(self.merit),
-                legend_label="mirrored",
+                "s",
+                ms=3,
                 color="red",
+                label="mirrored",
             )
-            p3.xaxis.axis_label = "Defocus [mm]"
-            p3.yaxis.axis_label = "Score [a.u.]"
-            # p = vplot(p, p3)
-        if hasattr(self, "TV_history"):
-            if len(self.TV_history) >= 1:
-                p4 = figure(
-                    sizing_mode="stretch_width",
-                    max_width=figsize,
-                    height=figsize,
-                    title="TV history",
-                )
-                p4.square(np.arange(len(self.TV_history)), self.TV_history)
-                p4.xaxis.axis_label = "Iteration"
-                p4.yaxis.axis_label = "TV score"
-        # only add the plots that are available
-        p_list = filter(lambda x: x is not None, [p, p2, p4, p3])
-        p = row(*p_list)
+            ax.set_xlabel("Defocus [mm]")
+            ax.set_ylabel("Score [a.u.]")
+            ax.set_title("merit TV")
+            ax.locator_params(axis="x", nbins=5)  # defocus tick labels are long
+            ax.legend()
 
         if saveit:
-            save(
-                p,
-            )
+            from pathlib import Path
+
+            output = Path("plots/alignment.png")
+            output.parent.mkdir(parents=True, exist_ok=True)
+            fig.savefig(output, dpi=100)
+
         t1 = time.time()
-        print(f"Alignment display took {t1-t0} secs")
+        print(f"Alignment display took {t1 - t0} secs")
+        return fig
         return p
 
     def initializeSettings(self):
@@ -627,7 +627,7 @@ class Reconstruction(object):
             force (bool, optional):
                 Forwarded to the object and probe initialization methods.
                 Defaults to True.
-        """ 
+        """
         # initialize object and probe
         self.initializeObject(force=force)
         self.initializeProbe(force=force)
@@ -676,17 +676,21 @@ class Reconstruction(object):
             self.No,
             self.No,
         )
-        if self.initialObject == 'recon':
+        if self.initialObject == "recon":
             # Load the object from an existing reconstruction. Confusing filename, but it contains both object and probe.
-            self.initialGuessObject = self.loadResults(self.initialProbe_filename, datatype='object')
+            self.initialGuessObject = self.loadResults(
+                self.initialProbe_filename, datatype="object"
+            )
         else:
-            self.initialGuessObject = initialProbeOrObject(self.shape_O, self.initialObject, self, self.logger).astype(np.complex64)
+            self.initialGuessObject = initialProbeOrObject(
+                self.shape_O, self.initialObject, self, self.logger
+            ).astype(np.complex64)
 
         # self.initialGuessObject *= 1e-2
 
     @staticmethod
-    def loadResults(fileName, datatype='probe'):
-        '''
+    def loadResults(fileName, datatype="probe"):
+        """
         Load an object or probe from a saved PtyLab reconstruction.
 
         Args:
@@ -700,7 +704,7 @@ class Reconstruction(object):
         Returns:
             np.ndarray:
                 Copy of the requested reconstruction dataset.
-        '''
+        """
         with h5py.File(fileName) as archive:
             data = np.copy(np.array(archive[datatype]))
         return data
@@ -742,8 +746,10 @@ class Reconstruction(object):
             int(self.Np),
         )
 
-        if self.initialProbe == 'recon':
-            self.initialGuessProbe = self.loadResults(self.initialProbe_filename, datatype='probe')
+        if self.initialProbe == "recon":
+            self.initialGuessProbe = self.loadResults(
+                self.initialProbe_filename, datatype="probe"
+            )
         else:
             if force:
                 self.initialGuessProbe = None
@@ -795,7 +801,7 @@ class Reconstruction(object):
                 self.object = obj
             else:
                 raise RuntimeError(
-                    f'Shape of saved object cannot be extended to shape of required object. File: {archive["object"].shape}. Need: {self.shape_O}'
+                    f"Shape of saved object cannot be extended to shape of required object. File: {archive['object'].shape}. Need: {self.shape_O}"
                 )
 
     def load_probe(self, filename, expand_npsm=False, center_phase=False):
@@ -831,19 +837,18 @@ class Reconstruction(object):
             probe = np.array(archive["probe"])
             N_probe_read = probe.shape[-1]
             # roughly extract the center
-            ss = slice(np.clip(N_probe_read//2-self.Np//2, 0, None), np.clip(N_probe_read//2-self.Np//2+int(self.Np), 0, N_probe_read))
-            probe = probe[
-                : self.nlambda,
-                :1,
-                : self.npsm,
-                : self.nslice,
-                ss,ss
-            ]
+            ss = slice(
+                np.clip(N_probe_read // 2 - self.Np // 2, 0, None),
+                np.clip(
+                    N_probe_read // 2 - self.Np // 2 + int(self.Np), 0, N_probe_read
+                ),
+            )
+            probe = probe[: self.nlambda, :1, : self.npsm, : self.nslice, ss, ss]
             if np.all(np.array(probe.shape) == np.array(self.shape_P)):
                 self.probe = probe
             else:
                 raise RuntimeError(
-                    f'Shape of saved probe cannot be extended to shape of required probe. File: {archive["probe"].shape}. Need: {self.shape_P}'
+                    f"Shape of saved probe cannot be extended to shape of required probe. File: {archive['probe'].shape}. Need: {self.shape_P}"
                 )
         if center_phase:
             self._center_probe_angle()
@@ -855,10 +860,13 @@ class Reconstruction(object):
         The offset is estimated from the first probe mode and corrected by
         applying a compensating phase factor.
         """
-        from skimage.registration import phase_cross_correlation
         from scipy.ndimage import fourier_shift
+        from skimage.registration import phase_cross_correlation
+
         p0 = np.squeeze(self.probe)[0]
-        shift = phase_cross_correlation(p0, 0 * p0 + 1, normalization=None, space='fourier')[0]
+        shift = phase_cross_correlation(
+            p0, 0 * p0 + 1, normalization=None, space="fourier"
+        )[0]
         phexp = np.fft.fftshift(fourier_shift(0 * p0 + 1j, -shift / 2))
         self.probe *= phexp
 
@@ -883,7 +891,6 @@ class Reconstruction(object):
             adapt or validate the loaded object and probe shapes.
         """
         with h5py.File(filename, "r") as archive:
-
             self.probe = np.array(archive["probe"])
             self.object = np.array(archive["object"])
             self.error = np.array(archive["error"])
@@ -895,7 +902,7 @@ class Reconstruction(object):
             if "theta" in archive.keys():
                 self.theta = np.array(archive["theta"])
 
-    def saveResults(self, fileName="recent", type="all", squeeze=False):
+    def saveResults(self, fileName="recent", type="all", squeeze=False, snapshot=None):
         """
         Save reconstruction results to an HDF5 file.
 
@@ -912,6 +919,13 @@ class Reconstruction(object):
                 If True, remove singleton dimensions when saving only the object
                 or probe. This option does not affect ``type="all"``.
                 Defaults to False.
+
+            snapshot (AbstractMonitor, optional):
+                Monitor whose current figures are saved as PNG files next to the
+                HDF5 file, via ``snapshot.saveFigures``. The PNG names reuse
+                ``fileName`` without its ``.hdf5``/``.h5`` extension, e.g.
+                ``run.hdf5`` gives ``run_reconstruction.png``. Defaults to None,
+                which saves no figures.
 
         Raises:
             NotImplementedError:
@@ -944,22 +958,22 @@ class Reconstruction(object):
                     hf.create_dataset("dxp", data=self.dxp, dtype="f")
                     hf.create_dataset("purityProbe", data=self.purityProbe, dtype="f")
                     hf.create_dataset("purityObject", data=self.purityObject, dtype="f")
-                    hf.create_dataset('I object', data=abs(self.object), dtype='f')
-                    hf.create_dataset('I probe', data=abs(self.probe), dtype='f')
-                    hf.create_dataset('encoder_corrected', data=self.encoder_corrected)
+                    hf.create_dataset("I object", data=abs(self.object), dtype="f")
+                    hf.create_dataset("I probe", data=abs(self.probe), dtype="f")
+                    hf.create_dataset("encoder_corrected", data=self.encoder_corrected)
 
                     if hasattr(self, "theta"):
                         if self.theta != None:
                             hf.create_dataset("theta", data=self.theta, dtype="f")
 
             if self.data.operationMode == "FPM":
-                hf = h5py.File(fileName, "w")
-                hf.create_dataset("probe", data=self.probe, dtype="complex64")
-                hf.create_dataset("object", data=self.object, dtype="complex64")
-                hf.create_dataset("error", data=self.error, dtype="f")
-                hf.create_dataset("zled", data=self.zled, dtype="f")
-                hf.create_dataset("wavelength", data=self.wavelength, dtype="f")
-                hf.create_dataset("dxp", data=self.dxp, dtype="f")
+                with h5py.File(fileName, "w") as hf:
+                    hf.create_dataset("probe", data=self.probe, dtype="complex64")
+                    hf.create_dataset("object", data=self.object, dtype="complex64")
+                    hf.create_dataset("error", data=self.error, dtype="f")
+                    hf.create_dataset("zled", data=self.zled, dtype="f")
+                    hf.create_dataset("wavelength", data=self.wavelength, dtype="f")
+                    hf.create_dataset("dxp", data=self.dxp, dtype="f")
         elif type == "probe":
             with h5py.File(fileName, "w") as hf:
                 hf.create_dataset(
@@ -971,9 +985,20 @@ class Reconstruction(object):
                     "object", data=squeezefun(self.object), dtype="complex64"
                 )
         elif type == "probe_stack":
-            hf = h5py.File(fileName + '_probe_stack.hdf5', 'w')
-            hf.create_dataset('probe_stack', data=self.probe_stack.get(), dtype='complex64')
+            with h5py.File(fileName + "_probe_stack.hdf5", "w") as hf:
+                hf.create_dataset(
+                    "probe_stack", data=self.probe_stack.get(), dtype="complex64"
+                )
         print("The reconstruction results (%s) have been saved" % type)
+
+        if snapshot is not None:
+            # "results/run.hdf5" -> "results/run_reconstruction.png", ...; other
+            # suffixes are kept, as they may be part of the name ("run.v2")
+            prefix = Path(fileName)
+            if prefix.suffix.lower() in (".hdf5", ".h5"):
+                prefix = prefix.with_suffix("")
+            for path in snapshot.saveFigures(prefix):
+                print("Saved monitor figure %s" % path)
 
     # detector coordinates
     @property
@@ -1051,8 +1076,7 @@ class Reconstruction(object):
 
     @property
     def dxo_fpm(self):
-        """Real-space object pixel size for FPM.
-        """
+        """Real-space object pixel size for FPM."""
         return self.dxp * self.Np / self.No
 
     @property
@@ -1159,30 +1183,30 @@ class Reconstruction(object):
             str:
                 Formatted reconstruction summary.
         """
-        minmax_tv = ''
+        minmax_tv = ""
         try:
-            minmax_tv = f'(min: {self.params.TV_autofocus_min_z*1e3}, max: {self.params.TV_autofocus_max_z*1e3}.)'
-        except TypeError: # one of them is none
+            minmax_tv = f"(min: {self.params.TV_autofocus_min_z * 1e3}, max: {self.params.TV_autofocus_max_z * 1e3}.)"
+        except TypeError:  # one of them is none
             pass
         info = f"""
         Experimental data:
         - Ptychogram shape: {self.data.ptychogram.shape}
         - Ptychogram size[px]: {self.data.Nd}
-        - Ptychogram size: {self.data.Ld*1e3} mm
-        - Pixel pitch: {self.data.dxd*1e6} um
-        - Scan size: {1e3*(self.data.encoder.max(axis=0) - self.data.encoder.min(axis=0))} mm 
+        - Ptychogram size: {self.data.Ld * 1e3} mm
+        - Pixel pitch: {self.data.dxd * 1e6} um
+        - Scan size: {1e3 * (self.data.encoder.max(axis=0) - self.data.encoder.min(axis=0))} mm 
         
         Reconstruction:
         - number of pixels: {self.No}
-        - Pixel pitch: {self.dxo*1e6} um
-        - Field of view: {self.Lo*1e3} mm
-        - Scan size in pixels: {self.positions.max(axis=0)- self.positions.min(axis=0)}
+        - Pixel pitch: {self.dxo * 1e6} um
+        - Field of view: {self.Lo * 1e3} mm
+        - Scan size in pixels: {self.positions.max(axis=0) - self.positions.min(axis=0)}
         - Propagation distance: {self.zo * 1e3} mm {minmax_tv}
-        - Probe FoV: {self.Lp*1e3} mm
+        - Probe FoV: {self.Lp * 1e3} mm
         
         Derived parameters:
         - NA detector: {self.NAd}
-        - Depth of field: {self.DoF*1e6} um
+        - Depth of field: {self.DoF * 1e6} um
         
         """
         self.logger.info(info)
@@ -1209,7 +1233,6 @@ class Reconstruction(object):
         raise NotImplementedError("Q2 is no longer available")
 
     def TV_autofocus(self, params: Params, loop):
-
         """
         Perform one autofocus update by optimizing a propagated-field metric.
 
@@ -1308,15 +1331,19 @@ class Reconstruction(object):
         )
         self.zo -= delta_z
         end_time = time.time()
-        self.logger.info(
-            f"TV autofocus took {end_time-start_time} seconds, and moved focus by {-delta_z*1e6} micron"
+        self.logger.debug(
+            f"TV autofocus took {end_time - start_time} seconds, and moved focus by {-delta_z * 1e6} micron"
         )
-        indices = [nplanes//2, np.argmax(merit)]
+        indices = [nplanes // 2, np.argmax(merit)]
         OEs = OEs[indices]
-        phexp = OEs.sum((-2,-1), keepdims=True).conj()
+        phexp = OEs.sum((-2, -1), keepdims=True).conj()
         phexp = phexp / abs(phexp)
         OEs *= phexp
-        return merit[nplanes//2] / asNumpyArray(abs(self.object[..., sy, sx]).mean()), np.hstack(OEs), (scores, self.zo)
+        return (
+            merit[nplanes // 2] / asNumpyArray(abs(self.object[..., sy, sx]).mean()),
+            np.hstack(OEs),
+            (scores, self.zo),
+        )
 
     def reset_TV_autofocus(self):
         """

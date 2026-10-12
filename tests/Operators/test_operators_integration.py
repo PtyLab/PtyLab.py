@@ -6,7 +6,8 @@ from PtyLab import Operators, easyInitialize
 
 try:
     import cupy as cp
-    HAS_GPU = True
+    # cupy can be installed on a machine without a GPU (e.g. via --all-extras)
+    HAS_GPU = cp.cuda.is_available()
 except ImportError:
     cp = None
     HAS_GPU = False

@@ -2,8 +2,8 @@ import logging
 import sys
 
 import numpy as np
-import tqdm
 from matplotlib import pyplot as plt
+from tqdm.auto import trange  # widget bar in Jupyter, text bar in a terminal
 
 from PtyLab.Engines.BaseEngine import BaseEngine
 from PtyLab.ExperimentalData.ExperimentalData import ExperimentalData
@@ -66,6 +66,7 @@ class ePIE(BaseEngine):
         imaging," Ultramicroscopy 109, 1256-1262 (2009).
         https://doi.org/10.1016/j.ultramic.2009.05.012
     """
+
     def __init__(
         self,
         reconstruction: Reconstruction,
@@ -154,8 +155,9 @@ class ePIE(BaseEngine):
         probe estimate is updated sequentially across all scan positions.
 
         After all scan positions in an iteration have been processed,
-        `getErrorMetrics()` evaluates the reconstruction error and
-        `applyConstraints()` applies the enabled reconstruction constraints.
+        `getErrorMetrics()` evaluates the reconstruction error,
+        `applyConstraints()` applies the enabled reconstruction constraints and
+        `showReconstruction()` updates the monitor.
 
         The method yields after every scan-position update, allowing custom code
         to be interleaved with the reconstruction.
@@ -175,9 +177,7 @@ class ePIE(BaseEngine):
         self._prepareReconstruction()
 
         # actual reconstruction ePIE_engine
-        self.pbar = tqdm.trange(
-            self.numIterations, desc="ePIE", file=sys.stdout, leave=True
-        )
+        self.pbar = trange(self.numIterations, desc="ePIE", file=sys.stdout, leave=True)
         for loop in self.pbar:
             # set position order
             self.setPositionOrder()
@@ -219,10 +219,10 @@ class ePIE(BaseEngine):
                     object_patch = self.objectPatchUpdate(objectPatch, DELTA)
 
                 self.reconstruction.object[..., sy, sx] = object_patch
-                
-                #self.reconstruction.object[..., sy, sx] = self.objectPatchUpdate(
+
+                # self.reconstruction.object[..., sy, sx] = self.objectPatchUpdate(
                 #    objectPatch, DELTA
-                #)
+                # )
 
                 # probe update
                 self.reconstruction.probe = self.probeUpdate(objectPatch, DELTA)
@@ -240,8 +240,8 @@ class ePIE(BaseEngine):
             # apply Constraints
             self.applyConstraints(loop)
 
-            # show reconstruction
-            # self.showReconstruction(loop)
+            # update the monitor, as every other engine does after the constraints
+            self.showReconstruction(loop)
 
         if self.params.gpuFlag:
             self.logger.info("switch to cpu")

@@ -2,8 +2,8 @@
 # PtyLab dataset.
 import numpy as np
 import matplotlib.pylab as plt
-import imageio
 import tqdm
+from skimage.io import imread
 from skimage.transform import rescale
 import glob
 import os
@@ -54,7 +54,7 @@ framesList.sort()
 numFrames = len(framesList) - 1
 
 # read background
-dark = imageio.imread("background.tif")
+dark = imread("background.tif")
 
 # read empty beam (if available)
 
@@ -69,7 +69,7 @@ pbar = tqdm.trange(numFrames, leave=True)
 for k in pbar:
     # get file name
     pbar.set_description("reading frame" + framesList[k])
-    temp = imageio.imread(framesList[k]).astype("float32") - dark - backgroundOffset
+    temp = imread(framesList[k]).astype("float32") - dark - backgroundOffset
     temp[temp < 0] = 0  # todo check if data type is single
     # crop
     temp = temp[

@@ -1,5 +1,6 @@
 import pytest
 import numpy as np
+from skimage import data
 
 try:
     from PtyLab.ProbeEngines.StandardProbe import SHGProbe
@@ -9,12 +10,10 @@ except (ImportError, ValueError):
 
 pytestmark = pytest.mark.skipif(not HAS_PROBEENGINES, reason="ProbeEngines not ready")
 
-if HAS_PROBEENGINES:
-    imageio = pytest.importorskip("imageio")
-
 
 def test_shg_probe_convergence():
-    target = imageio.imread("imageio:camera.png").astype(np.float32)
+    # bundled with scikit-image (no download); same image as imageio's "camera.png"
+    target = data.camera().astype(np.float32)
     target = target / np.linalg.norm(target)
     engine = SHGProbe()
     engine.probe = np.random.rand(*target.shape)

@@ -68,6 +68,7 @@ nav:
     - "05 – CPM Reflection": tutorials/tutorial_reflectionPtychography.ipynb
     - "06 – CPM Interferometric Intensity": tutorials/tutorial_interferometricIntensityConstraint.ipynb
     - "07 – FPM": tutorials/tutorial_FPM.ipynb
+  - Development: development.md
   - API Reference:
     - api/index.md
     - Core: api/core.md

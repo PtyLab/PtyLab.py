@@ -4,7 +4,7 @@
 ![Tests](https://github.com/PtyLab/PtyLab.py/actions/workflows/test.yml/badge.svg)
 [![Docs](https://github.com/PtyLab/PtyLab.py/actions/workflows/docs.yml/badge.svg)](https://ptylab.github.io/PtyLab.py/)
 
-[**Getting Started**](#getting-started) | [**Installation**](#installation) | [**Development**](#development) | [**Documentation**](https://ptylab.github.io/PtyLab.py/)
+[**Key Features**](#key-features) | [**Getting Started**](#getting-started) | [**Installation**](#installation) | [**Documentation**](https://ptylab.github.io/PtyLab.py/)
 
 PtyLab is an inverse modeling toolbox for Conventional (CP) and Fourier (FP) ptychography in a unified framework. For more information please check the [paper](https://opg.optica.org/oe/fulltext.cfm?uri=oe-31-9-13763&id=529026).
 
@@ -43,46 +43,18 @@ Install from PyPI within your virtual environment:
 ```bash
 pip install ptylab
 ```
-For much faster installs, we recommend [uv](https://docs.astral.sh/uv/getting-started/installation/): `uv pip install ptylab`
+For faster installs, we recommend [uv](https://docs.astral.sh/uv/getting-started/installation/): `uv pip install ptylab`
 
-This package uses `cupy` to utilize GPU for faster reconstruction. To enable GPU support:
-
-```bash
-pip install "ptylab[gpu]"
-```
-You can check if GPU is detected with `ptylab check gpu`.
-
-For the latest unreleased changes on `main`:
+To utilize GPU for faster reconstruction, enable GPU support:
 
 ```bash
-pip install git+https://github.com/PtyLab/PtyLab.py.git
+uv pip install "ptylab[gpu]" # supports CUDA 12
 ```
+Check whether GPU is correctly configured with `uv run ptylab check gpu`. For additional information, check the [installation guide](https://ptylab.github.io/PtyLab.py/getting-started/installation/).
 
 ### Development
 
-Clone the repo and install dev and gpu dependencies with [uv](https://docs.astral.sh/uv/getting-started/installation/):
-
-```bash
-git clone git@github.com:PtyLab/PtyLab.py.git
-cd PtyLab.py
-uv sync --extra dev,gpu # remove the GPU flag if you are on CPU
-```
-This creates a `.venv` virtual environment in the project root. Select this environment from your IDE.
-
-
-Add tests for new implementations and run the suite:
-
-```bash
-uv run pytest tests
-```
-
-### Documentation
-
-Any documentation changes would be deployed automatically after a PR merges main. However, please verify locally first with
-
-```bash
-uv run --extra docs mkdocs serve
-```
+For the development setup, running the tests and building the documentation locally, see the [development guide](https://ptylab.github.io/PtyLab.py/development/) in the documentation.
 
 ## Citation
 
