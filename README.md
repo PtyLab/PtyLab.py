@@ -14,9 +14,12 @@ PtyLab is an inverse modeling toolbox for Conventional (CP) and Fourier (FP) pty
 - **Advanced corrections**: position correction, defocus correction (zPIE), angle correction (aPIE), orthogonal probe relaxation (OPR)
 - **Multi-modal**: multi-slice, multi-wavelength, mixed-state object and probe
 - **Multiple propagators**: Fraunhofer, Fresnel, Angular Spectrum (ASP), scaled ASP, polychromatic variants
-- **GPU acceleration**: same code runs on CPU and GPU
+- **GPU acceleration**: same code runs on CPU and GPU (NumPy/CuPy)
+- **Differentiable ptychography** (work in progress): gradient-based reconstruction with PyTorch for flexible modeling (see the [guide](https://ptylab.github.io/PtyLab.py/advanced/differentiable-ptychography/)).
 
-The reconstructed output is a 6D array of shape `(nlambda, nosm, npsm, nslice, No, No)`:
+### Unified array layout
+
+Object and probe are stored as 6D arrays with axes `(nlambda, nosm, npsm, nslice, N, N)`:
 
 | Dim | Meaning |
 |-----|---------|
@@ -24,11 +27,7 @@ The reconstructed output is a 6D array of shape `(nlambda, nosm, npsm, nslice, N
 | `nosm` | object state mixture |
 | `npsm` | probe state mixture |
 | `nslice` | depth slices |
-| `No` | output frame size |
-
-### Optional: Differentiable Ptychography
-
-The new module `PtyLab.Engines.GradientEngine` implements differentiable (gradient-based) ptychography for modeling flexibility. The API for this should stay fixed, but this is not guaranteed because this is a work-in-progress. See the [GradientEngine usage guide](PtyLab/Engines/GradientEngine/README.md) for more details.
+| `N` | frame size: `No` for the object, `Np` for the probe |
 
 ## Getting started
 
