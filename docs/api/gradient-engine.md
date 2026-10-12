@@ -51,3 +51,10 @@ PyTorch engine for differentiable ptychography. It needs the optional `torch` ex
     options:
       show_root_heading: false
       show_root_toc_entry: false
+
+## Batching
+
+::: PtyLab.Engines.GradientEngine.batching
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
