@@ -167,8 +167,6 @@ class Params(object):
         # Shared adaptive-scan settings
         self.purityAdaptive = True
         self.purityMaxEvaluations = 50
-        # plot purity and reconstruction error vs the scanned parameter at the end
-        self.purityScanPlot = True
 
         # z-specific adaptive settings
         self.purityZInitialStep = 200e-6
