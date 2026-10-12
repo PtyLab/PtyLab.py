@@ -73,4 +73,4 @@ uv pip install "ptylab[torch]" --torch-backend=cpu     # no GPU
 `GradientEngine` runs on the GPU through PyTorch whenever CUDA is available, independently of CuPy, and falls back to the CPU otherwise.
 
 !!! warning
-    `GradientEngine` is a work in progress. Its API should stay fixed, but this is not guaranteed for the time being. See the [GradientEngine usage guide](https://github.com/PtyLab/PtyLab.py/blob/main/PtyLab/Engines/GradientEngine/README.md) for the API.
+    `GradientEngine` is a work in progress. Its API should stay fixed, but this is not guaranteed for the time being. See [Differentiable Ptychography](../advanced/differentiable-ptychography.md) for the API.

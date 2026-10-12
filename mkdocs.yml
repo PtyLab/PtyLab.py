@@ -59,6 +59,7 @@ nav:
     - GPU Acceleration: advanced/gpu.md
     - Multislice: advanced/multislice.md
     - Position Correction: advanced/position-correction.md
+    - Differentiable Ptychography: advanced/differentiable-ptychography.md
   - Tutorials:
     - tutorials/index.md
     - "01 – CPM Simulation": tutorials/tutorial_CPM_sim.ipynb
