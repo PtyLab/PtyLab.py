@@ -2,28 +2,46 @@
 
 PtyLab.py requires **Python 3.10–3.13** and is distributed on [PyPI](https://pypi.org/project/ptylab/). Install it within a virtual environment.
 
-## From PyPI (pip)
-
-=== "CPU"
-
-    ```bash
-    pip install ptylab
-    ```
-
-=== "GPU"
-
-    ```bash
-    pip install "ptylab[gpu]"
-    ```
+## From PyPI
 
 !!! tip
-    For faster installs, we recommend [uv](https://docs.astral.sh/uv/getting-started/installation/):
+    The commands below use [uv](https://docs.astral.sh/uv/getting-started/installation/) for much faster installs. If you don't have it, drop the `uv` prefix and use plain `pip`.
+
+=== "CPU"
 
     ```bash
     uv pip install ptylab
     ```
 
+=== "GPU"
+
+    ```bash
+    uv pip install "ptylab[gpu]"
+    ```
+
 The `gpu` extra installs [CuPy](https://cupy.dev/) for CUDA 12 and enables GPU acceleration of the reconstruction engines. CUDA 13 is not supported yet. The extra is not installed on macOS, where PtyLab runs on the CPU.
+
+## Optional extras
+
+Some features can be installed with the optional dependencies with the following extras:
+
+| Extra | Installs | Needed for |
+|---|---|---|
+| `gpu` | CuPy (CUDA 12) | GPU reconstruction |
+| `gui` | pyqtgraph, PySide6 | the interactive Qt viewer (`show3Dslider` outside a notebook) |
+| `torch` | PyTorch | differentiable ptychography with `GradientEngine` (see [below](#optional-differentiable-ptychography)) |
+
+For example to combine them in one command:
+
+```bash
+uv pip install "ptylab[gpu,gui]"
+```
+
+## Interactive viewer (Qt)
+
+Outside a notebook, `show3Dslider` opens an interactive pyqtgraph (Qt) viewer when the `gui` extra is installed. Without it, or if Qt cannot start, it falls back to a matplotlib slider.
+
+On a remote machine, the viewer window needs a graphical connection: a remote desktop session (or equivalent), or X11 forwarding from Linux or macOS (`ssh -X`). Without a display, the matplotlib fallback is used.
 
 ## Latest unreleased version
 
@@ -63,49 +81,3 @@ uv run ptylab check gpu
 ```
 
 This prints the CuPy and, if installed, PyTorch CUDA device information, or warns if no GPU is found.
-
-## Development setup
-
-Clone the repository and install the development and GPU dependencies with [uv](https://docs.astral.sh/uv/getting-started/installation/):
-
-```bash
-git clone git@github.com:PtyLab/PtyLab.py.git
-cd PtyLab.py
-uv sync --extra dev --extra gpu # omit --extra gpu if you are on CPU
-```
-
-Use `https://github.com/PtyLab/PtyLab.py.git` instead if you have not set up SSH keys for GitHub.
-
-This creates a `.venv` virtual environment in the project root. Select it in your IDE or activate it:
-
-```bash
-source .venv/bin/activate
-```
-
-Add `--extra torch` for `GradientEngine` development:
-
-```bash
-uv sync --extra dev --extra gpu --extra torch
-```
-
-`uv sync` installs exactly the extras you list, so repeat all of them whenever you sync again.
-
-## Running tests
-
-Add tests for new implementations and run the suite with:
-
-```bash
-uv run pytest tests
-```
-
-Tests that need an unavailable dependency are skipped rather than failed: the `GradientEngine` tests without the `torch` extra, and the CUDA tests on a machine without a GPU. Check the skipped count in the summary to see what was not exercised.
-
-## Serving documentation locally
-
-Documentation changes are deployed automatically once a pull request is merged into `main`. Check them locally first:
-
-```bash
-uv run --extra docs mkdocs serve
-```
-
-Then open [http://127.0.0.1:8000](http://127.0.0.1:8000) in your browser. The page reloads when you save a change.

@@ -13,7 +13,7 @@ import logging
 import sys
 import warnings
 
-import tqdm
+from tqdm.auto import tqdm, trange  # widget bar in Jupyter, text bar in a terminal
 
 from PtyLab.Engines.BaseEngine import BaseEngine
 from PtyLab.ExperimentalData.ExperimentalData import ExperimentalData
@@ -98,6 +98,7 @@ class mPIE(BaseEngine):
             Baseline ePIE reconstruction without rPIE regularization or
             momentum acceleration.
     """
+
     def __init__(
         self,
         reconstruction: Reconstruction,
@@ -127,7 +128,7 @@ class mPIE(BaseEngine):
             monitor (Monitor):
                 Monitor used for reconstruction visualization and progress
                 reporting.
-    """
+        """
         super().__init__(reconstruction, experimentalData, params, monitor)
         self.logger = logging.getLogger("mPIE")
         self.logger.info("Successfully created mPIE engine")
@@ -200,7 +201,9 @@ class mPIE(BaseEngine):
 
         self.reconstruction.probeWindow = np.abs(self.reconstruction.probe)
 
-    def reconstruct(self, experimentalData=None, reconstruction=None, vis_after_each_iteration=None):
+    def reconstruct(
+        self, experimentalData=None, reconstruction=None, vis_after_each_iteration=None
+    ):
         r"""
         Run the mPIE reconstruction to completion.
 
@@ -273,13 +276,11 @@ class mPIE(BaseEngine):
         self.reconstruction.objectBuffer = self.reconstruction.object.copy()
         self.reconstruction.probeBuffer = self.reconstruction.probe.copy()
         # actual reconstruction MPIE_engine
-        self.pbar = tqdm.trange(
-            self.numIterations, desc="mPIE", file=sys.stdout, leave=True
-        )
+        self.pbar = trange(self.numIterations, desc="mPIE", file=sys.stdout, leave=True)
         for loop in self.pbar:
             # set position order
             self.setPositionOrder()
-            self.pbar_pos = tqdm.tqdm(
+            self.pbar_pos = tqdm(
                 self.positionIndices, leave=False, desc="ptychogram", file=sys.stdout
             )
             for positionLoop, positionIndex in enumerate(self.pbar_pos):
@@ -329,9 +330,7 @@ class mPIE(BaseEngine):
                 # self.reconstruction.push_probe_update(self.reconstruction.probe, positionIndex, self.experimentalData.ptychogram.shape[0])
 
                 if self.params.positionCorrectionSwitch:
-                    self.positionCorrection(
-                        objectPatch, positionIndex, sy, sx
-                    )
+                    self.positionCorrection(objectPatch, positionIndex, sy, sx)
                     # self.pbar_pos.write(f'Corr: {shifter[0]*1e6:.2f} um x {shifter[1]*1e6:.2f} um')
 
                 # momentum updates

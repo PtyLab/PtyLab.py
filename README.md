@@ -47,12 +47,16 @@ Install from PyPI within your virtual environment:
 pip install ptylab
 ```
 For faster installs, we recommend [uv](https://docs.astral.sh/uv/getting-started/installation/): `uv pip install ptylab`
+For faster installs, we recommend [uv](https://docs.astral.sh/uv/getting-started/installation/): `uv pip install ptylab`
 
+To utilize GPU for faster reconstruction, enable GPU support:
 To utilize GPU for faster reconstruction, enable GPU support:
 
 ```bash
 uv pip install "ptylab[gpu]" # supports CUDA 12
+uv pip install "ptylab[gpu]" # supports CUDA 12
 ```
+Check whether GPU is correctly configured with `uv run ptylab check gpu`. For additional information, check the [installation guide](https://ptylab.github.io/PtyLab.py/getting-started/installation/).
 Check whether GPU is correctly configured with `uv run ptylab check gpu`. For additional information, check the [installation guide](https://ptylab.github.io/PtyLab.py/getting-started/installation/).
 
 ### Development

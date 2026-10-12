@@ -1,6 +1,6 @@
 import numpy as np
-import tqdm
 from matplotlib import pyplot as plt
+from tqdm.auto import trange  # widget bar in Jupyter, text bar in a terminal
 
 try:
     import cupy as cp
@@ -25,7 +25,6 @@ from PtyLab.utils.gpuUtils import asNumpyArray, getArrayModule
 
 
 class e3PIE(BaseEngine):
-
     def __init__(
         self,
         reconstruction: Reconstruction,
@@ -76,7 +75,7 @@ class e3PIE(BaseEngine):
         # get module
         xp = getArrayModule(self.reconstruction.object)
 
-        self.pbar = tqdm.trange(
+        self.pbar = trange(
             self.numIterations, desc="e3PIE", file=sys.stdout, leave=True
         )
 
@@ -123,7 +122,6 @@ class e3PIE(BaseEngine):
                 ]
                 # update object slice
                 for loopTemp in range(self.reconstruction.nslice - 1):
-
                     sliceLoop = self.reconstruction.nslice - 1 - loopTemp
 
                     # temp_delta = self.reconstruction.esw[..., sliceLoop, sy, sx]
@@ -137,7 +135,7 @@ class e3PIE(BaseEngine):
                         )
                     )
                     # eswTemp update (here probe incident on last slice)
-                    beth = 0.9 # todo, why need beth, not betaProbe, changable?
+                    beth = 0.9  # todo, why need beth, not betaProbe, changable?
                     self.reconstruction.probe[:, :, :, sliceLoop, ...] = (
                         self.probeUpdate(
                             objectPatch[:, :, :, sliceLoop, ...],

@@ -12,7 +12,7 @@ except ImportError:
 import logging
 import sys
 
-import tqdm
+from tqdm.auto import trange  # widget bar in Jupyter, text bar in a terminal
 
 from PtyLab.Engines.BaseEngine import BaseEngine
 from PtyLab.ExperimentalData.ExperimentalData import ExperimentalData
@@ -85,7 +85,7 @@ class mqNewton(BaseEngine):
         self._prepareReconstruction()
         self.initializeAdaptiveMomentum()
 
-        self.pbar = tqdm.trange(
+        self.pbar = trange(
             self.numIterations, desc="mqNewton", file=sys.stdout, leave=True
         )
         for loop in self.pbar:

@@ -49,9 +49,9 @@ After reconstruction, inspect how much each position was corrected:
 recon.make_alignment_plot(saveit=False)
 ```
 
-This opens an interactive Bokeh plot comparing the original encoder positions to the corrected positions, with arrows showing the displacement magnitude and direction.
+This returns a matplotlib figure comparing the original encoder positions (yellow squares) to the corrected positions (red circles), in reconstruction pixels. In a notebook, leave the call as the last line of a cell to display it. When zPIE has run, the figure also shows the focus history and the TV merit per trial defocus.
 
-To save the plot to a file:
+To save the plot to `plots/alignment.png`:
 
 ```python
 recon.make_alignment_plot(saveit=True)
