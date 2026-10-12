@@ -1,14 +1,16 @@
 import logging
-from tkinter import Tk, filedialog
+from pathlib import Path
+
+import h5py
 
 import matplotlib
+
 matplotlib.use("QtAgg")
 
 import matplotlib.pyplot as plt
 
 import PtyLab
 from PtyLab import Engines
-
 
 logging.basicConfig(level=logging.INFO)
 
@@ -28,27 +30,54 @@ initial_z = 35e-3  # 32.5 mm
 
 initial_wavelength = 13.5e-9  # 13.5 nm
 
+# HDF5 file with the measured diffraction data. Leave empty ("") to be asked
+# for the path when the script runs.
+DATASET_PATH = ""
+
+# Optional previous reconstruction whose probe is used as the starting guess.
+# None -> start from a circular probe; "" -> asked when the script runs.
+SEED_RECON_PATH = None
+
 
 # =============================================================================
 # File selection
 # =============================================================================
 
-def select_hdf5_file(title):
-    root = Tk()
-    root.withdraw()
-    root.attributes("-topmost", True)
 
-    file_path = filedialog.askopenfilename(
-        title=title,
-        filetypes=[
-            ("HDF5 files", "*.hdf5"),
-            ("All files", "*.*"),
-        ],
-    )
+# Datasets PtyLab needs in a CPM file (see ExperimentalData._setFields) and the
+# dataset read from a seed reconstruction (see Reconstruction.loadResults).
+DATASET_FIELDS = ["ptychogram", "wavelength", "encoder", "dxd", "zo"]
+SEED_FIELDS = ["probe"]
 
-    root.destroy()
 
-    return file_path
+def check_hdf5_file(path, required_fields, description):
+    """Return `path` as a Path after checking it is an HDF5 file holding `required_fields`.
+
+    Catches a wrong file before the scan starts instead of minutes into it.
+    """
+    path = Path(path).expanduser()
+
+    if not path.is_file():
+        raise FileNotFoundError(f"{description} not found: {path}")
+
+    if not h5py.is_hdf5(path):
+        raise ValueError(f"{description} is not an HDF5 file: {path}")
+
+    with h5py.File(path, "r") as archive:
+        missing = [key for key in required_fields if key not in archive]
+
+    if missing:
+        raise KeyError(
+            f"{description} {path} is missing the dataset(s) {missing}. "
+            f"Expected: {required_fields}"
+        )
+
+    return path
+
+
+def ask_path(prompt):
+    # strip quotes so a path pasted from a file manager also works
+    return input(prompt).strip().strip("'\"")
 
 
 print()
@@ -58,21 +87,20 @@ print("=" * 70)
 
 print()
 print(
-    "Step 1: Select the ptychography dataset to calibrate.\n"
+    "Step 1: The ptychography dataset to calibrate.\n"
     "This should be the HDF5 file containing the measured diffraction data."
 )
 
-filePath = select_hdf5_file(
-    "Select ptychography dataset"
-)
+if not DATASET_PATH:
+    DATASET_PATH = ask_path("Path to the ptychography dataset (.hdf5): ")
 
-if not filePath:
-    raise RuntimeError(
-        "No ptychography dataset was selected."
-    )
+if not DATASET_PATH:
+    raise RuntimeError("No ptychography dataset was given.")
+
+filePath = check_hdf5_file(DATASET_PATH, DATASET_FIELDS, "Ptychography dataset")
 
 print()
-print("Selected dataset:")
+print("Dataset:")
 print(filePath)
 
 
@@ -82,45 +110,36 @@ print(filePath)
 
 print()
 print(
-    "Step 2: Choose the initial probe.\n"
+    "Step 2: The initial probe.\n"
     "If you already have a previous reconstruction, it can be used as a "
     "seed probe.\n"
     "Otherwise, purityPIE can start from a circular probe estimate."
 )
 
-use_seed = input(
-    "Use an existing reconstruction as seed probe? [y/N]: "
-).strip().lower() in ("y", "yes")
-
+if SEED_RECON_PATH == "":
+    SEED_RECON_PATH = (
+        ask_path(
+            "Path to a reconstruction to use as seed probe "
+            "(leave empty for a circular probe): "
+        )
+        or None
+    )
 
 filePath_recon = None
 
-if use_seed:
-
-    print()
-    print(
-        "Select the HDF5 reconstruction file containing the seed probe."
+if SEED_RECON_PATH is not None:
+    filePath_recon = check_hdf5_file(
+        SEED_RECON_PATH, SEED_FIELDS, "Seed reconstruction"
     )
 
-    filePath_recon = select_hdf5_file(
-        "Select seed reconstruction"
-    )
-
-    if not filePath_recon:
-        raise RuntimeError(
-            "Seed probe was requested, but no reconstruction file "
-            "was selected."
-        )
-
     print()
-    print("Selected seed reconstruction:")
+    print("Seed reconstruction:")
     print(filePath_recon)
 
 else:
-
     print()
     print(
-        "No seed reconstruction selected.\n"
+        "No seed reconstruction given.\n"
         "The reconstruction will start from a circular probe "
         "and a uniform object."
     )
@@ -130,11 +149,9 @@ else:
 # Load data
 # =============================================================================
 
-experimentalData, reconstruction, params, monitor, _ = (
-    PtyLab.easyInitialize(
-        filePath,
-        operationMode="CPM",
-    )
+experimentalData, reconstruction, params, monitor, _ = PtyLab.easyInitialize(
+    filePath,
+    operationMode="CPM",
 )
 
 # Change only if required by your dataset.
@@ -147,14 +164,11 @@ print(f"Dataset z: {reconstruction.zo * 1e3:.6f} mm")
 print(f"Dataset wavelength: {reconstruction.wavelength * 1e9:.6f} nm")
 
 
-
 # =============================================================================
 # Purity-based calibration settings
 # =============================================================================
 
-params.purityCalibrationTarget = (
-    CALIBRATION_TARGET
-)
+params.purityCalibrationTarget = CALIBRATION_TARGET
 
 # Shared settings
 params.purityAdaptive = True
@@ -197,7 +211,6 @@ params.purityWavelengthPurityTolerance = 1e-4
 # =============================================================================
 
 if CALIBRATION_TARGET == "z":
-
     # Use the value stored in the dataset by default.
     # initial_z = reconstruction.zo
 
@@ -208,20 +221,13 @@ if CALIBRATION_TARGET == "z":
     reconstruction.zo = initial_z
 
     print()
-    print(
-        f"Initial z guess: "
-        f"{reconstruction.zo * 1e3:.6f} mm"
-    )
+    print(f"Initial z guess: {reconstruction.zo * 1e3:.6f} mm")
 
 
 elif CALIBRATION_TARGET == "wavelength":
-    
     reconstruction.zo = initial_z
 
-    print(
-                f"Fixed z used for wavelength calibration: "
-                f"{reconstruction.zo * 1e3:.6f} mm"
-            )
+    print(f"Fixed z used for wavelength calibration: {reconstruction.zo * 1e3:.6f} mm")
     # Use the wavelength stored in the dataset by default.
     # initial_wavelength = reconstruction.wavelength
 
@@ -238,24 +244,15 @@ elif CALIBRATION_TARGET == "wavelength":
 
     # Update CPM sampling because wavelength has no property setter.
     reconstruction.dxp = (
-        reconstruction.wavelength
-        * reconstruction.zo
-        / reconstruction.Ld
+        reconstruction.wavelength * reconstruction.zo / reconstruction.Ld
     )
 
     print()
-    print(
-        f"Initial wavelength guess: "
-        f"{reconstruction.wavelength * 1e9:.6f} nm"
-    )
+    print(f"Initial wavelength guess: {reconstruction.wavelength * 1e9:.6f} nm")
 
 
 else:
-
-    raise ValueError(
-        "CALIBRATION_TARGET must be either "
-        "'z' or 'wavelength'."
-    )
+    raise ValueError("CALIBRATION_TARGET must be either 'z' or 'wavelength'.")
 
 
 # =============================================================================
@@ -277,25 +274,17 @@ reconstruction.nslice = 1
 reconstruction.initialObject = "ones"
 
 if filePath_recon is not None:
-
     reconstruction.initialProbe = "recon"
-    reconstruction.initialProbe_filename = (
-        filePath_recon
-    )
+    reconstruction.initialProbe_filename = filePath_recon
 
     print()
-    print(
-        "Initial probe: loaded from seed reconstruction"
-    )
+    print("Initial probe: loaded from seed reconstruction")
 
 else:
-
     reconstruction.initialProbe = "circ"
 
     print()
-    print(
-        "Initial probe: circular estimate"
-    )
+    print("Initial probe: circular estimate")
 
     pupil_diameter = getattr(
         experimentalData,
@@ -311,10 +300,7 @@ else:
             "`initializeObjectProbe()`, or provide a seed reconstruction."
         )
 
-    print(
-        f"Entrance pupil diameter: "
-        f"{pupil_diameter * 1e6:.2f} um"
-    )
+    print(f"Entrance pupil diameter: {pupil_diameter * 1e6:.2f} um")
 
 
 reconstruction.initializeObjectProbe()
@@ -387,9 +373,7 @@ purity_engine = Engines.purityPIE(
 # Number of mPIE iterations used to evaluate EACH candidate.
 purity_engine.numIterations = 5
 
-best_value, best_purity = (
-    purity_engine.reconstruct()
-)
+best_value, best_purity = purity_engine.reconstruct()
 
 
 # =============================================================================
@@ -403,29 +387,15 @@ print("=" * 70)
 
 
 if CALIBRATION_TARGET == "z":
+    print(f"Initial z : {purity_engine.purityZInitialGuess * 1e3:.6f} mm")
+
+    print(f"Best z    : {best_value * 1e3:.6f} mm")
 
     print(
-        f"Initial z : "
-        f"{purity_engine.purityZInitialGuess * 1e3:.6f} mm"
+        f"Delta z   : {(best_value - purity_engine.purityZInitialGuess) * 1e6:+.3f} um"
     )
 
-    print(
-        f"Best z    : "
-        f"{best_value * 1e3:.6f} mm"
-    )
-
-    print(
-        f"Delta z   : "
-        f"{(
-            best_value
-            - purity_engine.purityZInitialGuess
-        ) * 1e6:+.3f} um"
-    )
-
-    print(
-        f"Best purity: "
-        f"{best_purity:.6f}"
-    )
+    print(f"Best purity: {best_purity:.6f}")
 
     print()
     print("z scan:")
@@ -434,42 +404,28 @@ if CALIBRATION_TARGET == "z":
         purity_engine.purityZValues,
         purity_engine.purityZMetrics,
     ):
-
         print(
             f"z = {z * 1e3:.6f} mm | "
             f"delta z = "
-            f"{(
-                z
-                - purity_engine.purityZInitialGuess
-            ) * 1e6:+.2f} um | "
+            f"{(z - purity_engine.purityZInitialGuess) * 1e6:+.2f} um | "
             f"purity = {purity:.6f}"
         )
 
 
 elif CALIBRATION_TARGET == "wavelength":
-
     print(
         f"Initial wavelength : "
         f"{purity_engine.purityWavelengthInitialGuess * 1e9:.6f} nm"
     )
 
-    print(
-        f"Best wavelength    : "
-        f"{best_value * 1e9:.6f} nm"
-    )
+    print(f"Best wavelength    : {best_value * 1e9:.6f} nm")
 
     print(
         f"Delta wavelength   : "
-        f"{(
-            best_value
-            - purity_engine.purityWavelengthInitialGuess
-        ) * 1e9:+.4f} nm"
+        f"{(best_value - purity_engine.purityWavelengthInitialGuess) * 1e9:+.4f} nm"
     )
 
-    print(
-        f"Best purity        : "
-        f"{best_purity:.6f}"
-    )
+    print(f"Best purity        : {best_purity:.6f}")
 
     print()
     print("Wavelength scan:")
@@ -478,15 +434,13 @@ elif CALIBRATION_TARGET == "wavelength":
         purity_engine.purityWavelengthValues,
         purity_engine.purityWavelengthMetrics,
     ):
-
         print(
             f"wavelength = "
             f"{wavelength * 1e9:.6f} nm | "
             f"delta wavelength = "
-            f"{(
-                wavelength
-                - purity_engine.purityWavelengthInitialGuess
-            ) * 1e9:+.4f} nm | "
+            f"{
+                (wavelength - purity_engine.purityWavelengthInitialGuess)
+                * 1e9:+.4f} nm | "
             f"purity = {purity:.6f}"
         )
 
@@ -498,7 +452,6 @@ elif CALIBRATION_TARGET == "wavelength":
 continue_with_mPIE = False
 
 if continue_with_mPIE:
-
     mPIE_engine = Engines.mPIE(
         reconstruction,
         experimentalData,
