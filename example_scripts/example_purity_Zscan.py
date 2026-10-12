@@ -195,7 +195,6 @@ params.purityCalibrationTarget = CALIBRATION_TARGET
 # Shared settings
 params.purityAdaptive = True
 params.purityMaxEvaluations = 20
-params.purityScanPlot = True
 
 # -----------------------------------------------------------------------------
 # z calibration settings
