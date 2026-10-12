@@ -167,6 +167,9 @@ class Params(object):
         # Shared adaptive-scan settings
         self.purityAdaptive = True
         self.purityMaxEvaluations = 50
+        # random seed every purity candidate starts from, so candidates differ only
+        # in the calibrated value; None leaves the random state as it is
+        self.puritySeed = 0
 
         # z-specific adaptive settings
         self.purityZInitialStep = 200e-6
