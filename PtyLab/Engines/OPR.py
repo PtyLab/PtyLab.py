@@ -455,7 +455,7 @@ class OPR(BaseEngine):
             del P, G, U, modes
 
     def average(self, arr):
-        """
+        r"""
         Smooth a one-dimensional array by averaging neighboring values.
 
         Each interior element is replaced by the average of itself and its two
@@ -559,7 +559,7 @@ class OPR(BaseEngine):
 
     @staticmethod
     def gram_tsvd(A, n_dim):
-        """
+        r"""
         Compute a truncated SVD through the Gram matrix.
 
         For a tall matrix $A$, the method forms the smaller Gram matrix

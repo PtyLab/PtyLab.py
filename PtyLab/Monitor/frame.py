@@ -110,7 +110,7 @@ class MonitorFrame:
     linear_overlap: float | None = None
 
     @classmethod
-    def from_reconstruction(cls, reconstruction, **fields) -> "MonitorFrame":
+    def from_reconstruction(cls, reconstruction, **fields: Any) -> "MonitorFrame":
         """Fill the fields that follow from the reconstruction state.
 
         The panel sampling comes from `panel_geometry`. The engine must have
