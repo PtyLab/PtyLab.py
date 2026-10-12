@@ -164,15 +164,6 @@ By default the whole scan is forwarded as one tensor and the optimizer takes one
 - `updatePerBatch = True` takes one step per batch instead. Combine it with `params.positionOrder = "random"` so that each batch samples the whole scan.
 - `compile = True` evaluates the loss through `torch.compile`. Only the real-valued loss is compiled, and the gain is small; it is off by default.
 
-## Residual diagnostics
-
-`engine.residualDiagnostics()` returns NumPy arrays of Pearson residuals, χ² and deviance under the noise model of the current loss: mean images over frames, radial profiles, per-frame values and the scan positions. Pass a `NoiseModel(gain, read_out_sigma, kind)` to use a different model, and a boolean mask to exclude pixels, such as saturated ones. The engine does not plot; the arrays are meant for your own figures.
-
-```python
-diagnostics = engine.residualDiagnostics()
-q, profile = diagnostics["q"], diagnostics["radial chi2"]
-```
-
 ## Custom models
 
 The default model is a `PtychographyModel` that owns the object and a `SharedProbe`. To change the physics, subclass `GradientEngine` and override `createModel()`:
@@ -210,6 +201,5 @@ For the Fraunhofer propagator, predicted intensities and `engine.measuredIntensi
 | `regularizers` | Penalties on the model |
 | `constraints` | `Constraint`, `ProbeCentering`, `ObjectAmplitudeClamp`, `PhaseRampRemoval` |
 | `phases` | `Phase`, `blind_recipe` |
-| `diagnostics` | `NoiseModel` and residual functions |
 
 The docstrings of each module give the equations and all options.
