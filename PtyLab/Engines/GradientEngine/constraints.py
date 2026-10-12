@@ -96,18 +96,13 @@ class Constraint:
         )
 
 
-def _optimizer_state(engine, parameter):
-    optimizer = getattr(engine, "optimizer", None)
-    if optimizer is None:
-        return {}
-    return optimizer.state.get(parameter, {})
-
-
 def _moments(engine, parameter):
     """Return optimizer state shaped like `parameter` (Adam moments, SGD momentum)."""
+    optimizer = getattr(engine, "optimizer", None)
+    state = {} if optimizer is None else optimizer.state.get(parameter, {})
     return {
         key: value
-        for key, value in _optimizer_state(engine, parameter).items()
+        for key, value in state.items()
         if torch.is_tensor(value) and value.shape == parameter.shape
     }
 
@@ -180,7 +175,7 @@ class ProbeCentering(Constraint):
         threshold (float, optional):
             Offset in pixels below which nothing is done. Defaults to 2.
 
-        **schedule:
+        **schedule (dict):
             `start`, `step`, `end` and `relax`, as in `Constraint`.
 
     Raises:
@@ -257,7 +252,7 @@ class ObjectAmplitudeClamp(Constraint):
         minimum (float, optional):
             Lower amplitude bound, or None. Defaults to None.
 
-        **schedule:
+        **schedule (dict):
             `start`, `step`, `end` and `relax`, as in `Constraint`.
 
     Raises:
@@ -322,7 +317,7 @@ class PhaseRampRemoval(Constraint):
         global_phase (bool, optional):
             Remove the global phase. Defaults to True.
 
-        **schedule:
+        **schedule (dict):
             `start`, `step`, `end` and `relax`, as in `Constraint`.
 
     Raises:
@@ -375,26 +370,27 @@ class PhaseRampRemoval(Constraint):
         weight = self.weights(engine).to(obj.real.dtype)
         k_row = k_col = 0.0
         if self.ramp:
-            k_row = float(
-                torch.angle(
-                    (
-                        weight[..., 1:, :] * obj[..., 1:, :] * obj[..., :-1, :].conj()
-                    ).sum()
-                )
-            )
-            k_col = float(
-                torch.angle(
-                    (
-                        weight[..., :, 1:] * obj[..., :, 1:] * obj[..., :, :-1].conj()
-                    ).sum()
-                )
-            )
+            k_row = self._neighbour_phase(weight, obj, dim=-2)
+            k_col = self._neighbour_phase(weight, obj, dim=-1)
         phi = 0.0
         if self.global_phase:
             phi = float(
                 torch.angle((weight * obj * self._ramp(obj, k_row, k_col).conj()).sum())
             )
         return k_row, k_col, phi
+
+    @staticmethod
+    def _neighbour_phase(weight, field, dim):
+        r"""
+        Return $\arg\sum_{\mathbf{x}} w(\mathbf{x} + \mathbf{e})\, O(\mathbf{x} + \mathbf{e})\,O^*(\mathbf{x})$ along `dim`.
+
+        This is the ramp $k$ in radians per pixel along that axis.
+        """
+        length = field.shape[dim] - 1
+        later, earlier = field.narrow(dim, 1, length), field.narrow(dim, 0, length)
+        return float(
+            torch.angle((weight.narrow(dim, 1, length) * later * earlier.conj()).sum())
+        )
 
     @staticmethod
     def _ramp(field, k_row, k_col):
