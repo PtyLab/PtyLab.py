@@ -1,6 +1,8 @@
 # Installation
 
-PtyLab.py requires **Python 3.10–3.13** and is distributed on [PyPI](https://pypi.org/project/ptylab/). Install it within a virtual environment.
+PtyLab.py requires **Python 3.10–3.13** and is distributed on [PyPI](https://pypi.org/project/ptylab/). Install it within your virtual environment (for example with [conda](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#creating-an-environment-with-commands) or [venv](https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/#create-and-use-virtual-environments)). 
+
+If you are contributing to PtyLab instead, see the [contributing guide](../contributing.md).
 
 ## From PyPI
 
@@ -19,7 +21,7 @@ PtyLab.py requires **Python 3.10–3.13** and is distributed on [PyPI](https://p
     uv pip install "ptylab[gpu]"
     ```
 
-The `gpu` extra installs [CuPy](https://cupy.dev/) for CUDA 12 and enables GPU acceleration of the reconstruction engines. CUDA 13 is not supported yet. The extra is not installed on macOS, where PtyLab runs on the CPU.
+The `gpu` extra installs [CuPy](https://cupy.dev/) for CUDA 12 and enables GPU acceleration of the reconstruction engines. CUDA 13 is not supported yet. The extra is not installed on macOS, where PtyLab runs on the CPU. To check that the GPU is detected, run `uv run ptylab check gpu`; it also reports PyTorch if the `torch` extra is installed (see the following sections).
 
 ## Optional extras
 
@@ -27,11 +29,11 @@ Some features can be installed with the optional dependencies with the following
 
 | Extra | Installs | Needed for |
 |---|---|---|
-| `gpu` | CuPy (CUDA 12) | GPU reconstruction |
-| `gui` | pyqtgraph, PySide6 | the interactive Qt viewer (`show3Dslider` outside a notebook) |
-| `torch` | PyTorch | differentiable ptychography with `GradientEngine` (see [below](#optional-differentiable-ptychography)) |
+| `gpu` | CuPy (CUDA 12) | GPU reconstruction with the classic engines (ePIE, mPIE, ...) |
+| `gui` | pyqtgraph, PySide6 | the interactive Qt viewer (see [below](#interactive-viewer-qt)) |
+| `torch` | PyTorch | differentiable ptychography with `GradientEngine`; the GPU build is chosen with `--torch-backend` (see [below](#optional-differentiable-ptychography)) |
 
-For example to combine them in one command:
+The extras flags could be combined in one command. For example:
 
 ```bash
 uv pip install "ptylab[gpu,gui]"
@@ -62,22 +64,13 @@ uv pip install "ptylab[gpu] @ git+https://github.com/PtyLab/PtyLab.py.git"
 The module `PtyLab.Engines.GradientEngine`, based on PyTorch, implements differentiable (gradient-based) ptychography so that custom models, losses and constraints can be used. Install it with the `torch` extra:
 
 ```bash
-uv pip install "ptylab[gpu,torch]" --torch-backend=cu126
+uv pip install "ptylab[torch]" --torch-backend=cu126   # PyTorch on CUDA 12.6
+uv pip install "ptylab[torch]" --torch-backend=cpu     # no GPU
 ```
 
-`--torch-backend=cu126` selects the PyTorch build for CUDA 12.6. Newer PyTorch builds also work, as long as they target a CUDA version below 13.0. Omit `gpu` and use `--torch-backend=cpu` on a machine without a GPU.
+`--torch-backend=cu126` selects the PyTorch build for CUDA 12.6. Newer PyTorch builds also work, as long as they target a CUDA version below 13.0. Add the `gpu` extra (`ptylab[gpu,torch]`) to also run the classic engines on the GPU.
 
 `GradientEngine` runs on the GPU through PyTorch whenever CUDA is available, independently of CuPy, and falls back to the CPU otherwise.
 
 !!! warning
     `GradientEngine` is a work in progress. Its API should stay fixed, but this is not guaranteed for the time being. See the [GradientEngine usage guide](https://github.com/PtyLab/PtyLab.py/blob/main/PtyLab/Engines/GradientEngine/README.md) for the API.
-
-## Verify GPU detection
-
-After installing with the `gpu` or `torch` extra, check whether the GPU is correctly configured:
-
-```bash
-uv run ptylab check gpu
-```
-
-This prints the CuPy and, if installed, PyTorch CUDA device information, or warns if no GPU is found.
