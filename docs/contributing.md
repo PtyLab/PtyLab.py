@@ -30,31 +30,24 @@ git switch -c my-feature upstream/main
 Install the project with [uv](https://docs.astral.sh/uv/getting-started/installation/). `uv sync` always includes the development tools (pytest, ipykernel, ruff); add the extras for your machine:
 
 ```bash
-uv sync --all-extras                  # GPU machine: gpu + gui + torch
-uv sync --all-extras --no-extra gpu   # CPU-only machine
+uv sync --all-extras                  # Linux/Windows with an NVIDIA GPU, or macOS
 ```
 
-This creates a `.venv` virtual environment in the project root. Select it in your IDE or activate it:
+This installs all extras: CuPy for CUDA 12 (`gpu`), PyTorch for CUDA 12.6 (`torch`) and the Qt viewer (`gui`).
 
 ```bash
-source .venv/bin/activate
+uv sync --all-extras --no-extra gpu   # Linux/Windows without a GPU: skips CuPy
 ```
 
-`uv sync` removes any extra you do not list, so repeat the same flags whenever you sync again.
+This installs the same extras without CuPy. PyTorch runs on the CPU when no GPU is found.
 
-### PyTorch build
-
-The `torch` extra is needed for `GradientEngine`. Unlike `uv pip install`, `uv sync` takes no `--torch-backend` flag: on Linux and Windows it always installs the PyTorch build for CUDA 12.6, set in `[tool.uv.sources]` of `pyproject.toml`. On macOS it installs the standard build from PyPI, and `GradientEngine` runs on the CPU.
-
-The CUDA build also runs on a CPU-only machine, falling back to the CPU. To skip the large download, add `--no-extra torch`; the `GradientEngine` tests are then skipped.
+Either command creates a `.venv` in the project root; select it in your IDE or run `source .venv/bin/activate`. `uv sync` removes any extra you leave out, so reuse the same flags on every sync.
 
 Check which GPUs CuPy and PyTorch detect with:
 
 ```bash
 uv run ptylab check gpu
 ```
-
-To target a different CUDA version, change the `pytorch-cu126` index URL in `pyproject.toml`. Keep it below CUDA 13.0, matching the CUDA 12 CuPy build of the `gpu` extra.
 
 ## 2. Make changes
 
