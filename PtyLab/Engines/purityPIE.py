@@ -27,6 +27,33 @@ from PtyLab.Reconstruction.Reconstruction import Reconstruction
 from PtyLab.utils.gpuUtils import asNumpyArray
 
 
+def _resolutionInterval(values, purities):
+    """Interval the purity maximum is known to within, from the evaluated points.
+
+    The scan only brackets the optimum to halfway towards the neighbouring
+    evaluated values on each side; no curve shape is assumed. At the edge of the
+    scanned range the interval stays open on the outer side.
+
+    Args:
+        values (array_like): Evaluated parameter values, in any order.
+        purities (array_like): Probe purity of each value.
+
+    Returns:
+        tuple: `(best, lower, upper, at_edge)` with `best` the value of maximum
+            purity and `at_edge` True if it is the smallest or largest value.
+    """
+    values = np.asarray(values, dtype=float)
+    purities = np.asarray(purities, dtype=float)
+    order = np.argsort(values)
+    sorted_values = values[order]
+    # position of the maximum among the sorted values
+    k = int(np.where(order == np.argmax(purities))[0][0])
+    best = sorted_values[k]
+    lower = 0.5 * (sorted_values[k - 1] + best) if k > 0 else best
+    upper = 0.5 * (sorted_values[k + 1] + best) if k < len(values) - 1 else best
+    return best, lower, upper, k in (0, len(values) - 1)
+
+
 class _PurityScanLivePlot(_LiveFigure):
     """Probe purity and reconstruction error vs the scanned parameter, redrawn live.
 
@@ -35,15 +62,19 @@ class _PurityScanLivePlot(_LiveFigure):
     of the same length, so all candidates would share one x value.
     """
 
-    def __init__(self, xlabel, scale, figNum=4):
+    def __init__(self, xlabel, scale, unit, figNum=4):
         self.figNum = figNum
         self.figure = None
         self.xlabel = xlabel
         # metres -> display unit (mm for z, nm for wavelength)
         self.scale = scale
+        self.unit = unit
 
-    def draw(self, values, purities, errors, initial_value):
+    def draw(self, values, purities, errors, initial_value, final=False):
         """Redraw with every candidate evaluated so far.
+
+        The final draw, after the scan, also shades the scan resolution around
+        the purity maximum (see `_resolutionInterval`).
 
         Args:
             values (list[float]): Evaluated parameter values in metres, in
@@ -51,6 +82,7 @@ class _PurityScanLivePlot(_LiveFigure):
             purities (list[float]): Probe purity of each candidate.
             errors (list[float]): Final reconstruction error of each candidate.
             initial_value (float): Initial guess in metres.
+            final (bool, optional): Whether the scan has finished. Default False.
         """
         fig = self.figure
         if fig is None:
@@ -82,10 +114,26 @@ class _PurityScanLivePlot(_LiveFigure):
             mfc="none",
             label="latest candidate",
         )
-        ax.plot(x[best], purities[best], "*", color="C2", ms=14, label="best so far")
+        ax.plot(
+            x[best],
+            purities[best],
+            "*",
+            color="C2",
+            ms=14,
+            label="best" if final else "best so far",
+        )
         ax.axvline(
             self.scale * initial_value, ls=":", color="0.5", label="initial guess"
         )
+        if final:
+            _, lower, upper, _ = _resolutionInterval(x, purities)
+            ax.axvspan(
+                lower,
+                upper,
+                alpha=0.15,
+                color="C2",
+                label=f"scan resolution: {lower:.4g} to {upper:.4g} {self.unit}",
+            )
         ax.set_xlabel(self.xlabel)
         ax.set_ylabel("probe purity")
         ax.ticklabel_format(axis="x", useOffset=False)
@@ -107,7 +155,13 @@ class _PurityScanLivePlot(_LiveFigure):
         ax.legend(
             handles + error_handles, labels + error_labels, fontsize="small", loc="best"
         )
-        ax.set_title(f"purity scan: {len(x)} candidates")
+        if final:
+            ax.set_title(
+                f"purity scan finished: best {x[best]:.4g} {self.unit} "
+                f"({len(x)} candidates)"
+            )
+        else:
+            ax.set_title(f"purity scan: {len(x)} candidates")
         fig.tight_layout()
         self.drawNow()
 
@@ -259,8 +313,10 @@ class purityPIE(mPIE):
         After calibration, the reconstruction state corresponding to the optimal
         candidate is restored to the original `Reconstruction` object.
 
-        If `params.purityScanPlot` is enabled, the purity and reconstruction error
-        as functions of the calibrated parameter are displayed after the scan.
+        With the matplotlib `Monitor`, purity and reconstruction error vs the
+        calibrated parameter are plotted live during the scan, and the final plot
+        shades the scan resolution around the maximum. A warning is logged if the
+        maximum lies at the edge of the scanned range.
 
         Args:
             experimentalData (ExperimentalData, optional):
@@ -330,8 +386,7 @@ class purityPIE(mPIE):
                 "Supported targets are 'z' and 'wavelength'."
             )
 
-        if self.params.purityScanPlot:
-            self.plotPurityScan()
+        self._finishScan(target)
 
         # ------------------------------------------------------------------
         # Return reconstruction data to CPU
@@ -532,6 +587,43 @@ class purityPIE(mPIE):
             candidate_reconstruction,
         )
 
+    def _finishScan(self, target):
+        """
+        Check the scan result and draw the final purity-scan plot.
+
+        Logs a warning if the purity maximum lies at the edge of the scanned
+        range, since the optimum may then lie outside it.
+
+        Args:
+            target (str): Calibration target, `"z"` or `"wavelength"`.
+        """
+        if target == "z":
+            values, purities, scale, unit = self.purityZValues, self.purityZMetrics, 1e3, "mm"
+        else:
+            values, purities, scale, unit = (
+                self.purityWavelengthValues,
+                self.purityWavelengthMetrics,
+                1e9,
+                "nm",
+            )
+
+        best, _, _, at_edge = _resolutionInterval(values, purities)
+        if at_edge:
+            self.logger.warning(
+                "The purity maximum lies at the edge of the scanned range "
+                f"({target} = {scale * best:.4g} {unit}); the optimum may lie "
+                "outside it. Extend the scan range or move the initial guess."
+            )
+
+        if self._scanPlot is not None and self._scanValues:
+            self._scanPlot.draw(
+                self._scanValues,
+                self._scanPurities,
+                self._scanErrors,
+                self._scanInitial,
+                final=True,
+            )
+
     def _setupScanMonitor(self):
         """
         Set up the monitor for a new scan.
@@ -555,15 +647,18 @@ class purityPIE(mPIE):
         target = self.params.purityCalibrationTarget.lower()
         if target == "z":
             self._scanInitial = self.reconstruction.zo
-            self._scanPlot = _PurityScanLivePlot("z (mm)", 1e3)
+            self._scanPlot = _PurityScanLivePlot("z (mm)", 1e3, "mm")
         else:
             self._scanInitial = float(np.squeeze(self.reconstruction.wavelength))
-            self._scanPlot = _PurityScanLivePlot("wavelength (nm)", 1e9)
+            self._scanPlot = _PurityScanLivePlot("wavelength (nm)", 1e9, "nm")
 
         hidden_history = self.monitor.showParameterHistory
         self.monitor.showParameterHistory = False
         # a window left over from an earlier engine would keep recording
         self.monitor.parameterHistoryMonitor = None
+        # saved with the other monitor windows by
+        # reconstruction.saveResults(..., snapshot=monitor)
+        self.monitor.extraFigures["purity_scan"] = self._scanPlot
         return hidden_history
 
     def _showCandidate(self, candidate_reconstruction, purity):
@@ -1845,255 +1940,4 @@ class purityPIE(mPIE):
         return (
             best_wavelength,
             best_purity,
-        )
-
-    def plotPurityScan(self, show=True):
-        """
-        Plot probe purity and reconstruction error for the selected
-        purity-calibration target.
-
-        The measured purity maximum is marked together with the scan resolution
-        around it: the interval reaching halfway to the neighbouring evaluated
-        values on each side. No curve is fitted, since the shape of purity vs the
-        calibrated parameter is not known beforehand; a finer scan around the
-        maximum is the way to narrow it down.
-
-        A warning is logged if the maximum lies at the edge of the scanned range,
-        since the optimum may then lie outside it.
-
-        Args:
-            show (bool, optional):
-                Display the figure immediately. Default is `True`.
-
-        Returns:
-            tuple:
-                Matplotlib `(figure, purity_axis, error_axis)` objects.
-        """
-
-        target = self.params.purityCalibrationTarget.lower()
-
-        # ------------------------------------------------------------------
-        # Select calibration results
-        # ------------------------------------------------------------------
-
-        if target == "z":
-            if not hasattr(
-                self,
-                "purityZValues",
-            ):
-                raise RuntimeError("No purity z-scan results are available.")
-
-            values = np.asarray(self.purityZValues) * 1e3
-
-            purity = np.asarray(self.purityZMetrics)
-
-            errors = (
-                np.asarray(self.purityZErrors)
-                if hasattr(
-                    self,
-                    "purityZErrors",
-                )
-                else None
-            )
-
-            initial_value = self.purityZInitialGuess * 1e3
-
-            xlabel = "Sample-to-detector distance z (mm)"
-
-            title = "Purity-based axial calibration"
-
-            value_symbol = "z"
-            value_unit = "mm"
-            value_format = ".3f"
-
-        elif target == "wavelength":
-            if not hasattr(
-                self,
-                "purityWavelengthValues",
-            ):
-                raise RuntimeError("No purity wavelength-scan results are available.")
-
-            values = np.asarray(self.purityWavelengthValues) * 1e9
-
-            purity = np.asarray(self.purityWavelengthMetrics)
-
-            errors = (
-                np.asarray(self.purityWavelengthErrors)
-                if hasattr(
-                    self,
-                    "purityWavelengthErrors",
-                )
-                else None
-            )
-
-            initial_value = self.purityWavelengthInitialGuess * 1e9
-
-            xlabel = "Wavelength λ (nm)"
-
-            title = "Purity-based wavelength calibration"
-
-            value_symbol = "λ"
-            value_unit = "nm"
-            value_format = ".4f"
-
-        else:
-            raise ValueError(
-                "Unsupported purity calibration target: "
-                f"{self.params.purityCalibrationTarget!r}"
-            )
-
-        # ------------------------------------------------------------------
-        # Measured maximum
-        # ------------------------------------------------------------------
-
-        best_purity_index = np.argmax(purity)
-
-        measured_best_value = values[best_purity_index]
-
-        measured_best_purity = purity[best_purity_index]
-
-        fig, ax_purity = plt.subplots(figsize=(7, 4.5))
-
-        ax_purity.plot(
-            values,
-            purity,
-            marker="o",
-            label="Probe purity",
-        )
-
-        ax_purity.plot(
-            measured_best_value,
-            measured_best_purity,
-            marker="*",
-            markersize=12,
-            linestyle="None",
-            label=(
-                f"Measured maximum: "
-                f"{value_symbol} = "
-                f"{format(measured_best_value, value_format)} "
-                f"{value_unit}"
-            ),
-        )
-
-        # ------------------------------------------------------------------
-        # Scan resolution around the maximum
-        # ------------------------------------------------------------------
-
-        # the evaluated values bracket the optimum only to within halfway to the
-        # neighbouring points; an adaptive scan stores them sorted, a fixed grid
-        # already is
-        order = np.argsort(values)
-        sorted_values = values[order]
-        position = int(np.where(order == best_purity_index)[0][0])
-
-        if position == 0 or position == len(sorted_values) - 1:
-            self.logger.warning(
-                "The purity maximum lies at the edge of the scanned range "
-                f"({value_symbol} = {format(measured_best_value, value_format)} "
-                f"{value_unit}); the optimum may lie outside it. Extend the scan "
-                "range or move the initial guess."
-            )
-
-        lower = (
-            0.5 * (sorted_values[position - 1] + measured_best_value)
-            if position > 0
-            else measured_best_value
-        )
-        upper = (
-            0.5 * (sorted_values[position + 1] + measured_best_value)
-            if position < len(sorted_values) - 1
-            else measured_best_value
-        )
-
-        ax_purity.axvspan(
-            lower,
-            upper,
-            alpha=0.15,
-            color="C2",
-            label=(
-                f"Scan resolution: "
-                f"{format(lower, value_format)} to "
-                f"{format(upper, value_format)} {value_unit}"
-            ),
-        )
-
-        ax_purity.set_xlabel(xlabel)
-
-        ax_purity.set_ylabel("Probe purity")
-
-        # ------------------------------------------------------------------
-        # Reconstruction error
-        # ------------------------------------------------------------------
-
-        ax_error = ax_purity.twinx()
-
-        if errors is not None:
-            ax_error.plot(
-                values,
-                errors,
-                marker="s",
-                linestyle="--",
-                label="Reconstruction error",
-            )
-
-            best_error_index = np.argmin(errors)
-
-            ax_error.plot(
-                values[best_error_index],
-                errors[best_error_index],
-                marker="*",
-                markersize=12,
-                linestyle="None",
-                label=(
-                    f"Minimum error: "
-                    f"{value_symbol} = "
-                    f"{format(values[best_error_index], value_format)} "
-                    f"{value_unit}"
-                ),
-            )
-
-            ax_error.set_ylabel("Reconstruction error")
-
-        # ------------------------------------------------------------------
-        # Initial guess
-        # ------------------------------------------------------------------
-
-        ax_purity.axvline(
-            initial_value,
-            linestyle="--",
-            alpha=0.5,
-            label=(
-                f"Initial {value_symbol}: "
-                f"{format(initial_value, value_format)} "
-                f"{value_unit}"
-            ),
-        )
-
-        # ------------------------------------------------------------------
-        # Combined legend
-        # ------------------------------------------------------------------
-
-        purity_handles, purity_labels = ax_purity.get_legend_handles_labels()
-
-        error_handles, error_labels = ax_error.get_legend_handles_labels()
-
-        ax_purity.legend(
-            purity_handles + error_handles,
-            purity_labels + error_labels,
-            loc="best",
-        )
-
-        ax_purity.set_title(title)
-
-        ax_purity.grid(alpha=0.3)
-
-        fig.tight_layout()
-
-        if show:
-            plt.show()
-
-        return (
-            fig,
-            ax_purity,
-            ax_error,
         )
