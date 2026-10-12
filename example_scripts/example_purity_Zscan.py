@@ -491,9 +491,10 @@ if continue_with_mPIE:
 # Save / display
 # =============================================================================
 
-# reconstruction.saveResults(
-#     "purity_calibrated_recon.hdf5",
-#     squeeze=False,
-# )
+reconstruction.saveResults(
+    "purity_calibrated_recon.hdf5",
+    squeeze=False,
+    snapshot=monitor,  # stores as png
+)
 
 plt.show(block=True)
