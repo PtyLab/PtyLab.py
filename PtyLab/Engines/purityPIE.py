@@ -603,21 +603,38 @@ class purityPIE(mPIE):
         """
         Check the scan result and draw the final purity-scan plot.
 
-        Logs a warning if the purity maximum lies at the edge of the scanned
-        range, since the optimum may then lie outside it.
+        Stores the scanned values, purities and errors in
+        `reconstruction.extraResults["purityScan"]`, which
+        `Reconstruction.saveResults()` writes to the HDF5 file. Logs a warning if the purity maximum lies at the edge of
+        the scanned range, since the optimum may then lie outside it.
 
         Args:
             target (str): Calibration target, `"z"` or `"wavelength"`.
         """
         if target == "z":
-            values, purities, scale, unit = self.purityZValues, self.purityZMetrics, 1e3, "mm"
+            values, purities, errors = (
+                self.purityZValues,
+                self.purityZMetrics,
+                self.purityZErrors,
+            )
+            scale, unit = 1e3, "mm"
         else:
-            values, purities, scale, unit = (
+            values, purities, errors = (
                 self.purityWavelengthValues,
                 self.purityWavelengthMetrics,
-                1e9,
-                "nm",
+                self.purityWavelengthErrors,
             )
+            scale, unit = 1e9, "nm"
+
+        # saveResults() writes this as a "purityScan" group in the HDF5 file, next
+        # to the calibrated object and probe
+        self.reconstruction.extraResults["purityScan"] = {
+            "target": target,
+            "units": "values in m",
+            "values": np.asarray(values, dtype=float),
+            "purity": np.asarray(purities, dtype=float),
+            "error": np.asarray(errors, dtype=float),
+        }
 
         best, _, _, at_edge = _resolutionInterval(values, purities)
         if at_edge:
