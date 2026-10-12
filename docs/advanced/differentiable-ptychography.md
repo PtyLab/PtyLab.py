@@ -199,4 +199,4 @@ For the Fraunhofer propagator, predicted intensities and `engine.measuredIntensi
 | `constraints` | `Constraint`, `ProbeCentering`, `ObjectAmplitudeClamp`, `PhaseRampRemoval` |
 | `phases` | `Phase`, `blind_recipe` |
 
-The docstrings of each module give the equations and all options.
+The docstrings of each module give the equations and all options; they are rendered in the [Gradient Engine API reference](../api/gradient-engine.md).
