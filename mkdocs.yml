@@ -74,6 +74,7 @@ nav:
     - api/index.md
     - Core: api/core.md
     - Engines: api/engines.md
+    - Gradient Engine: api/gradient-engine.md
     - Experimental Data: api/experimental-data.md
     - Grid Generation: api/grid-generation.md
     - Monitoring: api/monitoring.md
