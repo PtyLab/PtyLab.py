@@ -764,6 +764,12 @@ class purityPIE(mPIE):
                     "object": asNumpyArray(candidate_reconstruction.object).copy(),
                     "probe": asNumpyArray(candidate_reconstruction.probe).copy(),
                     "purityProbe": purity,
+                    # object grid of this candidate; see restore below
+                    "No": candidate_reconstruction.No,
+                    "shape_O": candidate_reconstruction.shape_O,
+                    "initialGuessObject": asNumpyArray(
+                        candidate_reconstruction.initialGuessObject
+                    ).copy(),
                 }
 
                 if hasattr(
@@ -834,6 +840,13 @@ class purityPIE(mPIE):
 
         self.reconstruction.zo = best_z
 
+        # each candidate is a new Reconstruction whose object grid was sized for
+        # its own z / wavelength; restore that grid with the object, or positions
+        # are centred for a different No and later engines size their momentum
+        # arrays from the old initialGuessObject
+        self.reconstruction.No = best_state["No"]
+        self.reconstruction.shape_O = best_state["shape_O"]
+        self.reconstruction.initialGuessObject = best_state["initialGuessObject"]
         self.reconstruction.object = best_state["object"]
 
         self.reconstruction.probe = best_state["probe"]
@@ -1014,6 +1027,12 @@ class purityPIE(mPIE):
                     "object": asNumpyArray(candidate_reconstruction.object).copy(),
                     "probe": asNumpyArray(candidate_reconstruction.probe).copy(),
                     "purityProbe": purity,
+                    # object grid of this candidate; see restore below
+                    "No": candidate_reconstruction.No,
+                    "shape_O": candidate_reconstruction.shape_O,
+                    "initialGuessObject": asNumpyArray(
+                        candidate_reconstruction.initialGuessObject
+                    ).copy(),
                 }
 
                 if hasattr(
@@ -1172,6 +1191,13 @@ class purityPIE(mPIE):
         # --------------------------------------------------------------
 
         self.reconstruction.zo = best_z
+        # each candidate is a new Reconstruction whose object grid was sized for
+        # its own z / wavelength; restore that grid with the object, or positions
+        # are centred for a different No and later engines size their momentum
+        # arrays from the old initialGuessObject
+        self.reconstruction.No = best_state["No"]
+        self.reconstruction.shape_O = best_state["shape_O"]
+        self.reconstruction.initialGuessObject = best_state["initialGuessObject"]
         self.reconstruction.object = best_state["object"]
         self.reconstruction.probe = best_state["probe"]
         self.reconstruction.purityProbe = best_state["purityProbe"]
@@ -1321,6 +1347,12 @@ class purityPIE(mPIE):
                     "object": asNumpyArray(candidate_reconstruction.object).copy(),
                     "probe": asNumpyArray(candidate_reconstruction.probe).copy(),
                     "purityProbe": purity,
+                    # object grid of this candidate; see restore below
+                    "No": candidate_reconstruction.No,
+                    "shape_O": candidate_reconstruction.shape_O,
+                    "initialGuessObject": asNumpyArray(
+                        candidate_reconstruction.initialGuessObject
+                    ).copy(),
                     "dxp": float(candidate_reconstruction.dxp),
                 }
 
@@ -1401,6 +1433,13 @@ class purityPIE(mPIE):
         if "spectralDensity" in best_state:
             self.reconstruction.spectralDensity = best_state["spectralDensity"]
 
+        # each candidate is a new Reconstruction whose object grid was sized for
+        # its own z / wavelength; restore that grid with the object, or positions
+        # are centred for a different No and later engines size their momentum
+        # arrays from the old initialGuessObject
+        self.reconstruction.No = best_state["No"]
+        self.reconstruction.shape_O = best_state["shape_O"]
+        self.reconstruction.initialGuessObject = best_state["initialGuessObject"]
         self.reconstruction.object = best_state["object"]
 
         self.reconstruction.probe = best_state["probe"]
@@ -1551,6 +1590,12 @@ class purityPIE(mPIE):
                     "object": asNumpyArray(candidate_reconstruction.object).copy(),
                     "probe": asNumpyArray(candidate_reconstruction.probe).copy(),
                     "purityProbe": purity,
+                    # object grid of this candidate; see restore below
+                    "No": candidate_reconstruction.No,
+                    "shape_O": candidate_reconstruction.shape_O,
+                    "initialGuessObject": asNumpyArray(
+                        candidate_reconstruction.initialGuessObject
+                    ).copy(),
                     "dxp": float(candidate_reconstruction.dxp),
                 }
 
@@ -1730,6 +1775,13 @@ class purityPIE(mPIE):
         if "spectralDensity" in best_state:
             self.reconstruction.spectralDensity = best_state["spectralDensity"]
 
+        # each candidate is a new Reconstruction whose object grid was sized for
+        # its own z / wavelength; restore that grid with the object, or positions
+        # are centred for a different No and later engines size their momentum
+        # arrays from the old initialGuessObject
+        self.reconstruction.No = best_state["No"]
+        self.reconstruction.shape_O = best_state["shape_O"]
+        self.reconstruction.initialGuessObject = best_state["initialGuessObject"]
         self.reconstruction.object = best_state["object"]
 
         self.reconstruction.probe = best_state["probe"]
