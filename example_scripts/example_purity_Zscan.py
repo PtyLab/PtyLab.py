@@ -1,8 +1,8 @@
 import logging
+import tempfile
 from pathlib import Path
 
 import h5py
-
 import matplotlib
 
 matplotlib.use("QtAgg")
@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 
 import PtyLab
 from PtyLab import Engines
+from PtyLab.io.generateSimulationData import generate_simu_hdf5
 
 logging.basicConfig(level=logging.INFO)
 
@@ -37,6 +38,16 @@ DATASET_PATH = ""
 # Optional previous reconstruction whose probe is used as the starting guess.
 # None -> start from a circular probe; "" -> asked when the script runs.
 SEED_RECON_PATH = None
+
+# Run on a simulated dataset instead of DATASET_PATH, e.g. to try the script
+# or watch the monitor. The data is generated in a temporary folder, and the
+# calibration starts from the simulated z / wavelength shifted by the offsets
+# below (initial_z and initial_wavelength above are then ignored).
+# On this simulation the purity hardly changes with z, so the calibrated value
+# is not meaningful; use it to check that everything runs.
+USE_SYNTHETIC_DATA = True
+SYNTHETIC_Z_OFFSET = 1e-3  # 1 mm, inside purityZScanRange
+SYNTHETIC_WAVELENGTH_OFFSET = 0.5e-9  # 0.5 nm, inside purityWavelengthScanRange
 
 
 # =============================================================================
@@ -90,6 +101,11 @@ print(
     "Step 1: The ptychography dataset to calibrate.\n"
     "This should be the HDF5 file containing the measured diffraction data."
 )
+
+if USE_SYNTHETIC_DATA:
+    DATASET_PATH = Path(tempfile.mkdtemp(prefix="ptylab_purity_")) / "simu.hdf5"
+    print(f"Generating synthetic data in {DATASET_PATH} ...")
+    generate_simu_hdf5(DATASET_PATH)
 
 if not DATASET_PATH:
     DATASET_PATH = ask_path("Path to the ptychography dataset (.hdf5): ")
@@ -154,8 +170,14 @@ experimentalData, reconstruction, params, monitor, _ = PtyLab.easyInitialize(
     operationMode="CPM",
 )
 
-# Change only if required by your dataset.
-experimentalData.setOrientation(4)
+if USE_SYNTHETIC_DATA:
+    # the simulation is stored in the orientation PtyLab expects; start the
+    # calibration a known distance away from the simulated values
+    initial_z = reconstruction.zo + SYNTHETIC_Z_OFFSET
+    initial_wavelength = reconstruction.wavelength + SYNTHETIC_WAVELENGTH_OFFSET
+else:
+    # Change only if required by your dataset.
+    experimentalData.setOrientation(4)
 
 print()
 print("Loaded file:", experimentalData.filename)
@@ -316,8 +338,9 @@ monitor.figureUpdateFrequency = 5
 monitor.objectPlot = "complex"
 monitor.verboseLevel = "low"
 
-monitor.objectZoom = None
-monitor.probeZoom = None
+# default settings as no zoom
+monitor.objectZoom = 1
+monitor.probeZoom = 1
 
 
 # =============================================================================
@@ -342,7 +365,7 @@ params.probeSmoothenessSwitch = True
 params.probeSmoothnessAleph = 1e-2
 params.probeSmoothenessWidth = 10
 
-params.comStabilizationSwitch = 10
+params.comStabilizationSwitch = True
 
 params.orthogonalizationSwitch = True
 params.orthogonalizationFrequency = 10
@@ -371,7 +394,7 @@ purity_engine = Engines.purityPIE(
 )
 
 # Number of mPIE iterations used to evaluate EACH candidate.
-purity_engine.numIterations = 5
+purity_engine.numIterations = 50
 
 best_value, best_purity = purity_engine.reconstruct()
 
@@ -434,13 +457,13 @@ elif CALIBRATION_TARGET == "wavelength":
         purity_engine.purityWavelengthValues,
         purity_engine.purityWavelengthMetrics,
     ):
+        # computed outside the f-string: line breaks inside {...} need Python 3.12+
+        delta_wavelength = wavelength - purity_engine.purityWavelengthInitialGuess
         print(
             f"wavelength = "
             f"{wavelength * 1e9:.6f} nm | "
             f"delta wavelength = "
-            f"{
-                (wavelength - purity_engine.purityWavelengthInitialGuess)
-                * 1e9:+.4f} nm | "
+            f"{delta_wavelength * 1e9:+.4f} nm | "
             f"purity = {purity:.6f}"
         )
 
