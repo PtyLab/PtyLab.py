@@ -3,7 +3,7 @@
 `PtyLab.Engines.GradientEngine` implements gradient-based ptychographic reconstruction using the automatic differentiation of PyTorch. A forward model predicts the detector intensity of every scan frame, a loss compares it with the measurements, and an optimizer updates the parameters you select.
 
 !!! warning
-    The module is a work in progress. The API described here should stay stable, but this is not guaranteed yet.
+    The module is a work in progress. The API described here should stay stable, but this is not guaranteed yet. This page would also update with new changes.
 
 ## Scope
 
@@ -20,8 +20,6 @@ PyTorch is an optional dependency, installed with the `torch` extra (see [Instal
 ```bash
 uv pip install "ptylab[gpu,torch]" --torch-backend=cu126
 ```
-
-Importing `PtyLab.Engines.GradientEngine` does not require PyTorch; using one of its names does, and raises an error with installation instructions if it is missing.
 
 ## Quick start
 
@@ -131,7 +129,7 @@ engine.constraints = [
 
 Each constraint takes the schedule arguments `start`, `step`, `end` (iterations) and `relax` (fraction of the correction that is not applied). Constraints that move a parameter also move its optimizer state. Any callable `constraint(engine, iteration)` is accepted, and subclasses of `Constraint` get the schedule for free. Subclasses of `GradientEngine` can still override `afterStep(iteration)`, which runs after the constraints.
 
-## Phases
+## Reconstruction Phases
 
 A reconstruction often needs different settings at different times. `engine.run(phases)` runs a list of `Phase` records in order. Each phase starts a fresh optimizer from the estimates of the previous one, and fields left at None keep the engine's settings.
 
@@ -170,7 +168,6 @@ The default model is a `PtychographyModel` that owns the object and a `SharedPro
 
 ```python
 from PtyLab.Engines.GradientEngine import GradientEngine, PtychographyModel, SharedProbe
-
 
 class MyEngine(GradientEngine):
     def createModel(self):
