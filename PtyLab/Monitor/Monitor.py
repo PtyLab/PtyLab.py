@@ -225,6 +225,9 @@ class Monitor(AbstractMonitor):
         # for the quantities the engine actually changes
         self.showParameterHistory = True
         self.parameterHistoryMonitor = None
+        # further windows an engine adds (name -> plot with a `figure`), e.g. the
+        # purityPIE scan plot; saveFigures writes them next to the built-in ones
+        self.extraFigures = {}
 
     @property
     def figureUpdateFrequency(self) -> int:
@@ -325,6 +328,8 @@ class Monitor(AbstractMonitor):
         - `reconstruction`: object, probe and error metric
         - `diffraction`: estimated vs measured intensity (`verboseLevel = "high"`)
         - `history`: zo, theta, purity and scan positions, if any of them changed
+        - any window an engine registered in `extraFigures`, under its key (e.g.
+          `purity_scan` from purityPIE)
 
         Args:
             fileName (str or Path, optional): Path prefix of the PNG files; missing
@@ -339,6 +344,7 @@ class Monitor(AbstractMonitor):
             "diffraction": self.diffractionDataMonitor,
             "history": self.parameterHistoryMonitor,
         }
+        figures.update(self.extraFigures)
         prefix = Path(fileName)
         prefix.parent.mkdir(parents=True, exist_ok=True)
         saved = []
