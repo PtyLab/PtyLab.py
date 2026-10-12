@@ -1,6 +1,6 @@
 [project]
 name = "ptylab"
-version = "0.3.3"
+version = "0.3.4"
 description = "A cross-platform, open-source inverse modeling toolbox for conventional and Fourier ptychography"
 authors = [
     { name = "Lars Loetgering", email = "lars.loetgering@fulbrightmail.org" },
@@ -26,6 +26,7 @@ gui = [
     "PySide6-Essentials>=6.2",  # only QtCore/QtGui/QtWidgets
 ]
 gpu = ["cupy-cuda12x[ctk]; sys_platform != 'darwin'"]
+torch = ["torch>=2.6"]
 
 # `uv sync` installs the `dev` group by default; `docs` is opt-in with `--group docs`.
 [dependency-groups]
@@ -34,8 +35,6 @@ dev = [
     "ipykernel~=6.25",
     "pytest~=9.0",
 ]
-gpu = ["cupy-cuda12x[ctk]; sys_platform != 'darwin'"]
-torch = ["torch>=2.6"]
 docs = [
     "jetblack-markdown",
     "mkdocs>=1.6.1",
