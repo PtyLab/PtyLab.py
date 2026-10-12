@@ -43,8 +43,9 @@ SEED_RECON_PATH = None
 # or watch the monitor. The data is generated in a temporary folder, and the
 # calibration starts from the simulated z / wavelength shifted by the offsets
 # below (initial_z and initial_wavelength above are then ignored).
-# On this simulation the purity hardly changes with z, so the calibrated value
-# is not meaningful; use it to check that everything runs.
+# The calibration only finds the simulated value once every candidate has
+# converged (numIterations below); with too few iterations the purities are
+# dominated by how far each run got
 USE_SYNTHETIC_DATA = True
 SYNTHETIC_Z_OFFSET = 1e-3  # 1 mm, inside purityZScanRange
 SYNTHETIC_WAVELENGTH_OFFSET = 0.5e-9  # 0.5 nm, inside purityWavelengthScanRange
@@ -195,6 +196,9 @@ params.purityCalibrationTarget = CALIBRATION_TARGET
 # Shared settings
 params.purityAdaptive = True
 params.purityMaxEvaluations = 20
+# every candidate starts from this random state, so they differ only in z or
+# wavelength; None gives each candidate a different random start
+params.puritySeed = 0
 
 # -----------------------------------------------------------------------------
 # z calibration settings
@@ -497,3 +501,5 @@ reconstruction.saveResults(
 )
 
 plt.show(block=True)
+
+# %%
