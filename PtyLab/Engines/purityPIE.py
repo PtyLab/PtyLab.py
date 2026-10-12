@@ -542,41 +542,53 @@ class purityPIE(mPIE):
                 the reconstruction state obtained for the candidate.
         """
 
-        (
-            candidate_data,
-            candidate_reconstruction,
-            candidate_params,
-        ) = self._createCandidateReconstruction(
-            target,
-            value,
-        )
+        # every candidate starts from the same random state (initial-guess noise,
+        # shuffled scan order, mPIE's random momentum steps), so differences in
+        # purity come from the candidate value; the caller's state is restored
+        seed = self.params.puritySeed
+        random_state = np.random.get_state() if seed is not None else None
+        if seed is not None:
+            np.random.seed(seed)
 
-        candidate_monitor = DummyMonitor()
+        try:
+            (
+                candidate_data,
+                candidate_reconstruction,
+                candidate_params,
+            ) = self._createCandidateReconstruction(
+                target,
+                value,
+            )
 
-        candidate_engine = mPIE(
-            candidate_reconstruction,
-            candidate_data,
-            candidate_params,
-            candidate_monitor,
-        )
+            candidate_monitor = DummyMonitor()
 
-        candidate_engine.numIterations = self.numIterations
+            candidate_engine = mPIE(
+                candidate_reconstruction,
+                candidate_data,
+                candidate_params,
+                candidate_monitor,
+            )
 
-        candidate_engine.betaProbe = self.betaProbe
+            candidate_engine.numIterations = self.numIterations
 
-        candidate_engine.betaObject = self.betaObject
+            candidate_engine.betaProbe = self.betaProbe
 
-        candidate_engine.alphaProbe = self.alphaProbe
+            candidate_engine.betaObject = self.betaObject
 
-        candidate_engine.alphaObject = self.alphaObject
+            candidate_engine.alphaProbe = self.alphaProbe
 
-        candidate_engine.feedbackM = self.feedbackM
+            candidate_engine.alphaObject = self.alphaObject
 
-        candidate_engine.frictionM = self.frictionM
+            candidate_engine.feedbackM = self.feedbackM
 
-        candidate_engine.reconstruct()
+            candidate_engine.frictionM = self.frictionM
 
-        candidate_engine.orthogonalization()
+            candidate_engine.reconstruct()
+
+            candidate_engine.orthogonalization()
+        finally:
+            if random_state is not None:
+                np.random.set_state(random_state)
 
         purity = float(
             np.asarray(asNumpyArray(candidate_reconstruction.purityProbe)).squeeze()
@@ -1255,6 +1267,10 @@ class purityPIE(mPIE):
             left_z = best_z - step
             right_z = best_z + step
 
+            # evaluate() raises best_purity as soon as it sees a better point, so
+            # compare against the best from before this round
+            best_before = best_purity
+
             left_purity = evaluate(left_z)
 
             if len(evaluated) >= max_evaluations:
@@ -1265,8 +1281,8 @@ class purityPIE(mPIE):
             # If neither side significantly improves the best result,
             # reduce the search step.
             if (
-                left_purity <= best_purity + purity_tol
-                and right_purity <= best_purity + purity_tol
+                left_purity <= best_before + purity_tol
+                and right_purity <= best_before + purity_tol
             ):
                 step *= shrink
                 continue
@@ -1837,6 +1853,10 @@ class purityPIE(mPIE):
 
             right_wavelength = best_wavelength + step
 
+            # evaluate() raises best_purity as soon as it sees a better point, so
+            # compare against the best from before this round
+            best_before = best_purity
+
             if left_wavelength > 0:
                 left_purity = evaluate(left_wavelength)
             else:
@@ -1848,8 +1868,8 @@ class purityPIE(mPIE):
             right_purity = evaluate(right_wavelength)
 
             if (
-                left_purity <= best_purity + purity_tol
-                and right_purity <= best_purity + purity_tol
+                left_purity <= best_before + purity_tol
+                and right_purity <= best_before + purity_tol
             ):
                 step *= shrink
                 continue
