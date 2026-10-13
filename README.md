@@ -13,6 +13,7 @@ PtyLab is an inverse modeling toolbox for Conventional (CP) and Fourier (FP) pty
 - **Classic engines**: ePIE, mPIE, mqNewton, qNewton
 - **Advanced corrections**: position correction, defocus correction (zPIE), angle correction (aPIE), orthogonal probe relaxation (OPR)
 - **Multi-modal**: multi-slice, multi-wavelength, mixed-state object and probe
+- **Unified array layout**: object and probe are 6D arrays `(nlambda, nosm, npsm, nslice, N, N)`, i.e. wavelengths, object and probe state mixtures, depth slices, then the frame
 - **Multiple propagators**: Fraunhofer, Fresnel, Angular Spectrum (ASP), scaled ASP, polychromatic variants
 - **GPU acceleration**: same code runs on CPU and GPU (NumPy/CuPy)
 - **Live monitor**: follow the object, probe and error metric as the iterations run, along with any corrected parameters such as scan positions, sample-detector distance (`zo`) and angle
@@ -27,23 +28,12 @@ flowchart LR
     file[(HDF5 data)] --> exp[ExperimentalData]
     exp --> recon["Reconstruction<br/>(object, probe)"]
     exp & recon & params[Params] --> engine["Engine<br/>(ePIE, mPIE, ...)"]
+    engine -.->|updates| recon
     engine <-->|each iteration| corr["Optional Corrections: positions, distance, angle"]
     engine -.-> mon[Monitor<br/>live plots]
     corr -.-> mon
     engine -->|reconstruct| out["Saved to HDF5<br/>object, probe, error, corrected parameters"]
 ```
-
-### Unified array layout
-
-Object and probe are stored as 6D arrays with axes `(nlambda, nosm, npsm, nslice, N, N)`:
-
-| Dim | Meaning |
-|-----|---------|
-| `nlambda` | wavelengths |
-| `nosm` | object state mixture |
-| `npsm` | probe state mixture |
-| `nslice` | depth slices |
-| `N` | frame size: `No` for the object, `Np` for the probe |
 
 ## Getting started
 
