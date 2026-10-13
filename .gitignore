@@ -16,7 +16,7 @@ site/
 .cache/mkdocs-jupyter/
 
 # local
-demos
+GE_demos
 
 # misc
 notes/
