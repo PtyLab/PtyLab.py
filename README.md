@@ -15,7 +15,23 @@ PtyLab is an inverse modeling toolbox for Conventional (CP) and Fourier (FP) pty
 - **Multi-modal**: multi-slice, multi-wavelength, mixed-state object and probe
 - **Multiple propagators**: Fraunhofer, Fresnel, Angular Spectrum (ASP), scaled ASP, polychromatic variants
 - **GPU acceleration**: same code runs on CPU and GPU (NumPy/CuPy)
-- **Differentiable ptychography** (work in progress): gradient-based reconstruction with PyTorch for flexible modeling (see the [guide](https://ptylab.github.io/PtyLab.py/advanced/differentiable-ptychography/)).
+- **Live monitor**: follow the object, probe and error metric as the iterations run, along with any corrected parameters such as scan positions, sample-detector distance (`zo`) and angle
+- **Differentiable ptychography** *(work in progress)*: gradient-based reconstruction with PyTorch for flexible modeling (see the [guide](https://ptylab.github.io/PtyLab.py/advanced/differentiable-ptychography/)).
+
+### How it works
+
+`PtyLab.easyInitialize` loads your data and sets up the objects below; the engine then runs the reconstruction.
+
+```mermaid
+flowchart LR
+    file[(HDF5 data)] --> exp[ExperimentalData]
+    exp --> recon["Reconstruction<br/>(object, probe)"]
+    exp & recon & params[Params] --> engine["Engine<br/>(ePIE, mPIE, ...)"]
+    engine <-->|each iteration| corr["Optional Corrections: positions, distance, angle"]
+    engine -.-> mon[Monitor<br/>live plots]
+    corr -.-> mon
+    engine -->|reconstruct| out["Saved to HDF5<br/>object, probe, error, corrected parameters"]
+```
 
 ### Unified array layout
 
