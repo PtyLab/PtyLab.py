@@ -90,6 +90,18 @@ engine.lossFunction = partial(poisson_loss, read_out_sigma=2.0)
 
 All losses expect intensities in detector units, sum over pixels and frames, and are normalized by the total measured power. Measured frames may contain negative values (offset-subtracted raw data). A detector background belongs in the model, not in the data: set `engine.background` to a scalar or a frame-shaped image in PtyLab's centered order. It is fixed by default and estimated (kept nonnegative) when `"background"` is selected in `parameters`.
 
+### Readout noise per pixel
+
+`read_out_sigma` can be bound in the loss as one number. When the noise differs between pixels (hot pixels, detector glow/amp-glow), it is preferable to give it to the engine instead as `engine.readoutSigma`, in the same units as the loss's `read_out_sigma`: either a scalar, used for every detector pixel, or one frame-shaped map $\sigma(\mathbf q)$ in PtyLab's centered order. The map is typically the temporal standard deviation of dark frames recorded with the scan's exposure; any number of dark frames can be used.
+
+```python
+dark = ...                                  # (n_dark, N, N) dark frames, centered order
+engine.lossFunction = partial(poisson_loss, gain=g)
+engine.readoutSigma = dark.std(axis=0)      # one sigma per detector pixel
+```
+
+The engine passes the map to the loss as `read_out_sigma`. The loss must have a `read_out_sigma` argument, and must not bind its own: setting it in both places raises an error. `amplitude_loss` takes a map only with `anscombe_offset_switch=True`. A per-pixel standard deviation from $n$ dark frames has a relative error of about $1/\sqrt{2(n-1)}$, so use tens of frames.
+
 `poisson_loss` can be negative. The default `Monitor` currently fails to plot a negative error; use `easyInitialize(..., dummyMonitor=True)` or `DummyMonitor()` with this loss.
 
 ## Regularizers
@@ -142,7 +154,7 @@ engine.run([
 ])
 ```
 
-`Phase` sets `parameters`, `optimizerType`, `loss` and `constraints`. `run` restores the engine's settings afterwards, writes the errors of all phases to `reconstruction.error`, and returns one history per phase.
+`Phase` sets `parameters`, `optimizerType`, `loss`, `constraints` and `readoutSigma`. A field left at None takes the engine's own setting, not that of an earlier phase. `run` restores the engine's settings afterwards, writes the errors of all phases to `reconstruction.error`, and returns one history per phase.
 
 `blind_recipe(iterations)` builds two phases for recovering object and probe from a flat start: 20 % of the iterations with the preconditioned optimizer on the amplitude loss, then Adam on the engine's loss.
 
@@ -150,6 +162,20 @@ engine.run([
 from PtyLab.Engines.GradientEngine import ProbeCentering, blind_recipe
 
 engine.run(blind_recipe(iterations=1000, constraints=[ProbeCentering()]))
+```
+
+For raw frames with the detector background in the model, pass the readout noise to the recipe as a scalar or a per-pixel map. It is used by the Adam phase; the start always runs the plain amplitude loss without readout noise:
+
+```python
+engine.background = dark.mean(axis=0)
+engine.run(
+    blind_recipe(
+        iterations=1000,
+        loss=poisson_loss,
+        read_out_sigma=dark.std(axis=0),
+        constraints=[ProbeCentering()],
+    )
+)
 ```
 
 ## Batching and memory
@@ -185,7 +211,7 @@ Model tensors have these shapes:
 | Probe | `(nlambda, 1, npsm, 1, Np, Np)` |
 | Predicted intensity | `(batch, Np, Np)` |
 
-For the Fraunhofer propagator, predicted intensities and `engine.measuredIntensities` are in unshifted FFT pixel order, which saves two shifts per frame. `engine.centeredIntensity(intensity)` converts to PtyLab's centered order. A custom loss with per-pixel weights or masks must use the same order as the prediction.
+Every detector-plane array uses PtyLab's centered pixel order: predicted intensities, `engine.measuredIntensities`, `engine.background`, `engine.readoutSigma` and any per-pixel weights or masks in a custom loss. `engine.centeredIntensity(intensity)` returns a NumPy copy, for plotting.
 
 ## Modules
 
