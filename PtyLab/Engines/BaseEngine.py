@@ -1594,7 +1594,7 @@ class BaseEngine(object):
             axis=-2,
         )
 
-    def showReconstruction(self, loop):
+    def showReconstruction(self, loop, force=False):
         """
         Update reconstruction monitoring and optional iteration output.
 
@@ -1614,6 +1614,9 @@ class BaseEngine(object):
         Args:
             loop (int):
                 Current reconstruction iteration.
+            force (bool, optional):
+                Force an immediate monitor update regardless of
+                `monitor.figureUpdateFrequency`. Default is `False`.
         """
         if self.monitor.verboseLevel == "high" and loop == self.numIterations - 1:
             # one summary at the end of the run, not one per monitor update
@@ -1630,7 +1633,7 @@ class BaseEngine(object):
                 % (100 * self.reconstruction.areaOverlap)
             )
 
-        if np.mod(loop, self.monitor.figureUpdateFrequency) == 0:
+        if force or np.mod(loop, self.monitor.figureUpdateFrequency) == 0:
             fields = {
                 "engine_name": repr(type(self)),
                 "encoder_original": self.experimentalData.encoder,

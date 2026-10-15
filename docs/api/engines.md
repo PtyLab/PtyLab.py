@@ -48,6 +48,12 @@
       show_root_full_path: false
       inherited_members: false
 
+::: PtyLab.Engines.purityPIE.purityPIE
+    options:
+      show_root_heading: true
+      show_root_full_path: false
+      inherited_members: false
+
 ::: PtyLab.Engines.zPIE.zPIE
     options:
       show_root_heading: true
@@ -61,12 +67,6 @@
       inherited_members: false
 
 ::: PtyLab.Engines.e3PIE.e3PIE
-    options:
-      show_root_heading: true
-      show_root_full_path: false
-      inherited_members: false
-
-::: PtyLab.Engines.multiPIE.multiPIE
     options:
       show_root_heading: true
       show_root_full_path: false
