@@ -586,6 +586,10 @@ class Reconstruction(object):
         self.purityObject = 1.0
         self.purityProbeHist = []
 
+        # further results an engine adds ({group name: {name: value}}), e.g. the
+        # purityPIE scan table; saveResults writes each as an HDF5 group
+        self.extraResults = {}
+
         self.positions0 = self.positions.copy()
 
         if self.data.operationMode == "FPM":
@@ -936,6 +940,9 @@ class Reconstruction(object):
             CPM and FPM reconstruction files currently contain different sets of
             reconstruction metadata.
 
+            CPM files also contain one group per entry of ``extraResults``,
+            e.g. the ``purityScan`` group written after a purityPIE calibration.
+
         """
 
         allowed_save_types = ["all", "object", "probe", "probe_stack"]
@@ -965,6 +972,8 @@ class Reconstruction(object):
                     if hasattr(self, "theta"):
                         if self.theta != None:
                             hf.create_dataset("theta", data=self.theta, dtype="f")
+
+                    self._writeExtraResults(hf)
 
             if self.data.operationMode == "FPM":
                 with h5py.File(fileName, "w") as hf:
@@ -1000,6 +1009,27 @@ class Reconstruction(object):
             for path in snapshot.saveFigures(prefix):
                 print("Saved monitor figure %s" % path)
 
+    def _writeExtraResults(self, hf):
+        """
+        Write `extraResults` to an open HDF5 file, one group per entry.
+
+        Array-like values become datasets; strings become attributes of the
+        group, since they label the data rather than being data. `None` values
+        (not available) are skipped, as HDF5 has no equivalent.
+
+        Args:
+            hf (h5py.File): File opened for writing.
+        """
+        for group_name, entries in self.extraResults.items():
+            group = hf.create_group(group_name)
+            for name, value in entries.items():
+                if value is None:
+                    continue
+                if isinstance(value, str):
+                    group.attrs[name] = value
+                else:
+                    group.create_dataset(name, data=asNumpyArray(value))
+
     # detector coordinates
     @property
     def Nd(self):
@@ -1008,7 +1038,7 @@ class Reconstruction(object):
     @property
     def xd(self):
         """Detector coordinates 1D"""
-        return np.linspace(-self.Nd / 2, self.Nd / 2, np.int(self.Nd)) * self.dxd
+        return np.linspace(-self.Nd / 2, self.Nd / 2, int(self.Nd)) * self.dxd
 
     @property
     def Xd(self):
@@ -1093,7 +1123,7 @@ class Reconstruction(object):
     def xo(self):
         """object coordinates 1D"""
         try:
-            return np.linspace(-self.No / 2, self.No / 2, np.int(self.No)) * self.dxo
+            return np.linspace(-self.No / 2, self.No / 2, int(self.No)) * self.dxo
         except AttributeError as e:
             raise AttributeError(
                 e, 'object pixel number "No" and/or pixel size "dxo" not defined yet'

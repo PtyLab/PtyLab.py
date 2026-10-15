@@ -1,4 +1,5 @@
 import math
+from typing import Any
 
 import matplotlib as mpl
 import numpy as np
@@ -118,7 +119,7 @@ class ObjectProbeErrorPlot(_LiveFigure):
         objectPlot,
         amplitudeScalingFactor=1,
         purity=None,
-        **kwargs,
+        **kwargs: Any,
     ):
         """Show the object estimate.
 
@@ -170,7 +171,7 @@ class ObjectProbeErrorPlot(_LiveFigure):
         amplitudeScalingFactor=1,
         label="Probe estimate",
         purity=None,
-        **kwargs,
+        **kwargs: Any,
     ):
         """Show the probe (or, for FPM, pupil) estimate as a complex plot.
 
