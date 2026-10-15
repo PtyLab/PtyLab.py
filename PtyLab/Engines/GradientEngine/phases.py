@@ -13,6 +13,7 @@ _SETTINGS = {
     "optimizerType": "optimizerType",
     "loss": "lossFunction",
     "constraints": "constraints",
+    "readoutSigma": "readoutSigma",
 }
 
 
@@ -41,6 +42,9 @@ class Phase:
         constraints (Sequence, optional):
             Constraints applied after every step, as `engine.constraints`.
 
+        readoutSigma (float or array_like, optional):
+            Readout noise handed to the loss, as `engine.readoutSigma`.
+
         name (str, optional):
             Label shown in progress output. Defaults to `""`.
     """
@@ -50,6 +54,7 @@ class Phase:
     optimizerType: Optional[str] = None
     loss: Optional[Callable] = None
     constraints: Optional[Sequence[Callable]] = None
+    readoutSigma: Optional[Any] = None
     name: str = ""
 
     def settings(self):
@@ -76,15 +81,17 @@ def blind_recipe(
     probe_lr=0.1,
     start_lr=0.3,
     constraints=None,
+    read_out_sigma=None,
 ):
-    """
+    r"""
     Build two phases that recover object and probe from a flat start.
 
     1. A fraction `start_fraction` of the iterations runs PIE-style
-       preconditioned descent on the amplitude loss, with object and probe at
-       `start_lr`. This finds the right basin from a generic `circ` probe.
+       preconditioned descent on the plain amplitude loss, with object and
+       probe at `start_lr`, and without readout noise. This finds the right
+       basin from a generic `circ` probe.
     2. Adam on `loss` runs for the rest, with object rate `object_lr` and
-       scale-free probe rate `probe_lr`.
+       scale-free probe rate `probe_lr`, and readout noise `read_out_sigma`.
 
     Args:
         iterations (int, optional):
@@ -109,6 +116,21 @@ def blind_recipe(
         constraints (Sequence, optional):
             Constraints of both phases. If None, the engine's are kept.
 
+        read_out_sigma (float or array_like, optional):
+            Readout noise $\sigma$ of the Adam phase, set as
+            `engine.readoutSigma`: a scalar for every pixel, or one
+            $(N_p, N_p)$ map in centered order, for example
+            `dark.std(axis=0)` of dark frames, in the units of `loss`'s
+            `read_out_sigma`. If None, the Adam phase keeps
+            `engine.readoutSigma`.
+
+    Notes:
+        The start always runs with $\sigma = 0$. On measured data with the
+        background in the model, a shifted amplitude start
+        ($c = 3/8 + \sigma^2$) made the probe collapse in a following shifted
+        Poisson phase; the plain start did not, and was as good or better on
+        simulated data.
+
     Returns:
         list:
             The two `Phase` objects, for `GradientEngine.run`.
@@ -130,6 +152,8 @@ def blind_recipe(
             optimizerType="preconditioned",
             loss=amplitude_loss,
             constraints=constraints,
+            # Plain amplitude has no readout term; 0 overrides engine.readoutSigma.
+            readoutSigma=0.0,
             name="preconditioned amplitude start",
         ),
         Phase(
@@ -138,6 +162,7 @@ def blind_recipe(
             optimizerType="adam",
             loss=loss,
             constraints=constraints,
+            readoutSigma=read_out_sigma,
             name="adam",
         ),
     ]
