@@ -179,8 +179,8 @@ class PtychographyModel(torch.nn.Module):
     physical counts to one while preserving these axes.
 
     `background` is an optional incoherent detector background added to every
-    predicted frame, a scalar or one `(Np, Np)` image in the pixel order of
-    `forward`'s output. It is an ordinary parameter, so it stays fixed unless
+    predicted frame, a scalar or one `(Np, Np)` image in centered pixel
+    order, like `forward`'s output. It is an ordinary parameter, so it stays fixed unless
     selected for estimation.
 
     Args:
@@ -212,7 +212,6 @@ class PtychographyModel(torch.nn.Module):
         self.register_parameter("background", None)
         self.set_positions(positions)
         self.propagation = None
-        self.intensity_propagation = None
 
     @staticmethod
     def validate(reconstruction):
@@ -262,22 +261,16 @@ class PtychographyModel(torch.nn.Module):
             self.positions[:, 0] * self.object.shape[-1] + self.positions[:, 1]
         )
 
-    def set_propagation(self, propagation, intensity_propagation=None):
+    def set_propagation(self, propagation):
         """
-        Set the callables that map exit waves to detector fields.
+        Set the callable that maps exit waves to detector fields.
 
         Args:
             propagation (callable):
-                Maps exit waves to complex detector fields. `detector_fields`
-                always uses it.
-
-            intensity_propagation (callable, optional):
-                Only has to preserve the squared modulus up to a pixel order,
-                like `KernelPropagator.intensity_field`. `forward` uses it when
-                given.
+                Maps exit waves to complex detector fields in centered pixel
+                order, like `KernelPropagator`.
         """
         self.propagation = propagation
-        self.intensity_propagation = intensity_propagation
 
     def set_background(self, background):
         """
@@ -285,7 +278,7 @@ class PtychographyModel(torch.nn.Module):
 
         Args:
             background (float or array_like or None):
-                Real scalar or one-frame image in `forward`'s pixel order,
+                Real scalar or one-frame image in centered pixel order,
                 copied to the object's device as float32. None removes it.
         """
         if background is None:
@@ -425,15 +418,9 @@ class PtychographyModel(torch.nn.Module):
 
         Returns:
             torch.Tensor:
-                Intensity of shape `(batch, Np, Np)`, in the pixel order of
-                `intensity_propagation` when one is set.
+                Intensity of shape `(batch, Np, Np)`, in centered pixel order.
         """
-        if self.intensity_propagation is None:
-            fields = self.detector_fields(indices)
-        else:
-            fields = self.intensity_propagation(
-                self.object_patches(indices) * self.probe(indices)
-            )
+        fields = self.detector_fields(indices)
         intensity = squared_modulus(fields).sum(dim=(1, 2, 3, 4))
         if self.background is not None:
             intensity = intensity + self.background
