@@ -181,3 +181,38 @@ def test_blind_recipe_reduces_the_loss(engine):
     engine.run(blind_recipe(30, constraints=[ProbeCentering()]))
     error = engine.reconstruction.error
     assert len(error) == 30 and error[-1] < 0.5 * error[0]
+
+
+def test_blind_recipe_passes_readout_sigma_to_both_phases(engine):
+    from PtyLab.Engines.GradientEngine.losses import amplitude_loss, poisson_loss
+
+    seen = []
+
+    def recording(loss):
+        """Record the sigma the loss receives, then evaluate it."""
+
+        def wrapped(predicted, measured, total_power, read_out_sigma=0.0):
+            seen.append(read_out_sigma)
+            return loss(predicted, measured, total_power, read_out_sigma=read_out_sigma)
+
+        return wrapped
+
+    engine.device = "cpu"
+    size = engine.reconstruction.Np
+    sigma = np.full((size, size), 0.5, dtype=np.float32)
+
+    # Either way the plain amplitude start gets 0 and the Adam phase the map:
+    # first from engine.readoutSigma, then from the recipe's own read_out_sigma.
+    for engine_sigma, recipe_sigma in ((sigma, None), (None, sigma)):
+        engine.readoutSigma = engine_sigma
+        seen.clear()
+        phases = blind_recipe(
+            5, loss=recording(poisson_loss), read_out_sigma=recipe_sigma
+        )
+        assert phases[0].loss is amplitude_loss
+        phases[0].loss = recording(phases[0].loss)
+        engine.run(phases)
+        assert np.isfinite(engine.reconstruction.error).all()
+        assert seen[0] == 0.0
+        torch.testing.assert_close(seen[-1], torch.as_tensor(sigma))
+        assert engine.readoutSigma is engine_sigma  # restored after run()

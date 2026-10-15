@@ -1,5 +1,7 @@
 """Numerical contracts for intensity-based differentiable objectives."""
 
+from functools import partial
+
 import numpy as np
 import pytest
 
@@ -182,3 +184,43 @@ def test_amplitude_clamps_negative_raw_measurements():
     assert torch.isfinite(loss)
     loss.backward()
     assert torch.isfinite(intensity.grad).all()
+
+
+@pytest.mark.parametrize(
+    "loss",
+    [
+        partial(amplitude_loss, anscombe_offset_switch=True),
+        partial(poisson_loss, gain=2.0),
+        partial(mixed_poisson_gaussian_loss, gain=2.0),
+    ],
+)
+def test_read_out_sigma_map_equals_pixelwise_scalar_losses(loss):
+    rng = np.random.default_rng(3)
+    intensity = torch.tensor(rng.random((2, 3, 3)) * 4, dtype=torch.float64)
+    measured = intensity + torch.tensor(rng.normal(size=(2, 3, 3)), dtype=torch.float64)
+    sigma = torch.tensor(rng.random((3, 3)) + 0.2, dtype=torch.float64)  # one per pixel
+    power = torch.tensor(1.0, dtype=torch.float64)
+
+    with_map = loss(intensity, measured, power, read_out_sigma=sigma)
+    # Each pixel evaluated on its own, with its own scalar σ.
+    pixelwise = sum(
+        loss(
+            intensity[:, i, j],
+            measured[:, i, j],
+            power,
+            read_out_sigma=float(sigma[i, j]),
+        )
+        for i in range(3)
+        for j in range(3)
+    )
+    assert with_map.item() == pytest.approx(pixelwise.item(), rel=1e-12)
+
+
+def test_plain_amplitude_refuses_a_read_out_sigma_map():
+    with pytest.raises(ValueError, match="anscombe_offset_switch"):
+        amplitude_loss(
+            torch.ones(2, 2),
+            torch.ones(2, 2),
+            torch.tensor(1.0),
+            read_out_sigma=torch.ones(2, 2),
+        )

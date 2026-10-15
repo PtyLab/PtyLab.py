@@ -392,8 +392,7 @@ def test_component_model_preserves_six_axis_fields_and_returns_intensity(engine)
 
     assert fields.shape == (2, 1, 1, 1, 1, 8, 8)
     assert intensity.shape == (2, 8, 8)
-    # Fraunhofer intensities are in unshifted FFT order, fields stay centered.
-    intensity = torch.fft.fftshift(intensity, dim=(-2, -1))
+    # Intensities and fields share PtyLab's centered pixel order.
     torch.testing.assert_close(intensity, fields.abs().square().sum(dim=(1, 2, 3, 4)))
 
     expected = []
@@ -727,3 +726,44 @@ def test_selected_background_is_estimated_and_stays_nonnegative(engine, truth, s
     learned = engine.snapshot()["background"]
     assert learned >= 0
     assert learned == pytest.approx(truth, abs=0.02)
+
+
+def test_readout_sigma_maps_reach_the_loss_unchanged(engine):
+    from functools import partial
+
+    from PtyLab.Engines.GradientEngine.losses import poisson_loss
+
+    seen = []
+
+    def recording_loss(predicted, measured, total_power, read_out_sigma=0.0):
+        seen.append(read_out_sigma)
+        return poisson_loss(
+            predicted, measured, total_power, read_out_sigma=read_out_sigma
+        )
+
+    engine.device = "cpu"
+    engine.lossFunction = recording_loss
+    size = engine.reconstruction.Np
+    frames = len(engine.reconstruction.positions)
+    centred = np.arange(size * size, dtype=np.float32).reshape(size, size) / size**2
+    indices = torch.arange(frames)
+
+    # One map for every frame: centered, like the data, so it arrives as given.
+    engine.readoutSigma = centred
+    engine.prepareReconstruction()
+    engine.computeLoss(engine.forward(indices), engine.measuredBatch(indices))
+    expected = torch.as_tensor(centred)
+    torch.testing.assert_close(seen[-1], expected)
+
+    engine.numIterations = 2  # a full run uses the same path
+    engine.reconstruct()
+    assert np.isfinite(engine.reconstruction.error).all()
+
+    # Only a scalar or one (Np, Np) map is accepted.
+    engine.readoutSigma = np.stack([centred, 2 * centred])
+    with pytest.raises(ValueError, match="scalar or an"):
+        engine.prepareReconstruction()
+    engine.readoutSigma = 0.5
+    engine.lossFunction = partial(poisson_loss, read_out_sigma=0.5)
+    with pytest.raises(ValueError, match="not both"):
+        engine.prepareReconstruction()
