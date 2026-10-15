@@ -161,9 +161,7 @@ class GradientEngine(BaseEngine):
             Where the measurements live. None keeps them on `device` unless
             they would take more than half of the free GPU memory; `"cpu"`
             keeps them in pinned host memory and copies each batch over while
-            the previous one is computed. For Fraunhofer data
-            `measuredIntensities` is stored in unshifted FFT order, see
-            `KernelPropagator.intensity_field`. Initialized to None.
+            the previous one is computed. Initialized to None.
 
         background (float or array_like or None):
             Incoherent detector background $b$ that the model adds to every
@@ -175,6 +173,16 @@ class GradientEngine(BaseEngine):
             estimated (and kept nonnegative) when selected in `parameters`.
             Assigning it or calling `reset()` imports it again; otherwise a
             learned value is retained between runs. Initialized to None.
+
+        readoutSigma (float or array_like or None):
+            Readout noise $\sigma$ handed to the loss as `read_out_sigma`, in
+            the loss's units (detector units for `poisson_loss` and
+            `mixed_poisson_gaussian_loss`, photon counts for `amplitude_loss`
+            with `anscombe_offset_switch=True`). A nonnegative scalar, used
+            for every detector pixel, or one $(N_p, N_p)$ map
+            $\sigma(\mathbf q)$ in PtyLab's centered order, for example the
+            temporal standard deviation of any number of dark frames. None
+            leaves the loss's own `read_out_sigma`. Initialized to None.
 
         compile (bool):
             Evaluate the loss through `torch.compile`. Only the real-valued
@@ -241,6 +249,7 @@ class GradientEngine(BaseEngine):
         self.updatePerBatch = False
         self.constraints = []
         self.background = None
+        self.readoutSigma = None
 
     @property
     def background(self):
@@ -314,6 +323,14 @@ class GradientEngine(BaseEngine):
             raise NotImplementedError(
                 "GradientEngine does not support: " + ", ".join(enabled)
             )
+        # functools.partial keeps bound arguments in .keywords; the engine's
+        # read_out_sigma would silently override the loss's.
+        if self.readoutSigma is not None and "read_out_sigma" in getattr(
+            self.lossFunction, "keywords", {}
+        ):
+            raise ValueError(
+                "Set read_out_sigma in the loss or engine.readoutSigma, not both."
+            )
         if self.numIterations < 1:
             raise ValueError("numIterations must be positive.")
         if self.optimizerType not in ("adam", "preconditioned"):
@@ -360,9 +377,7 @@ class GradientEngine(BaseEngine):
             self.model = self.createModel()
         self.model.to(self.device)
         self.model.set_positions(self.positions)
-        self.model.set_propagation(
-            self.propagation, getattr(self.propagation, "intensity_field", None)
-        )
+        self.model.set_propagation(self.propagation)
 
     def reset(self):
         """Import the current `Reconstruction` object, probe and background."""
@@ -570,7 +585,7 @@ class GradientEngine(BaseEngine):
         return intensity
 
     def _background_tensor(self):
-        """Return `background` as a device tensor in measurement pixel order."""
+        """Return `background` as a device tensor."""
         background = torch.as_tensor(self.background, device=self.device)
         if background.dtype == torch.bool or background.is_complex():
             raise TypeError("background must be a real scalar or image.")
@@ -584,8 +599,6 @@ class GradientEngine(BaseEngine):
             )
         if not torch.isfinite(background).all() or (background < 0).any():
             raise ValueError("background must be finite and nonnegative.")
-        if self.fftOrderIntensity and background.ndim == 2:
-            background = torch.fft.ifftshift(background, dim=(-2, -1))
         return background
 
     def _import_background(self):
@@ -601,16 +614,25 @@ class GradientEngine(BaseEngine):
             self.model.set_background(self._background_tensor())
         self._backgroundPending = False
 
+    def _readout_sigma_tensor(self):
+        """Return `readoutSigma` as None, a float, or an `(Np, Np)` device map."""
+        sigma = self.readoutSigma
+        if sigma is None or np.ndim(sigma) == 0:
+            # A scalar stays a Python float, exactly as if bound in the loss.
+            return None if sigma is None else float(sigma)
+        sigma = torch.as_tensor(sigma, dtype=torch.float32, device=self.device)
+        # One value per detector pixel; it broadcasts against (batch, Np, Np).
+        if sigma.shape != self.measuredIntensities.shape[-2:]:
+            raise ValueError("readoutSigma must be a scalar or an (Np, Np) map.")
+        if not torch.isfinite(sigma).all() or (sigma < 0).any():
+            raise ValueError("readoutSigma must be finite and nonnegative.")
+        return sigma
+
     def prepareReconstruction(self):
         """Prepare data, retained components, propagation and a fresh optimizer."""
         self.validateSettings()
         self.measuredIntensities = self._validate_data()
         self.preparePropagation()
-        self.fftOrderIntensity = getattr(self.propagation, "fftOrderIntensity", False)
-        if self.fftOrderIntensity:
-            self.measuredIntensities = torch.fft.ifftshift(
-                self.measuredIntensities, dim=(-2, -1)
-            )
         self._loader = MeasurementLoader(self.measuredIntensities, self.device)
         self.measuredIntensities = data = self._loader.data
         # Summed in double precision, so it is the same wherever the data live.
@@ -618,6 +640,7 @@ class GradientEngine(BaseEngine):
         self.initializeParameters()
         self._set_probe_scale(self.totalPower.item() / len(self.measuredIntensities))
         self._import_background()
+        self._readoutSigma = self._readout_sigma_tensor()
         self.optimizer = self.createOptimizer()
         self.reconstruction.error = []
         self.effectiveBatchSize = self.batchSize
@@ -639,7 +662,7 @@ class GradientEngine(BaseEngine):
 
         Returns:
             torch.Tensor:
-                Measured frames in measurement pixel order.
+                Measured frames, centered.
         """
         return next(self.measuredBatches([indices]))
 
@@ -730,6 +753,9 @@ class GradientEngine(BaseEngine):
         """
         Evaluate the configured data objective, normalized by the full-scan power.
 
+        With `readoutSigma` set, the loss also gets it as `read_out_sigma`:
+        the scalar, or the `(Np, Np)` map.
+
         Args:
             predictedIntensity (torch.Tensor):
                 Predicted intensity of a batch.
@@ -747,7 +773,12 @@ class GradientEngine(BaseEngine):
             if loss not in cache:
                 cache[loss] = torch.compile(loss)
             loss = cache[loss]
-        return loss(predictedIntensity, measuredIntensity, self.totalPower)
+        sigma = getattr(self, "_readoutSigma", None)
+        if sigma is None:
+            return loss(predictedIntensity, measuredIntensity, self.totalPower)
+        return loss(
+            predictedIntensity, measuredIntensity, self.totalPower, read_out_sigma=sigma
+        )
 
     def regularizationLoss(self):
         """
@@ -834,18 +865,20 @@ class GradientEngine(BaseEngine):
 
     def centeredIntensity(self, intensity):
         """
-        Return a detached NumPy detector image in PtyLab's centered order.
+        Return a detached NumPy copy of a detector image or stack.
+
+        Intensities, measurements, backgrounds and `readoutSigma` maps all use
+        PtyLab's centered pixel order, so no reordering is needed. The method
+        is kept so existing code that converts for plotting keeps working.
 
         Args:
             intensity (torch.Tensor):
-                Image or stack in measurement pixel order.
+                Image or stack.
 
         Returns:
             np.ndarray:
-                Copy in centered order.
+                Copy on the host.
         """
-        if self.fftOrderIntensity and intensity.ndim >= 2:
-            intensity = torch.fft.fftshift(intensity, dim=(-2, -1))
         return intensity.detach().cpu().numpy().copy()
 
     def _replace_experimental_data(self, experimentalData):
@@ -914,9 +947,10 @@ class GradientEngine(BaseEngine):
         Run phases in order, each with a fresh optimizer.
 
         Each `Phase` sets its non-None fields on the engine for its own
-        iterations, starting from the estimates the previous phase left. The
-        engine's settings are restored afterwards, and `reconstruction.error`
-        holds the errors of all phases in order.
+        iterations, starting from the estimates the previous phase left. Its
+        None fields take the engine's own settings, not those of an earlier
+        phase. The engine's settings are restored afterwards, and
+        `reconstruction.error` holds the errors of all phases in order.
 
         Args:
             phases (Sequence):
@@ -940,7 +974,9 @@ class GradientEngine(BaseEngine):
         history, errors = [], []
         try:
             for phase in phases:
-                for name, value in phase.settings().items():
+                # A field left at None means the engine's own value, not the
+                # value an earlier phase set.
+                for name, value in {**saved, **phase.settings()}.items():
                     setattr(self, name, value)
                 self.numIterations = phase.iterations
                 try:

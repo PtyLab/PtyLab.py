@@ -26,11 +26,31 @@ data. `poisson_loss` with `read_out_sigma` and `amplitude_loss` with
 `anscombe_offset_switch=True` and `read_out_sigma` model such data without
 clipping. The plain `amplitude_loss` clamps negative measurements to zero
 before its square root.
+
+Readout noise: `read_out_sigma` is a scalar or a tensor that broadcasts against
+the intensities, for example one value per detector pixel `(N, N)` or one map
+per frame of the batch `(B, N, N)`. A tensor is in centered pixel order, like the
+intensities, and is not validated here; `engine.readoutSigma` validates it.
 """
 
 from math import isfinite
 
 import torch
+
+
+def _check_read_out_sigma(read_out_sigma):
+    """Check that a scalar `read_out_sigma` is a valid noise level.
+
+    Any nonnegative finite scalar is accepted and used for every pixel:
+    broadcasting makes it equal to a constant map, without building one. Only a
+    negative, NaN or infinite scalar raises. Tensors are checked once by
+    `GradientEngine` (`readoutSigma`) instead of on every call, which would
+    force a device synchronization per batch.
+    """
+    if torch.is_tensor(read_out_sigma):
+        return
+    if not isfinite(read_out_sigma) or read_out_sigma < 0:
+        raise ValueError("read_out_sigma must be a nonnegative finite scalar.")
 
 
 def intensity_loss(
@@ -113,9 +133,10 @@ def poisson_loss(
         gain (float, optional):
             Detector gain $g$ in detector units per photon. Defaults to 1.0.
 
-        read_out_sigma (float, optional):
-            Readout noise standard deviation $\sigma$ in detector units.
-            Defaults to 0.0.
+        read_out_sigma (float or torch.Tensor, optional):
+            Readout noise standard deviation $\sigma$ in detector units: a
+            scalar, or a tensor that broadcasts against the intensities (for
+            example one value per pixel). Defaults to 0.0.
 
         eps (float, optional):
             Floor $\epsilon$ of the logarithm's argument. Defaults to 1e-10.
@@ -126,8 +147,8 @@ def poisson_loss(
 
     Raises:
         ValueError:
-            If `gain` or `eps` is not positive and finite, or `read_out_sigma`
-            is not nonnegative and finite.
+            If `gain` or `eps` is not positive and finite, or a scalar
+            `read_out_sigma` is not nonnegative and finite.
 
     Notes:
         $y$ is deliberately not clamped: raw negative values are valid data,
@@ -137,10 +158,10 @@ def poisson_loss(
     """
     if not isfinite(gain) or gain <= 0:
         raise ValueError("gain must be a positive finite scalar.")
-    if not isfinite(read_out_sigma) or read_out_sigma < 0:
-        raise ValueError("read_out_sigma must be a nonnegative finite scalar.")
+    _check_read_out_sigma(read_out_sigma)
     if not isfinite(eps) or eps <= 0:
         raise ValueError("eps must be a positive finite scalar.")
+    # s^2 per pixel: a scalar, or a map that broadcasts against the batch.
     shift = (read_out_sigma / gain) ** 2
     counts = predicted_intensity / gain + shift
     return (
@@ -198,9 +219,11 @@ def amplitude_loss(
             If True, apply the fixed $3/8$ Anscombe offset plus $\sigma^2$ to
             both sides. Defaults to False.
 
-        read_out_sigma (float, optional):
-            Readout noise standard deviation $\sigma$ in photon counts. Only
-            used with `anscombe_offset_switch=True`. Defaults to 0.0.
+        read_out_sigma (float or torch.Tensor, optional):
+            Readout noise standard deviation $\sigma$ in photon counts: a
+            scalar, or a tensor that broadcasts against the intensities (for
+            example one value per pixel). Only used with
+            `anscombe_offset_switch=True`. Defaults to 0.0.
 
         eps (float, optional):
             Stabilizer $\epsilon$ of the predicted amplitude without the shift.
@@ -212,20 +235,21 @@ def amplitude_loss(
 
     Raises:
         ValueError:
-            If `read_out_sigma` is not nonnegative and finite, `eps` is not
-            positive and finite, or `read_out_sigma` is nonzero without
-            `anscombe_offset_switch=True`.
+            If a scalar `read_out_sigma` is not nonnegative and finite, `eps`
+            is not positive and finite, or `read_out_sigma` is a tensor or a
+            nonzero scalar without `anscombe_offset_switch=True`.
     """
-    if not isfinite(read_out_sigma) or read_out_sigma < 0:
-        raise ValueError("read_out_sigma must be a nonnegative finite scalar.")
+    _check_read_out_sigma(read_out_sigma)
     if not isfinite(eps) or eps <= 0:
         raise ValueError("eps must be a positive finite scalar.")
     if anscombe_offset_switch:
+        # c = 3/8 + σ², per pixel when σ is a map.
         offset = 0.375 + read_out_sigma**2
         predicted_amplitude = torch.sqrt(predicted_intensity.clamp_min(0.0) + offset)
         measured_amplitude = torch.sqrt((measured_intensity + offset).clamp_min(0.0))
     else:
-        if read_out_sigma != 0:
+        # A map is refused whatever its values: checking them would need a sync.
+        if torch.is_tensor(read_out_sigma) or read_out_sigma != 0:
             raise ValueError("read_out_sigma requires anscombe_offset_switch=True.")
         predicted_amplitude = torch.sqrt(predicted_intensity.clamp_min(0.0) + eps)
         measured_amplitude = measured_intensity.clamp_min(0.0).sqrt()
@@ -268,9 +292,10 @@ def mixed_poisson_gaussian_loss(
         gain (float, optional):
             Detector gain $g$ in detector units per photon. Defaults to 1.0.
 
-        read_out_sigma (float, optional):
-            Readout noise standard deviation $\sigma$ in detector units.
-            Defaults to 0.0.
+        read_out_sigma (float or torch.Tensor, optional):
+            Readout noise standard deviation $\sigma$ in detector units: a
+            scalar, or a tensor that broadcasts against the intensities (for
+            example one value per pixel). Defaults to 0.0.
 
         eps (float, optional):
             Variance floor $\epsilon$ in squared detector units. Defaults to
@@ -283,16 +308,16 @@ def mixed_poisson_gaussian_loss(
 
     Raises:
         ValueError:
-            If `gain` or `read_out_sigma` is not nonnegative and finite, or
-            `eps` is not positive and finite.
+            If `gain` or a scalar `read_out_sigma` is not nonnegative and
+            finite, or `eps` is not positive and finite.
     """
     if not isfinite(gain) or gain < 0:
         raise ValueError("gain must be a nonnegative finite scalar.")
-    if not isfinite(read_out_sigma) or read_out_sigma < 0:
-        raise ValueError("read_out_sigma must be a nonnegative finite scalar.")
+    _check_read_out_sigma(read_out_sigma)
     if not isfinite(eps) or eps <= 0:
         raise ValueError("eps must be a positive finite scalar.")
 
+    # v = g I + σ² + ε, with σ² per pixel when σ is a map.
     variance = gain * predicted_intensity.clamp_min(0.0) + (read_out_sigma**2) + eps
     residual_sq = (predicted_intensity - measured_intensity).square()
 
