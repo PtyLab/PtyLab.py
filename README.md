@@ -13,15 +13,15 @@ PtyLab is an inverse modeling toolbox for Conventional (CP) and Fourier (FP) pty
 - **Classic engines**: ePIE, mPIE, mqNewton, qNewton
 - **Advanced corrections**: position correction, defocus correction (zPIE), angle correction (aPIE), orthogonal probe relaxation (OPR)
 - **Multi-modal**: multi-slice, multi-wavelength, mixed-state object and probe
-- **Unified array layout**: object and probe are 6D arrays `(nlambda, nosm, npsm, nslice, N, N)`, i.e. wavelengths, object and probe state mixtures, depth slices, then the frame
 - **Multiple propagators**: Fraunhofer, Fresnel, Angular Spectrum (ASP), scaled ASP, polychromatic variants
+- **Unified array layout**: object and probe are 6D arrays `(nlambda, nosm, npsm, nslice, N, N)`, i.e. wavelengths, object and probe state mixtures, depth slices, then the frame
 - **GPU acceleration**: same code runs on CPU and GPU (NumPy/CuPy)
-- **Live monitor**: follow the object, probe and error metric as the iterations run, along with any corrected parameters such as scan positions, sample-detector distance (`zo`) and angle
-- **Differentiable ptychography** *(work in progress)*: gradient-based reconstruction with PyTorch for flexible modeling (see the [guide](https://ptylab.github.io/PtyLab.py/advanced/differentiable-ptychography/)).
+- **Live monitor**: follow the object, probe and error metric as the iterations run, along with any corrected parameters such as scan positions, sample-detector distance wavelength or angle
+- **Differentiable ptychography** *(work-in-progress)*: Optional submodule based on PyTorch for flexible differentiable modeling in ptychography (see the [guide](https://ptylab.github.io/PtyLab.py/advanced/differentiable-ptychography/)).
 
 ### How it works
 
-`PtyLab.easyInitialize` loads your data and sets up the objects below; the engine then runs the reconstruction.
+Implmentation of PtyLab.py essentially relies on 4 core classes: `ExperimentalData`, `Reconstruction`, `Params` and `Engine` and `Monitor` and the flow of data to reconstruction looks as below
 
 ```mermaid
 flowchart LR
@@ -58,7 +58,7 @@ To utilize GPU for faster reconstruction, enable GPU support:
 ```bash
 uv pip install "ptylab[gpu]" # supports CuPy with CUDA 12
 ```
-Check whether GPU is correctly configured with `uv run ptylab check gpu`. For additional information on other extras, see the [installation guide](https://ptylab.github.io/PtyLab.py/getting-started/installation/).
+Check whether GPU is correctly configured with `uv run ptylab check gpu`. For additional information on other extras such as enabling the differentiable ptychography module or GUI, see the [installation guide](https://ptylab.github.io/PtyLab.py/getting-started/installation/).
 
 ## Contributing
 
