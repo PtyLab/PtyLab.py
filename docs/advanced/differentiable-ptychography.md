@@ -1,6 +1,6 @@
 # Differentiable Ptychography
 
-`PtyLab.Engines.GradientEngine` implements gradient-based ptychographic reconstruction using the automatic differentiation of PyTorch. A forward model predicts the detector intensity of every scan frame, a loss compares it with the measurements, and an optimizer updates the parameters you select.
+`PtyLab.Engines.GradientEngine` implements differentiable ptychography that implements gradient-based optimization for phase-retrieval. This module leverages the automatic differentiation capability of PyTorch. A forward model predicts the detector intensity of every scan frame, a loss compares it with the measurements, and an optimizer updates the parameters you select.
 
 !!! warning
     The module is a work in progress. The API described here should stay stable, but this is not guaranteed yet. This page would also update with new changes.
@@ -8,7 +8,8 @@
 ## Scope
 
 - Conventional ptychography (CPM) only.
-- Currently does not support multiwavelength, multistate, multislice yet. However this is being implemented in stages. The six-axis object and probe shapes of PtyLab are kept for overall consistency. 
+- Mixed states: any number of object states (`nosm`) and probe states (`npsm`), see [Mixed states](#mixed-states).
+- Currently does not support multiwavelength or multislice yet. However this is being implemented in stages. The unified array layout of PtyLab is maintained for overall consistency in implementation.
 - Propagators: `Fraunhofer`, `Fresnel`, `ASP` and `scaledASP`.
 - Centered data (`params.fftshiftSwitch = False`) and the standard intensity constraint.
 - PtyLab switches that have no gradient-based counterpart yet (position correction, TV regularization, OPR, momentum and others) are rejected at the start of a run. The full list is `GradientEngine.unsupportedSettings`.
@@ -65,6 +66,24 @@ engine.parameters = {
 The probe is optimized scale-free. `probe.field` stores the probe divided by a fixed power of two that is set from the measured photons per frame, so one probe learning rate works across photon counts. `reconstruction.probe`, `engine.snapshot()` and `model.probe(indices)` stay in physical units. A learning rate `lr` that was tuned for the physical probe corresponds to `lr / engine.model.probe.scale.item()`.
 
 Every call to `reconstruct()` starts a fresh optimizer from the current estimates. If you edit `reconstruction.object` or `reconstruction.probe` between runs, call `engine.reset()` so that the model imports them.
+
+## Mixed states
+
+Set `reconstruction.nosm` and `reconstruction.npsm` before `initializeObjectProbe()`. Every object state $O_a$ meets every probe state $P_m$, and the intensities of all pairs add:
+
+$$
+I_j = \sum_{a}\sum_{m} \left|\mathcal{D}\{O_a(\mathbf{r} + \mathbf{x}_j)\,P_m(\mathbf{r})\}\right|^2 + b .
+$$
+
+```python
+reconstruction.npsm = 4
+reconstruction.initializeObjectProbe()
+engine = GradientEngine(reconstruction, data, params, monitor)
+engine.reconstruct()
+engine.model.probe.mode_powers()  # (nlambda, npsm): sum of |P_m|^2 per mode
+```
+
+All probe states share one learning rate and one probe scale. Start the states different from each other: identical states receive identical gradients and stay identical. A unitary rotation of the states leaves every intensity unchanged, so compare runs by their intensities and mode powers, not mode by mode.
 
 ## Optimizers
 

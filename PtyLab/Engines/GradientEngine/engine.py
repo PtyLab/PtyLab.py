@@ -263,14 +263,15 @@ class GradientEngine(BaseEngine):
 
     def validateSettings(self):
         """
-        Reject inputs outside the Stage 1 CPM and single-state contract.
+        Reject inputs outside the supported CPM contract.
 
         Raises:
             ValueError:
                 If a setting is unsupported or inconsistent.
 
             NotImplementedError:
-                If the data or the propagator are outside Stage 1.
+                If the data, the propagator or the state counts are not supported
+                in this version.
         """
         if self.batchSize is not None and (
             not _is_number(self.batchSize, Integral) or self.batchSize < 1
