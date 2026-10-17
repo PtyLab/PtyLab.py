@@ -67,6 +67,25 @@ class SharedProbe(torch.nn.Module):
         field = self.physical_field()
         return field.unsqueeze(0).expand(len(indices), *field.shape)
 
+    def mode_powers(self):
+        r"""
+        Return the power of each probe mode.
+
+        $$
+        s_m = \sum_{\mathbf{r}} |P_m(\mathbf{r})|^2,
+        $$
+
+        in physical units, so $\sum_m s_m$ is the total probe power.
+
+        Returns:
+            torch.Tensor:
+                Detached real powers of shape `(nlambda, npsm)`.
+        """
+        with torch.no_grad():
+            power = squared_modulus(self.physical_field()).sum(dim=(-2, -1))
+        # (nlambda, 1, npsm, 1) -> (nlambda, npsm)
+        return power[:, 0, :, 0]
+
     def set_scale(self, scale):
         r"""
         Change the scale $s$ while keeping the physical probe unchanged.
@@ -168,15 +187,19 @@ class PtychographyModel(torch.nn.Module):
     intensity is
 
     $$
-    I_j = \sum_{\mathrm{modes}} \left|\mathcal{D}\left\lbrace O(\mathbf{r} + \mathbf{x}_j)\,P(\mathbf{r})\right\rbrace \right|^2 + b,
+    I_j = \sum_{a=1}^{n_{\mathrm{osm}}} \sum_{m=1}^{n_{\mathrm{psm}}} \left|\mathcal{D}\left\lbrace O_a(\mathbf{r} + \mathbf{x}_j)\,P_m(\mathbf{r})\right\rbrace \right|^2 + b,
     $$
 
-    where $\mathcal{D}$ is the propagation and $b$ the optional detector
-    background.
+    where $O_a$ are the object states, $P_m$ the probe states, $\mathcal{D}$
+    the propagation and $b$ the optional detector background. Every pair
+    $(a, m)$ is a mutually incoherent channel: intensities add, fields do not.
 
     The object has shape `(nlambda, nosm, 1, nslice, No, No)` and the shared
-    probe has shape `(nlambda, 1, npsm, 1, Np, Np)`. Stage 1 restricts all four
-    physical counts to one while preserving these axes.
+    probe has shape `(nlambda, 1, npsm, 1, Np, Np)`. Their singleton axes
+    broadcast, so the detector fields hold all pairs, with shape
+    `(batch, nlambda, nosm, npsm, nslice, Np, Np)`. Any number of object and
+    probe states is supported; wavelengths and slices are still restricted
+    to one.
 
     `background` is an optional incoherent detector background added to every
     predicted frame, a scalar or one `(Np, Np)` image in centered pixel
@@ -216,7 +239,7 @@ class PtychographyModel(torch.nn.Module):
     @staticmethod
     def validate(reconstruction):
         """
-        Validate the Stage 1 counts and the canonical six-axis array shapes.
+        Validate the supported counts and the canonical six-axis array shapes.
 
         Args:
             reconstruction (Reconstruction):
@@ -224,22 +247,18 @@ class PtychographyModel(torch.nn.Module):
 
         Raises:
             NotImplementedError:
-                If there is more than one wavelength, object state, probe state
-                or slice.
+                If there is more than one wavelength or slice.
 
             ValueError:
                 If the object or probe is not a six-axis array.
         """
         recon = reconstruction
-        if any(
-            getattr(recon, name) != 1 for name in ("nlambda", "nosm", "npsm", "nslice")
-        ):
+        if recon.nlambda != 1 or recon.nslice != 1:
             raise NotImplementedError(
-                "PtychographyModel currently requires one wavelength, object state, "
-                "probe state, and slice."
+                "PtychographyModel currently requires one wavelength and one slice."
             )
-        object_shape = (1, 1, 1, 1, recon.No, recon.No)
-        probe_shape = (1, 1, 1, 1, recon.Np, recon.Np)
+        object_shape = (1, recon.nosm, 1, 1, recon.No, recon.No)
+        probe_shape = (1, 1, recon.npsm, 1, recon.Np, recon.Np)
         if recon.object.shape != object_shape or recon.probe.shape != probe_shape:
             raise ValueError(
                 "Initialize six-axis object and probe arrays with initializeObjectProbe()."
@@ -349,10 +368,13 @@ class PtychographyModel(torch.nn.Module):
         Return diagonal curvature maps for PIE-style preconditioning.
 
         $$
-        D_O(\mathbf{x}) = \sum_{j} |P(\mathbf{x} - \mathbf{x}_j)|^2,\qquad D_F(\mathbf{r}) = s^2 \sum_{j} |O(\mathbf{r} + \mathbf{x}_j)|^2,
+        D_O(\mathbf{x}) = \sum_{j} \sum_m |P_m(\mathbf{x} - \mathbf{x}_j)|^2,\qquad D_F(\mathbf{r}) = s^2 \sum_{j} \sum_a |O_a(\mathbf{r} + \mathbf{x}_j)|^2,
         $$
 
-        summed over the frames $j$ in `indices`. These are the Gauss-Newton
+        summed over the frames $j$ in `indices` and over the probe states $m$
+        and object states $a$: every object state meets every probe state, so
+        each sees the illumination of all the others. One map is shared by all
+        states of a tensor. These are the Gauss-Newton
         diagonals for a loss with constant curvature in the detector field, as
         used by PIE-type updates. Both are for the stored parameters: the probe
         map carries the $s^2$ of a scale-free probe, so a preconditioned step
@@ -379,11 +401,14 @@ class PtychographyModel(torch.nn.Module):
                 0, self.patch_indices(indices).reshape(-1), probe_intensity.reshape(-1)
             )
             illumination = illumination.view(self.object.shape[-2:])
+            # (batch, nlambda, nosm, 1, nslice, Np, Np): sum frames and object
+            # states -> (nlambda, 1, 1, nslice, Np, Np), broadcast over probe states.
             coverage = self.object_patches(indices).abs().square().sum(dim=0)
+            coverage = coverage.sum(dim=1, keepdim=True)
             coverage = coverage * getattr(self.probe, "scale", 1.0) ** 2
         return {
             "object": illumination.expand(self.object.shape),
-            "probe.field": coverage,
+            "probe.field": coverage.expand(self.probe.field.shape),
         }
 
     def detector_fields(self, indices):
