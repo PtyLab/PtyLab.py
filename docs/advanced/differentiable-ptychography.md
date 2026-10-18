@@ -83,7 +83,15 @@ engine.reconstruct()
 engine.model.probe.mode_powers()  # (nlambda, npsm): sum of |P_m|^2 per mode
 ```
 
-All probe states share one learning rate and one probe scale. Start the states different from each other: identical states receive identical gradients and stay identical. A unitary rotation of the states leaves every intensity unchanged, so compare runs by their intensities and mode powers, not mode by mode.
+All probe states share one learning rate and one probe scale. Start the states different from each other: exactly identical states receive identical gradients and stay identical. `initializeObjectProbe()` already adds a little noise to each state, which is enough. A unitary rotation of the states leaves every intensity unchanged, so the stored modes are one basis among many. Add `ProbeModeOrthogonalization` (see [Constraints](#constraints)) to keep them orthogonal and sorted by power, so that `mode_powers()` can be compared between runs:
+
+```python
+from PtyLab.Engines.GradientEngine import ProbeCentering, ProbeModeOrthogonalization
+
+engine.constraints = [ProbeCentering(), ProbeModeOrthogonalization(step=10)]
+```
+
+PtyLab's `params.orthogonalizationSwitch` is not used by this engine; the constraint replaces it.
 
 ## Optimizers
 
@@ -157,6 +165,7 @@ engine.constraints = [
 | `ProbeCentering` | Rolls probe and object so that the probe's centre of mass stays at the window centre. Leaves Fraunhofer intensities unchanged. |
 | `ObjectAmplitudeClamp` | Limits the object amplitude to `[minimum, maximum]`, keeping the phase. |
 | `PhaseRampRemoval` | Moves a linear phase ramp and a global phase from the object to the probe. Leaves all predicted intensities unchanged. |
+| `ProbeModeOrthogonalization` | Rotates the probe modes into orthogonal modes, strongest first, by the same snapshot method as PtyLab's `orthogonalizeModes`. Leaves all predicted intensities unchanged. |
 
 Each constraint takes the schedule arguments `start`, `step`, `end` (iterations) and `relax` (fraction of the correction that is not applied). Constraints that move a parameter also move its optimizer state. Any callable `constraint(engine, iteration)` is accepted, and subclasses of `Constraint` get the schedule for free. Subclasses of `GradientEngine` can still override `afterStep(iteration)`, which runs after the constraints.
 
@@ -241,7 +250,7 @@ Every detector-plane array uses PtyLab's centered pixel order: predicted intensi
 | `propagation` | `KernelPropagator`: fixed Fraunhofer, Fresnel, ASP and scaled-ASP kernels |
 | `losses` | Data objectives |
 | `regularizers` | Penalties on the model |
-| `constraints` | `Constraint`, `ProbeCentering`, `ObjectAmplitudeClamp`, `PhaseRampRemoval` |
+| `constraints` | `Constraint`, `ProbeCentering`, `ObjectAmplitudeClamp`, `PhaseRampRemoval`, `ProbeModeOrthogonalization` |
 | `phases` | `Phase`, `blind_recipe` |
 
 The docstrings of each module give the equations and all options; they are rendered in the [Gradient Engine API reference](../api/gradient-engine.md).
