@@ -302,3 +302,109 @@ def test_cuda_mixed_objective_and_gradients_match_cpu():
             rtol=3e-5,
             atol=2e-7,
         )
+
+
+def _gram(engine):
+    """Gram matrix G_mn = sum_r P_m^* P_n of the physical probe modes."""
+    modes = engine.model.probe.physical_field()[0, 0, :, 0].flatten(-2)
+    return modes.conj() @ modes.T
+
+
+def test_orthogonalization_gives_orthogonal_sorted_modes_and_keeps_predictions():
+    from PtyLab.Engines.GradientEngine import ProbeModeOrthogonalization
+
+    engine = mixed_engine(2, 3)
+    engine.prepareReconstruction()
+    before = _all_intensities(engine)
+    total = engine.model.probe.mode_powers().sum()
+    ProbeModeOrthogonalization()(engine, 0)
+
+    gram = _gram(engine)
+    off_diagonal = gram - torch.diag(torch.diagonal(gram))
+    assert off_diagonal.abs().max() < 1e-5 * gram.abs().max()
+    powers = engine.model.probe.mode_powers()[0]
+    assert (powers[:-1] >= powers[1:]).all()
+    torch.testing.assert_close(powers.sum(), total, rtol=1e-5, atol=0)
+    torch.testing.assert_close(
+        _all_intensities(engine), before, rtol=1e-5, atol=1e-6 * before.max()
+    )
+
+
+@pytest.mark.parametrize("nosm", [1, 2])
+def test_orthogonalization_matches_ptylab_up_to_a_phase_per_mode(nosm):
+    from PtyLab.Engines.GradientEngine import ProbeModeOrthogonalization
+    from PtyLab.utils.utils import orthogonalizeModes
+
+    engine = mixed_engine(nosm, 3)
+    engine.prepareReconstruction()
+    modes = engine.model.probe.field[0, 0, :, 0].detach().numpy()
+    expected, powers, _ = orthogonalizeModes(modes.astype(np.complex128), "snapShots")
+    ProbeModeOrthogonalization()(engine, 0)
+    actual = engine.model.probe.field[0, 0, :, 0].detach().numpy()
+
+    # Eigenvectors are fixed only up to a phase: |<P'_n, Q_n>| = |P'_n| |Q_n|.
+    for n in range(3):
+        overlap = abs(np.vdot(actual[n], expected[n]))
+        norms = np.linalg.norm(actual[n]) * np.linalg.norm(expected[n])
+        assert overlap == pytest.approx(norms, rel=1e-5)
+    mode_powers = (abs(actual) ** 2).sum((-2, -1))
+    np.testing.assert_allclose(mode_powers / mode_powers.sum(), powers, rtol=1e-5)
+
+
+def test_orthogonalization_mixes_adam_moments_with_the_modes():
+    from PtyLab.Engines.GradientEngine import ProbeModeOrthogonalization
+
+    engine = mixed_engine(1, 3)
+    engine.prepareReconstruction()
+    engine.runIteration(0)  # creates Adam state
+    field = engine.model.probe.field
+    state = engine.optimizer.state[field]
+    first, second = state["exp_avg"].clone(), state["exp_avg_sq"].clone()
+    old = field[0, 0, :, 0].detach().flatten(-2).to(torch.complex128)
+
+    ProbeModeOrthogonalization()(engine, 0)
+
+    # The mixing matrix the constraint used, from P' = V P: V^T = lstsq(P^T, P'^T).
+    new = field[0, 0, :, 0].detach().flatten(-2).to(torch.complex128)
+    V = torch.linalg.lstsq(old.T, new.T).solution.T.to(field.dtype)
+
+    # m'_n = sum_m V_nm m_m;  v'_n = sum_m |V_nm|^2 v_m (real and imaginary parts).
+    torch.testing.assert_close(
+        state["exp_avg"], torch.einsum("nm,amsyx->ansyx", V, first[0])[None]
+    )
+    weights = V.abs().square().to(second.dtype)
+    torch.testing.assert_close(
+        state["exp_avg_sq"], torch.einsum("nm,amsyx->ansyx", weights, second[0])[None]
+    )
+
+
+def test_relaxed_orthogonalization_blends_old_and_new_modes():
+    from PtyLab.Engines.GradientEngine import ProbeModeOrthogonalization
+
+    full, relaxed = mixed_engine(1, 3), mixed_engine(1, 3)
+    for candidate in (full, relaxed):
+        candidate.prepareReconstruction()
+    old = relaxed.model.probe.field.detach().clone()
+    ProbeModeOrthogonalization()(full, 0)
+    ProbeModeOrthogonalization(relax=0.25)(relaxed, 0)
+    expected = 0.25 * old + 0.75 * full.model.probe.field
+    torch.testing.assert_close(relaxed.model.probe.field, expected)
+
+
+def test_orthogonalization_leaves_a_single_mode_alone_and_runs_in_a_reconstruction():
+    from PtyLab.Engines.GradientEngine import ProbeModeOrthogonalization
+
+    single = mixed_engine(1, 1)
+    single.prepareReconstruction()
+    before = single.model.probe.field.detach().clone()
+    ProbeModeOrthogonalization()(single, 0)
+    torch.testing.assert_close(single.model.probe.field, before, rtol=0, atol=0)
+
+    engine = mixed_engine(1, 3)
+    engine.constraints = [ProbeModeOrthogonalization(step=5)]
+    engine.numIterations = 21  # the last step, 20, orthogonalizes
+    engine.reconstruct()
+    assert engine.reconstruction.error[-1] < 0.5 * engine.reconstruction.error[0]
+    gram = _gram(engine)
+    off_diagonal = gram - torch.diag(torch.diagonal(gram))
+    assert off_diagonal.abs().max() < 1e-5 * gram.abs().max()
