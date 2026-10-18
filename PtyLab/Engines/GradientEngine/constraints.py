@@ -478,7 +478,7 @@ class ProbeModeOrthogonalization(Constraint):
     r"""
     Rotate the probe modes into orthogonal modes, strongest first.
 
-    This is PtyLab's snapshot orthogonalization (`orthogonalizeModes` with
+    This is the snapshot orthogonalization (`orthogonalizeModes` with
     `method="snapShots"`, used by mPIE's `orthogonalizationSwitch`), computed
     in Torch on the engine's device. It diagonalizes the Gram matrix of the
     modes,
@@ -522,3 +522,88 @@ class ProbeModeOrthogonalization(Constraint):
             V = W[:, eigenvalues.argsort(descending=True)].T.to(field.dtype)
             matrix = self.relax * identity + (1 - self.relax) * V
             mix_probe_modes(engine, field, wavelength, matrix)
+
+
+class AbsorbingProbeBoundary(Constraint):
+    r"""
+    Damp the probe towards the edge of its window, akin to
+    `Params.absorbingProbeBoundary`.
+
+    Each call multiplies every probe mode by
+
+    $$
+    P \leftarrow \big[(1 - a) + a\,W(\mathbf{r})\big]\,P, \qquad
+    W(\mathbf{r}) = \exp\left[-\left(\frac{|\mathbf{r}|^2}{2\sigma^2}\right)^{10}\right], \qquad
+    \sigma = \frac{3}{4}\,\frac{N_p}{2.355},
+    $$
+
+    with $\mathbf{r}$ in pixels on PtyLab's probe grid (`Reconstruction.xp`,
+    `linspace(-Np/2, Np/2, Np)`) and $a$ = `aleph`. $W$ is the
+    super-Gaussian window of `BaseEngine._probeWindow`: about 1 out to
+    $0.4\,N_p$ from the centre and 0 beyond $0.5\,N_p$, so light near the
+    window edges and corners decays by $1 - a$ per call while the beam is
+    untouched.
+
+    Probe light far from the beam reaches object pixels nothing else lights.
+    Such a pair is free to fit diffuse intensity, so without this constraint
+    a weak mode can drift to the window corners.
+
+    The factor is real and positive per pixel, so Adam's first moment is
+    scaled by it and the second moment by its square, which keeps the
+    normalized step $m/\sqrt{v}$ of each pixel unchanged. With relaxation
+    $\rho$ the factor is $\rho + (1 - \rho)\big[(1 - a) + a\,W\big]$.
+
+    Args:
+        aleph (float, optional):
+            Damping $a$ in $(0, 1]$ per call, as
+            `Params.absorbingProbeBoundaryAleph`. Defaults to 0.05.
+
+        **schedule (dict):
+            `start`, `step`, `end` and `relax`, as in `Constraint`.
+
+    Raises:
+        ValueError:
+            If `aleph` is not in $(0, 1]$.
+    """
+
+    def __init__(self, aleph=0.05, **schedule):
+        super().__init__(**schedule)
+        if isinstance(aleph, bool) or not isinstance(aleph, Real) or not 0 < aleph <= 1:
+            raise ValueError("aleph must lie in (0, 1].")
+        self.aleph = float(aleph)
+
+    @staticmethod
+    def window(size, device=None, dtype=torch.float32):
+        r"""
+        Return an absorbing-boundary window $W$ for an `size`^2 probe.
+
+        Args:
+            size (int):
+                Probe pixels per side, $N_p$.
+
+            device (torch.device or str, optional):
+                Device of the result.
+
+            dtype (torch.dtype, optional):
+                Real dtype of the result. Defaults to `torch.float32`.
+
+        Returns:
+            torch.Tensor:
+                $W$ of shape `(size, size)`.
+        """
+        # In pixels dxp cancels: |r|^2 / (2 sigma^2) with r on PtyLab's linspace grid.
+        x = torch.linspace(
+            -size / 2, size / 2, size, device=device, dtype=torch.float64
+        )
+        sigma = 3 / 4 * size / 2.355
+        radius2 = x[:, None] ** 2 + x[None, :] ** 2
+        return torch.exp(-((radius2 / (2 * sigma**2)) ** 10)).to(dtype)
+
+    def apply(self, engine):
+        field = engine.model.probe.field  # (nlambda, 1, npsm, 1, Np, Np)
+        W = self.window(field.shape[-1], field.device, field.real.dtype)
+        factor = self.relax + (1 - self.relax) * ((1 - self.aleph) + self.aleph * W)
+        field.mul_(factor)
+        for key, value in _moments(engine, field).items():
+            # m scales like P; v (real and imaginary parts) like |P|^2.
+            value.mul_(factor**2 if key in ("exp_avg_sq", "max_exp_avg_sq") else factor)

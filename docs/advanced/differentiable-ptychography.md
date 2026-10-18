@@ -166,8 +166,9 @@ engine.constraints = [
 | `ObjectAmplitudeClamp` | Limits the object amplitude to `[minimum, maximum]`, keeping the phase. |
 | `PhaseRampRemoval` | Moves a linear phase ramp and a global phase from the object to the probe. Leaves all predicted intensities unchanged. |
 | `ProbeModeOrthogonalization` | Rotates the probe modes into orthogonal modes, strongest first, by the same snapshot method as PtyLab's `orthogonalizeModes`. Leaves all predicted intensities unchanged. |
+| `AbsorbingProbeBoundary` | Damps the probe near the edges of its window by the same super-Gaussian window as PtyLab's `absorbingProbeBoundary`: $P \leftarrow [(1 - a) + aW]P$ with `aleph` $= a$ (default 0.05). Keeps weak modes from drifting into the window corners, where they light object regions nothing else constrains. |
 
-Each constraint takes the schedule arguments `start`, `step`, `end` (iterations) and `relax` (fraction of the correction that is not applied). Constraints that move a parameter also move its optimizer state. Any callable `constraint(engine, iteration)` is accepted, and subclasses of `Constraint` get the schedule for free. Subclasses of `GradientEngine` can still override `afterStep(iteration)`, which runs after the constraints.
+Each constraint takes the schedule arguments `start`, `step`, `end` (iterations) and `relax` (fraction of the correction that is not applied). Constraints that move or scale a parameter also move or scale its optimizer state. PtyLab's `absorbingProbeBoundary` switch stays in `unsupportedSettings`; add `AbsorbingProbeBoundary()` to the list instead. Any callable `constraint(engine, iteration)` is accepted, and subclasses of `Constraint` get the schedule for free. Subclasses of `GradientEngine` can still override `afterStep(iteration)`, which runs after the constraints.
 
 ## Reconstruction Phases
 
@@ -250,7 +251,7 @@ Every detector-plane array uses PtyLab's centered pixel order: predicted intensi
 | `propagation` | `KernelPropagator`: fixed Fraunhofer, Fresnel, ASP and scaled-ASP kernels |
 | `losses` | Data objectives |
 | `regularizers` | Penalties on the model |
-| `constraints` | `Constraint`, `ProbeCentering`, `ObjectAmplitudeClamp`, `PhaseRampRemoval`, `ProbeModeOrthogonalization` |
+| `constraints` | `Constraint`, `ProbeCentering`, `ObjectAmplitudeClamp`, `PhaseRampRemoval`, `ProbeModeOrthogonalization`, `AbsorbingProbeBoundary` |
 | `phases` | `Phase`, `blind_recipe` |
 
 The docstrings of each module give the equations and all options; they are rendered in the [Gradient Engine API reference](../api/gradient-engine.md).

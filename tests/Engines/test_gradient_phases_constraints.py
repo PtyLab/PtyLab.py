@@ -10,6 +10,7 @@ torch = pytest.importorskip("torch")
 from test_gradient_engine import engine  # noqa: E402,F401  (shared fixture)
 
 from PtyLab.Engines.GradientEngine import (  # noqa: E402
+    AbsorbingProbeBoundary,
     Constraint,
     ObjectAmplitudeClamp,
     Phase,
@@ -103,6 +104,64 @@ def test_object_amplitude_clamp_keeps_phase(engine, relax):
     expected = relax * before.abs() + (1 - relax) * before.abs().clamp(max=1.0)
     torch.testing.assert_close(after.abs(), expected)
     torch.testing.assert_close(torch.angle(after), torch.angle(before))
+
+
+def _ptylab_probe_window(engine):
+    """PtyLab's own absorbing-boundary window (BaseEngine._probeWindow, NumPy)."""
+    engine.params.saveMemory = False
+    engine._probeWindow()
+    return torch.as_tensor(engine.probeWindow, dtype=torch.float32)
+
+
+def test_absorbing_boundary_window_matches_ptylab(engine):
+    window = AbsorbingProbeBoundary.window(engine.reconstruction.Np)
+    torch.testing.assert_close(window, _ptylab_probe_window(engine))
+    assert window.max() > 0.99 and window.min() < 1e-3  # varies across this probe
+
+
+CUDA = pytest.mark.skipif(not torch.cuda.is_available(), reason="needs CUDA")
+
+
+@pytest.mark.parametrize("device", ["cpu", pytest.param("cuda", marks=CUDA)])
+@pytest.mark.parametrize("relax", [0.0, 0.5])
+def test_absorbing_boundary_damps_probe_and_scales_adam_state(engine, relax, device):
+    # One call: P <- f P with f = rho + (1 - rho) [(1 - a) + a W], as PtyLab's
+    # applyConstraints; Adam's m scales by f and v by f^2.
+    engine.device = device
+    engine.prepareReconstruction()
+    engine.runIteration(0)  # creates Adam state
+    field = engine.model.probe.field
+    state = engine.optimizer.state[field]
+    before = field.detach().clone()
+    first, second = state["exp_avg"].clone(), state["exp_avg_sq"].clone()
+
+    AbsorbingProbeBoundary(aleph=0.2, relax=relax)(engine, 0)
+
+    factor = relax + (1 - relax) * (0.8 + 0.2 * _ptylab_probe_window(engine).to(device))
+    torch.testing.assert_close(field.detach(), before * factor)
+    torch.testing.assert_close(state["exp_avg"], first * factor)
+    torch.testing.assert_close(state["exp_avg_sq"], second * factor**2)
+
+
+def test_absorbing_boundary_in_a_reconstruction_darkens_the_window_edge(engine):
+    # Adam keeps its step size (m/sqrt(v) is unchanged by the scaling), so the
+    # edge settles where damping and steps balance: compare against no constraint.
+    engine.device = "cpu"
+    edge = _ptylab_probe_window(engine) < 0.01
+    plain = copy.deepcopy(engine)
+    for candidate, constraints in (
+        (plain, []),
+        (engine, [AbsorbingProbeBoundary(aleph=0.5)]),
+    ):
+        candidate.constraints = constraints
+        candidate.numIterations = 10
+        candidate.reconstruct()
+    edge_amplitude = [
+        np.abs(np.squeeze(c.reconstruction.probe))[edge.numpy()].mean()
+        for c in (plain, engine)
+    ]
+    assert edge_amplitude[1] < 0.5 * edge_amplitude[0]
+    assert engine.reconstruction.error[-1] < engine.reconstruction.error[0]
 
 
 @pytest.mark.parametrize("propagator", ["Fraunhofer", "Fresnel"])

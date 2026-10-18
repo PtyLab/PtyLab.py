@@ -18,6 +18,7 @@ _MODULES = {
     "ObjectAmplitudeClamp": ".constraints",
     "PhaseRampRemoval": ".constraints",
     "ProbeModeOrthogonalization": ".constraints",
+    "AbsorbingProbeBoundary": ".constraints",
 }
 __all__ = list(_MODULES)
 
