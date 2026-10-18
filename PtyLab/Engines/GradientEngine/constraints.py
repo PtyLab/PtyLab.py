@@ -154,6 +154,49 @@ def multiply_parameter(engine, parameter, factor):
             value.mul_(factor)
 
 
+def mix_probe_modes(engine, parameter, wavelength, matrix):
+    r"""
+    Replace the probe modes of one wavelength by linear combinations of them.
+
+    $$
+    P'_n = \sum_m M_{nm} P_m ,
+    $$
+
+    and the same for the optimizer state. First moments (Adam `exp_avg`)
+    mix exactly like the modes. Adam's second moments (`exp_avg_sq`, real and
+    imaginary parts separately) cannot be mixed linearly; they become
+    $v'_n = \sum_m |M_{nm}|^2 v_m$, which is exact if the gradients of
+    different modes are uncorrelated.
+
+    Args:
+        engine (GradientEngine):
+            Engine whose optimizer holds the state.
+
+        parameter (torch.Tensor):
+            Probe parameter of shape `(nlambda, 1, npsm, 1, Np, Np)`, changed
+            in place.
+
+        wavelength (int):
+            Index on the first axis.
+
+        matrix (torch.Tensor):
+            Complex mixing matrix $M$ of shape `(npsm, npsm)`.
+    """
+
+    def mix(tensor, weights):
+        # tensor[wavelength]: (1, npsm, 1, Np, Np); mix along the mode axis.
+        mixed = torch.einsum("nm,amsyx->ansyx", weights, tensor[wavelength])
+        tensor[wavelength] = mixed
+
+    mix(parameter, matrix)
+    for key, value in _moments(engine, parameter).items():
+        if key in ("exp_avg_sq", "max_exp_avg_sq"):
+            # Real weights |M|^2 act on the real and imaginary parts alike.
+            mix(value, matrix.abs().square().to(value.dtype))
+        else:
+            mix(value, matrix.to(value.dtype))
+
+
 class ProbeCentering(Constraint):
     r"""
     Keep the probe's centre of mass at the window centre.
@@ -429,3 +472,53 @@ class PhaseRampRemoval(Constraint):
         )
         multiply_parameter(engine, obj, object_factor)
         multiply_parameter(engine, probe, probe_factor)
+
+
+class ProbeModeOrthogonalization(Constraint):
+    r"""
+    Rotate the probe modes into orthogonal modes, strongest first.
+
+    This is PtyLab's snapshot orthogonalization (`orthogonalizeModes` with
+    `method="snapShots"`, used by mPIE's `orthogonalizationSwitch`), computed
+    in Torch on the engine's device. It diagonalizes the Gram matrix of the
+    modes,
+
+    $$
+    G_{mn} = \sum_{\mathbf{r}} P_m^*(\mathbf{r})\,P_n(\mathbf{r}) = \sum_k W_{mk}\,\lambda_k\,W^*_{nk},
+    $$
+
+    with eigenvalues sorted as $\lambda_1 \geq \lambda_2 \geq \ldots$, and
+    takes $V = W^T$ as in PtyLab. The new modes $P'_n = \sum_m V_{nm} P_m$ are
+    orthogonal, $\sum_{\mathbf{r}} P'^*_m P'_n = \lambda_n\,\delta_{mn}$, so
+    their powers are the eigenvalues of $G$. A unitary
+    rotation of the modes leaves every predicted intensity unchanged, so this
+    only picks a basis: it does not change the fit.
+
+    With relaxation $\rho$ the modes become $\rho P + (1 - \rho)P'$, that is
+    the mixing matrix $\rho I + (1 - \rho) V$, which is no longer unitary.
+    The optimizer state is mixed with the same matrix (see
+    `mix_probe_modes`). It takes the schedule arguments `start`, `step`,
+    `end` and `relax` of `Constraint`.
+
+    Notes:
+        Each eigenvector is fixed only up to a phase, so the result agrees
+        with PtyLab's up to one phase factor per mode, which no intensity
+        sees.
+    """
+
+    def apply(self, engine):
+        field = engine.model.probe.field  # (nlambda, 1, npsm, 1, Np, Np)
+        modes = field.shape[2]
+        if modes < 2:
+            return
+        identity = torch.eye(modes, dtype=field.dtype, device=field.device)
+        for wavelength in range(field.shape[0]):
+            modes_2d = field[wavelength, 0, :, 0].flatten(-2)  # (npsm, Np*Np)
+            # G = conj(p) p^T as in PtyLab; eigh in double precision, since
+            # weak modes have eigenvalues many orders below the strongest.
+            gram = (modes_2d.conj() @ modes_2d.T).to(torch.complex128)
+            eigenvalues, W = torch.linalg.eigh(gram)
+            # Strongest first; V = W^T (rows are the new modes), as in PtyLab.
+            V = W[:, eigenvalues.argsort(descending=True)].T.to(field.dtype)
+            matrix = self.relax * identity + (1 - self.relax) * V
+            mix_probe_modes(engine, field, wavelength, matrix)
