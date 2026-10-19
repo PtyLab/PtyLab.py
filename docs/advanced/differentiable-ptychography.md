@@ -115,14 +115,33 @@ engine.lossFunction = partial(poisson_loss, read_out_sigma=2.0)
 | `poisson_loss` | Poisson, optionally with Gaussian readout noise | `gain`, `read_out_sigma` |
 | `mixed_poisson_gaussian_loss` | Gaussian approximation of Poisson plus readout noise | `gain`, `read_out_sigma` |
 
-All losses expect intensities in detector units, sum over pixels and frames, and are normalized by the total measured power. Measured frames may contain negative values (offset-subtracted raw data). A detector background belongs in the model, not in the data: set `engine.background` to a scalar or a frame-shaped image in PtyLab's centered order. It is fixed by default and estimated (kept nonnegative) when `"background"` is selected in `parameters`.
+All losses expect intensities in detector units, sum over pixels and frames, and are normalized by the total measured power. Measured frames may contain negative values (offset-subtracted raw data).
+
+## Detector background
+
+A camera frame holds more than the sample's photons. Each part goes where its noise is described correctly:
+
+| Part of a raw frame | Noise | Where it goes |
+|---|---|---|
+| Electronic offset (bias) | none | subtracted from the frames |
+| Dark current | Poisson | its mean subtracted from the frames, its scatter in `readoutSigma` |
+| Stray light | Poisson | `engine.background` |
+| Readout noise | Gaussian | `readoutSigma` |
+
+With dark frames taken at the scan's exposure, subtract their mean from the frames, without clipping, before `reconstruct()`. This removes the offset and the mean dark current in one step:
+
+```python
+dark = ...                                           # (n_dark, N, N) dark frames, centered order
+data.ptychogram = data.ptychogram - dark.mean(axis=0)  # negative values stay
+```
+
+Set `engine.background` to a scalar or a frame-shaped image in PtyLab's centered order for a background that carries shot noise, such as stray light. It is fixed by default and estimated (kept nonnegative) when `"background"` is selected in `parameters`. Every loss counts $b$ as photons, with variance $g(I + b) + \sigma^2$. Do not put the dark mean into `engine.background`: its offset has no shot noise, so the loss would overestimate the variance of every dark pixel and give the weak high-angle signal too little weight. The offset would also inflate the total power and the probe scale.
 
 ### Readout noise per pixel
 
-`read_out_sigma` can be bound in the loss as one number. When the noise differs between pixels (hot pixels, detector glow/amp-glow), it is preferable to give it to the engine instead as `engine.readoutSigma`, in the same units as the loss's `read_out_sigma`: either a scalar, used for every detector pixel, or one frame-shaped map $\sigma(\mathbf q)$ in PtyLab's centered order. The map is typically the temporal standard deviation of dark frames recorded with the scan's exposure; any number of dark frames can be used.
+`read_out_sigma` can be bound in the loss as one number. When the noise differs between pixels (hot pixels, detector glow/amp-glow), it is preferable to give it to the engine instead as `engine.readoutSigma`, in the same units as the loss's `read_out_sigma`: either a scalar, used for every detector pixel, or one frame-shaped map $\sigma(\mathbf q)$ in PtyLab's centered order. The map is typically the temporal standard deviation of the dark frames whose mean was subtracted from the data (see [Detector background](#detector-background)); any number of dark frames can be used. It holds the readout noise and the dark-current shot noise, which is the noise left after the subtraction.
 
 ```python
-dark = ...                                  # (n_dark, N, N) dark frames, centered order
 engine.lossFunction = partial(poisson_loss, gain=g)
 engine.readoutSigma = dark.std(axis=0)      # one sigma per detector pixel
 ```
@@ -193,10 +212,11 @@ from PtyLab.Engines.GradientEngine import ProbeCentering, blind_recipe
 engine.run(blind_recipe(iterations=1000, constraints=[ProbeCentering()]))
 ```
 
-For raw frames with the detector background in the model, pass the readout noise to the recipe as a scalar or a per-pixel map. It is used by the Adam phase; the start always runs the plain amplitude loss without readout noise:
+For raw frames, subtract the dark mean from the data (see [Detector background](#detector-background)) and pass the readout noise to the recipe as a scalar or a per-pixel map. It is used by the Adam phase; the start always runs the plain amplitude loss without readout noise:
 
 ```python
-engine.background = dark.mean(axis=0)
+data.ptychogram = data.ptychogram - dark.mean(axis=0)
+engine.background = stray        # optional: a Poisson background such as stray light
 engine.run(
     blind_recipe(
         iterations=1000,

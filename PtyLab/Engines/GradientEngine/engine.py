@@ -167,12 +167,16 @@ class GradientEngine(BaseEngine):
             Incoherent detector background $b$ that the model adds to every
             predicted frame, so the data are compared with
             $|\mathcal{D}\lbrace \psi\rbrace |^2 + b$ instead of being
-            background-subtracted. A nonnegative scalar or one frame-shaped
-            image in PtyLab's centered order, as a NumPy array or tensor. It
-            becomes the model parameter `"background"`: fixed by default,
-            estimated (and kept nonnegative) when selected in `parameters`.
-            Assigning it or calling `reset()` imports it again; otherwise a
-            learned value is retained between runs. Initialized to None.
+            background-subtracted. Every loss counts $b$ as photons, with
+            shot-noise variance $g\,b$, so $b$ is for Poisson backgrounds such
+            as stray light. A noise-free offset (electronic bias, the mean of
+            dark frames) is subtracted without clipping and kept non-negative.
+            A nonnegative scalar or one frame-shaped image in PtyLab's centered
+            order, as a NumPy array or tensor. It becomes the model parameter
+            `"background"`: fixed by default, estimated (and kept nonnegative)
+            when selected in `parameters`. Assigning it or calling `reset()`
+            imports it again; otherwise a learned value is retained between runs.
+            Initialized to None.
 
         readoutSigma (float or array_like or None):
             Readout noise $\sigma$ handed to the loss as `read_out_sigma`, in
@@ -181,8 +185,10 @@ class GradientEngine(BaseEngine):
             with `anscombe_offset_switch=True`). A nonnegative scalar, used
             for every detector pixel, or one $(N_p, N_p)$ map
             $\sigma(\mathbf q)$ in PtyLab's centered order, for example the
-            temporal standard deviation of any number of dark frames. None
-            leaves the loss's own `read_out_sigma`. Initialized to None.
+            temporal standard deviation of any number of dark frames whose
+            mean is subtracted from the data (it then also holds the
+            dark-current shot noise). None leaves the loss's own
+            `read_out_sigma`. Initialized to None.
 
         compile (bool):
             Evaluate the loss through `torch.compile`. Only the real-valued

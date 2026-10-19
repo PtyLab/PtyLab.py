@@ -20,9 +20,13 @@ loss is selected, so that `predicted_intensity` means the same physical
 quantity regardless of the objective `GradientEngine` is configured to use.
 
 Raw data: `measured_intensity` may be negative (offset-subtracted frames with
-readout noise). A detector background belongs in the prediction, which the
-model provides through `engine.background`, and is not subtracted from the
-data. `poisson_loss` with `read_out_sigma` and `amplitude_loss` with
+readout noise). Noise-free parts of the signal (electronic bias, the mean of
+dark frames) are subtracted from the data, without clipping. A Poisson
+background such as stray light belongs in the prediction, which the model
+provides through `engine.background`: every loss below puts it in the
+shot-noise variance $g\,(I + b) + \sigma^2$, so a noise-free offset inside
+$b$ would be counted as photons and down-weight every dark pixel.
+`poisson_loss` with `read_out_sigma` and `amplitude_loss` with
 `anscombe_offset_switch=True` and `read_out_sigma` model such data without
 clipping. The plain `amplitude_loss` clamps negative measurements to zero
 before its square root.

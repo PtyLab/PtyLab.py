@@ -120,7 +120,8 @@ def blind_recipe(
             Readout noise $\sigma$ of the Adam phase, set as
             `engine.readoutSigma`: a scalar for every pixel, or one
             $(N_p, N_p)$ map in centered order, for example
-            `dark.std(axis=0)` of dark frames, in the units of `loss`'s
+            `dark.std(axis=0)` of dark frames whose mean is subtracted from
+            the data, in the units of `loss`'s
             `read_out_sigma`. If None, the Adam phase keeps
             `engine.readoutSigma`.
 
