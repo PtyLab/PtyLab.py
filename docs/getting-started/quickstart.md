@@ -132,5 +132,5 @@ reconstruction.load_object("previous_result.hdf5")
 - [CPM Workflow Overview](../cpm/overview.md) — understand the full reconstruction pipeline
 - [Configuration Reference](../cpm/configuration.md) — all available `Params` options
 - [Engines](../cpm/engines.md) — choose the right reconstruction algorithm
-- [Tutorial Notebooks](../tutorials/tutorial_CPM_sim.ipynb) — worked examples end to end
+- [Tutorials](../tutorials/index.md) — worked examples end to end
 - [FPM Workflow](../fpm/overview.md) — Fourier ptychography with LED arrays

@@ -17,7 +17,7 @@ PtyLab.py loads experimental data from **HDF5** files. All fields are stored at 
 | Field | Type | Unit | Description |
 |-------|------|------|-------------|
 | `entrancePupilDiameter` | `float64` | m | Diameter of the probe aperture |
-| `spectralDensity` | `float64 (nlambda,)` | — | Relative spectral weights for polychromatic reconstruction |
+| `spectralDensity` | `float64 (nlambda,)` | m | Wavelengths of a polychromatic beam, one per reconstructed wavelength |
 | `theta` | `float64` | rad | Tilt angle for reflection ptychography |
 | `emptyBeam` | `float32 (Nd, Nd)` | counts | Reference probe image (for modulus-enforced probe) |
 
