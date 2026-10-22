@@ -102,6 +102,6 @@ Push your branch to your fork and open a [pull request](https://docs.github.com/
 git push -u origin my-feature
 ```
 
-GitHub fills the description with the [pull request template](https://github.com/PtyLab/PtyLab.py/blob/main/.github/pull_request_template.md). Fill in each section rather than replacing it: why the change is needed, how it was tested (a demo figure or screenshot helps), and any notes such as deprecations or changed reconstruction results. Keep the description short: list the changes per file as brief bullet points in simple words.
+GitHub fills the description with the [pull request template](https://github.com/PtyLab/PtyLab.py/blob/main/.github/pull_request_template.md). Fill in each section rather than replacing it: why the change is needed, how it was tested (a demo figure or screenshot helps), and any notes such as deprecations or changed reconstruction results. Keep the description short: list the changes per file as brief bullet points in simple words. Preferably write it yourself. If an LLM drafts it, edit it until it is easy to read, without unnecessary length or jargon.
 
 If `main` has moved on in the meantime, update your branch with `git fetch upstream` and `git rebase upstream/main`.

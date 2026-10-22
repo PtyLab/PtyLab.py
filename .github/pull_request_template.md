@@ -1,4 +1,4 @@
-<!-- Keep this short and in simple words. -->
+<!-- Keep this short and in simple words. Prefer writing it yourself; if an LLM drafts it, edit it until it is short and easy to read. -->
 
 ## What and why
 
