@@ -156,9 +156,7 @@ def complexPlot(rgb, ax=None, pixelSize=1, axisUnit="pixel"):
     scalar_mappable = mpl.cm.ScalarMappable(norm=norm, cmap=mpl.cm.hsv)
     scalar_mappable.set_array([])
     # colorbar on the axes' own figure, not pyplot's current one
-    cbar = ax.figure.colorbar(
-        scalar_mappable, ax=ax, cax=cax, ticks=[-np.pi, 0, np.pi]
-    )
+    cbar = ax.figure.colorbar(scalar_mappable, ax=ax, cax=cax, ticks=[-np.pi, 0, np.pi])
     cbar.ax.set_yticklabels([r"$-\pi$", "0", r"$\pi$"])
     return im
 
@@ -292,12 +290,12 @@ def setColorMap():
 
 def _is_notebook():
     """Return True when running inside a Jupyter kernel."""
-    try:
-        from IPython import get_ipython
-
-        return get_ipython().__class__.__name__ == "ZMQInteractiveShell"
-    except NameError:
+    # a kernel imports IPython before any user code runs, so if it is not in
+    # sys.modules we are not in one; this avoids importing IPython in scripts
+    IPython = sys.modules.get("IPython")
+    if IPython is None:
         return False
+    return IPython.get_ipython().__class__.__name__ == "ZMQInteractiveShell"
 
 
 def _has_display():
@@ -444,7 +442,7 @@ def show3Dslider(A, colormap="diffraction"):
         except ImportError as e:
             logger.warning(
                 "pyqtgraph/Qt not available (%s); using the matplotlib viewer. For the "
-                'interactive GUI, install PtyLab with `pip install "ptylab[gui]"`.',
+                'interactive GUI, install PtyLab with `pip install -U "ptylab[gui]"`.',
                 e,
             )
             _show3Dslider_matplotlib(A, cmap)
