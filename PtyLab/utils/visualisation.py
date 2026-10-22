@@ -1,5 +1,4 @@
 # This file contains utilities required for Monitor
-# %%
 import functools
 import logging
 import math
@@ -466,11 +465,3 @@ def show3Dslider(A, colormap="diffraction"):
         imv.show()
         # exec() works on every Qt binding; exec_() is a deprecated PyQt5-era alias
         app.exec()
-
-
-# %%
-if __name__ == "__main__":
-    A = np.random.uniform(size=(100, 250, 250))
-    show3Dslider(A)
-
-# %%
