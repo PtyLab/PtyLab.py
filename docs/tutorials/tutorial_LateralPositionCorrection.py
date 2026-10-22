@@ -29,7 +29,9 @@
 # ## Implementation in PtyLab
 # PtyLab feeds this estimate back into the scan positions with momentum. At each iteration and scan position $k$:
 #
-# $$\mathbf{D}_k \leftarrow \delta\, \mathbf{g}_k + \eta\, \mathbf{D}_k, \qquad \mathbf{r}_k \leftarrow \mathbf{r}_k - \alpha\, \mathbf{D}_k\, dx_o$$
+# $$
+# \mathbf{D}_k \leftarrow \delta\, \mathbf{g}_k + \eta\, \mathbf{D}_k, \qquad \mathbf{r}_k \leftarrow \mathbf{r}_k - \alpha\, \mathbf{D}_k\, dx_o
+# $$
 #
 # - $\mathbf{r}_k$: scan position $k$, in meters
 # - $\mathbf{g}_k$: error estimate from the cross-correlation, in pixels, limited to 3 pixels per axis

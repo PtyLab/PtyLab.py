@@ -143,7 +143,9 @@ plt.imshow(complex2rgb(modeTile(fft2c(reconstruction.object))))
 #
 # First, compute the combined curvature:
 #
-# $$C(x, y) = \exp\!\left[\frac{i\pi}{\lambda}\left(\frac{1}{z} + \frac{1}{u}\right)(x^2 + y^2)\right]$$
+# $$
+# C(x, y) = \exp\!\left[\frac{i\pi}{\lambda}\left(\frac{1}{z} + \frac{1}{u}\right)(x^2 + y^2)\right]
+# $$
 #
 # where $\lambda$ is the wavelength, $z$ the LED-to-sample distance, $u$ the sample-to-lens distance and $(x, y)$ the coordinates in the object plane.
 

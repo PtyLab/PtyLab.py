@@ -32,7 +32,9 @@ from scipy.signal import convolve2d
 #
 # The pixel size in the sample plane follows from these:
 #
-# $$dx_p = \frac{\lambda\, z_o}{N_d\, dx_d}$$
+# $$
+# dx_p = \frac{\lambda\, z_o}{N_d\, dx_d}
+# $$
 #
 # where $\lambda$ is the wavelength and $N_d\, dx_d$ the width of the detector.
 
@@ -167,7 +169,9 @@ ptychogram = np.zeros((numFrames, Nd, Nd))
 # %% [markdown]
 # For each scan position, cut out the object patch under the probe; it has the same size as the probe array. The exit wave `esw`, the field just behind the sample, is the product of probe and patch. In the far field, the field at the detector is the Fourier transform of the exit wave, and the detector records its squared magnitude:
 #
-# $$I_j = \left|\mathcal{F}\{P \cdot O_j\}\right|^2$$
+# $$
+# I_j = \left|\mathcal{F}\{P \cdot O_j\}\right|^2
+# $$
 #
 # where $P$ is the probe, $O_j$ the object patch at scan position $j$, $\mathcal{F}$ the 2-D Fourier transform and $I_j$ the diffraction pattern.
 
