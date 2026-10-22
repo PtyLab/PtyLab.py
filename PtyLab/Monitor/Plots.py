@@ -3,7 +3,6 @@ from typing import Any
 
 import matplotlib as mpl
 import numpy as np
-from IPython.display import display
 from matplotlib import pyplot as plt
 from matplotlib import ticker
 from matplotlib.image import AxesImage
@@ -51,6 +50,10 @@ class _LiveFigure:
 
     def drawNowIpython(self):
         """Show the figure on the first call, then update that same output."""
+        # only reached with the inline backend, i.e. inside a Jupyter kernel,
+        # which always ships IPython
+        from IPython.display import display
+
         if self.display_handle is None:
             self.display_handle = display(self.figure, display_id=True)
         else:

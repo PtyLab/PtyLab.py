@@ -4,7 +4,7 @@
 ![Tests](https://github.com/PtyLab/PtyLab.py/actions/workflows/test.yml/badge.svg)
 [![Docs](https://github.com/PtyLab/PtyLab.py/actions/workflows/docs.yml/badge.svg)](https://ptylab.github.io/PtyLab.py/)
 
-[**Key Features**](#key-features) | [**Getting Started**](#getting-started) | [**Installation**](#installation) | [**Documentation**](https://ptylab.github.io/PtyLab.py/)
+[**Key Features**](#key-features) | [**Getting Started**](#getting-started) | [**Installation**](https://ptylab.github.io/PtyLab.py/getting-started/installation/) | [**Documentation**](https://ptylab.github.io/PtyLab.py/)
 
 PtyLab is an inverse modeling toolbox for Conventional (CP) and Fourier (FP) ptychography in a unified framework. For more information please check the [paper](https://opg.optica.org/oe/fulltext.cfm?uri=oe-31-9-13763&id=529026).
 
@@ -49,17 +49,18 @@ For more use cases, start with the [tutorials](https://ptylab.github.io/PtyLab.p
 Install from PyPI within your virtual environment:
 
 ```bash
-pip install ptylab
+pip install -U ptylab
 ```
-For faster installs, we recommend [uv](https://docs.astral.sh/uv/getting-started/installation/): `uv pip install ptylab`
+For faster installs, we recommend [uv](https://docs.astral.sh/uv/getting-started/installation/): `uv pip install -U ptylab`
 
 To utilize GPU for faster reconstruction, enable GPU support:
 
 ```bash
-uv pip install "ptylab[gpu]" # supports CuPy with CUDA 12
+uv pip install -U "ptylab[gpu]" # supports CuPy with CUDA 12
 ```
 Check whether GPU is correctly configured with `uv run ptylab check gpu`. For additional information on other extras such as enabling the differentiable ptychography module or GUI, see the [installation guide](https://ptylab.github.io/PtyLab.py/getting-started/installation/).
 
+## Contributing
 ## Contributing
 
 Contributions are welcome! See the [contributing guide](https://ptylab.github.io/PtyLab.py/contributing/) for the development setup, tests and how to open a pull request.
