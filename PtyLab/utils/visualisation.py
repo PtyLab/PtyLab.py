@@ -1,4 +1,5 @@
 # This file contains utilities required for Monitor
+# %%
 import functools
 import logging
 import math
@@ -389,44 +390,39 @@ def show3Dslider(A, colormap="diffraction"):
         cmap = mpl.colormaps[colormap]
 
     if _is_notebook():
+        import io
+
         import ipywidgets as widgets
-        import matplotlib.pyplot as plt
         from IPython.display import display
 
-        # Create output widget for displaying figure
-        out = widgets.Output()
+        # Build the figure once and only swap the image data per frame; each frame
+        # is rendered to PNG and shown in an Image widget.
+        fig, ax = plt.subplots(1, 1, figsize=(6, 6))
+        im = ax.imshow(A[0], cmap=cmap, origin="lower")
+        fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+        ax.axis("off")
+        fig.tight_layout()
+        # detach from pyplot so the inline backend doesn't display it a second time
+        plt.close(fig)
 
-        def update_frame(change):
-            # Create new figure for each frame update
-            # Handle both old API (event dict) and new API (direct value)
-            if isinstance(change, dict):
-                frame = int(change["new"])
-            else:
-                frame = int(change)
-            fig, ax = plt.subplots(1, 1, figsize=(6, 6))
-            im = ax.imshow(A[frame], cmap=cmap, origin="lower")
-            plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
-            ax.axis("off")
-            plt.tight_layout()
+        def render(frame):
+            im.set_data(A[frame])
+            # rescale the colour limits (and colorbar) to each frame
+            im.autoscale()
+            buf = io.BytesIO()
+            fig.savefig(buf, format="png")
+            return buf.getvalue()
 
-            with out:
-                out.clear_output(wait=True)
-                display(fig)
-                plt.close(fig)
-
-        # Create slider widget
+        image = widgets.Image(value=render(0), format="png")
         slider = widgets.IntSlider(
             min=0, max=A.shape[0] - 1, step=1, value=0, description="Frame"
         )
 
-        # Link slider to update function
+        def update_frame(change):
+            image.value = render(int(change["new"]))
+
         slider.observe(update_frame, names="value")
-
-        # Display slider and output
-        display(widgets.VBox([slider, out]))
-
-        # Initial display
-        update_frame(0)
+        display(widgets.VBox([slider, image]))
     else:
         if not _has_display():
             logger.warning(
@@ -470,3 +466,11 @@ def show3Dslider(A, colormap="diffraction"):
         imv.show()
         # exec() works on every Qt binding; exec_() is a deprecated PyQt5-era alias
         app.exec()
+
+
+# %%
+if __name__ == "__main__":
+    A = np.random.uniform(size=(100, 250, 250))
+    show3Dslider(A)
+
+# %%
