@@ -32,8 +32,11 @@ jobs:
       - name: Install documentation dependencies
         run: uv sync --group docs
 
+      - name: Check that tutorial pages match their scripts
+        run: uv run --group docs python docs/render_tutorials.py --check
+
       - name: Build documentation
-        run: uv run --group docs mkdocs build --strict
+        run: uv run --group docs zensical build --clean --strict
 
       - name: Upload documentation
         if: github.event_name != 'pull_request'
