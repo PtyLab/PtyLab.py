@@ -67,8 +67,7 @@ def _run(dataset, tsvd_type, fast_orthogonalization):
 def test_opr_legacy_path_golden(regression_dataset):
     """OPR_tsvd_type='numpy' must still reproduce the pre-0.3.0 output."""
     result = _run(regression_dataset, "numpy", False)
-    compare(result, GOLDEN_DIR / "opr_gpu.npz", rtol=1e-5, atol=1e-7,
-            label="opr [legacy]")
+    compare(result, GOLDEN_DIR / "opr_gpu.npz", tol=1e-5, label="opr [legacy]")
 
 
 @pytest.mark.skipif(not HAS_GPU, reason="OPR is GPU-only")
