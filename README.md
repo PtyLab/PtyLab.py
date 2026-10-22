@@ -6,7 +6,7 @@
 
 [**Key Features**](#key-features) | [**Getting Started**](#getting-started) | [**Installation**](https://ptylab.github.io/PtyLab.py/getting-started/installation/) | [**Documentation**](https://ptylab.github.io/PtyLab.py/)
 
-PtyLab is an inverse modeling toolbox for Conventional (CP) and Fourier (FP) ptychography in a unified framework. For more information please check the [paper](https://opg.optica.org/oe/fulltext.cfm?uri=oe-31-9-13763&id=529026).
+PtyLab is an inverse modeling toolbox for Conventional (CPM) and Fourier (FPM) ptychography in a unified framework. See the [paper](https://opg.optica.org/oe/fulltext.cfm?uri=oe-31-9-13763&id=529026) for details.
 
 ## Key Features
 
@@ -52,12 +52,12 @@ pip install -U ptylab
 ```
 For faster installs, we recommend [uv](https://docs.astral.sh/uv/getting-started/installation/): `uv pip install -U ptylab`
 
-To utilize GPU for faster reconstruction, enable GPU support:
+For GPU support:
 
 ```bash
 uv pip install -U "ptylab[gpu]" # supports CuPy with CUDA 12
 ```
-Check whether GPU is correctly configured with `uv run ptylab check gpu`. For additional information on other extras such `gui`, see the [installation guide](https://ptylab.github.io/PtyLab.py/getting-started/installation/).
+Check whether GPU is correctly configured with `uv run ptylab check gpu`. For additional information on other extras such as `gui`, see the [installation guide](https://ptylab.github.io/PtyLab.py/getting-started/installation/).
 
 ## Contributing
 
