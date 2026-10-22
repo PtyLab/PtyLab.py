@@ -7,10 +7,13 @@ example_scripts/exampleReconstructionCPM.py
 ```
 The script shows a complete CPM reconstruction workflow and can be used as a reference while reading the sections below.
 
-To get started without your own dataset, use the bundled simulation data `simu.hdf5`. If it does not exist yet, generate it with:
-```text
-example_scripts/simulationData.py
+To get started without your own dataset, use the simulated dataset `simu.hdf5`. If it does not exist yet, generate it with:
+```python
+from PtyLab.io import getExampleDataFolder, generate_simu_hdf5
+
+generate_simu_hdf5(getExampleDataFolder() / "simu.hdf5")
 ```
+The tutorials download their other datasets into `example_data/` on first run.
 
 ## Using `easyInitialize`
 
