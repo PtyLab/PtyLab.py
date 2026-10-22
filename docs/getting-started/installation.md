@@ -1,6 +1,6 @@
 # Installation
 
-PtyLab.py requires **Python 3.10–3.13** and is distributed on [PyPI](https://pypi.org/project/ptylab/). Install it within a virtual environment.
+PtyLab.py requires **Python 3.10–3.13** and is distributed on [PyPI](https://pypi.org/project/ptylab/). Install it within a virtual environment of your liking.
 
 If you are contributing to PtyLab instead, see the [contributing guide](../contributing.md).
 

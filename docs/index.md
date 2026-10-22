@@ -25,7 +25,7 @@ For the original publication, see: [PtyLab.m/py/jl: a cross-platform, open-sourc
 - **[Quick Start](getting-started/quickstart.md)** — Run your first reconstruction in a few lines of code
 - **[CPM Workflow](cpm/overview.md)** — Understand the conventional ptychography pipeline
 - **[FPM Workflow](fpm/overview.md)** — Fourier ptychography with LED array illumination
-- **[Tutorials](tutorials/tutorial_CPM_sim.ipynb)** — Jupyter notebooks covering common use cases
+- **[Tutorials](tutorials/index.md)** — worked examples covering common use cases
 
 ## Citation
 

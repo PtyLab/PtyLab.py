@@ -27,7 +27,7 @@ git switch -c my-feature upstream/main
 
 ### Install
 
-Install the project with [uv](https://docs.astral.sh/uv/getting-started/installation/). `uv sync` always includes the development tools (pytest, ruff); add the extras for your machine:
+Install the project with [uv](https://docs.astral.sh/uv/getting-started/installation/). `uv sync` creates a virtual environment and always includes the development tools (pytest, ruff); add the extras for your machine:
 
 ```bash
 uv sync --all-extras                  # Linux/Windows with an NVIDIA GPU, or macOS
@@ -76,10 +76,20 @@ Tests that need an unavailable dependency are skipped, for example the CUDA test
 Documentation changes are deployed automatically once a pull request is merged into `main`. Check them locally first:
 
 ```bash
-uv run --group docs mkdocs serve
+uv run --group docs zensical serve
 ```
 
 Then open [http://127.0.0.1:8000](http://127.0.0.1:8000) in your browser. The page reloads when you save a change.
+
+### Tutorials
+
+Each tutorial is a Python script in `docs/tutorials/`, split into cells by `# %%` lines. Run it with `python docs/tutorials/tutorial_CPM.py`. The page on the website is generated from the script, with its outputs. After you edit a tutorial, regenerate its page and commit the script together with the new `.md` and `.ipynb` files and the `_files/` folder:
+
+```bash
+uv run --group docs python docs/render_tutorials.py tutorial_CPM
+```
+
+The documentation build fails if a page is older than its script.
 
 ## 3. Submit a pull request
 

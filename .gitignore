@@ -11,9 +11,8 @@ logs_tensorboard
 .claude
 .cache
 
-# mkdocs
+# docs (built site)
 site/
-.cache/mkdocs-jupyter/
 
 # misc
 notes/
@@ -21,4 +20,6 @@ notes/
 # files
 *.hdf5
 *.png
+# figures of the rendered tutorial pages, written by docs/render_tutorials.py
+!docs/tutorials/*_files/*.png
 *.lock
