@@ -5,14 +5,13 @@ repo_url: https://github.com/PtyLab/PtyLab.py
 repo_name: PtyLab/PtyLab.py
 dev_addr: '127.0.0.1:8000'
 
-hooks:
-  - scripts/docs_notebooks.py
-
-watch:
-  - jupyter_tutorials
+# Build tool for the tutorial pages, not a page itself
+exclude_docs: |
+  render_tutorials.py
 
 theme:
   name: material
+  variant: modern
   logo: assets/ptylab_logo.svg
   favicon: assets/ptylab_logo.svg
   palette:
@@ -61,13 +60,13 @@ nav:
     - Position Correction: advanced/position-correction.md
   - Tutorials:
     - tutorials/index.md
-    - "01 – CPM Simulation": tutorials/tutorial_CPM_sim.ipynb
-    - "02 – CPM Example Data": tutorials/tutorial_CPM.ipynb
-    - "03 – CPM Multi-Wavelength": tutorials/tutorial_CPM_multiWavelength.ipynb
-    - "04 – CPM Position Correction": tutorials/tutorial_LateralPositionCorrection.ipynb
-    - "05 – CPM Reflection": tutorials/tutorial_reflectionPtychography.ipynb
-    - "06 – CPM Interferometric Intensity": tutorials/tutorial_interferometricIntensityConstraint.ipynb
-    - "07 – FPM": tutorials/tutorial_FPM.ipynb
+    - "01 – CPM Simulation": tutorials/tutorial_CPM_sim.md
+    - "02 – CPM Example Data": tutorials/tutorial_CPM.md
+    - "03 – CPM Multi-Wavelength": tutorials/tutorial_CPM_multiWavelength.md
+    - "04 – CPM Position Correction": tutorials/tutorial_LateralPositionCorrection.md
+    - "05 – CPM Reflection": tutorials/tutorial_reflectionPtychography.md
+    - "06 – CPM Interferometric Intensity": tutorials/tutorial_interferometricIntensityConstraint.md
+    - "07 – FPM": tutorials/tutorial_FPM.md
   - Contributing: contributing.md
   - API Reference:
     - api/index.md
@@ -101,6 +100,7 @@ markdown_extensions:
       permalink: true
   - jetblack_markdown.latex2mathml
   - footnotes
+  - attr_list
   
 plugins:
   - search
@@ -115,7 +115,3 @@ plugins:
             members_order: source
             docstring_options:
               returns_named_value: false
-  - mkdocs-jupyter:
-      include: ["*.ipynb"]
-      execute: false
-      allow_errors: true
