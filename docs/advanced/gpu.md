@@ -1,6 +1,6 @@
 # GPU Acceleration
 
-PtyLab.py uses [CuPy](https://cupy.dev/) as a drop-in GPU backend for NumPy. The same reconstruction code runs on both CPU and GPU — no changes to your script needed beyond toggling a single parameter.
+PtyLab.py uses [CuPy](https://cupy.dev/) as a drop-in GPU backend for NumPy. The same reconstruction code runs on both CPU and GPU. Your script needs no changes beyond toggling a single parameter.
 
 ## Installation with GPU support
 
@@ -20,7 +20,7 @@ uv run ptylab check gpu
 
 ## Toggle GPU switch
 
-By default, GPU is automatically detected and used for your reconstructions, however this can be also manually controlled via the following parameter
+PtyLab detects and uses the GPU by default. To control it manually:
 
 ```bash
 params.gpuSwitch = True
@@ -38,7 +38,7 @@ This reduces peak GPU memory usage at a slight performance cost by keeping some 
 
 ## Single precision
 
-Converting to single precision (float32) halves memory usage and can significantly speed up GPU reconstruction:
+Converting to single precision (float32) halves memory usage and speeds up GPU reconstruction:
 
 ```python
 engine.convert2single()
@@ -48,7 +48,7 @@ Call this after creating the engine but before `reconstruct()`.
 
 ## Manual GPU/CPU transfer
 
-In advanced workflows you can control data placement explicitly:
+To control data placement explicitly:
 
 ```python
 engine._move_data_to_gpu()    # move all arrays to GPU
@@ -57,6 +57,6 @@ engine._move_data_to_cpu()    # move all arrays back to CPU
 
 ## Notes
 
-- GPU support is **optional** — PtyLab.py runs identically on CPU without CuPy installed.
-- The `params.gpuSwitch` property validates that CuPy is available before enabling GPU mode. It will raise an informative error if CuPy is not installed.
+- GPU support is optional. PtyLab.py runs identically on CPU without CuPy installed.
+- The `params.gpuSwitch` property validates that CuPy is available before enabling GPU mode. It raises an error if CuPy is not installed.
 - Results are automatically transferred back to CPU before saving with `reconstruction.saveResults()`.

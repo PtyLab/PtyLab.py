@@ -1,6 +1,10 @@
+<!-- Keep this short and in simple words. Prefer writing it yourself; if an LLM drafts it, edit it until it is short and easy to read. -->
+
 ## What and why
 
-<!-- What this changes and why. Link the related issue or PR, if any. -->
+<!-- One sentence on why, then the changes per file as short bullet points, e.g.
+     - `PtyLab/Engines/mPIE.py`: add momentum reset option
+     Link the related issue or PR, if any. -->
 
 ## How it was tested
 
@@ -9,4 +13,5 @@
 
 ## Notes
 
-<!-- Optional: breaking changes, changed reconstruction results, follow-ups. -->
+<!-- Optional: deprecations, changed reconstruction results, follow-ups.
+     Avoid breaking changes; if one is unavoidable, deprecate the old API with a warning instead. -->

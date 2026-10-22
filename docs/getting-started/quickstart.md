@@ -1,17 +1,16 @@
 # Quick Start
 PtyLab supports both **conventional ptychography (CPM)** and **Fourier ptychography (FPM)**. This quick start uses CPM as the main example.
 
-If you are new to PtyLab, a good place to start a ptychography reconstruction is the example script:
+New to PtyLab? Start with the example script:
 ```text
 example_scripts/exampleReconstructionCPM.py
 ```
 The script shows a complete CPM reconstruction workflow and can be used as a reference while reading the sections below.
 
-To get started without your own dataset, use the bundled simulation data `simu.hdf5`. If it has not yet been generated， run
+To get started without your own dataset, use the bundled simulation data `simu.hdf5`. If it does not exist yet, generate it with:
 ```text
 example_scripts/simulationData.py
-``` 
-for example data generation.
+```
 
 ## Using `easyInitialize`
 

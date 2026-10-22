@@ -2,6 +2,8 @@
 
 PtyLab.py requires **Python 3.10–3.13** and is distributed on [PyPI](https://pypi.org/project/ptylab/). Install it within a virtual environment.
 
+If you are contributing to PtyLab instead, see the [contributing guide](../contributing.md).
+
 ## From PyPI
 
 !!! tip
@@ -23,7 +25,7 @@ The `gpu` extra installs [CuPy](https://cupy.dev/) for CUDA 12 and enables GPU a
 
 ## Optional extras
 
-Some features can be installed with the optional dependencies with the following extras:
+These extras install optional features:
 
 | Extra | Installs | Needed for |
 |---|---|---|

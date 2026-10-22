@@ -2,7 +2,7 @@
 
 ## What is Fourier ptychography?
 
-Fourier Ptychographic Microscopy (FPM) uses an LED array to illuminate a sample from different angles. Each LED illuminates the sample with a plane wave at a specific angle, producing a low-resolution image on a camera. By combining many such images from different angles, FPM computationally synthesizes a high-resolution, wide-field image — recovering both amplitude and phase — without mechanically scanning the sample.
+Fourier Ptychographic Microscopy (FPM) uses an LED array to illuminate a sample from different angles. Each LED illuminates the sample with a plane wave at a specific angle, producing a low-resolution image on a camera. By combining many such images from different angles, FPM computationally synthesizes a high-resolution, wide-field image of both amplitude and phase, without mechanically scanning the sample.
 
 ## Data flow
 
@@ -49,7 +49,7 @@ data, recon, params, monitor, engine, calib = PtyLab.easyInitialize(
 )
 ```
 
-`easyInitialize` returns a **6-tuple** for FPM — note the additional `IlluminationCalibration` object:
+`easyInitialize` returns a 6-tuple for FPM, which includes an `IlluminationCalibration` object:
 
 | Object | Description |
 |--------|-------------|
