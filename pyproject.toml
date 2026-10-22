@@ -1,6 +1,6 @@
 [project]
 name = "ptylab"
-version = "0.3.4"
+version = "0.3.5"
 description = "A cross-platform, open-source inverse modeling toolbox for conventional and Fourier ptychography"
 authors = [
     { name = "Lars Loetgering", email = "lars.loetgering@fulbrightmail.org" },
@@ -16,7 +16,6 @@ dependencies = [
     "scikit-image>=0.21.0",
     "tqdm~=4.65",
     "scikit-learn~=1.3",
-    "ipython~=8.18",
     "ipywidgets>=8.1.8",
 ]
 
@@ -31,7 +30,6 @@ gpu = ["cupy-cuda12x[ctk]; sys_platform != 'darwin'"]
 [dependency-groups]
 dev = [
     "ruff>=0.16",
-    "ipykernel~=6.25",
     "pytest~=9.0",
 ]
 docs = [

@@ -4,7 +4,7 @@ This page is for contributors working on PtyLab.py itself. To use PtyLab, see [I
 
 ## Setup
 
-Clone the repository and install it with [uv](https://docs.astral.sh/uv/getting-started/installation/). `uv sync` always includes the development tools (pytest, ipykernel); add the extras for your machine:
+Clone the repository and install it with [uv](https://docs.astral.sh/uv/getting-started/installation/). `uv sync` always includes the development tools (pytest, ruff); add the extras for your machine:
 
 ```bash
 git clone git@github.com:PtyLab/PtyLab.py.git

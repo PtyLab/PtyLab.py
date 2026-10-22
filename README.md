@@ -4,7 +4,7 @@
 ![Tests](https://github.com/PtyLab/PtyLab.py/actions/workflows/test.yml/badge.svg)
 [![Docs](https://github.com/PtyLab/PtyLab.py/actions/workflows/docs.yml/badge.svg)](https://ptylab.github.io/PtyLab.py/)
 
-[**Key Features**](#key-features) | [**Getting Started**](#getting-started) | [**Installation**](#installation) | [**Documentation**](https://ptylab.github.io/PtyLab.py/)
+[**Key Features**](#key-features) | [**Getting Started**](#getting-started) | [**Installation**](https://ptylab.github.io/PtyLab.py/getting-started/installation/) | [**Documentation**](https://ptylab.github.io/PtyLab.py/)
 
 PtyLab is an inverse modeling toolbox for Conventional (CP) and Fourier (FP) ptychography in a unified framework. For more information please check the [paper](https://opg.optica.org/oe/fulltext.cfm?uri=oe-31-9-13763&id=529026).
 
@@ -14,18 +14,25 @@ PtyLab is an inverse modeling toolbox for Conventional (CP) and Fourier (FP) pty
 - **Advanced corrections**: position correction, defocus correction (zPIE), angle correction (aPIE), orthogonal probe relaxation (OPR)
 - **Multi-modal**: multi-slice, multi-wavelength, mixed-state object and probe
 - **Multiple propagators**: Fraunhofer, Fresnel, Angular Spectrum (ASP), scaled ASP, polychromatic variants
-- **GPU acceleration**: same code runs on CPU and GPU
+- **Unified array layout**: object and probe are 6D arrays `(nlambda, nosm, npsm, nslice, N, N)`, i.e. wavelengths, object and probe state mixtures, depth slices, then the frame
+- **GPU acceleration**: same code runs on CPU and GPU (NumPy/CuPy)
+- **Live monitor**: follow the object, probe and error metric as the iterations run, along with any corrected parameters such as scan positions, sample-detector distance, wavelength or angle
 
-The reconstructed output is a 6D array of shape `(nlambda, nosm, npsm, nslice, No, No)`:
+### How it works
 
-| Dim | Meaning |
-|-----|---------|
-| `nlambda` | wavelengths |
-| `nosm` | object state mixture |
-| `npsm` | probe state mixture |
-| `nslice` | depth slices |
-| `No` | output frame size |
+PtyLab.py is built around five core classes: `ExperimentalData`, `Reconstruction`, `Params`, `Engine` and `Monitor`. Data flows through them to a reconstruction as below:
 
+```mermaid
+flowchart LR
+    file[(HDF5 data)] --> exp[ExperimentalData]
+    exp --> recon["Reconstruction<br/>(object, probe)"]
+    exp & recon & params[Params] --> engine["Engine<br/>(ePIE, mPIE, ...)"]
+    engine -.->|updates| recon
+    engine <-->|each iteration| corr["Optional Corrections: positions, distance, angle"]
+    engine -.-> mon[Monitor<br/>live plots]
+    corr -.-> mon
+    engine -->|reconstruct| out["Saved to HDF5<br/>object, probe, error, corrected parameters"]
+```
 
 ## Getting started
 
@@ -41,20 +48,20 @@ For more use cases, start with the [tutorials](https://ptylab.github.io/PtyLab.p
 Install from PyPI within your virtual environment:
 
 ```bash
-pip install ptylab
+pip install -U ptylab
 ```
-For faster installs, we recommend [uv](https://docs.astral.sh/uv/getting-started/installation/): `uv pip install ptylab`
+For faster installs, we recommend [uv](https://docs.astral.sh/uv/getting-started/installation/): `uv pip install -U ptylab`
 
 To utilize GPU for faster reconstruction, enable GPU support:
 
 ```bash
-uv pip install "ptylab[gpu]" # supports CUDA 12
+uv pip install -U "ptylab[gpu]" # supports CuPy with CUDA 12
 ```
-Check whether GPU is correctly configured with `uv run ptylab check gpu`. For additional information, check the [installation guide](https://ptylab.github.io/PtyLab.py/getting-started/installation/).
+Check whether GPU is correctly configured with `uv run ptylab check gpu`. For additional information on other extras such `gui`, see the [installation guide](https://ptylab.github.io/PtyLab.py/getting-started/installation/).
 
-### Development
+## Contributing
 
-For the development setup, running the tests and building the documentation locally, see the [development guide](https://ptylab.github.io/PtyLab.py/development/) in the documentation.
+Contributions are welcome! See the [development guide](https://ptylab.github.io/PtyLab.py/development/) for the development setup, running the tests and building the documentation locally.
 
 ## Citation
 
