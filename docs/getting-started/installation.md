@@ -10,13 +10,13 @@ PtyLab.py requires **Python 3.10–3.13** and is distributed on [PyPI](https://p
 === "CPU"
 
     ```bash
-    uv pip install ptylab
+    uv pip install -U ptylab
     ```
 
 === "GPU"
 
     ```bash
-    uv pip install "ptylab[gpu]"
+    uv pip install -U "ptylab[gpu]"
     ```
 
 The `gpu` extra installs [CuPy](https://cupy.dev/) for CUDA 12 and enables GPU acceleration of the reconstruction engines. CUDA 13 is not supported yet. The extra is not installed on macOS, where PtyLab runs on the CPU.
@@ -33,7 +33,7 @@ Some features can be installed with the optional dependencies with the following
 For example to combine them in one command:
 
 ```bash
-uv pip install "ptylab[gpu,gui]"
+uv pip install -U "ptylab[gpu,gui]"
 ```
 
 ## Interactive viewer (Qt)
@@ -47,13 +47,13 @@ On a remote machine, the viewer window needs a graphical connection: a remote de
 To install the latest unreleased changes on `main` directly from GitHub:
 
 ```bash
-uv pip install git+https://github.com/PtyLab/PtyLab.py.git
+uv pip install -U git+https://github.com/PtyLab/PtyLab.py.git
 ```
 
 Extras work the same way, for example with GPU support:
 
 ```bash
-uv pip install "ptylab[gpu] @ git+https://github.com/PtyLab/PtyLab.py.git"
+uv pip install -U "ptylab[gpu] @ git+https://github.com/PtyLab/PtyLab.py.git"
 ```
 
 ## Verify GPU detection
