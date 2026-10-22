@@ -61,7 +61,7 @@ Check whether GPU is correctly configured with `uv run ptylab check gpu`. For ad
 
 ## Contributing
 
-Contributions are welcome! See the [development guide](https://ptylab.github.io/PtyLab.py/development/) for the development setup, running the tests and building the documentation locally.
+Contributions are welcome! See the [contributing guide](https://ptylab.github.io/PtyLab.py/contributing/) for the development setup, tests and how to open a pull request.
 
 ## Citation
 
