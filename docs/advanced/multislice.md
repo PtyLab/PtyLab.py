@@ -2,7 +2,7 @@
 
 ## What is multislice?
 
-Standard ptychography treats the sample as a thin, 2D transmission object. For thick samples — where the beam diffracts significantly as it propagates *through* the sample — this approximation breaks down. **Multislice ptychography** models the sample as a stack of thin slices separated by free-space propagation, allowing accurate reconstruction of thick 3D objects.
+Standard ptychography treats the sample as a thin, 2D transmission object. This approximation breaks down for thick samples, where the beam diffracts significantly as it propagates *through* the sample. **Multislice ptychography** models the sample as a stack of thin slices separated by free-space propagation.
 
 ## When to use multislice
 

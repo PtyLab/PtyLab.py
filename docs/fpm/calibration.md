@@ -2,7 +2,7 @@
 
 ## Why calibrate?
 
-Physical LED arrays are manufactured with small tolerances — actual LED positions deviate from their nominal values by tens of microns. These errors translate into incorrect illumination angles, which degrade reconstruction quality. The `IlluminationCalibration` class fits a geometric model to correct LED positions before reconstruction.
+Physical LED arrays are manufactured with small tolerances. Actual LED positions deviate from their nominal values by tens of microns. These errors translate into incorrect illumination angles, which degrade reconstruction quality. The `IlluminationCalibration` class fits a geometric model to correct LED positions before reconstruction.
 
 ## Getting the calibration object
 
@@ -35,7 +35,7 @@ After `runCalibration()`, the corrected LED positions are propagated into the `E
 | `"Translation"` | Fits a global (dx, dy) offset to all LED positions |
 
 !!! note
-    The `"Translation"` mode corrects for a uniform shift of the entire LED array (e.g. from physical misalignment). For more complex distortions, more advanced calibration may be needed.
+    The `"Translation"` mode corrects for a uniform shift of the entire LED array (e.g. from physical misalignment).
 
 ## When to skip calibration
 

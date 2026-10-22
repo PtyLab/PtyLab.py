@@ -6,7 +6,7 @@ Engines implement the iterative reconstruction algorithms. All engines inherit f
 
 | Engine | Full Name | Best For |
 |--------|-----------|----------|
-| `ePIE` | Extended PIE | General-purpose starting point, simple and robust |
+| `ePIE` | Extended PIE | General-purpose starting point, simple |
 | `mPIE` | Momentum PIE | Faster convergence than ePIE; recommended default |
 | `mqNewton` | Momentum quasi-Newton | High-quality results with faster convergence |
 | `qNewton` | Quasi-Newton | Newton-step updates without momentum |
