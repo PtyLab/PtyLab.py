@@ -1,8 +1,9 @@
+import warnings
 from typing import Any
 
 import numpy as np
 from matplotlib import pyplot as plt
-from scipy.interpolate import interp2d
+from scipy import ndimage
 from tqdm.auto import trange  # widget bar in Jupyter, text bar in a terminal
 
 from PtyLab.utils.visualisation import hsvplot
@@ -15,12 +16,18 @@ except ImportError:
     # to see that gPIE exists for example.
     cp = None
 
+try:
+    from cupyx.scipy import ndimage as cp_ndimage
+except ImportError:
+    cp_ndimage = None
+
 import logging
 import sys
 
 from PtyLab.Engines.BaseEngine import BaseEngine
+from PtyLab.Engines.mPIE import mPIE
 from PtyLab.ExperimentalData.ExperimentalData import ExperimentalData
-from PtyLab.Monitor.Monitor import Monitor
+from PtyLab.Monitor.Monitor import DummyMonitor, Monitor
 from PtyLab.Operators.Operators import aspw
 from PtyLab.Params.Params import Params
 
@@ -64,6 +71,10 @@ class aPIE(BaseEngine):
     `reconstruction.thetaHistory`.
 
     Angle correction requires an initial value of `reconstruction.theta`.
+
+    With `thetaSearch = "scan"`, the angle is found with `thetaScan()` instead:
+    one independent reconstruction per candidate angle on a grid, refined
+    around the best one.
 
     [^debeurs2022]: A. de Beurs, L. Loetgering, M. Herczog,
             M. Du, K. S. E. Eikema, and S. Witte,
@@ -115,13 +126,77 @@ class aPIE(BaseEngine):
 
         self.thetaSearchRadiusMin = 0.01
         self.thetaSearchRadiusMax = 0.1
+
+        # "stochastic" (the search of de Beurs et al.) or "scan" (see thetaScan)
+        self.thetaSearch = "stochastic"
+        self.thetaScanRange = 10.0  # half-width of the first grid around theta [deg]
+        self.thetaScanPoints = 7
+        self.thetaScanRefinements = 1
+        self.thetaScanSeed = 0
         self.ptychogramUntransformed = self.experimentalData.ptychogram.copy()
         self.experimentalData.W = np.ones_like(self.reconstruction.Xd)
 
-        if self.reconstruction.theta == None:
+        if self.reconstruction.theta is None:
             raise ValueError("theta value is not given")
 
     def doReconstruction(self):
+        """Deprecated alias of `reconstruct()`."""
+        warnings.warn(
+            "`aPIE.doReconstruction()` is deprecated. Use `aPIE.reconstruct()` instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self.reconstruct()
+
+    def resampleDetector(self, theta):
+        """
+        Resample the measured ptychogram onto the detector grid of a tilt angle.
+
+        Each pixel $(x_d, y_d)$ of the regular grid takes the measured intensity at
+        $x = T^{-1}(x_d, y_d)$ (see `T_inv`), interpolated linearly along the rows.
+        Points that fall outside the detector are set to zero.
+
+        Args:
+            theta (float): Tilt angle in degrees.
+
+        Returns:
+            tuple: The resampled ptychogram `(numFrames, Nd, Nd)` and the weight
+                `W` `(Nd, Nd)`, the fraction of each pixel covered by the
+                measurement (set to `1e-3` outside it), both in centered order.
+        """
+        xp = getArrayModule(self.reconstruction.object)
+        nd = ndimage if xp is np else cp_ndimage
+        xd = self.reconstruction.xd
+        Xq = T_inv(
+            self.reconstruction.Xd,
+            self.reconstruction.Yd,
+            self.reconstruction.zo,
+            theta,
+        )
+        # T_inv only moves x, so each pixel samples its own row at a fractional column;
+        # NaN (no real solution) is moved off the detector, where map_coordinates returns 0
+        # (rounding drops float noise, so that column Nd - 1 does not land just outside)
+        columns = np.nan_to_num((Xq - xd[0]) / (xd[1] - xd[0]), nan=-2.0).round(6)
+        rows = np.broadcast_to(np.arange(xd.size)[:, None], columns.shape)
+        coordinates = xp.asarray(np.stack([rows, columns]))
+
+        ptychogram = xp.stack(
+            [
+                nd.map_coordinates(frame, coordinates, order=1, cval=0.0)
+                for frame in self.ptychogramUntransformed
+            ]
+        )
+        ptychogram = xp.clip(ptychogram, 0, None)
+        W = nd.map_coordinates(
+            xp.ones_like(self.ptychogramUntransformed[0]),
+            coordinates,
+            order=1,
+            cval=0.0,
+        )
+        W[W == 0] = 1e-3
+        return ptychogram, W
+
+    def reconstruct(self, experimentalData=None, reconstruction=None):
         """
         Run the aPIE reconstruction with iterative detector-angle correction.
 
@@ -134,10 +209,9 @@ class aPIE(BaseEngine):
         current angle and a randomly perturbed angle within the current search
         radius, both including the accumulated angular momentum.
 
-        For each candidate angle, the detector-coordinate transformation is
-        computed. The original diffraction data stored in
-        `ptychogramUntransformed` are then resampled onto the transformed detector
-        coordinates using linear interpolation.
+        For each candidate angle, the original diffraction data stored in
+        `ptychogramUntransformed` are resampled onto the transformed detector
+        coordinates with `resampleDetector()`.
 
         After the angle-dependent coordinate correction, a standard PIE
         reconstruction is performed over all scan positions. The scan order is
@@ -163,10 +237,32 @@ class aPIE(BaseEngine):
 
         If GPU acceleration is enabled, the reconstruction data are returned to
         CPU memory after completion.
+
+        Args:
+            experimentalData (ExperimentalData, optional):
+                Experimental dataset to use. If provided, it replaces the dataset
+                currently attached to the engine.
+
+            reconstruction (Reconstruction, optional):
+                Reconstruction state to optimize. If provided, it replaces the
+                reconstruction currently attached to the engine.
         """
+        if experimentalData is not None:
+            self.ptychogramUntransformed = experimentalData.ptychogram.copy()
+        self.changeExperimentalData(experimentalData)
+        self.changeOptimizable(reconstruction)
+        if self.thetaSearch == "scan":
+            return self.thetaScan()
+        if self.thetaSearch != "stochastic":
+            raise ValueError(
+                f"Unknown thetaSearch {self.thetaSearch!r}, use 'stochastic' or 'scan'."
+            )
         self._prepareReconstruction()
 
         xp = getArrayModule(self.reconstruction.object)
+        # resample on the device of the reconstruction; energy is kept by rescaling to this norm
+        self.ptychogramUntransformed = xp.asarray(self.ptychogramUntransformed)
+        normUntransformed = xp.linalg.norm(self.ptychogramUntransformed)
 
         # linear search
         thetaSearchRadiusList = np.linspace(
@@ -213,47 +309,14 @@ class aPIE(BaseEngine):
                 self.reconstruction.probe = probeTemp
                 self.reconstruction.object = objectTemp
                 # reset ptychogram (transform into estimate coordinates)
-                Xq = T_inv(
-                    self.reconstruction.Xd,
-                    self.reconstruction.Yd,
-                    self.reconstruction.zo,
-                    theta[k],
-                )  # todo check if 1D is enough to save time
-                for l in range(self.experimentalData.numFrames):
-                    temp = self.ptychogramUntransformed[l]
-                    f = interp2d(
-                        self.reconstruction.xd,
-                        self.reconstruction.xd,
-                        temp,
-                        kind="linear",
-                        fill_value=0,
-                    )
-                    temp2 = abs(f(Xq[0], self.reconstruction.xd))
-                    temp2 = np.nan_to_num(temp2)
-                    temp2[temp2 < 0] = 0
-                    self.experimentalData.ptychogram[l] = xp.array(temp2)
+                ptychogram, self.experimentalData.W = self.resampleDetector(theta[k])
 
-                # renormalization(for energy conservation) # todo not layer by layer?
+                # renormalization (for energy conservation)
                 self.experimentalData.ptychogram = (
-                    self.experimentalData.ptychogram
-                    / np.linalg.norm(self.experimentalData.ptychogram)
-                    * np.linalg.norm(self.ptychogramUntransformed)
+                    ptychogram / xp.linalg.norm(ptychogram) * normUntransformed
                 )
 
-                self.experimentalData.W = np.ones_like(self.reconstruction.Xd)
-                fw = interp2d(
-                    self.reconstruction.xd,
-                    self.reconstruction.xd,
-                    self.experimentalData.W,
-                    kind="linear",
-                    fill_value=0,
-                )
-                self.experimentalData.W = abs(fw(Xq[0], self.reconstruction.xd))
-                self.experimentalData.W = np.nan_to_num(self.experimentalData.W)
-                self.experimentalData.W[self.experimentalData.W == 0] = 1e-3
-                self.experimentalData.W = xp.array(self.experimentalData.W)
-
-                # todo check if it is right
+                # the untransformed data are in centered order, the engine works in FFT order
                 if self.params.fftshiftSwitch:
                     self.experimentalData.ptychogram = xp.fft.ifftshift(
                         self.experimentalData.ptychogram, axes=(-1, -2)
@@ -368,12 +431,162 @@ class aPIE(BaseEngine):
 
             self.showReconstruction(loop)
 
+        self.ptychogramUntransformed = asNumpyArray(self.ptychogramUntransformed)
         if self.params.gpuFlag:
             self.logger.info("switch to cpu")
             self._move_data_to_cpu()
             self.params.gpuFlag = 0
 
         # self.thetaSearchRadiusMax = thetaSearchRadiusList[loop]
+
+    def thetaScan(self):
+        r"""
+        Find the tilt angle with a grid scan of independent reconstructions.
+
+        Each candidate angle $\theta_k$ gets its own `mPIE` reconstruction
+        (`numIterations` iterations, `betaObject`, `betaProbe`) on the data
+        resampled with `resampleDetector()`. All candidates start from the same
+        object, probe and random state, so they differ only in $\theta_k$.
+        Each candidate is scored by `rawDetectorError()`, the error against the
+        measured frames before resampling, so that the score does not depend on
+        how much the resampling smooths the data.
+
+        The first grid has `thetaScanPoints` angles in
+        $\theta \pm$ `thetaScanRange`. Each of the `thetaScanRefinements`
+        further grids spans one grid step on either side of the best angle so
+        far, with the same number of points, so it is $(N - 1)/2$ times finer
+        for $N$ = `thetaScanPoints`; use $N \ge 5$ for the refinement to help.
+
+        Afterwards `reconstruction.theta`, the object and the probe are those of
+        the best candidate, and `experimentalData.ptychogram` holds the data
+        resampled at that angle, so another engine can continue from there.
+        The scanned angles and errors are stored in `thetaScanValues` and
+        `thetaScanErrors`, and in `reconstruction.extraResults["thetaScan"]`.
+
+        Returns:
+            tuple: `(best_theta, best_error)`, the angle in degrees and its error.
+        """
+        rec = self.reconstruction
+        # every candidate starts from this state
+        object0 = asNumpyArray(rec.object).copy()
+        probe0 = asNumpyArray(rec.probe).copy()
+        self.ptychogramUntransformed = asNumpyArray(self.ptychogramUntransformed)
+
+        self.thetaScanValues, self.thetaScanErrors = [], []
+        best = None
+        center, halfWidth = float(rec.theta), self.thetaScanRange
+        for _ in range(self.thetaScanRefinements + 1):
+            grid = np.linspace(
+                center - halfWidth, center + halfWidth, self.thetaScanPoints
+            )
+            for theta in grid:
+                if np.any(np.isclose(theta, self.thetaScanValues)):
+                    continue
+                rec.object, rec.probe = object0.copy(), probe0.copy()
+                error = self._evaluateTheta(theta)
+                self.thetaScanValues.append(float(theta))
+                self.thetaScanErrors.append(error)
+                self.logger.info(
+                    "theta = %.3f deg: raw detector error %.5f", theta, error
+                )
+                if best is None or error < best[1]:
+                    best = (float(theta), error, rec.object.copy(), rec.probe.copy())
+            # the next grid spans one step of this grid on either side of the best angle
+            center, halfWidth = best[0], 2 * halfWidth / (self.thetaScanPoints - 1)
+
+        bestTheta, bestError, rec.object, rec.probe = best
+        rec.theta = bestTheta
+        rec.thetaHistory = np.append(rec.thetaHistory, bestTheta)
+        self._setResampledData(bestTheta)
+        rec.extraResults["thetaScan"] = {
+            "units": "theta in deg",
+            "theta": np.asarray(self.thetaScanValues),
+            "error": np.asarray(self.thetaScanErrors),
+        }
+        return bestTheta, bestError
+
+    def _setResampledData(self, theta):
+        """Put the data resampled at `theta` into `experimentalData`; return the scale."""
+        ptychogram, _ = self.resampleDetector(theta)
+        # rescale to the measured energy, as in the stochastic search
+        scale = np.linalg.norm(self.ptychogramUntransformed) / np.linalg.norm(
+            ptychogram
+        )
+        ptychogram = (ptychogram * scale).astype(self.ptychogramUntransformed.dtype)
+        if self.params.fftshiftFlag:
+            # earlier engines left the data in FFT order
+            ptychogram = np.fft.ifftshift(ptychogram, axes=(-1, -2))
+        self.experimentalData.ptychogram = ptychogram
+        self.experimentalData._setData()
+        return scale
+
+    def _evaluateTheta(self, theta):
+        """Reconstruct with mPIE at a fixed angle and return its `rawDetectorError()`."""
+        randomState = np.random.get_state()
+        np.random.seed(self.thetaScanSeed)
+        try:
+            scale = self._setResampledData(theta)
+            engine = mPIE(
+                self.reconstruction, self.experimentalData, self.params, DummyMonitor()
+            )
+            engine.numIterations = self.numIterations
+            engine.betaObject = self.betaObject
+            engine.betaProbe = self.betaProbe
+            engine.reconstruct()
+        finally:
+            np.random.set_state(randomState)
+        return self.rawDetectorError(theta, scale)
+
+    def rawDetectorError(self, theta, scale=1.0):
+        r"""
+        Error of the current model against the measured, unresampled frames.
+
+        The model intensity $I_j$ of frame $j$ lives on the corrected detector
+        grid. The measured pixel at $x'$ corresponds to the corrected point
+        $T(x', y')$ (see `T`), so the model is sampled there and compared with
+        the measured frame $M_j$:
+
+        $$
+        e = \frac{\sum_j \sum_{x', y'} \left| I_j(T(x', y'))/s - M_j(x', y') \right|}
+                 {\sum_j \sum_{x', y'} M_j(x', y')}
+        $$
+
+        with $s$ the factor the resampled data were scaled by. Only the smooth
+        model is interpolated, never the noisy data.
+
+        Args:
+            theta (float): Tilt angle in degrees.
+            scale (float): The scale $s$ of the resampled data.
+
+        Returns:
+            float: The normalized error $e$.
+        """
+        rec = self.reconstruction
+        xp = getArrayModule(rec.object)
+        nd = ndimage if xp is np else cp_ndimage
+        xd = rec.xd
+        Xt, _ = T(rec.Xd, rec.Yd, rec.zo, theta)
+        columns = ((Xt - xd[0]) / (xd[1] - xd[0])).round(6)
+        rows = np.broadcast_to(np.arange(xd.size)[:, None], columns.shape)
+        coordinates = xp.asarray(np.stack([rows, columns]))
+
+        total, energy = 0.0, 0.0
+        for j, (row, col) in enumerate(rec.positions):
+            rec.esw = (
+                rec.object[..., row : row + rec.Np, col : col + rec.Np] * rec.probe
+            )
+            self.object2detector()
+            # (nlambda, nosm, npsm, nslice, Nd, Nd) -> (Nd, Nd), summed over all modes
+            I = xp.sum(xp.abs(rec.ESW) ** 2, axis=(0, 1, 2, 3))
+            if self.params.backgroundModeSwitch:
+                I = I + rec.background
+            if self.params.fftshiftFlag:
+                I = xp.fft.fftshift(I)
+            measured = xp.asarray(self.ptychogramUntransformed[j])
+            Iraw = nd.map_coordinates(I, coordinates, order=1, cval=0.0) / scale
+            total += float(xp.sum(xp.abs(Iraw - measured)))
+            energy += float(xp.sum(measured))
+        return total / energy
 
     def objectPatchUpdate(self, objectPatch: np.ndarray, DELTA: np.ndarray):
         """
