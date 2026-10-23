@@ -191,6 +191,14 @@ class BaseEngine(object):
         self._initializePCParameters()
         self._checkGPU()  # checkGPU needs to be the last
 
+        # one line per run; the detailed messages are INFO logs, hidden by default
+        iterations = getattr(self, "numIterations", None)
+        print(
+            f"Starting {type(self).__name__}"
+            + (f": {iterations} iterations" if iterations is not None else "")
+            + (" on the GPU" if self.params.gpuFlag else " on the CPU")
+        )
+
         # self.reconstruction.probe_storage.push(self.reconstruction.probe, 0, self.experimentalData.ptychogram.shape[0])
 
     def _setCPSC(self):
