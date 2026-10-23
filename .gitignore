@@ -20,6 +20,8 @@ notes/
 # files
 *.hdf5
 *.png
-# figures of the rendered tutorial pages, written by docs/render_tutorials.py
+# figures of the rendered tutorial pages, written by `ptylab docs render`
 !docs/tutorials/*_files/*.png
+# download notebooks of the tutorials, written by `ptylab docs notebooks` before a build
+docs/tutorials/*.ipynb
 *.lock
