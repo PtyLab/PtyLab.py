@@ -38,6 +38,8 @@ def cmd_docs(args):
     try:
         from PtyLab.utils import docs
     except ImportError as e:
+        if e.name not in ("jupytext", "nbclient", "nbformat"):
+            raise  # a real error, e.g. a missing PtyLab module
         print(
             f"{e.name} is not installed. Run `uv sync` in a checkout of PtyLab.py first."
         )
