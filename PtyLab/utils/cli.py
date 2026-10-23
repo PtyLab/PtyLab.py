@@ -33,6 +33,25 @@ def cmd_check_gpu():
         sys.exit(1)
 
 
+def cmd_docs(args):
+    # jupytext and nbclient come with the dev group, which a plain `pip install ptylab` lacks
+    try:
+        from PtyLab.utils import docs
+    except ImportError as e:
+        if e.name not in ("jupytext", "nbclient", "nbformat"):
+            raise  # a real error, e.g. a missing PtyLab module
+        print(
+            f"{e.name} is not installed. Run `uv sync` in a checkout of PtyLab.py first."
+        )
+        sys.exit(1)
+
+    if args.target == "render":
+        sys.exit(docs.render_command(args.names, args.all, args.timeout))
+    if args.target == "notebooks":
+        sys.exit(docs.notebooks_command())
+    sys.exit(docs.check_command())
+
+
 def main():
     parser = argparse.ArgumentParser(prog="ptylab")
     sub = parser.add_subparsers(dest="command")
@@ -41,10 +60,37 @@ def main():
     check_sub = check.add_subparsers(dest="target")
     check_sub.add_parser("gpu", help="Check GPU / cupy availability")
 
+    docs = sub.add_parser(
+        "docs", help="Build the tutorial pages from docs/tutorials/scripts/"
+    )
+    docs_sub = docs.add_subparsers(dest="target")
+    render = docs_sub.add_parser(
+        "render",
+        help="Run tutorial scripts into docs pages (default: those out of date)",
+    )
+    render.add_argument(
+        "names", nargs="*", help="tutorials to render, e.g. tutorial_CPM"
+    )
+    render.add_argument(
+        "--all", action="store_true", help="render every tutorial, even if up to date"
+    )
+    render.add_argument(
+        "--timeout", type=int, default=3600, help="seconds allowed per cell"
+    )
+    docs_sub.add_parser(
+        "notebooks",
+        help="Convert the tutorial scripts into download notebooks (not executed)",
+    )
+    docs_sub.add_parser(
+        "check", help="Check that every page matches its script and is in the nav"
+    )
+
     args = parser.parse_args()
 
     if args.command == "check" and args.target == "gpu":
         cmd_check_gpu()
+    elif args.command == "docs" and args.target in ("render", "notebooks", "check"):
+        cmd_docs(args)
     else:
         parser.print_help()
         sys.exit(1)

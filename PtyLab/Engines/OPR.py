@@ -135,8 +135,9 @@ class OPR(BaseEngine):
             Opt. Express 24, 8360-8369 (2016).
             https://doi.org/10.1364/OE.24.008360
     
-    [^eschen2022]: W. Eschen, C. Liu, M. Steinert,
-            J. Müller, M. P. Ochmann, J. Limpert, and J. Rothhardt,
+    [^eschen2022]: W. Eschen, L. Loetgering, V. Schuster, R. Klas,
+            A. Kirsche, L. Berthold, M. Steinert, T. Pertsch, H. Gross,
+            M. Krause, J. Limpert, and J. Rothhardt,
             "Material-specific high-resolution table-top extreme ultraviolet microscopy,"
             Light Sci. Appl. 11, 117 (2022).
             https://doi.org/10.1038/s41377-022-00797-6
