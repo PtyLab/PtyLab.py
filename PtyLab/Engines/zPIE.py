@@ -35,7 +35,7 @@ class zPIE(BaseEngine):
     around the current propagation distance:
 
     $$
-    \Delta z_k \in [-d\,\mathrm{DoF},\, d\,\mathrm{DoF}]
+    \Delta z_k \in [-\mathrm{DoF},\, \mathrm{DoF}]
     $$
 
     For each candidate offset, either the reconstructed object or probe is
@@ -96,6 +96,7 @@ class zPIE(BaseEngine):
         Optics Letters 45, 2030-2033 (2020).
         https://doi.org/10.1364/OL.389492
     """
+
     def __init__(
         self,
         reconstruction: Reconstruction,
@@ -212,6 +213,7 @@ class zPIE(BaseEngine):
                         dz,
                         reconstruction.wavelength,
                         reconstruction.Lo,
+                        is_FT=False,
                     )[0]
                     for dz in z
                 ]
@@ -245,7 +247,7 @@ class zPIE(BaseEngine):
         around the current propagation distance:
 
         $$
-        \Delta z_k \in [-10\,\mathrm{DoF},\;10\,\mathrm{DoF}]
+        \Delta z_k \in [-\mathrm{DoF},\;\mathrm{DoF}]
         $$
 
         using 11 equally spaced candidate positions.
@@ -315,7 +317,7 @@ class zPIE(BaseEngine):
             `probeUpdate`
                 Update the reconstructed probe during the PIE loop.
         """
-        
+
         self.changeExperimentalData(experimentalData)
         self.changeOptimizable(reconstruction)
         self._prepareReconstruction()
@@ -347,12 +349,12 @@ class zPIE(BaseEngine):
             imProps = []
 
             # get positions
-            if loop == 1:
-                zNew = self.reconstruction.zo.copy()
+            if loop == 0:
+                zNew = self.reconstruction.zo
+                merit, dz = None, None
             else:
-                d = 10
-
-                dz = np.linspace(-1, 1, 11) * d * self.DoF
+                # candidate defocus planes within one depth of field, as in PtyLab.m
+                dz = np.linspace(-1, 1, 11) * self.DoF
                 self.dz = dz
 
                 merit = []
@@ -364,12 +366,15 @@ class zPIE(BaseEngine):
                             self.reconstruction.No // 2 - n // 2,
                             self.reconstruction.No // 2 + n // 2,
                         )
+                        # the window w fades the cropped object out towards the edges, so the
+                        # periodic wrap-around of the FFT does not add edges to the TV metric
                         imProp, _ = aspw(
-                            u=xp.squeeze(self.reconstruction.object[..., roi, roi]),
+                            u=w * xp.squeeze(self.reconstruction.object[..., roi, roi]),
                             z=dz[k],
                             wavelength=self.reconstruction.wavelength,
                             L=self.reconstruction.dxo * n,
                             bandlimit=False,
+                            is_FT=False,
                         )
                     else:
                         if self.reconstruction.nlambda == 1:
@@ -378,6 +383,7 @@ class zPIE(BaseEngine):
                                 z=dz[k],
                                 wavelength=self.reconstruction.wavelength,
                                 L=self.reconstruction.Lp,
+                                is_FT=False,
                             )
                         else:
                             nlambda = self.reconstruction.nlambda // 2
@@ -388,8 +394,9 @@ class zPIE(BaseEngine):
                                 dz[k],
                                 self.reconstruction.spectralDensity[nlambda],
                                 self.reconstruction.Lp,
+                                is_FT=False,
                             )
-                    imProps.append(imProp.get())
+                    imProps.append(asNumpyArray(imProp))
                     # TV approach
                     aleph = 1e-2
                     gradx = xp.roll(imProp, -1, axis=-1) - xp.roll(imProp, 1, axis=-1)
@@ -400,27 +407,21 @@ class zPIE(BaseEngine):
                     # take a tiny break, we may overask the GPU
                     # yield 0, 0
 
-                merit = xp.array(merit)
+                merit = asNumpyArray(xp.array(merit))
                 if not hasattr(self.reconstruction, "TV_history"):
                     self.reconstruction.TV_history = []
 
-                self.reconstruction.TV_history.append(
-                    float(merit[len(merit) // 2].get())
-                )
-                if xp is not np:
-                    merit = merit.get()
+                self.reconstruction.TV_history.append(float(merit[len(merit) // 2]))
                 feedback = np.sum(dz * merit) / np.sum(
                     merit
                 )  # at optimal z, feedback term becomes 0
 
-                print("Step size: ", feedback)
+                self.logger.debug("Step size: %s", feedback)
                 self.zMomentun = (
                     self.zPIEfriction * self.zMomentun
                     + self.zPIEgradientStepSize * feedback
                 )
                 zNew = self.reconstruction.zo + self.zMomentun
-
-                # asdlkcmasldk
 
             self.reconstruction.zHistory.append(self.reconstruction.zo)
 
@@ -430,19 +431,12 @@ class zPIE(BaseEngine):
                 % (self.reconstruction.zo * 1e3, self.zMomentun * 1e6)
             )
 
-            # reset coordinates
+            # reset coordinates: the zo setter also rescales dxp = wavelength * zo / Ld, and the
+            # positions follow from dxp; with ASP the sampling does not depend on z, so keep it
+            dxp = self.reconstruction.dxp
             self.reconstruction.zo = zNew
-
-            # re-sample is automatically done by using @property
-            if self.params.propagatorType != "ASP":
-                self.reconstruction.dxp = (
-                    self.reconstruction.wavelength
-                    * self.reconstruction.zo
-                    / self.reconstruction.Ld
-                )
-                # reset propagatorType
-                # self.reconstruction.quadraticPhase = xp.array(np.exp(1.j * np.pi / (self.reconstruction.wavelength * self.reconstruction.zo)
-                #                                                      * (self.reconstruction.Xp ** 2 + self.reconstruction.Yp ** 2)))
+            if self.params.propagatorType == "ASP":
+                self.reconstruction.dxp = dxp
             ##################################################################################################################
 
             for positionLoop, positionIndex in enumerate(self.positionIndices):
@@ -481,12 +475,13 @@ class zPIE(BaseEngine):
             # display it
             # self.showReconstruction(loop)
 
-            self.merit = merit
+            # kept for `reconstruction.make_alignment_plot()`; the first iteration has no merit yet
             self.zNew = zNew
-            self.reconstruction.merit = merit
-            self.reconstruction.dz = dz
+            if merit is not None:
+                self.merit = merit
+                self.reconstruction.merit = merit
+                self.reconstruction.dz = dz
 
-            self.reconstruction.make_alignment_plot(True)
             # show reconstruction
             if False:
                 if loop == 0:
