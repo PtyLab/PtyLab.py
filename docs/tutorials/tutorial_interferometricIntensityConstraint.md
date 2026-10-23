@@ -124,10 +124,6 @@ params.fftshiftSwitch = False
 params.backgroundModeSwitch = True
 ```
 
-```text
-INFO:GPU:cupy and CUDA available, switching to GPU
-```
-
 ```python
 reconstruction = Reconstruction(experimentalData, params)
 reconstruction.No = 2**11
@@ -147,16 +143,6 @@ reconstruction.probe = reconstruction.probe * np.exp(
 )
 ```
 
-```text
-INFO:Reconstruction:Copying attribute wavelength
-INFO:Reconstruction:Copying attribute dxd
-INFO:Reconstruction:Copying attribute theta
-INFO:Reconstruction:Copying attribute spectralDensity
-INFO:Reconstruction:Copying attribute entrancePupilDiameter
-INFO:Reconstruction:Initial object set to ones
-INFO:Reconstruction:Initial probe set to circ
-```
-
 First, reconstruct with the standard intensity constraint, which treats the USAF target as a thin, single-layer object.
 
 ```python
@@ -167,14 +153,6 @@ mPIE.numIterations = 100
 mPIE.betaProbe = 0.05
 mPIE.betaObject = 0.25
 mPIE.reconstruct()
-```
-
-```text
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 7.087999733812467e-07
-INFO:mPIE:switch to gpu
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
 ```
 
 ![](tutorial_interferometricIntensityConstraint_files/cell12_2.png)
@@ -189,14 +167,6 @@ mPIE.numIterations = 200
 mPIE.betaProbe = 0.25
 mPIE.betaObject = 0.25
 mPIE.reconstruct()
-```
-
-```text
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 7.087999733812467e-07
-INFO:mPIE:switch to gpu
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
 ```
 
 ![](tutorial_interferometricIntensityConstraint_files/cell14_2.png)

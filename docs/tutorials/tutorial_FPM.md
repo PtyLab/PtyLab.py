@@ -65,15 +65,6 @@ exampleData, reconstruction, params, monitor, engine, calib = PtyLab.easyInitial
 ```
 
 ```text
-INFO:GPU:cupy and CUDA available, switching to GPU
-INFO:Reconstruction:Copying attribute wavelength
-INFO:Reconstruction:Copying attribute dxd
-INFO:Reconstruction:Copying attribute zled
-INFO:Reconstruction:Copying attribute NA
-INFO:Reconstruction:Initial object set to upsampled
-INFO:Reconstruction:Initial probe set to circ
-INFO:ePIE:Sucesfully created ePIE ePIE_engine
-INFO:ePIE:Wavelength attribute: 6.25e-07
 Found encoder with shape (81, 2)
 ```
 
@@ -110,11 +101,6 @@ import copy
 reconstruction0 = copy.deepcopy(reconstruction)
 ```
 
-```text
-INFO:Reconstruction:Initial object set to upsampled
-INFO:Reconstruction:Initial probe set to circ
-```
-
 ## Monitor class
 `Monitor` plots the object, the pupil and the error while the reconstruction runs.
 
@@ -138,7 +124,7 @@ params.adaptiveDenoisingSwitch = True
 ```
 
 ```text
-WARNING:GPU:Disabling GPU switch. If this is unwanted, please set `self.gpuSwitch = True`
+Disabling GPU switch. If this is unwanted, please set `self.gpuSwitch = True`
 ```
 
 ## IlluminationCalibration class
@@ -179,11 +165,6 @@ An engine runs the iterative algorithm. Here it is `qNewton`, a quasi-Newton met
 engine = Engines.qNewton(reconstruction, exampleData, params, monitor)
 engine.numIterations = 200
 engine.reconstruct()
-```
-
-```text
-INFO:qNewton:Sucesfully created qNewton engine
-INFO:qNewton:Wavelength attribute: 6.25e-07
 ```
 
 ![](tutorial_FPM_files/cell16_2.png)
@@ -273,11 +254,6 @@ engine.reconstruct()
 
 # Remove the curvature
 fixed_object = modeTile(fft2c(reconstruction.object) * total_curvature);
-```
-
-```text
-INFO:qNewton:Sucesfully created qNewton engine
-INFO:qNewton:Wavelength attribute: 6.25e-07
 ```
 
 ![](tutorial_FPM_files/cell21_2.png)

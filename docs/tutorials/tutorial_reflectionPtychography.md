@@ -123,7 +123,6 @@ params.intensityConstraint = "standard"
 ```text
 /tmp/ipykernel_496569/333202618.py:4: UserWarning: For diffraction data plot, preferably use an interactive matplotlib backend or set `monitor.verboseLevel = "low"`. 
   monitor.verboseLevel = "high"  # high: plot two figures, low: plot only one figure
-INFO:GPU:cupy and CUDA available, switching to GPU
 ```
 
 ## Initial guesses
@@ -143,16 +142,6 @@ reconstruction.probe = reconstruction.probe * np.exp(
     * (reconstruction.Xp**2 + reconstruction.Yp**2)
     / (3 * 6e-3)
 )
-```
-
-```text
-INFO:Reconstruction:Copying attribute wavelength
-INFO:Reconstruction:Copying attribute dxd
-INFO:Reconstruction:Copying attribute theta
-INFO:Reconstruction:Copying attribute spectralDensity
-INFO:Reconstruction:Copying attribute entrancePupilDiameter
-INFO:Reconstruction:Initial object set to ones
-INFO:Reconstruction:Initial probe set to circ
 ```
 
 ## Tilted-plane correction
@@ -180,11 +169,6 @@ plt.tight_layout()
 plt.show()
 ```
 
-```text
-INFO:aPIE:Sucesfully created aPIE aPIE_engine
-INFO:aPIE:Wavelength attribute: 7.087999733812467e-07
-```
-
 ![](tutorial_reflectionPtychography_files/cell11_2.png)
 
 The tilt stretches the measured pattern along $x$; the correction compresses it back, so that it matches the published frames. The strips at the sides of the corrected grid lie outside the detector and stay empty (`W` close to 0).
@@ -208,75 +192,6 @@ engine.numIterations = 100  # mPIE iterations per candidate
 engine.betaObject = 0.5
 engine.betaProbe = 0.5
 best_theta, best_error = engine.reconstruct()
-```
-
-```text
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 7.087999733812467e-07
-INFO:mPIE:switch to gpu
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
-INFO:aPIE:theta = 30.000 deg: raw detector error 0.36115
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 7.087999733812467e-07
-INFO:mPIE:switch to gpu
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
-INFO:aPIE:theta = 33.333 deg: raw detector error 0.34133
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 7.087999733812467e-07
-INFO:mPIE:switch to gpu
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
-INFO:aPIE:theta = 36.667 deg: raw detector error 0.31694
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 7.087999733812467e-07
-INFO:mPIE:switch to gpu
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
-INFO:aPIE:theta = 40.000 deg: raw detector error 0.28142
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 7.087999733812467e-07
-INFO:mPIE:switch to gpu
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
-INFO:aPIE:theta = 43.333 deg: raw detector error 0.25035
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 7.087999733812467e-07
-INFO:mPIE:switch to gpu
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
-INFO:aPIE:theta = 46.667 deg: raw detector error 0.29980
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 7.087999733812467e-07
-INFO:mPIE:switch to gpu
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
-INFO:aPIE:theta = 50.000 deg: raw detector error 0.34598
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 7.087999733812467e-07
-INFO:mPIE:switch to gpu
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
-INFO:aPIE:theta = 41.111 deg: raw detector error 0.26585
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 7.087999733812467e-07
-INFO:mPIE:switch to gpu
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
-INFO:aPIE:theta = 42.222 deg: raw detector error 0.25134
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 7.087999733812467e-07
-INFO:mPIE:switch to gpu
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
-INFO:aPIE:theta = 44.444 deg: raw detector error 0.26350
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 7.087999733812467e-07
-INFO:mPIE:switch to gpu
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
-INFO:aPIE:theta = 45.556 deg: raw detector error 0.28179
 ```
 
 ## Results
@@ -323,12 +238,6 @@ mPIE.reconstruct()
 ```
 
 ```text
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 7.087999733812467e-07
-INFO:mPIE:switch to gpu
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
-
 final iteration: 199
 error: 50.0
 estimated linear overlap: 85.9 %

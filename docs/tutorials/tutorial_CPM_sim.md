@@ -303,8 +303,7 @@ params.fftshiftSwitch = False
 ```
 
 ```text
-INFO:GPU:cupy and CUDA available, switching to GPU
-WARNING:GPU:Disabling GPU switch. If this is unwanted, please set `self.gpuSwitch = True`
+Disabling GPU switch. If this is unwanted, please set `self.gpuSwitch = True`
 ```
 
 ```python
@@ -331,16 +330,6 @@ reconstruction.probe = reconstruction.probe * np.exp(
 )
 ```
 
-```text
-INFO:Reconstruction:Copying attribute wavelength
-INFO:Reconstruction:Copying attribute dxd
-INFO:Reconstruction:Copying attribute theta
-INFO:Reconstruction:Copying attribute spectralDensity
-INFO:Reconstruction:Copying attribute entrancePupilDiameter
-INFO:Reconstruction:Initial object set to ones
-INFO:Reconstruction:Initial probe set to circ
-```
-
 ```python
 # choose the reconstruction engine and set values
 engine_mPIE = Engines.mPIE(reconstruction, exampleData, params, monitor)
@@ -351,12 +340,6 @@ engine_mPIE.betaObject = 0.25
 engine_mPIE.reconstruct()
 
 plt.close("all")
-```
-
-```text
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 6.328e-07
-INFO:mPIE:Doing probe com stabilization every iteration
 ```
 
 ![](tutorial_CPM_sim_files/cell28_2.png)

@@ -89,16 +89,6 @@ exampleData, reconstruction, params, monitor, ePIE_engine = PtyLab.easyInitializ
 ```
 
 ```text
-INFO:GPU:cupy and CUDA available, switching to GPU
-INFO:Reconstruction:Copying attribute wavelength
-INFO:Reconstruction:Copying attribute dxd
-INFO:Reconstruction:Copying attribute theta
-INFO:Reconstruction:Copying attribute spectralDensity
-INFO:Reconstruction:Copying attribute entrancePupilDiameter
-INFO:Reconstruction:Initial object set to ones
-INFO:Reconstruction:Initial probe set to circ
-INFO:ePIE:Sucesfully created ePIE ePIE_engine
-INFO:ePIE:Wavelength attribute: 6.327999813038332e-07
 Found encoder with shape (100, 2)
 ```
 
@@ -136,14 +126,6 @@ The reconstruction should start from the perturbed positions, so create a new `R
 ```python
 # initialize again reconstruction with the wrong encoder data
 reconstruction = Reconstruction(exampleData, params)
-```
-
-```text
-INFO:Reconstruction:Copying attribute wavelength
-INFO:Reconstruction:Copying attribute dxd
-INFO:Reconstruction:Copying attribute theta
-INFO:Reconstruction:Copying attribute spectralDensity
-INFO:Reconstruction:Copying attribute entrancePupilDiameter
 ```
 
 Set the initial guesses, the monitor and the parameters as in [CPM Example Data](tutorial_CPM.md). Position correction stays off for now (`params.positionCorrectionSwitch = False`).
@@ -218,13 +200,10 @@ params.positionCorrectionSwitch = False
 ```
 
 ```text
-INFO:Reconstruction:Initial object set to ones
-INFO:Reconstruction:Initial probe set to circ
 /tmp/ipykernel_423882/3076955466.py:27: UserWarning: For faster update of the reconstruction plot, set `monitor.figureUpdateFrequency = 5` or higher.
   monitor.figureUpdateFrequency = 1
 /tmp/ipykernel_423882/3076955466.py:29: UserWarning: For diffraction data plot, preferably use an interactive matplotlib backend or set `monitor.verboseLevel = "low"`. 
   monitor.verboseLevel = "high"  # high: plot two figures, low: plot only one figure
-INFO:GPU:cupy and CUDA available, switching to GPU
 ```
 
 First, reconstruct with ePIE and no position correction:
@@ -238,16 +217,10 @@ engine_ePIE.reconstruct()
 ```
 
 ```text
-INFO:ePIE:Sucesfully created ePIE ePIE_engine
-INFO:ePIE:Wavelength attribute: 6.327999813038332e-07
-INFO:ePIE:switch to gpu
-INFO:ePIE:Doing probe com stabilization every iteration
-
 final iteration: 49
 error: 47.1
 estimated linear overlap: 50.8 %
 estimated area overlap: 73.6 %
-INFO:ePIE:switch to cpu
 ```
 
 ![](tutorial_LateralPositionCorrection_files/cell14_2.png)
@@ -284,13 +257,6 @@ engine_mPIE.reconstruct()
 ```
 
 ```text
-INFO:Reconstruction:Initial object set to ones
-INFO:Reconstruction:Initial probe set to circ
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 6.327999813038332e-07
-INFO:mPIE:switch to gpu
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:Position correction: updating scan positions every iteration
 /mnt/home/shantanu/projects/PtyLab.py/PtyLab/Engines/BaseEngine.py:1828: ComplexWarning: Casting complex values to real discards the imaginary part
   cc[shifts] = xp.squeeze(
 
@@ -298,7 +264,6 @@ final iteration: 69
 error: 43.7
 estimated linear overlap: 79.1 %
 estimated area overlap: 94.0 %
-INFO:mPIE:switch to cpu
 ```
 
 ![](tutorial_LateralPositionCorrection_files/cell16_4.png)

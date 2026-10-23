@@ -76,16 +76,6 @@ print(f"initial z: {initial_z * 1e3:.3f} mm")
 ```
 
 ```text
-INFO:GPU:cupy and CUDA available, switching to GPU
-INFO:Reconstruction:Copying attribute wavelength
-INFO:Reconstruction:Copying attribute dxd
-INFO:Reconstruction:Copying attribute theta
-INFO:Reconstruction:Copying attribute spectralDensity
-INFO:Reconstruction:Copying attribute entrancePupilDiameter
-INFO:Reconstruction:Initial object set to ones
-INFO:Reconstruction:Initial probe set to circ
-INFO:ePIE:Sucesfully created ePIE ePIE_engine
-INFO:ePIE:Wavelength attribute: 6.327999813038332e-07
 simu.hdf5 found, skipping generation.
 Found encoder with shape (100, 2)
 true z:    50.000 mm
@@ -116,11 +106,6 @@ params.orthogonalizationSwitch = True
 params.orthogonalizationFrequency = 10
 params.couplingSwitch = True
 params.couplingAleph = 1
-```
-
-```text
-INFO:Reconstruction:Initial object set to ones
-INFO:Reconstruction:Initial probe set to circ
 ```
 
 ## Scan settings
@@ -159,136 +144,20 @@ best_z, best_purity = engine.reconstruct()
 ```
 
 ```text
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 6.327999813038332e-07
-INFO:purityPIE:Successfully created purityPIE engine
-INFO:purityPIE:Wavelength attribute: 6.327999813038332e-07
-INFO:purityPIE:switch to gpu
-INFO:Reconstruction:Copying attribute wavelength
-INFO:Reconstruction:Copying attribute dxd
-INFO:Reconstruction:Copying attribute theta
-INFO:Reconstruction:Copying attribute spectralDensity
-INFO:Reconstruction:Copying attribute entrancePupilDiameter
-INFO:Reconstruction:Initial object set to ones
-INFO:Reconstruction:Initial probe set to circ
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 6.327999813038332e-07
-
 Starting adaptive purity-based z scan
 Initial z = 51.000001 mm | initial step = 1000.0 µm
 
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
 z = 51.000001 mm | purity = 0.984279 | error = 8.005732e+00
-INFO:Reconstruction:Copying attribute wavelength
-INFO:Reconstruction:Copying attribute dxd
-INFO:Reconstruction:Copying attribute theta
-INFO:Reconstruction:Copying attribute spectralDensity
-INFO:Reconstruction:Copying attribute entrancePupilDiameter
-INFO:Reconstruction:Initial object set to ones
-INFO:Reconstruction:Initial probe set to circ
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 6.327999813038332e-07
 NEW BEST: z = 51.000001 mm | purity = 0.984279
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
 z = 50.000001 mm | purity = 0.994821 | error = 2.563637e+00
-INFO:Reconstruction:Copying attribute wavelength
-INFO:Reconstruction:Copying attribute dxd
-INFO:Reconstruction:Copying attribute theta
-INFO:Reconstruction:Copying attribute spectralDensity
-INFO:Reconstruction:Copying attribute entrancePupilDiameter
-INFO:Reconstruction:Initial object set to ones
-INFO:Reconstruction:Initial probe set to circ
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 6.327999813038332e-07
 NEW BEST: z = 50.000001 mm | purity = 0.994821
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
 z = 52.000001 mm | purity = 0.977848 | error = 1.086479e+01
-INFO:Reconstruction:Copying attribute wavelength
-INFO:Reconstruction:Copying attribute dxd
-INFO:Reconstruction:Copying attribute theta
-INFO:Reconstruction:Copying attribute spectralDensity
-INFO:Reconstruction:Copying attribute entrancePupilDiameter
-INFO:Reconstruction:Initial object set to ones
-INFO:Reconstruction:Initial probe set to circ
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 6.327999813038332e-07
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
 z = 48.500001 mm | purity = 0.974840 | error = 7.922302e+00
-INFO:Reconstruction:Copying attribute wavelength
-INFO:Reconstruction:Copying attribute dxd
-INFO:Reconstruction:Copying attribute theta
-INFO:Reconstruction:Copying attribute spectralDensity
-INFO:Reconstruction:Copying attribute entrancePupilDiameter
-INFO:Reconstruction:Initial object set to ones
-INFO:Reconstruction:Initial probe set to circ
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 6.327999813038332e-07
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
 z = 49.250001 mm | purity = 0.980532 | error = 7.125771e+00
-INFO:Reconstruction:Copying attribute wavelength
-INFO:Reconstruction:Copying attribute dxd
-INFO:Reconstruction:Copying attribute theta
-INFO:Reconstruction:Copying attribute spectralDensity
-INFO:Reconstruction:Copying attribute entrancePupilDiameter
-INFO:Reconstruction:Initial object set to ones
-INFO:Reconstruction:Initial probe set to circ
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 6.327999813038332e-07
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
 z = 50.750001 mm | purity = 0.989469 | error = 6.406174e+00
-INFO:Reconstruction:Copying attribute wavelength
-INFO:Reconstruction:Copying attribute dxd
-INFO:Reconstruction:Copying attribute theta
-INFO:Reconstruction:Copying attribute spectralDensity
-INFO:Reconstruction:Copying attribute entrancePupilDiameter
-INFO:Reconstruction:Initial object set to ones
-INFO:Reconstruction:Initial probe set to circ
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 6.327999813038332e-07
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
 z = 49.625001 mm | purity = 0.972283 | error = 9.314051e+00
-INFO:Reconstruction:Copying attribute wavelength
-INFO:Reconstruction:Copying attribute dxd
-INFO:Reconstruction:Copying attribute theta
-INFO:Reconstruction:Copying attribute spectralDensity
-INFO:Reconstruction:Copying attribute entrancePupilDiameter
-INFO:Reconstruction:Initial object set to ones
-INFO:Reconstruction:Initial probe set to circ
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 6.327999813038332e-07
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
 z = 50.375001 mm | purity = 0.988151 | error = 6.476521e+00
-INFO:Reconstruction:Copying attribute wavelength
-INFO:Reconstruction:Copying attribute dxd
-INFO:Reconstruction:Copying attribute theta
-INFO:Reconstruction:Copying attribute spectralDensity
-INFO:Reconstruction:Copying attribute entrancePupilDiameter
-INFO:Reconstruction:Initial object set to ones
-INFO:Reconstruction:Initial probe set to circ
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 6.327999813038332e-07
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
 z = 49.812501 mm | purity = 0.985340 | error = 6.372165e+00
-INFO:Reconstruction:Copying attribute wavelength
-INFO:Reconstruction:Copying attribute dxd
-INFO:Reconstruction:Copying attribute theta
-INFO:Reconstruction:Copying attribute spectralDensity
-INFO:Reconstruction:Copying attribute entrancePupilDiameter
-INFO:Reconstruction:Initial object set to ones
-INFO:Reconstruction:Initial probe set to circ
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 6.327999813038332e-07
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
 z = 50.187501 mm | purity = 0.988587 | error = 5.659125e+00
 ============================================================
 Adaptive purity-based z scan finished
@@ -297,7 +166,6 @@ Best Δz     = -1000.00 µm
 Best purity = 0.994821
 Evaluations = 10
 ============================================================
-INFO:purityPIE:switch to cpu
 ```
 
 ![](tutorial_purityCalibration_files/cell09_4.png)
@@ -346,14 +214,6 @@ engine_mPIE.numIterations = 50
 engine_mPIE.reconstruct()
 ```
 
-```text
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 6.327999813038332e-07
-INFO:mPIE:switch to gpu
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
-```
-
 ![](tutorial_purityCalibration_files/cell13_2.png)
 
 ![](tutorial_purityCalibration_files/cell13_7.png)
@@ -397,13 +257,6 @@ print(f"initial wavelength: {initial_wavelength * 1e9:.1f} nm")
 ```
 
 ```text
-INFO:Reconstruction:Copying attribute wavelength
-INFO:Reconstruction:Copying attribute dxd
-INFO:Reconstruction:Copying attribute theta
-INFO:Reconstruction:Copying attribute spectralDensity
-INFO:Reconstruction:Copying attribute entrancePupilDiameter
-INFO:Reconstruction:Initial object set to ones
-INFO:Reconstruction:Initial probe set to circ
 Found encoder with shape (100, 2)
 true wavelength:    632.8 nm
 initial wavelength: 645.8 nm
@@ -427,199 +280,50 @@ best_wavelength, best_purity = engine.reconstruct()
 ```
 
 ```text
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 6.457999813038332e-07
-INFO:purityPIE:Successfully created purityPIE engine
-INFO:purityPIE:Wavelength attribute: 6.457999813038332e-07
-INFO:purityPIE:switch to gpu
-INFO:Reconstruction:Copying attribute wavelength
-INFO:Reconstruction:Copying attribute dxd
-INFO:Reconstruction:Copying attribute theta
-INFO:Reconstruction:Copying attribute spectralDensity
-INFO:Reconstruction:Copying attribute entrancePupilDiameter
-INFO:Reconstruction:Initial object set to ones
-INFO:Reconstruction:Initial probe set to circ
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 6.217999813038332e-07
-
 Starting purity-based wavelength scan
 Initial wavelength = 645.799981 nm | range = ±24.0000 nm | points = 13 | iterations/wavelength = 150
 
 [1/13] Reconstructing wavelength = 621.799981 nm (Δλ = -24.0000 nm)
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
     Probe purity = 0.983243 | reconstruction error = 6.920484e+00
-INFO:Reconstruction:Copying attribute wavelength
-INFO:Reconstruction:Copying attribute dxd
-INFO:Reconstruction:Copying attribute theta
-INFO:Reconstruction:Copying attribute spectralDensity
-INFO:Reconstruction:Copying attribute entrancePupilDiameter
-INFO:Reconstruction:Initial object set to ones
-INFO:Reconstruction:Initial probe set to circ
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 6.257999813038332e-07
     NEW BEST: wavelength = 621.799981 nm | purity = 0.983243
 
 [2/13] Reconstructing wavelength = 625.799981 nm (Δλ = -20.0000 nm)
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
     Probe purity = 0.984643 | reconstruction error = 6.721423e+00
-INFO:Reconstruction:Copying attribute wavelength
-INFO:Reconstruction:Copying attribute dxd
-INFO:Reconstruction:Copying attribute theta
-INFO:Reconstruction:Copying attribute spectralDensity
-INFO:Reconstruction:Copying attribute entrancePupilDiameter
-INFO:Reconstruction:Initial object set to ones
-INFO:Reconstruction:Initial probe set to circ
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 6.297999813038332e-07
     NEW BEST: wavelength = 625.799981 nm | purity = 0.984643
 
 [3/13] Reconstructing wavelength = 629.799981 nm (Δλ = -16.0000 nm)
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
     Probe purity = 0.986656 | reconstruction error = 6.419657e+00
-INFO:Reconstruction:Copying attribute wavelength
-INFO:Reconstruction:Copying attribute dxd
-INFO:Reconstruction:Copying attribute theta
-INFO:Reconstruction:Copying attribute spectralDensity
-INFO:Reconstruction:Copying attribute entrancePupilDiameter
-INFO:Reconstruction:Initial object set to ones
-INFO:Reconstruction:Initial probe set to circ
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 6.337999813038333e-07
     NEW BEST: wavelength = 629.799981 nm | purity = 0.986656
 
 [4/13] Reconstructing wavelength = 633.799981 nm (Δλ = -12.0000 nm)
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
     Probe purity = 0.990115 | reconstruction error = 5.012731e+00
-INFO:Reconstruction:Copying attribute wavelength
-INFO:Reconstruction:Copying attribute dxd
-INFO:Reconstruction:Copying attribute theta
-INFO:Reconstruction:Copying attribute spectralDensity
-INFO:Reconstruction:Copying attribute entrancePupilDiameter
-INFO:Reconstruction:Initial object set to ones
-INFO:Reconstruction:Initial probe set to circ
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 6.377999813038333e-07
     NEW BEST: wavelength = 633.799981 nm | purity = 0.990115
 
 [5/13] Reconstructing wavelength = 637.799981 nm (Δλ = -8.0000 nm)
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
     Probe purity = 0.983524 | reconstruction error = 7.260722e+00
-INFO:Reconstruction:Copying attribute wavelength
-INFO:Reconstruction:Copying attribute dxd
-INFO:Reconstruction:Copying attribute theta
-INFO:Reconstruction:Copying attribute spectralDensity
-INFO:Reconstruction:Copying attribute entrancePupilDiameter
-INFO:Reconstruction:Initial object set to ones
-INFO:Reconstruction:Initial probe set to circ
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 6.417999813038332e-07
 
 [6/13] Reconstructing wavelength = 641.799981 nm (Δλ = -4.0000 nm)
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
     Probe purity = 0.987688 | reconstruction error = 6.967922e+00
-INFO:Reconstruction:Copying attribute wavelength
-INFO:Reconstruction:Copying attribute dxd
-INFO:Reconstruction:Copying attribute theta
-INFO:Reconstruction:Copying attribute spectralDensity
-INFO:Reconstruction:Copying attribute entrancePupilDiameter
-INFO:Reconstruction:Initial object set to ones
-INFO:Reconstruction:Initial probe set to circ
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 6.457999813038332e-07
 
 [7/13] Reconstructing wavelength = 645.799981 nm (Δλ = +0.0000 nm)
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
     Probe purity = 0.977043 | reconstruction error = 9.063293e+00
-INFO:Reconstruction:Copying attribute wavelength
-INFO:Reconstruction:Copying attribute dxd
-INFO:Reconstruction:Copying attribute theta
-INFO:Reconstruction:Copying attribute spectralDensity
-INFO:Reconstruction:Copying attribute entrancePupilDiameter
-INFO:Reconstruction:Initial object set to ones
-INFO:Reconstruction:Initial probe set to circ
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 6.497999813038332e-07
 
 [8/13] Reconstructing wavelength = 649.799981 nm (Δλ = +4.0000 nm)
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
     Probe purity = 0.974341 | reconstruction error = 1.041858e+01
-INFO:Reconstruction:Copying attribute wavelength
-INFO:Reconstruction:Copying attribute dxd
-INFO:Reconstruction:Copying attribute theta
-INFO:Reconstruction:Copying attribute spectralDensity
-INFO:Reconstruction:Copying attribute entrancePupilDiameter
-INFO:Reconstruction:Initial object set to ones
-INFO:Reconstruction:Initial probe set to circ
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 6.537999813038332e-07
 
 [9/13] Reconstructing wavelength = 653.799981 nm (Δλ = +8.0000 nm)
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
     Probe purity = 0.984413 | reconstruction error = 8.695560e+00
-INFO:Reconstruction:Copying attribute wavelength
-INFO:Reconstruction:Copying attribute dxd
-INFO:Reconstruction:Copying attribute theta
-INFO:Reconstruction:Copying attribute spectralDensity
-INFO:Reconstruction:Copying attribute entrancePupilDiameter
-INFO:Reconstruction:Initial object set to ones
-INFO:Reconstruction:Initial probe set to circ
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 6.577999813038332e-07
 
 [10/13] Reconstructing wavelength = 657.799981 nm (Δλ = +12.0000 nm)
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
     Probe purity = 0.971097 | reconstruction error = 1.176182e+01
-INFO:Reconstruction:Copying attribute wavelength
-INFO:Reconstruction:Copying attribute dxd
-INFO:Reconstruction:Copying attribute theta
-INFO:Reconstruction:Copying attribute spectralDensity
-INFO:Reconstruction:Copying attribute entrancePupilDiameter
-INFO:Reconstruction:Initial object set to ones
-INFO:Reconstruction:Initial probe set to circ
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 6.617999813038333e-07
 
 [11/13] Reconstructing wavelength = 661.799981 nm (Δλ = +16.0000 nm)
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
     Probe purity = 0.967212 | reconstruction error = 1.269634e+01
-INFO:Reconstruction:Copying attribute wavelength
-INFO:Reconstruction:Copying attribute dxd
-INFO:Reconstruction:Copying attribute theta
-INFO:Reconstruction:Copying attribute spectralDensity
-INFO:Reconstruction:Copying attribute entrancePupilDiameter
-INFO:Reconstruction:Initial object set to ones
-INFO:Reconstruction:Initial probe set to circ
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 6.657999813038332e-07
 
 [12/13] Reconstructing wavelength = 665.799981 nm (Δλ = +20.0000 nm)
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
     Probe purity = 0.967485 | reconstruction error = 1.306143e+01
-INFO:Reconstruction:Copying attribute wavelength
-INFO:Reconstruction:Copying attribute dxd
-INFO:Reconstruction:Copying attribute theta
-INFO:Reconstruction:Copying attribute spectralDensity
-INFO:Reconstruction:Copying attribute entrancePupilDiameter
-INFO:Reconstruction:Initial object set to ones
-INFO:Reconstruction:Initial probe set to circ
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 6.697999813038332e-07
 
 [13/13] Reconstructing wavelength = 669.799981 nm (Δλ = +24.0000 nm)
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
     Probe purity = 0.974542 | reconstruction error = 1.206714e+01
 
 ============================================================
@@ -628,7 +332,6 @@ Best wavelength = 633.799981 nm
 Best Δλ         = -12.0000 nm
 Best purity     = 0.990115
 ============================================================
-INFO:purityPIE:switch to cpu
 ```
 
 ![](tutorial_purityCalibration_files/cell19_4.png)

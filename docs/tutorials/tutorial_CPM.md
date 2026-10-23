@@ -65,16 +65,6 @@ exampleData, reconstruction, params, monitor, ePIE_engine = PtyLab.easyInitializ
 ```
 
 ```text
-INFO:GPU:cupy and CUDA available, switching to GPU
-INFO:Reconstruction:Copying attribute wavelength
-INFO:Reconstruction:Copying attribute dxd
-INFO:Reconstruction:Copying attribute theta
-INFO:Reconstruction:Copying attribute spectralDensity
-INFO:Reconstruction:Copying attribute entrancePupilDiameter
-INFO:Reconstruction:Initial object set to ones
-INFO:Reconstruction:Initial probe set to circ
-INFO:ePIE:Sucesfully created ePIE ePIE_engine
-INFO:ePIE:Wavelength attribute: 6.327999813038332e-07
 Found encoder with shape (100, 2)
 ```
 
@@ -131,14 +121,6 @@ plt.show()
 reconstruction = PtyLab.Reconstruction(exampleData, params)
 ```
 
-```text
-INFO:Reconstruction:Copying attribute wavelength
-INFO:Reconstruction:Copying attribute dxd
-INFO:Reconstruction:Copying attribute theta
-INFO:Reconstruction:Copying attribute spectralDensity
-INFO:Reconstruction:Copying attribute entrancePupilDiameter
-```
-
 Next, set the number of modes and slices and choose the initial guesses. The object and probe are 6-D arrays with axes `(nlambda, nosm, npsm, nslice, Ny, Nx)`: wavelengths, object modes, probe modes, depth slices, then the image. The first four axes have length 1 by default.
 
 ```python
@@ -162,11 +144,6 @@ reconstruction.probe = reconstruction.probe * np.exp(
     * (reconstruction.Xp**2 + reconstruction.Yp**2)
     / (2 * 6e-3)
 )
-```
-
-```text
-INFO:Reconstruction:Initial object set to ones
-INFO:Reconstruction:Initial probe set to circ
 ```
 
 ## Monitor class
@@ -199,10 +176,6 @@ monitor.probePlotContrast = 0.9  # control the contrast of probe plot
 ```python
 ## Initialise Params class
 params = PtyLab.Params()
-```
-
-```text
-INFO:GPU:cupy and CUDA available, switching to GPU
 ```
 
 ```python
@@ -245,22 +218,11 @@ Engines can be switched on the same `reconstruction`: the next engine starts fro
 ePIE = PtyLab.Engines.ePIE(reconstruction, exampleData, params, monitor)
 ```
 
-```text
-INFO:ePIE:Sucesfully created ePIE ePIE_engine
-INFO:ePIE:Wavelength attribute: 6.327999813038332e-07
-```
-
 ```python
 ePIE.numIterations = 10
 ePIE.betaObject = 0.25
 ePIE.betaProbe = 0.25
 ePIE.reconstruct()
-```
-
-```text
-INFO:ePIE:switch to gpu
-INFO:ePIE:Doing probe com stabilization every iteration
-INFO:ePIE:switch to cpu
 ```
 
 ![](tutorial_CPM_files/cell20_0.png)
@@ -272,14 +234,6 @@ mPIE.numIterations = 100
 mPIE.betaProbe = 0.25
 mPIE.betaObject = 0.25
 mPIE.reconstruct()
-```
-
-```text
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 6.327999813038332e-07
-INFO:mPIE:switch to gpu
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
 ```
 
 ![](tutorial_CPM_files/cell21_2.png)

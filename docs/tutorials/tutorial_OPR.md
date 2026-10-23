@@ -128,17 +128,6 @@ monitor.objectZoom = 2
 monitor.probeZoom = 0.1
 ```
 
-```text
-INFO:GPU:cupy and CUDA available, switching to GPU
-INFO:Reconstruction:Copying attribute wavelength
-INFO:Reconstruction:Copying attribute dxd
-INFO:Reconstruction:Copying attribute theta
-INFO:Reconstruction:Copying attribute spectralDensity
-INFO:Reconstruction:Copying attribute entrancePupilDiameter
-INFO:Reconstruction:Initial object set to ones
-INFO:Reconstruction:Initial probe set to circ
-```
-
 Besides the settings from earlier tutorials, two constraints help here:
 
 | Setting | Effect |
@@ -177,13 +166,6 @@ engine_mPIE.reconstruct()
 object_mPIE = reconstruction.object.copy()
 ```
 
-```text
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 1.35e-08
-INFO:mPIE:switch to gpu
-INFO:mPIE:switch to cpu
-```
-
 ![](tutorial_OPR_files/cell11_2.png)
 
 ![](tutorial_OPR_files/cell11_6.png)
@@ -197,13 +179,6 @@ engine_OPR.numIterations = 100
 engine_OPR.betaProbe = 0.99
 engine_OPR.betaObject = 0.99
 engine_OPR.reconstruct()
-```
-
-```text
-INFO:ePIE:Sucesfully created ePIE ePIE_engine
-INFO:ePIE:Wavelength attribute: 1.35e-08
-INFO:ePIE:switch to gpu
-INFO:ePIE:switch to cpu
 ```
 
 ![](tutorial_OPR_files/cell13_2.png)

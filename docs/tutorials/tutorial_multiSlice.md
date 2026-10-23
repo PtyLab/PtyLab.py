@@ -164,10 +164,6 @@ monitor.objectZoom = 1.5
 monitor.probeZoom = 0.5
 ```
 
-```text
-INFO:GPU:cupy and CUDA available, switching to GPU
-```
-
 ## 3. Single-slice reconstruction
 First reconstruct with one slice and mPIE. This gives a good probe and a first object to start from, but the single slice has to explain both layers at once.
 
@@ -189,21 +185,6 @@ engine_mPIE.betaObject = 0.25
 engine_mPIE.reconstruct()
 
 object_single = reconstruction.object[0, 0, 0, 0].copy()
-```
-
-```text
-INFO:Reconstruction:Copying attribute wavelength
-INFO:Reconstruction:Copying attribute dxd
-INFO:Reconstruction:Copying attribute theta
-INFO:Reconstruction:Copying attribute spectralDensity
-INFO:Reconstruction:Copying attribute entrancePupilDiameter
-INFO:Reconstruction:Initial object set to ones
-INFO:Reconstruction:Initial probe set to circ
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 6.328e-07
-INFO:mPIE:switch to gpu
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
 ```
 
 ![](tutorial_multiSlice_files/cell11_9.png)
@@ -229,15 +210,6 @@ engine_e3PIE.numIterations = 150
 engine_e3PIE.betaProbe = 0.25
 engine_e3PIE.betaObject = 0.25
 engine_e3PIE.reconstruct()
-```
-
-```text
-INFO:Reconstruction:Initial object set to ones
-INFO:Reconstruction:Initial probe set to circ
-INFO:e3PIE:Sucesfully created e3PIE e3PIE_engine
-INFO:e3PIE:Wavelength attribute: 6.328e-07
-INFO:e3PIE:switch to gpu
-INFO:e3PIE:switch to cpu
 ```
 
 ![](tutorial_multiSlice_files/cell13_4.png)

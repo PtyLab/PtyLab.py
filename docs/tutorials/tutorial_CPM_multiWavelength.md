@@ -129,10 +129,6 @@ params.couplingSwitch = True
 params.couplingAleph = 0.5
 ```
 
-```text
-INFO:GPU:cupy and CUDA available, switching to GPU
-```
-
 ## Reconstruction
 `nlambda` is set to the number of wavelengths, so the object and probe arrays get one entry per wavelength. All probes start as the same circle with a diverging (quadratic) phase.
 
@@ -161,16 +157,6 @@ hsvmodeplot(
 )
 ```
 
-```text
-INFO:Reconstruction:Copying attribute wavelength
-INFO:Reconstruction:Copying attribute dxd
-INFO:Reconstruction:Copying attribute theta
-INFO:Reconstruction:Copying attribute spectralDensity
-INFO:Reconstruction:Copying attribute entrancePupilDiameter
-INFO:Reconstruction:Initial object set to ones
-INFO:Reconstruction:Initial probe set to circ
-```
-
 ![](tutorial_CPM_multiWavelength_files/cell11_7.png)
 
 ## Run mPIE
@@ -182,14 +168,6 @@ mPIE.numIterations = 100
 mPIE.betaProbe = 0.25
 mPIE.betaObject = 0.25
 mPIE.reconstruct()
-```
-
-```text
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 7.090000053722179e-07
-INFO:mPIE:switch to gpu
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
 ```
 
 ![](tutorial_CPM_multiWavelength_files/cell13_2.png)

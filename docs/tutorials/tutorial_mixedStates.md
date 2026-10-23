@@ -139,10 +139,6 @@ params.couplingSwitch = True
 params.couplingAleph = 1
 ```
 
-```text
-INFO:GPU:cupy and CUDA available, switching to GPU
-```
-
 The function below creates a fresh reconstruction with `npsm` probe modes, so that a single-mode and a mixed-state run start from the same initial guesses. With several modes, `initializeObjectProbe()` starts every mode as the same circular probe plus a small random perturbation of its own, which lets the modes separate during the reconstruction.
 
 ```python
@@ -192,22 +188,8 @@ run(single)
 ```
 
 ```text
-INFO:Reconstruction:Copying attribute wavelength
-INFO:Reconstruction:Copying attribute dxd
-INFO:Reconstruction:Copying attribute theta
-INFO:Reconstruction:Copying attribute spectralDensity
-INFO:Reconstruction:Copying attribute entrancePupilDiameter
-INFO:Reconstruction:Initial object set to ones
-INFO:Reconstruction:Initial probe set to circ
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 2.48e-09
 check fftshift...
 fftshift data for fast far-field update
-INFO:mPIE:switch to gpu
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
-INFO:mPIE:switch to gpu
-INFO:mPIE:switch to cpu
 ```
 
 ![](tutorial_mixedStates_files/cell13_10.png)
@@ -218,23 +200,6 @@ Now reconstruct with four probe modes and otherwise identical settings:
 ```python
 mixed = make_reconstruction(npsm=4)
 run(mixed)
-```
-
-```text
-INFO:Reconstruction:Copying attribute wavelength
-INFO:Reconstruction:Copying attribute dxd
-INFO:Reconstruction:Copying attribute theta
-INFO:Reconstruction:Copying attribute spectralDensity
-INFO:Reconstruction:Copying attribute entrancePupilDiameter
-INFO:Reconstruction:Initial object set to ones
-INFO:Reconstruction:Initial probe set to circ
-INFO:mPIE:Successfully created mPIE engine
-INFO:mPIE:Wavelength attribute: 2.48e-09
-INFO:mPIE:switch to gpu
-INFO:mPIE:Doing probe com stabilization every iteration
-INFO:mPIE:switch to cpu
-INFO:mPIE:switch to gpu
-INFO:mPIE:switch to cpu
 ```
 
 ![](tutorial_mixedStates_files/cell15_9.png)
