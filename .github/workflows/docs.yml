@@ -33,7 +33,10 @@ jobs:
         run: uv sync --group docs
 
       - name: Check that tutorial pages match their scripts
-        run: uv run --group docs python docs/render_tutorials.py --check
+        run: uv run ptylab docs check
+
+      - name: Write the tutorial notebooks for download
+        run: uv run ptylab docs notebooks
 
       - name: Build documentation
         run: uv run --group docs zensical build --clean --strict
