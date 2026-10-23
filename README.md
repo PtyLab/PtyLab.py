@@ -41,7 +41,7 @@ Try the demo in Google Colab:
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/PtyLab/PtyLab.py/blob/main/demo.ipynb)
 ![demo](https://raw.githubusercontent.com/PtyLab/PtyLab.py/main/assets/recon.gif)
 
-For more use cases, start with the [tutorials](https://ptylab.github.io/PtyLab.py/tutorials/) in our documentation, then see the [example_scripts](https://github.com/PtyLab/PtyLab.py/tree/main/example_scripts) directory.
+To explore more features, we have extensive [tutorials](https://ptylab.github.io/PtyLab.py/tutorials/) in our documentation.
 
 ## Installation
 

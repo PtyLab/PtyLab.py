@@ -83,13 +83,16 @@ Then open [http://127.0.0.1:8000](http://127.0.0.1:8000) in your browser. The pa
 
 ### Tutorials
 
-Each tutorial is a Python script in `docs/tutorials/`, split into cells by `# %%` lines. Run it with `python docs/tutorials/tutorial_CPM.py`. The page on the website is generated from the script, with its outputs. After you edit a tutorial, regenerate its page and commit the script together with the new `.md` and `.ipynb` files and the `_files/` folder:
+Each tutorial is a Python script in `docs/tutorials/scripts/`, split into cells by `# %%` lines. Run it with `python docs/tutorials/scripts/tutorial_CPM.py`. The page on the website is generated from the script, with its outputs. After you edit a tutorial, regenerate its page:
 
 ```bash
-uv run --group docs python docs/render_tutorials.py tutorial_CPM
+uv run ptylab docs render              # every tutorial whose script changed
+uv run ptylab docs render tutorial_CPM # one tutorial
 ```
 
-The documentation build fails if a page is older than its script.
+This runs the script and saves the page and its figures in `docs/tutorials/`. Don't edit them by hand; commit them with the script. `uv run ptylab docs check` lists pages that are out of date.
+
+New feature, such as an engine or a constraint? Please add a tutorial for it. List it in `docs/tutorials/index.md` and in the `nav` of `mkdocs.yml`.
 
 ## 3. Submit a pull request
 
