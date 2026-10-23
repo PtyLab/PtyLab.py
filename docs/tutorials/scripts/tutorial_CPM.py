@@ -1,5 +1,5 @@
 # %% [markdown]
-# # 02 – CPM Example Data
+# # CPM Example Data
 #
 # This tutorial walks through a complete CPM reconstruction, step by step. It uses `simu.hdf5`, a simulated measurement stored in the same HDF5 format as real data. It covers loading the data, setting up the reconstruction and its parameters, and running an engine.
 #
@@ -9,11 +9,16 @@
 # - How to configure `Params` and choose a reconstruction engine
 # - How to follow the reconstruction live with the monitor
 #
+# !!! quote "References"
+#     - PtyLab: L. Loetgering et al., "PtyLab.m/py/jl: a cross-platform, open-source inverse modeling toolbox for conventional and Fourier ptychography," Opt. Express 31, 13763 (2023). [doi:10.1364/OE.485370](https://doi.org/10.1364/OE.485370)
+#     - ePIE: A. M. Maiden and J. M. Rodenburg, "An improved ptychographical phase retrieval algorithm for diffractive imaging," Ultramicroscopy 109, 1256–1262 (2009). [doi:10.1016/j.ultramic.2009.05.012](https://doi.org/10.1016/j.ultramic.2009.05.012)
+#     - mPIE: A. M. Maiden, D. Johnson and P. Li, "Further improvements to the ptychographical iterative engine," Optica 4, 736 (2017). [doi:10.1364/OPTICA.4.000736](https://doi.org/10.1364/OPTICA.4.000736)
+#
 # !!! note "Dataset"
 #     The dataset (`simu.hdf5`) is generated automatically into the `example_data/` folder at the project root the first time you run the tutorial. If the file already exists it is not re-generated.
 #
 # !!! tip "Prerequisites"
-#     Complete [01 – CPM Simulation](tutorial_CPM_sim.md) before this tutorial.
+#     Complete [CPM Simulation](tutorial_CPM_sim.md) before this tutorial.
 
 # %%
 import matplotlib

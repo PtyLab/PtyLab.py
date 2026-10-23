@@ -1,5 +1,5 @@
 # %% [markdown]
-# # 01 – CPM Simulation
+# # CPM Simulation
 #
 # This tutorial introduces conventional ptychographic microscopy (CPM) by simulating a complete experiment from scratch. Starting from the geometry (wavelength, detector size, pixel size, sample-to-detector distance), it defines a probe and an object, computes the diffraction patterns, and reconstructs the object with the mPIE engine.
 #
@@ -8,6 +8,10 @@
 # - How to define CPM experimental geometry
 # - How to simulate a ptychogram from a known object and probe
 # - How to fill `ExperimentalData` by hand and run `mPIE`
+#
+# !!! quote "References"
+#     - PtyLab: L. Loetgering et al., "PtyLab.m/py/jl: a cross-platform, open-source inverse modeling toolbox for conventional and Fourier ptychography," Opt. Express 31, 13763 (2023). [doi:10.1364/OE.485370](https://doi.org/10.1364/OE.485370)
+#     - mPIE: A. M. Maiden, D. Johnson and P. Li, "Further improvements to the ptychographical iterative engine," Optica 4, 736 (2017). [doi:10.1364/OPTICA.4.000736](https://doi.org/10.1364/OPTICA.4.000736)
 
 # %% [markdown]
 # ## 1. Geometry of the experiment
@@ -204,7 +208,7 @@ plt.show()
 
 # %% [markdown]
 # ## 6. Reconstruction of the simulated data
-# Finally, reconstruct the object and probe from the simulated data. The cells below create the PtyLab objects by hand, fill `ExperimentalData` with the arrays from above, and run mPIE. [02 – CPM Example Data](tutorial_CPM.md) explains each object in more detail.
+# Finally, reconstruct the object and probe from the simulated data. The cells below create the PtyLab objects by hand, fill `ExperimentalData` with the arrays from above, and run mPIE. [CPM Example Data](tutorial_CPM.md) explains each object in more detail.
 
 # %%
 from PtyLab import ExperimentalData

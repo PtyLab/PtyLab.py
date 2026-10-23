@@ -1,5 +1,5 @@
 # %% [markdown]
-# # 04 – CPM Position Correction
+# # CPM Position Correction
 #
 # This tutorial shows how to correct errors in the scan positions. Such errors come from stage imperfections or thermal drift. PtyLab estimates the positions together with the object and probe during the reconstruction.
 #
@@ -9,11 +9,14 @@
 # - How to compare the corrected positions with the true ones
 # - How to compare reconstructions with and without position correction
 #
+# !!! quote "References"
+#     - Position correction: F. Zhang et al., "Translation position determination in ptychographic coherent diffraction imaging," Opt. Express 21, 13592 (2013). [doi:10.1364/OE.21.013592](https://doi.org/10.1364/OE.21.013592)
+#
 # !!! note "Dataset"
 #     The dataset (`simu.hdf5`) is generated automatically into the `example_data/` folder at the project root the first time you run the tutorial. If the file already exists it is not re-generated.
 #
 # !!! tip "Prerequisites"
-#     Complete [01 – CPM Simulation](tutorial_CPM_sim.md) before this tutorial.
+#     Complete [CPM Simulation](tutorial_CPM_sim.md) before this tutorial.
 
 # %% [markdown]
 # ## Position correction algorithm
@@ -111,7 +114,7 @@ plt.show(block=False)
 reconstruction = Reconstruction(exampleData, params)
 
 # %% [markdown]
-# Set the initial guesses, the monitor and the parameters as in [02 – CPM Example Data](tutorial_CPM.md). Position correction stays off for now (`params.positionCorrectionSwitch = False`).
+# Set the initial guesses, the monitor and the parameters as in [CPM Example Data](tutorial_CPM.md). Position correction stays off for now (`params.positionCorrectionSwitch = False`).
 
 # %%
 # exampleData.showPtychogram() opens an interactive viewer of all frames; here we show the first one

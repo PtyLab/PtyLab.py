@@ -5,10 +5,6 @@ repo_url: https://github.com/PtyLab/PtyLab.py
 repo_name: PtyLab/PtyLab.py
 dev_addr: '127.0.0.1:8000'
 
-# Build tool for the tutorial pages, not a page itself
-exclude_docs: |
-  render_tutorials.py
-
 theme:
   name: material
   variant: modern
@@ -62,11 +58,16 @@ nav:
     - tutorials/index.md
     - "01 – CPM Simulation": tutorials/tutorial_CPM_sim.md
     - "02 – CPM Example Data": tutorials/tutorial_CPM.md
-    - "03 – CPM Multi-Wavelength": tutorials/tutorial_CPM_multiWavelength.md
-    - "04 – CPM Position Correction": tutorials/tutorial_LateralPositionCorrection.md
-    - "05 – CPM Reflection": tutorials/tutorial_reflectionPtychography.md
-    - "06 – CPM Interferometric Intensity": tutorials/tutorial_interferometricIntensityConstraint.md
-    - "07 – FPM": tutorials/tutorial_FPM.md
+    - "03 – FPM Example Data": tutorials/tutorial_FPM.md
+    - "04 – CPM Mixed States": tutorials/tutorial_mixedStates.md
+    - "05 – CPM Multi-Slice": tutorials/tutorial_multiSlice.md
+    - "06 – CPM Multi-Wavelength": tutorials/tutorial_CPM_multiWavelength.md
+    - "07 – CPM Position Correction": tutorials/tutorial_LateralPositionCorrection.md
+    - "08 – CPM Purity-Based Calibration": tutorials/tutorial_purityCalibration.md
+    - "09 – CPM Reflection": tutorials/tutorial_reflectionPtychography.md
+    - "10 – CPM Interferometric Intensity": tutorials/tutorial_interferometricIntensityConstraint.md
+    - "11 – Scan Grids": tutorials/tutorial_scanGrids.md
+    - "12 – CPM Orthogonal Probe Relaxation": tutorials/tutorial_OPR.md
   - Contributing: contributing.md
   - API Reference:
     - api/index.md

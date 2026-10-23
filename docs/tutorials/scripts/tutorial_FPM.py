@@ -1,5 +1,5 @@
 # %% [markdown]
-# # 07 – FPM
+# # FPM Example Data
 #
 # This tutorial walks through a complete Fourier ptychographic microscopy (FPM) reconstruction. It loads a dataset recorded with an LED array, calibrates the LED positions, and recovers the high-resolution complex object and the pupil.
 #
@@ -9,6 +9,12 @@
 # - How to use `IlluminationCalibration` to correct LED positions
 # - How to run an FPM reconstruction with `qNewton`
 # - How to remove the phase curvature caused by the illumination and the optics
+#
+# !!! quote "References"
+#     - PtyLab: L. Loetgering et al., "PtyLab.m/py/jl: a cross-platform, open-source inverse modeling toolbox for conventional and Fourier ptychography," Opt. Express 31, 13763 (2023). [doi:10.1364/OE.485370](https://doi.org/10.1364/OE.485370)
+#     - Fourier ptychography: G. Zheng, R. Horstmeyer and C. Yang, "Wide-field, high-resolution Fourier ptychographic microscopy," Nat. Photonics 7, 739–745 (2013). [doi:10.1038/nphoton.2013.187](https://doi.org/10.1038/nphoton.2013.187)
+#     - LED position calibration: R. Eckert, Z. F. Phillips and L. Waller, "Efficient illumination angle self-calibration in Fourier ptychography," Appl. Opt. 57, 5434 (2018). [doi:10.1364/AO.57.005434](https://doi.org/10.1364/AO.57.005434)
+#     - Phase curvature: T. Aidukas, L. Loetgering and A. R. Harvey, "Addressing phase-curvature in Fourier ptychography," Opt. Express 30, 22421 (2022). [doi:10.1364/OE.458657](https://doi.org/10.1364/OE.458657)
 
 # %%
 import matplotlib.pyplot as plt

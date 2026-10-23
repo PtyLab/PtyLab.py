@@ -1,5 +1,5 @@
 # %% [markdown]
-# # 06 – CPM Interferometric Intensity Constraint
+# # CPM Interferometric Intensity Constraint
 #
 # This tutorial uses an extended forward model for reflection ptychography. Besides the reflection from the sample, the model includes a second reflection from a flat surface, which interferes with it like a reference wave. With this interferometric intensity constraint, the reconstruction becomes much less noisy.
 #
@@ -9,11 +9,15 @@
 # - How to reconstruct a USAF target measured in reflection at 708.8 nm
 # - How the result compares with the standard intensity constraint
 #
+# !!! quote "References"
+#     - Forward model with a reference wave (Sec. 5.9): L. Loetgering et al., "PtyLab.m/py/jl: a cross-platform, open-source inverse modeling toolbox for conventional and Fourier ptychography," Opt. Express 31, 13763 (2023). [doi:10.1364/OE.485370](https://doi.org/10.1364/OE.485370)
+#     - Surface reflection as the reference wave: M. Du et al., "Ptychographic optical coherence tomography," Opt. Lett. 46, 1337 (2021). [doi:10.1364/OL.416144](https://doi.org/10.1364/OL.416144)
+#
 # !!! note "Dataset"
 #     The dataset (`USAF_speckle_bin4.hdf5`) is downloaded automatically into the `example_data/` folder at the project root the first time you run the tutorial. If the file already exists it is not re-downloaded.
 #
 # !!! tip "Prerequisites"
-#     Complete [05 – CPM Reflection](tutorial_reflectionPtychography.md) before this tutorial.
+#     Complete [CPM Reflection](tutorial_reflectionPtychography.md) before this tutorial.
 
 # %%
 import matplotlib
@@ -72,7 +76,7 @@ experimentalData.ptychogram = posit(experimentalData.ptychogram - backgroundOffs
 
 # %% [markdown]
 # ## Monitor, parameters and initial guesses
-# These steps are the same as in [05 – CPM Reflection](tutorial_reflectionPtychography.md).
+# These steps are the same as in [CPM Reflection](tutorial_reflectionPtychography.md).
 
 # %%
 # Set monitor properties
