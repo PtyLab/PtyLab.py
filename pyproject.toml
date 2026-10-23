@@ -31,13 +31,13 @@ gpu = ["cupy-cuda12x[ctk]; sys_platform != 'darwin'"]
 dev = [
     "ruff>=0.16",
     "pytest~=9.0",
+    "ipykernel>=6.29",
+    "jupytext>=1.16",
+    "nbclient>=0.10",
 ]
 docs = [
     "jetblack-markdown",
     "mkdocs>=1.6.1",
-    "ipykernel>=6.29",
-    "jupytext>=1.16",
-    "nbclient>=0.10",
     "mkdocstrings[python]>=1.0.8; python_full_version >= '3.11'",
     "zensical>=0.0.71; python_full_version >= '3.11'",
 ]
