@@ -1,13 +1,13 @@
 [project]
 name = "ptylab"
-version = "0.3.6"
+version = "0.3.7"
 description = "A cross-platform, open-source inverse modeling toolbox for conventional and Fourier ptychography"
 authors = [
     { name = "Lars Loetgering", email = "lars.loetgering@fulbrightmail.org" },
     { name = "PtyLab Team" },
 ]
 readme = "README.md"
-requires-python = ">=3.10, <3.14"
+requires-python = ">=3.11"
 dependencies = [
     "numpy~=2.0",
     "matplotlib~=3.7",
@@ -36,10 +36,9 @@ dev = [
     "nbclient>=0.10",
 ]
 docs = [
-    "jetblack-markdown",
     "mkdocs>=1.6.1",
-    "mkdocstrings[python]>=1.0.8; python_full_version >= '3.11'",
-    "zensical>=0.0.71; python_full_version >= '3.11'",
+    "mkdocstrings[python]>=1.0.8",
+    "zensical>=0.0.71",
 ]
 
 [project.scripts]
