@@ -1,8 +1,7 @@
 # Tutorials
 
-Hands-on tutorials covering CPM and FPM reconstruction from simulation and real data.
+Hands-on tutorials covering CPM and FPM reconstruction from simulation and real data. 
 
-## In this section
 
 - [**01 – CPM Simulation**](tutorial_CPM_sim.md) — Simulate a CPM dataset and reconstruct it end-to-end.
 - [**02 – CPM Example Data**](tutorial_CPM.md) — Reconstruct a real CPM dataset using `easyInitialize`.
@@ -17,3 +16,5 @@ Hands-on tutorials covering CPM and FPM reconstruction from simulation and real 
 - [**11 – Scan Grids**](tutorial_scanGrids.md) — Generate scan grids, check their step size and optimize the scan path.
 - [**12 – CPM Orthogonal Probe Relaxation**](tutorial_OPR.md) — Let the probe vary across the scan to handle a drifting beam.
 
+!!! tip "Stuck?"
+    The [User Guide](../cpm/overview.md) explains the [data format](../cpm/data-format.md), the [engines](../cpm/engines.md) and every [`Params` setting](../cpm/configuration.md). The [API Reference](../api/index.md) documents each class and function.

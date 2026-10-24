@@ -1,6 +1,6 @@
 # Contributing
 
-This page is for contributors working on PtyLab.py itself. To use PtyLab, see [Installation](getting-started/installation.md).
+This page is for contributors of this library. To use PtyLab, see [Installation](getting-started/installation.md).
 
 Contributing follows three steps: [set up](#1-set-up) a local copy, [make your changes](#2-make-changes) with tests, and [submit a pull request](#3-submit-a-pull-request).
 
@@ -69,7 +69,7 @@ Add tests for new implementations and run the suite with:
 uv run pytest tests
 ```
 
-Tests that need an unavailable dependency are skipped, for example the CUDA tests on a machine without a GPU. Check the skipped count in the summary to see what was not exercised.
+Tests that need an unavailable dependency are skipped, for example the CUDA tests on a machine without a GPU. Check the skipped count in the summary to see what did not run.
 
 ### Documentation
 
@@ -80,6 +80,8 @@ uv run --group docs zensical serve
 ```
 
 Then open [http://127.0.0.1:8000](http://127.0.0.1:8000) in your browser. The page reloads when you save a change.
+
+Write maths in LaTeX between `$...$` (inline) or `$$...$$` (display), and draw diagrams in a ` ```mermaid ` code block.
 
 ### Tutorials
 
@@ -95,7 +97,7 @@ For rendering just a specific one, even if its script did not change (for exampl
 uv run ptylab docs render <tutorial-name> # single tutorial (with or without .py)
 ```
 
-This runs the script and saves the page and its figures in `docs/tutorials/` (`<tutorial-name>.md` and `<tutorial-name>_files/`) which should be committed as well. The `.ipynb` it also writes there is not committed. In the end run `uv run ptylab docs check` that checks for pages that are out of date and tutorials missing from the index or the nav, as CI does.
+This runs the script and saves the page and its figures in `docs/tutorials/` (`<tutorial-name>.md` and `<tutorial-name>_files/`), which should be committed as well. The `.ipynb` it also writes there is not committed. In the end, run `uv run ptylab docs check`, which reports pages that are out of date and tutorials missing from the index or the nav, as CI does.
 
 New feature, such as an engine or a constraint? Please add a tutorial for it. List it in `docs/tutorials/index.md` and in the `nav` of `mkdocs.yml`.
 

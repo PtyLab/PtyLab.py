@@ -1,6 +1,6 @@
 # Configuration Reference
 
-The `Params` object holds all shared configuration for the reconstruction. It is created once and passed to both the `Reconstruction` and the engine.
+`Params` holds the settings shared by all engines. Create it once and pass it to both the `Reconstruction` and the engine.
 
 ```python
 from PtyLab import Params
@@ -17,10 +17,10 @@ params.positionOrder = "random"
 | Parameter | Default | Options | Description |
 |-----------|---------|---------|-------------|
 | `propagatorType` | `"Fraunhofer"` | `"Fraunhofer"`, `"Fresnel"`, `"ASP"`, `"scaledASP"` | Wave propagation method from sample to detector |
-| `fftshiftSwitch` | `False` | `bool` | Pre-shift FFT for slight performance gain; changes coordinate convention |
+| `fftshiftSwitch` | `False` | `bool` | Pre-shift the data to skip fftshifts, slightly faster; changes the coordinate convention |
 
 !!! note
-    `"Fraunhofer"` (far-field) is the standard choice for most experiments. Use `"ASP"` (Angular Spectrum) for near-field or when the Fraunhofer approximation breaks down.
+    `"Fraunhofer"` (far field) is the usual choice. Use `"ASP"` (angular spectrum) in the near field, where the Fraunhofer approximation breaks down.
 
 ---
 
@@ -66,7 +66,7 @@ params.positionOrder = "random"
 |-----------|---------|-------------|
 | `probeSmoothenessSwitch` | `False` | Apply smoothness regularization to the probe |
 | `probeSmoothenessWidth` | `3` | Smoothing kernel width (pixels) |
-| `probeSmoothenessAleph` | `5e-2` | Smoothness regularization strength |
+| `probeSmoothnessAleph` | `5e-2` | Smoothness regularization strength |
 | `probeBoundary` | `False` | Apply a soft boundary constraint to the probe |
 | `absorbingProbeBoundary` | `False` | Zero the probe outside its support (hard boundary) |
 | `absorbingProbeBoundaryAleph` | `5e-2` | Boundary strength |
@@ -130,7 +130,7 @@ params.positionOrder = "random"
 | `comStabilizationSwitch` | `False` | Stabilize center of mass of the probe |
 | `adaptiveDenoisingSwitch` | `False` | Adaptive noise clipping during intensity projection |
 | `CPSCswitch` | `False` | Constrained Pixel Sum Correction |
-| `CPSCupsamplingFactor` | — | Upsampling factor for CPSC |
+| `CPSCupsamplingFactor` | `None` | Upsampling factor for CPSC |
 
 ---
 
@@ -138,10 +138,10 @@ params.positionOrder = "random"
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `gpuSwitch` | `False` | Move all arrays to GPU (requires CuPy and a CUDA GPU) |
-| `saveMemory` | `False` | Reduce GPU memory usage at slight performance cost |
+| `gpuSwitch` | `True` if CuPy finds a GPU | Run on the GPU (requires CuPy and a CUDA GPU) |
+| `saveMemory` | `False` | Keep one error value per scan position instead of a full detector error map |
 
-See [GPU Acceleration](../advanced/gpu.md) for setup and usage.
+See [Installation](../getting-started/installation.md#verify-gpu-detection) for GPU setup.
 
 ---
 
