@@ -83,14 +83,19 @@ Then open [http://127.0.0.1:8000](http://127.0.0.1:8000) in your browser. The pa
 
 ### Tutorials
 
-Each tutorial is a Python script in `docs/tutorials/scripts/`, split into cells by `# %%` lines. Run it with `python docs/tutorials/scripts/tutorial_CPM.py`. The page on the website is generated from the script, with its outputs. After you edit a tutorial, regenerate its page:
+Each tutorial is a Python script `tutorial_<name>.py` in `docs/tutorials/scripts/`, split into cells by `# %%` lines. If you add or change any of these scripts, re-render the tutorials with:
 
 ```bash
-uv run ptylab docs render              # every tutorial whose script changed
-uv run ptylab docs render tutorial_CPM # one tutorial
+uv run ptylab docs render              # every tutorial whose script is new or changed
 ```
 
-This runs the script and saves the page and its figures in `docs/tutorials/`. Don't edit them by hand; commit them with the script. `uv run ptylab docs check` lists pages that are out of date.
+For rendering just a specific one, even if its script did not change (for example, after changing the code it uses):
+
+```bash
+uv run ptylab docs render <tutorial-name> # single tutorial (with or without .py)
+```
+
+This runs the script and saves the page and its figures in `docs/tutorials/` (`<tutorial-name>.md` and `<tutorial-name>_files/`) which should be committed as well. The `.ipynb` it also writes there is not committed. In the end run `uv run ptylab docs check` that checks for pages that are out of date and tutorials missing from the index or the nav, as CI does.
 
 New feature, such as an engine or a constraint? Please add a tutorial for it. List it in `docs/tutorials/index.md` and in the `nav` of `mkdocs.yml`.
 
