@@ -1,8 +1,8 @@
 # Installation
 
-PtyLab.py requires **Python 3.10–3.13** and is distributed on [PyPI](https://pypi.org/project/ptylab/). Install it within a virtual environment of your liking.
+PtyLab.py requires **Python 3.11 or newer** and is distributed on [PyPI](https://pypi.org/project/ptylab/). Install it within a virtual environment of your liking (Ex: [conda](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html) or [uv venv](https://docs.astral.sh/uv/pip/environments/)).
 
-If you are contributing to PtyLab instead, see the [contributing guide](../contributing.md).
+If you are contributing to the library instead, see the [contributing guide](../contributing.md).
 
 ## From PyPI
 
@@ -67,3 +67,5 @@ uv run ptylab check gpu
 ```
 
 This prints the CuPy CUDA device information, or warns if no GPU is found.
+
+When CuPy finds a GPU, PtyLab uses it by default (`params.gpuSwitch = True`); set `params.gpuSwitch = False` to run on the CPU. The same code runs on both. For large datasets, `engine.convert2single()` switches to single precision (float32), which halves memory use and is faster on the GPU; call it after creating the engine and before `reconstruct()`.

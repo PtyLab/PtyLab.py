@@ -36,24 +36,14 @@ theme:
 nav:
   - Home: index.md
   - Getting Started:
-    - getting-started/index.md
     - Installation: getting-started/installation.md
     - Quick Start: getting-started/quickstart.md
-  - CPM Workflow:
-    - cpm/index.md
-    - Overview: cpm/overview.md
+  - User Guide:
+    - CPM Overview: cpm/overview.md
+    - FPM Overview: fpm/overview.md
     - Data Format: cpm/data-format.md
     - Engines: cpm/engines.md
     - Configuration Reference: cpm/configuration.md
-  - FPM Workflow:
-    - fpm/index.md
-    - Overview: fpm/overview.md
-    - LED Calibration: fpm/calibration.md
-  - Advanced Topics:
-    - advanced/index.md
-    - GPU Acceleration: advanced/gpu.md
-    - Multislice: advanced/multislice.md
-    - Position Correction: advanced/position-correction.md
   - Tutorials:
     - tutorials/index.md
     - "01 – CPM Simulation": tutorials/tutorial_CPM_sim.md
@@ -87,10 +77,19 @@ nav:
 extra_css:
   - stylesheets/extra.css
 
+# MathJax renders the $...$ and $$...$$ maths in the TeX fonts of papers and textbooks.
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js
+
 markdown_extensions:
   - admonition
   - pymdownx.details
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.inlinehilite
@@ -99,7 +98,8 @@ markdown_extensions:
   - tables
   - toc:
       permalink: true
-  - jetblack_markdown.latex2mathml
+  - pymdownx.arithmatex:
+      generic: true
   - footnotes
   - attr_list
   

@@ -1,23 +1,22 @@
 # Quick Start
-PtyLab supports both **conventional ptychography (CPM)** and **Fourier ptychography (FPM)**. This quick start uses CPM as the main example.
 
-New to PtyLab? Start with the example script:
-```text
-example_scripts/exampleReconstructionCPM.py
-```
-The script shows a complete CPM reconstruction workflow and can be used as a reference while reading the sections below.
+PtyLab supports both **conventional ptychography (CPM)** and **Fourier ptychography (FPM)**. This page uses CPM; see the [FPM Overview](../fpm/overview.md) for the differences.
 
-To get started without your own dataset, use the simulated dataset `simu.hdf5`. If it does not exist yet, generate it with:
+The script `example_scripts/exampleReconstructionCPM.py` runs a complete CPM reconstruction. Keep it open as a reference while reading this page.
+
+Without your own dataset, use the simulated dataset `simu.hdf5`. If it does not exist yet, generate it with:
+
 ```python
 from PtyLab.io import getExampleDataFolder, generate_simu_hdf5
 
 generate_simu_hdf5(getExampleDataFolder() / "simu.hdf5")
 ```
+
 The tutorials download their other datasets into `example_data/` on first run.
 
 ## Using `easyInitialize`
 
-The fastest way to run a reconstruction is with `easyInitialize()`, which wires up all components from an HDF5 data file:
+`easyInitialize()` builds all components from one HDF5 data file, so a reconstruction takes a few lines:
 
 ```python
 import PtyLab
@@ -30,46 +29,39 @@ experimentalData, reconstruction, params, monitor, engine = PtyLab.easyInitializ
 )
 
 engine.numIterations = 50
-for loop, posLoop in engine.reconstruct():
-    pass
+engine.reconstruct()
 
 reconstruction.saveResults("result.hdf5")
-
 ```
-The alias `"example:simulation_cpm"` resolves to the synthetic CPM dataset `simu.hdf5`.
 
-Available example datasets:
+```mermaid
+flowchart LR
+    file[(data.hdf5)] --> ei["easyInitialize()"]
+    ei --> exp[experimentalData] & rec[reconstruction] & par[params] & mon[monitor] & eng[engine]
+    eng -->|"reconstruct()"| rec
+    rec -->|"saveResults()"| out[(result.hdf5)]
+```
+
+Instead of a file path, you can pass the name of an example dataset:
 
 | Name | Description |
 |------|-------------|
-| `"example:simulation_cpm"` | Synthetic CPM dataset |
-| `"example:simulation_fpm"` | Synthetic FPM dataset |
+| `"example:simulation_cpm"` | Synthetic CPM dataset (`simu.hdf5`) |
+| `"example:simulation_fpm"` | Measured FPM dataset of a lung carcinoma sample (`LungCarcinomaSmallFPM.hdf5`) |
 
-
-`easyInitialize` returns a 5-tuple for CPM:
+For CPM, `easyInitialize` returns five objects:
 
 | Object | Type | Description |
 |--------|------|-------------|
 | `experimentalData` | `ExperimentalData` | Diffraction data and experimental geometry from the HDF5 file |
-| `reconstruction` | `Reconstruction` | Mutable reconstruction state, including object, probe, and scan positions |
-| `params` | `Params` | Shared configuration (propagator type, constraints, switches) |
-| `monitor` | `Monitor` | Real-time visualization during reconstruction |
-| `engine` | `BaseEngine` | The reconstruction algorithm instance (e.g. `mPIE`) |
-
-A minimal reconstruction can then be run as:
-
-```python
-engine.numIterations = 50
-
-for loop, posLoop in engine.reconstruct():
-    pass
-
-reconstruction.saveResults("result.hdf5")
-```
+| `reconstruction` | `Reconstruction` | Reconstruction state: object, probe and scan positions |
+| `params` | `Params` | Settings shared by all engines (propagator type, constraints, switches) |
+| `monitor` | `Monitor` | Live plots during the reconstruction |
+| `engine` | `BaseEngine` | The reconstruction algorithm (e.g. `mPIE`) |
 
 ## Headless mode
 
-For batch processing or server environments without a display:
+On a server or in a batch job without a display, turn off the live plots:
 
 ```python
 experimentalData, reconstruction, params, monitor, engine = PtyLab.easyInitialize(
@@ -81,7 +73,7 @@ experimentalData, reconstruction, params, monitor, engine = PtyLab.easyInitializ
 
 ## Manual initialization
 
-When you need more control (e.g. custom initial probe, multiple modes), skip `easyInitialize` and set up each component explicitly:
+For more control (e.g. a custom initial probe or several probe modes), skip `easyInitialize` and set up each component yourself:
 
 ```python
 from PtyLab import ExperimentalData, Reconstruction, Params, Monitor, Engines
@@ -112,9 +104,7 @@ engine = Engines.mPIE(reconstruction, experimentalData, params, monitor)
 engine.numIterations = 50
 engine.betaObject = 0.25
 engine.betaProbe = 0.25
-
-for loop, posLoop in engine.reconstruct():
-    pass
+engine.reconstruct()
 
 reconstruction.saveResults("result.hdf5")
 ```
@@ -132,8 +122,5 @@ reconstruction.load_object("previous_result.hdf5")
 
 ## Next steps
 
-- [CPM Workflow Overview](../cpm/overview.md) — understand the full reconstruction pipeline
-- [Configuration Reference](../cpm/configuration.md) — all available `Params` options
-- [Engines](../cpm/engines.md) — choose the right reconstruction algorithm
-- [Tutorials](../tutorials/index.md) — worked examples end to end
-- [FPM Workflow](../fpm/overview.md) — Fourier ptychography with LED arrays
+- [Tutorials](../tutorials/index.md): worked examples, end to end
+- [User Guide](../cpm/overview.md): the pipeline, data format, engines and all `Params` options, for when you need details
