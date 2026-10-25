@@ -15,6 +15,7 @@ PtyLab is an inverse modeling toolbox for **conventional (CPM)** and **Fourier (
 - **Multiple propagators**: Fraunhofer, Fresnel, Angular Spectrum (ASP), scaled ASP, polychromatic variants
 - **GPU acceleration**: same code runs on CPU and GPU (NumPy/CuPy)
 - **Live monitor**: follow the object, probe, error metric and any corrected parameters (scan positions, sample-detector distance, wavelength, angle) as the iterations run
+- **Differentiable ptychography** *(work in progress)*: optional PyTorch module for gradient-based reconstruction with custom models, losses and constraints, see the [guide](differentiable/overview.md)
 
 ## How it works
 
@@ -52,6 +53,7 @@ Try the demo in Google Colab:
 | run a first reconstruction in a few lines | [Quick Start](getting-started/quickstart.md) |
 | follow worked examples on simulated and real data | [Tutorials](tutorials/index.md) |
 | look up the data format, engines or settings | [User Guide](cpm/overview.md) |
+| reconstruct with gradients, custom losses and constraints (PyTorch) | [Differentiable Ptychography](differentiable/overview.md) |
 | contribute code, tests or tutorials | [Contributing](contributing.md) |
 
 ## Citation
