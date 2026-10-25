@@ -349,6 +349,9 @@ def test_orthogonalization_matches_ptylab_up_to_a_phase_per_mode(nosm):
         assert overlap == pytest.approx(norms, rel=1e-5)
     mode_powers = (abs(actual) ** 2).sum((-2, -1))
     np.testing.assert_allclose(mode_powers / mode_powers.sum(), powers, rtol=1e-5)
+    # purity as BaseEngine stores it, so the monitor shows it
+    purity = np.sqrt(np.sum(powers**2))
+    assert engine.reconstruction.purityProbe == pytest.approx(purity, rel=1e-5)
 
 
 def test_orthogonalization_mixes_adam_moments_with_the_modes():
