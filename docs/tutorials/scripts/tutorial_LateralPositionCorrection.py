@@ -249,4 +249,5 @@ plt.show(block=False)
 
 # %%
 # now save the data
-# reconstruction.saveResults('simulation_position_correction.hdf5')
+# saves the result as HDF5, plus a PNG of the final reconstruction
+reconstruction.saveResults('simulation_position_correction.hdf5', snapshot=monitor)

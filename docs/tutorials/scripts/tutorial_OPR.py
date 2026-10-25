@@ -207,5 +207,6 @@ plt.show()
 # Finally, you can save the result. `type="probe_stack"` saves the probe of every scan position to `<fileName>_probe_stack.hdf5`, which takes much more space.
 
 # %%
-# reconstruction.saveResults("OPR_reconstruction.hdf5")
+# saves the result as HDF5, plus a PNG of the final reconstruction
+reconstruction.saveResults("OPR_reconstruction.hdf5", snapshot=monitor)
 # reconstruction.saveResults("OPR_reconstruction", type="probe_stack")
