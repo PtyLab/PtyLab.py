@@ -1,7 +1,7 @@
 # %% [markdown]
 # # CPM Multi-Wavelength
 #
-# This tutorial reconstructs a mouse brain sample measured with a broadband beam. The beam contains 7 wavelengths, from 709 to 803 nm. PtyLab reconstructs one object and one probe per wavelength.
+# This tutorial reconstructs a mouse brain sample measured with a broadband beam. The beam contains 7 wavelengths, from 709 to 851 nm. PtyLab reconstructs one object and one probe per wavelength.
 #
 # **What you'll learn:**
 #
@@ -74,17 +74,19 @@ plt.show()
 
 # %% [markdown]
 # ## Monitor and parameters
-# `couplingSwitch` couples the probes of neighbouring wavelengths, which have similar shapes; `couplingAleph` sets how strongly.
+# `couplingSwitch` couples the probes of neighbouring wavelengths, which have similar shapes. After each iteration every probe is mixed with its neighbours:
+#
+# $$P_\lambda \leftarrow (1-\alpha)\,P_\lambda + \alpha\,\frac{P_{\lambda-1}+P_{\lambda+1}}{2},$$
+#
+# where $P_\lambda$ is the probe at wavelength index $\lambda$ and $\alpha$ is `couplingAleph` (0 = no coupling, 1 = replace by the neighbour mean). The first and last probe use their single neighbour.
 
 # %%
 # Set monitor properties
 monitor = Monitor()
 monitor.figureUpdateFrequency = 1
-monitor.objectPlot = "angle"  # complex abs angle
 monitor.verboseLevel = "low"  # high: plot two figures, low: plot only one figure
 monitor.probeZoom = 1  # control probe plot FoV
 monitor.objectZoom = 1  # control object plot FoV
-monitor.objectPlotContrast = 8
 monitor.probePlotContrast = 1
 
 # %%
@@ -105,7 +107,13 @@ params.couplingAleph = 0.5
 
 # %% [markdown]
 # ## Reconstruction
-# `nlambda` is set to the number of wavelengths, so the object and probe arrays get one entry per wavelength. All probes start as the same circle with a diverging (quadratic) phase.
+# `nlambda` is set to the number of wavelengths, so the object and probe arrays get one entry per wavelength. The wavelengths are mutually incoherent, so the model adds their diffraction intensities:
+#
+# $$I_j(\mathbf{q}) = \sum_{\lambda=1}^{n_\lambda} \left|\mathcal{F}\left\{P_\lambda(\mathbf{r})\,O_\lambda(\mathbf{r}-\mathbf{r}_j)\right\}\right|^2,$$
+#
+# where $I_j$ is the modeled pattern at scan position $\mathbf{r}_j$, $\mathbf{q}$ the detector coordinate, $P_\lambda$ and $O_\lambda$ the probe and object at wavelength $\lambda$, $\mathcal{F}$ the Fraunhofer propagator and $n_\lambda$ = `nlambda`.
+#
+# All probes start as the same circle with a diverging (quadratic) phase.
 
 # %%
 reconstruction = Reconstruction(experimentalData, params)
@@ -141,6 +149,19 @@ mPIE.numIterations = 100
 mPIE.betaProbe = 0.25
 mPIE.betaObject = 0.25
 mPIE.reconstruct()
+
+# %% [markdown]
+# ## Result
+# The monitor shows all 7 objects side by side, which makes each one small. Below is the object at the shortest and longest wavelength, cropped to the scanned area (brightness is the amplitude, hue the phase).
+
+# %%
+c, h = reconstruction.No // 2, 350  # object center and half-width of the scanned area, in pixels
+fig, axes = plt.subplots(1, 2, figsize=(10, 4.8))
+for ax, l in zip(axes, [0, -1]):
+    hsvplot(reconstruction.object[l, 0, 0, 0, c - h : c + h, c - h : c + h], ax=ax, pixelSize=reconstruction.dxo, axisUnit="mm")
+    ax.set_title(f"Object, {reconstruction.spectralDensity[l] * 1e9:.0f} nm")
+plt.tight_layout()
+plt.show()
 
 # %%
 # now save the data
