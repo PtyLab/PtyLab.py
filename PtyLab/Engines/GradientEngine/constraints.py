@@ -522,6 +522,13 @@ class ProbeModeOrthogonalization(Constraint):
             V = W[:, eigenvalues.argsort(descending=True)].T.to(field.dtype)
             matrix = self.relax * identity + (1 - self.relax) * V
             mix_probe_modes(engine, field, wavelength, matrix)
+            # Purity sqrt(sum w_k^2), w_k = lambda_k / sum(lambda), as in
+            # BaseEngine.orthogonalization; the monitor shows it.
+            weights = eigenvalues.clamp(min=0) / eigenvalues.clamp(min=0).sum()
+            engine.reconstruction.purityProbe = float(weights.square().sum().sqrt())
+            engine.reconstruction.purityProbeHist.append(
+                engine.reconstruction.purityProbe
+            )
 
 
 class AbsorbingProbeBoundary(Constraint):
