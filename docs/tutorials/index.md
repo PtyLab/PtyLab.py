@@ -15,7 +15,7 @@ Hands-on tutorials covering CPM and FPM reconstruction from simulation and real 
 - [**10 – CPM Interferometric Intensity**](tutorial_interferometricIntensityConstraint.md) — Apply an interferometric intensity constraint during reconstruction.
 - [**11 – Scan Grids**](tutorial_scanGrids.md) — Generate scan grids, check their step size and optimize the scan path.
 - [**12 – CPM Orthogonal Probe Relaxation**](tutorial_OPR.md) — Let the probe vary across the scan to handle a drifting beam.
-- [**13 – CPM Differentiable Ptychography**](tutorial_differentiablePtychography.md) — Reconstruct with the PyTorch `GradientEngine`: forward model, loss and optimizer. *Needs the `torch` extra.*
+- [**13 – CPM Differentiable Ptychography**](tutorial_differentiablePtychography.md) — Reconstruct with the PyTorch `GradientEngine`: forward model, loss, optimizer and mixed states. *Needs the `torch` extra.*
 
 !!! note "Run time"
     Most tutorials finish in a minute or two. The two marked *Long run* scan many calibration candidates and take several minutes even on a GPU, and much longer on a CPU. PtyLab uses the GPU automatically when CuPy finds one; see [installation](../getting-started/installation.md) for the `cupy` extra.
