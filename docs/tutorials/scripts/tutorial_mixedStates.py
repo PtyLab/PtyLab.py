@@ -160,6 +160,7 @@ def run(reconstruction):
     params.l2reg = False
     params.comStabilizationSwitch = False
     engine.reconstruct()
+    return monitor
 
 
 # %% [markdown]
@@ -176,7 +177,7 @@ run(single)
 
 # %%
 mixed = make_reconstruction(npsm=4)
-run(mixed)
+monitor = run(mixed)
 
 # %% [markdown]
 # ## Comparison
@@ -232,4 +233,5 @@ plt.show()
 # Finally, you can save the result.
 
 # %%
-# mixed.saveResults("helicalbeam_mixed_states.hdf5")
+# saves the result as HDF5, plus a PNG of the final reconstruction
+mixed.saveResults("helicalbeam_mixed_states.hdf5", snapshot=monitor)

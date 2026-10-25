@@ -210,4 +210,5 @@ mPIE.reconstruct()
 
 # %%
 ## now save the data
-# reconstruction.saveResults(fileName+'_reconstruction.hdf5')
+# saves the result as HDF5, plus a PNG of the final reconstruction
+reconstruction.saveResults(fileName+'_reconstruction.hdf5', snapshot=monitor)

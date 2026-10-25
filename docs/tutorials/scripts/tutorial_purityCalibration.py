@@ -159,7 +159,8 @@ engine_mPIE.reconstruct()
 # Finally, you can save the result.
 
 # %%
-# reconstruction.saveResults("purity_calibrated_z.hdf5")
+# saves the result as HDF5, plus a PNG of the final reconstruction
+reconstruction.saveResults("purity_calibrated_z.hdf5", snapshot=monitor)
 
 # %% [markdown]
 # ## Wavelength calibration
@@ -234,4 +235,5 @@ plt.show()
 # Finally, you can save the result.
 
 # %%
-# reconstruction.saveResults("purity_calibrated_wavelength.hdf5")
+# saves the result as HDF5, plus a PNG of the final reconstruction
+reconstruction.saveResults("purity_calibrated_wavelength.hdf5", snapshot=monitor)
