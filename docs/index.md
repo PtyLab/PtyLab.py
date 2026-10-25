@@ -13,13 +13,14 @@ PtyLab is an inverse modeling toolbox for **conventional (CPM)** and **Fourier (
 - **Advanced corrections**: position correction, defocus correction (zPIE), angle correction (aPIE), orthogonal probe relaxation (OPR)
 - **Multi-modal**: multi-slice, multi-wavelength, mixed-state object and probe
 - **Multiple propagators**: Fraunhofer, Fresnel, Angular Spectrum (ASP), scaled ASP, polychromatic variants
-- **Unified array layout**: object and probe are 6D arrays `(nlambda, nosm, npsm, nslice, N, N)`, i.e. wavelengths, object and probe state mixtures, depth slices, then the frame
 - **GPU acceleration**: same code runs on CPU and GPU (NumPy/CuPy)
-- **Live monitor**: follow the object, probe and error metric as the iterations run, along with any corrected parameters such as scan positions, sample-detector distance, wavelength or angle
+- **Live monitor**: follow the object, probe, error metric and any corrected parameters (scan positions, sample-detector distance, wavelength, angle) as the iterations run
 
 ## How it works
 
-PtyLab.py is built around five core classes: `ExperimentalData`, `Reconstruction`, `Params`, `Engine` and `Monitor`. Data flows through them to a reconstruction as below:
+PtyLab.py is built around a 6D array `(nlambda, nosm, npsm, nslice, N, N)`, i.e. wavelengths, object and probe state mixtures, depth slices, then the frame.
+
+As shown below, the data flow to a reconstruction involves five core classes: `ExperimentalData`, `Reconstruction`, `Params`, `Engine` and `Monitor`.
 
 ```mermaid
 flowchart LR
