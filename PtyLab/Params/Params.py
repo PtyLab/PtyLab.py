@@ -2,8 +2,6 @@ import logging
 
 import numpy as np
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("GPU")
 
 

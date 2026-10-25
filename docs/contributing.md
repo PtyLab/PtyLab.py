@@ -1,6 +1,6 @@
 # Contributing
 
-This page is for contributors working on PtyLab.py itself. To use PtyLab, see [Installation](getting-started/installation.md).
+This page is for contributors of this library. To use PtyLab, see [Installation](getting-started/installation.md).
 
 Contributing follows three steps: [set up](#1-set-up) a local copy, [make your changes](#2-make-changes) with tests, and [submit a pull request](#3-submit-a-pull-request).
 
@@ -27,16 +27,16 @@ git switch -c my-feature upstream/main
 
 ### Install
 
-Install the project with [uv](https://docs.astral.sh/uv/getting-started/installation/). `uv sync` always includes the development tools (pytest, ipykernel, ruff); add the extras for your machine:
+Install the project with [uv](https://docs.astral.sh/uv/getting-started/installation/). `uv sync` creates a virtual environment and always includes the development tools (pytest, ruff); add the extras for your machine:
 
 ```bash
 uv sync --all-extras                  # Linux/Windows with an NVIDIA GPU, or macOS
 ```
 
-This installs all extras: CuPy for CUDA 12 (`gpu`), PyTorch for CUDA 12.6 (`torch`) and the Qt viewer (`gui`).
+This installs all extras: CuPy for CUDA 12 (`cupy`), PyTorch for CUDA 12.6 (`torch`) and the Qt viewer (`gui`).
 
 ```bash
-uv sync --all-extras --no-extra gpu   # Linux/Windows without a GPU: skips CuPy
+uv sync --all-extras --no-extra cupy  # Linux/Windows without a GPU: skips CuPy
 ```
 
 This installs the same extras without CuPy. PyTorch runs on the CPU when no GPU is found.
@@ -69,17 +69,37 @@ Add tests for new implementations and run the suite with:
 uv run pytest tests
 ```
 
-Tests that need an unavailable dependency are skipped, for example the `GradientEngine` tests without the `torch` extra and the CUDA tests on a machine without a GPU. Check the skipped count in the summary to see what was not exercised.
+Tests that need an unavailable dependency are skipped, for example the `GradientEngine` tests without the `torch` extra and the CUDA tests on a machine without a GPU. Check the skipped count in the summary to see what did not run.
 
 ### Documentation
 
 Documentation changes are deployed automatically once a pull request is merged into `main`. Check them locally first:
 
 ```bash
-uv run --group docs mkdocs serve
+uv run --group docs zensical serve
 ```
 
 Then open [http://127.0.0.1:8000](http://127.0.0.1:8000) in your browser. The page reloads when you save a change.
+
+Write maths in LaTeX between `$...$` (inline) or `$$...$$` (display), and draw diagrams in a ` ```mermaid ` code block.
+
+### Tutorials
+
+Each tutorial is a Python script `tutorial_<name>.py` in `docs/tutorials/scripts/`, split into cells by `# %%` lines. If you add or change any of these scripts, re-render the tutorials with:
+
+```bash
+uv run ptylab docs render              # every tutorial whose script is new or changed
+```
+
+For rendering just a specific one, even if its script did not change (for example, after changing the code it uses):
+
+```bash
+uv run ptylab docs render <tutorial-name> # single tutorial (with or without .py)
+```
+
+This runs the script and saves the page and its figures in `docs/tutorials/` (`<tutorial-name>.md` and `<tutorial-name>_files/`), which should be committed as well. The `.ipynb` it also writes there is not committed. In the end, run `uv run ptylab docs check`, which reports pages that are out of date and tutorials missing from the index or the nav, as CI does.
+
+New feature, such as an engine or a constraint? Please add a tutorial for it. List it in `docs/tutorials/index.md` and in the `nav` of `mkdocs.yml`.
 
 ## 3. Submit a pull request
 
@@ -102,6 +122,6 @@ Push your branch to your fork and open a [pull request](https://docs.github.com/
 git push -u origin my-feature
 ```
 
-GitHub fills the description with the [pull request template](https://github.com/PtyLab/PtyLab.py/blob/main/.github/pull_request_template.md). Fill in each section rather than replacing it: why the change is needed, how it was tested (a demo figure or screenshot helps), and any notes such as deprecations or changed reconstruction results. Keep the description short: list the changes per file as brief bullet points in simple words.
+GitHub fills the description with the [pull request template](https://github.com/PtyLab/PtyLab.py/blob/main/.github/pull_request_template.md). Fill in each section rather than replacing it: why the change is needed, how it was tested (a demo figure or screenshot helps), and any notes such as deprecations or changed reconstruction results. Keep the description short: list the changes per file as brief bullet points in simple words. Preferably write it yourself. If an LLM drafts it, edit it until it is easy to read, without unnecessary length or jargon.
 
 If `main` has moved on in the meantime, update your branch with `git fetch upstream` and `git rebase upstream/main`.

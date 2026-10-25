@@ -11,3 +11,7 @@
 [data-md-color-scheme="default"] .CodeMirror.cm-s-jupyter {
   background-color: #f7f5f0 !important;
 }
+/* Tables in the same font size as the body text (the theme default is smaller) */
+.md-typeset table:not([class]) {
+  font-size: inherit;
+}

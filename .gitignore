@@ -11,9 +11,8 @@ logs_tensorboard
 .claude
 .cache
 
-# mkdocs
+# docs (built site)
 site/
-.cache/mkdocs-jupyter/
 
 # local
 GE_demos
@@ -24,4 +23,8 @@ notes/
 # files
 *.hdf5
 *.png
+# figures of the rendered tutorial pages, written by `ptylab docs render`
+!docs/tutorials/*_files/*.png
+# download notebooks of the tutorials, written by `ptylab docs notebooks` before a build
+docs/tutorials/*.ipynb
 *.lock

@@ -5,14 +5,9 @@ repo_url: https://github.com/PtyLab/PtyLab.py
 repo_name: PtyLab/PtyLab.py
 dev_addr: '127.0.0.1:8000'
 
-hooks:
-  - scripts/docs_notebooks.py
-
-watch:
-  - jupyter_tutorials
-
 theme:
   name: material
+  variant: modern
   logo: assets/ptylab_logo.svg
   favicon: assets/ptylab_logo.svg
   palette:
@@ -41,34 +36,30 @@ theme:
 nav:
   - Home: index.md
   - Getting Started:
-    - getting-started/index.md
     - Installation: getting-started/installation.md
     - Quick Start: getting-started/quickstart.md
-  - CPM Workflow:
-    - cpm/index.md
-    - Overview: cpm/overview.md
+  - User Guide:
+    - CPM Overview: cpm/overview.md
+    - FPM Overview: fpm/overview.md
     - Data Format: cpm/data-format.md
     - Engines: cpm/engines.md
     - Configuration Reference: cpm/configuration.md
-  - FPM Workflow:
-    - fpm/index.md
-    - Overview: fpm/overview.md
-    - LED Calibration: fpm/calibration.md
-  - Advanced Topics:
-    - advanced/index.md
-    - GPU Acceleration: advanced/gpu.md
-    - Multislice: advanced/multislice.md
-    - Position Correction: advanced/position-correction.md
-    - Differentiable Ptychography: advanced/differentiable-ptychography.md
+    - Differentiable Ptychography: differentiable/overview.md
   - Tutorials:
     - tutorials/index.md
-    - "01 – CPM Simulation": tutorials/tutorial_CPM_sim.ipynb
-    - "02 – CPM Example Data": tutorials/tutorial_CPM.ipynb
-    - "03 – CPM Multi-Wavelength": tutorials/tutorial_CPM_multiWavelength.ipynb
-    - "04 – CPM Position Correction": tutorials/tutorial_LateralPositionCorrection.ipynb
-    - "05 – CPM Reflection": tutorials/tutorial_reflectionPtychography.ipynb
-    - "06 – CPM Interferometric Intensity": tutorials/tutorial_interferometricIntensityConstraint.ipynb
-    - "07 – FPM": tutorials/tutorial_FPM.ipynb
+    - "01 – CPM Simulation": tutorials/tutorial_CPM_sim.md
+    - "02 – CPM Example Data": tutorials/tutorial_CPM.md
+    - "03 – FPM Example Data": tutorials/tutorial_FPM.md
+    - "04 – CPM Mixed States": tutorials/tutorial_mixedStates.md
+    - "05 – CPM Multi-Slice": tutorials/tutorial_multiSlice.md
+    - "06 – CPM Multi-Wavelength": tutorials/tutorial_CPM_multiWavelength.md
+    - "07 – CPM Position Correction": tutorials/tutorial_LateralPositionCorrection.md
+    - "08 – CPM Purity-Based Calibration": tutorials/tutorial_purityCalibration.md
+    - "09 – CPM Reflection": tutorials/tutorial_reflectionPtychography.md
+    - "10 – CPM Interferometric Intensity": tutorials/tutorial_interferometricIntensityConstraint.md
+    - "11 – Scan Grids": tutorials/tutorial_scanGrids.md
+    - "12 – CPM Orthogonal Probe Relaxation": tutorials/tutorial_OPR.md
+    - "13 – CPM Differentiable Ptychography": tutorials/tutorial_differentiablePtychography.md
   - Contributing: contributing.md
   - API Reference:
     - api/index.md
@@ -89,10 +80,19 @@ nav:
 extra_css:
   - stylesheets/extra.css
 
+# MathJax renders the $...$ and $$...$$ maths in the TeX fonts of papers and textbooks.
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js
+
 markdown_extensions:
   - admonition
   - pymdownx.details
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.inlinehilite
@@ -101,8 +101,10 @@ markdown_extensions:
   - tables
   - toc:
       permalink: true
-  - jetblack_markdown.latex2mathml
+  - pymdownx.arithmatex:
+      generic: true
   - footnotes
+  - attr_list
   
 plugins:
   - search
@@ -117,7 +119,3 @@ plugins:
             members_order: source
             docstring_options:
               returns_named_value: false
-  - mkdocs-jupyter:
-      include: ["*.ipynb"]
-      execute: false
-      allow_errors: true

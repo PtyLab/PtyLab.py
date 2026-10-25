@@ -1,8 +1,8 @@
 # Installation
 
-PtyLab.py requires **Python 3.10–3.13** and is distributed on [PyPI](https://pypi.org/project/ptylab/). Install it within your virtual environment (for example with [conda](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#creating-an-environment-with-commands) or [venv](https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/#create-and-use-virtual-environments)). 
+PtyLab.py requires **Python 3.11 or newer** and is distributed on [PyPI](https://pypi.org/project/ptylab/). Install it within a virtual environment of your liking (Ex: [conda](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html) or [uv venv](https://docs.astral.sh/uv/pip/environments/)).
 
-If you are contributing to PtyLab instead, see the [contributing guide](../contributing.md).
+If you are contributing to the library instead, see the [contributing guide](../contributing.md).
 
 ## From PyPI
 
@@ -18,25 +18,25 @@ If you are contributing to PtyLab instead, see the [contributing guide](../contr
 === "GPU"
 
     ```bash
-    uv pip install -U "ptylab[gpu]"
+    uv pip install -U "ptylab[cupy]"
     ```
 
-The `gpu` extra installs [CuPy](https://cupy.dev/) for CUDA 12 and enables GPU acceleration of the reconstruction engines. CUDA 13 is not supported yet. The extra is not installed on macOS, where PtyLab runs on the CPU. To check that the GPU is detected, run `uv run ptylab check gpu`; it also reports PyTorch if the `torch` extra is installed (see the following sections).
+The `cupy` extra installs [CuPy](https://cupy.dev/) for CUDA 12 and enables GPU acceleration of the reconstruction engines. CUDA 13 is not supported yet. The extra is not installed on macOS, where PtyLab runs on the CPU.
 
 ## Optional extras
 
-Some features can be installed with the optional dependencies with the following extras:
+These extras install optional features:
 
 | Extra | Installs | Needed for |
 |---|---|---|
-| `gpu` | CuPy (CUDA 12) | GPU reconstruction with the classic engines (ePIE, mPIE, ...) |
-| `gui` | pyqtgraph, PySide6 | the interactive Qt viewer (see [below](#interactive-viewer-qt)) |
-| `torch` | PyTorch | differentiable ptychography with `GradientEngine`; the GPU build is chosen with `--torch-backend` (see [below](#optional-differentiable-ptychography)) |
+| `cupy` | CuPy (CUDA 12) | GPU reconstruction |
+| `gui` | pyqtgraph, PySide6 | the interactive Qt viewer (`show3Dslider` outside a notebook) |
+| `torch` | PyTorch | differentiable ptychography (`GradientEngine`) |
 
-The extras flags could be combined in one command. For example:
+For example to combine them in one command:
 
 ```bash
-uv pip install -U "ptylab[gpu,gui]"
+uv pip install -U "ptylab[cupy,gui]"
 ```
 
 ## Interactive viewer (Qt)
@@ -44,6 +44,22 @@ uv pip install -U "ptylab[gpu,gui]"
 Outside a notebook, `show3Dslider` opens an interactive pyqtgraph (Qt) viewer when the `gui` extra is installed. Without it, or if Qt cannot start, it falls back to a matplotlib slider.
 
 On a remote machine, the viewer window needs a graphical connection: a remote desktop session (or equivalent), or X11 forwarding from Linux or macOS (`ssh -X`). Without a display, the matplotlib fallback is used.
+
+## Differentiable ptychography
+
+The module `PtyLab.Engines.GradientEngine`, based on PyTorch, implements differentiable (gradient-based) ptychography so that custom models, losses and constraints can be used. Install it with the `torch` extra:
+
+```bash
+uv pip install -U "ptylab[torch]" --torch-backend=cu126   # PyTorch on CUDA 12.6
+uv pip install -U "ptylab[torch]" --torch-backend=cpu     # no GPU
+```
+
+`--torch-backend=cu126` selects the PyTorch build for CUDA 12.6. Newer PyTorch builds also work, as long as they target a CUDA version below 13.0. Add the `cupy` extra (`ptylab[cupy,torch]`) to also run the classic engines on the GPU.
+
+`GradientEngine` runs on the GPU through PyTorch whenever CUDA is available, independently of CuPy, and falls back to the CPU otherwise.
+
+!!! warning
+    `GradientEngine` is a work in progress. Its API should stay fixed, but this is not guaranteed for the time being. See [Differentiable Ptychography](../differentiable/overview.md) for the API.
 
 ## Latest unreleased version
 
@@ -56,21 +72,17 @@ uv pip install -U git+https://github.com/PtyLab/PtyLab.py.git
 Extras work the same way, for example with GPU support:
 
 ```bash
-uv pip install -U "ptylab[gpu] @ git+https://github.com/PtyLab/PtyLab.py.git"
+uv pip install -U "ptylab[cupy] @ git+https://github.com/PtyLab/PtyLab.py.git"
 ```
 
-## Optional: differentiable ptychography
+## Verify GPU detection
 
-The module `PtyLab.Engines.GradientEngine`, based on PyTorch, implements differentiable (gradient-based) ptychography so that custom models, losses and constraints can be used. Install it with the `torch` extra:
+After installing with the `cupy` extra, check whether the GPU is correctly configured:
 
 ```bash
-uv pip install "ptylab[torch]" --torch-backend=cu126   # PyTorch on CUDA 12.6
-uv pip install "ptylab[torch]" --torch-backend=cpu     # no GPU
+uv run ptylab check gpu
 ```
 
-`--torch-backend=cu126` selects the PyTorch build for CUDA 12.6. Newer PyTorch builds also work, as long as they target a CUDA version below 13.0. Add the `gpu` extra (`ptylab[gpu,torch]`) to also run the classic engines on the GPU.
+This prints the CuPy CUDA device information, or warns if no GPU is found.
 
-`GradientEngine` runs on the GPU through PyTorch whenever CUDA is available, independently of CuPy, and falls back to the CPU otherwise.
-
-!!! warning
-    `GradientEngine` is a work in progress. Its API should stay fixed, but this is not guaranteed for the time being. See [Differentiable Ptychography](../advanced/differentiable-ptychography.md) for the API.
+When CuPy finds a GPU, PtyLab uses it by default (`params.gpuSwitch = True`); set `params.gpuSwitch = False` to run on the CPU. The same code runs on both. For large datasets, `engine.convert2single()` switches to single precision (float32), which halves memory use and is faster on the GPU; call it after creating the engine and before `reconstruct()`.

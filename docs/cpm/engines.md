@@ -1,35 +1,43 @@
 # Engines
 
-Engines implement the iterative reconstruction algorithms. All engines inherit from `BaseEngine` and share a common interface.
+An engine runs one iterative reconstruction algorithm. All engines inherit from `BaseEngine` and share the same interface.
 
 ## Available engines
 
-| Engine | Full Name | Best For |
+| Engine | Full name | Best for |
 |--------|-----------|----------|
-| `ePIE` | Extended PIE | General-purpose starting point, simple and robust |
+| `ePIE` | Extended PIE | Simple, general-purpose starting point |
 | `mPIE` | Momentum PIE | Faster convergence than ePIE; recommended default |
 | `mqNewton` | Momentum quasi-Newton | High-quality results with faster convergence |
 | `qNewton` | Quasi-Newton | Newton-step updates without momentum |
-| `multiPIE` | Multi-mode PIE | Multiple probe or object modes simultaneously |
 | `zPIE` | Defocus-correcting PIE | Unknown or uncertain sample-detector distance |
 | `aPIE` | Angle-correcting PIE | Reflection geometry with uncertain tilt angle |
-| `e3PIE` | Enhanced ePIE | Multislice (thick sample) reconstruction |
-| `OPR` | Orthogonal Probe Relaxation | Spatially varying probe (e.g. aberrations, drift) |
+| `purityPIE` | Purity-based calibration | Calibrating the sample-detector distance or the wavelength from the probe purity |
+| `e3PIE` | Multislice ePIE | Thick samples, reconstructed as several slices |
+| `OPR` | Orthogonal Probe Relaxation | Probe that varies across the scan (e.g. drift) |
+
+!!! note
+    `pcPIE` and `multiPIE` are deprecated and kept only for old scripts. Use `mPIE` instead: position correction is turned on with `params.positionCorrectionSwitch`, and mixed states with `reconstruction.npsm`, `nosm` and `nlambda`.
 
 ## Common interface
 
-All engines share the same constructor and iteration pattern:
+All engines take the same arguments and run with `reconstruct()`:
 
 ```python
 from PtyLab import Engines
 
 engine = Engines.mPIE(reconstruction, experimentalData, params, monitor)
 engine.numIterations = 50
-for loop, posLoop in engine.reconstruct():
-    pass
+engine.reconstruct()
 ```
 
-The `reconstruct()` method is a generator that yields `(loop, posLoop)` at each scan position, allowing you to insert custom logic mid-reconstruction.
+`ePIE` also has `reconstruct_stepwise()`, a generator that yields `(loop, positionLoop)` after every scan-position update, so you can run your own code in between:
+
+```python
+engine = Engines.ePIE(reconstruction, experimentalData, params, monitor)
+for loop, positionLoop in engine.reconstruct_stepwise():
+    pass
+```
 
 ## Engine-specific parameters
 
@@ -42,18 +50,28 @@ engine.betaProbe = 0.25    # probe update step size (0 < beta ≤ 1)
 
 ### mqNewton / qNewton
 
-These engines use quasi-Newton updates and generally require fewer iterations than PIE-based methods.
+These use quasi-Newton updates and usually need fewer iterations than the PIE engines.
 
 ### Position correction (mPIE, mqNewton)
 
-`pcPIE` is deprecated; enable position correction on `mPIE` or `mqNewton` instead:
+`pcPIE` is deprecated; turn on position correction in `mPIE` or `mqNewton` instead:
 
 ```python
 params.positionCorrectionSwitch = True
 params.positionCorrectionSwitch_radius = 1  # search radius in pixels
 ```
 
-See [Position Correction](../advanced/position-correction.md) for a full guide.
+Start with a small radius (1–2 pixels): large radii are slower and can be unstable early on. After the reconstruction:
+
+```python
+reconstruction.make_alignment_plot()      # original vs corrected positions
+reconstruction.encoder_corrected          # corrected positions (meters)
+reconstruction.positions                  # corrected positions (pixels)
+reconstruction.positions0                 # original positions (pixels)
+reconstruction.reset_positioncorrection() # go back to the encoder positions
+```
+
+[Tutorial 07](../tutorials/tutorial_LateralPositionCorrection.md) explains the method and its equations.
 
 ### e3PIE (multislice)
 
@@ -62,7 +80,7 @@ reconstruction.nslice = 3  # number of depth slices
 engine = Engines.e3PIE(reconstruction, experimentalData, params, monitor)
 ```
 
-See [Multislice](../advanced/multislice.md) for details.
+Set `reconstruction.dz` and `reconstruction.refrIndex` before creating the engine, which computes the propagator between slices from them. [Tutorial 05](../tutorials/tutorial_multiSlice.md) shows the full setup.
 
 ### OPR (Orthogonal Probe Relaxation)
 
@@ -73,42 +91,34 @@ params.OPR_alpha = 0.05       # feedback strength
 params.OPR_orthogonalize_modes = True
 ```
 
-## Engine selection guide
+## Which engine to choose
 
-```
-Is the probe spatially varying across the scan?
-  Yes → OPR
-  No  → continue
-
-Is the sample thick (multislice)?
-  Yes → e3PIE
-  No  → continue
-
-Are scan positions unreliable?
-  Yes → mPIE with params.positionCorrectionSwitch = True
-  No  → continue
-
-Do you want the fastest convergence?
-  Yes → mqNewton or mPIE
-  No  → ePIE (simplest, most interpretable)
+```mermaid
+flowchart TD
+    q1{"Does the probe vary<br/>across the scan?"} -->|yes| opr[OPR]
+    q1 -->|no| q2{"Is the sample thick?"}
+    q2 -->|yes| e3[e3PIE]
+    q2 -->|no| q3{"Are the scan positions<br/>unreliable?"}
+    q3 -->|yes| pc["mPIE with<br/>params.positionCorrectionSwitch = True"]
+    q3 -->|no| q4{"Do you want the<br/>fastest convergence?"}
+    q4 -->|yes| fast[mqNewton or mPIE]
+    q4 -->|no| simple["ePIE<br/>(simplest)"]
 ```
 
 ## Chaining engines
 
-You can run multiple engines sequentially on the same `Reconstruction` object. A common pattern is to warm up with `ePIE` then refine with `mqNewton`:
+Several engines can run one after another on the same `Reconstruction`, because each continues from the current object and probe. For example, start with `ePIE` and refine with `mqNewton`:
 
 ```python
 # Phase 1: rough convergence
 engine1 = Engines.ePIE(reconstruction, experimentalData, params, monitor)
 engine1.numIterations = 30
-for loop, posLoop in engine1.reconstruct():
-    pass
+engine1.reconstruct()
 
 # Phase 2: fine convergence
 engine2 = Engines.mqNewton(reconstruction, experimentalData, params, monitor)
 engine2.numIterations = 30
-for loop, posLoop in engine2.reconstruct():
-    pass
+engine2.reconstruct()
 
 reconstruction.saveResults("result.hdf5")
 ```

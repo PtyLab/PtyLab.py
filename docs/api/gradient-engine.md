@@ -1,6 +1,6 @@
 # Gradient Engine
 
-PyTorch engine for differentiable ptychography. It needs the optional `torch` extra; see [Differentiable Ptychography](../advanced/differentiable-ptychography.md) for usage.
+PyTorch engine for differentiable ptychography. It needs the optional `torch` extra; see [Differentiable Ptychography](../differentiable/overview.md) for usage.
 
 ## Engine
 

@@ -1,13 +1,13 @@
 [project]
 name = "ptylab"
-version = "0.3.5"
+version = "0.4.0"
 description = "A cross-platform, open-source inverse modeling toolbox for conventional and Fourier ptychography"
 authors = [
     { name = "Lars Loetgering", email = "lars.loetgering@fulbrightmail.org" },
     { name = "PtyLab Team" },
 ]
 readme = "README.md"
-requires-python = ">=3.10, <3.14"
+requires-python = ">=3.11"
 dependencies = [
     "numpy~=2.0",
     "matplotlib~=3.7",
@@ -24,7 +24,7 @@ gui = [
     "pyqtgraph>=0.13",
     "PySide6-Essentials>=6.2",  # only QtCore/QtGui/QtWidgets
 ]
-gpu = ["cupy-cuda12x[ctk]; sys_platform != 'darwin'"]
+cupy = ["cupy-cuda12x[ctk]; sys_platform != 'darwin'"]
 torch = ["torch>=2.6"]
 
 # `uv sync` installs the `dev` group by default; `docs` is opt-in with `--group docs`.
@@ -32,13 +32,14 @@ torch = ["torch>=2.6"]
 dev = [
     "ruff>=0.16",
     "pytest~=9.0",
+    "ipykernel>=6.29",
+    "jupytext>=1.16",
+    "nbclient>=0.10",
 ]
 docs = [
-    "jetblack-markdown",
     "mkdocs>=1.6.1",
-    "mkdocs-material>=9.7.6",
-    "mkdocs-jupyter>=0.24",
-    "mkdocstrings[python]>=1.0.6",
+    "mkdocstrings[python]>=1.0.8",
+    "zensical>=0.0.71",
 ]
 
 [project.scripts]

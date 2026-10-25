@@ -19,7 +19,7 @@ from PtyLab.Monitor.Monitor import Monitor
 from PtyLab.Operators.Operators import aspw
 from PtyLab.Params.Params import Params
 
-# fracPy imports
+# PtyLab imports
 from PtyLab.Reconstruction.Reconstruction import Reconstruction
 from PtyLab.utils.gpuUtils import asNumpyArray, getArrayModule
 

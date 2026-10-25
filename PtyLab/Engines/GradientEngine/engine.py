@@ -7,7 +7,7 @@ from collections.abc import Mapping
 from numbers import Integral, Real
 
 import numpy as np
-import tqdm
+from tqdm.auto import trange  # widget bar in Jupyter, text bar in a terminal
 
 try:
     import torch
@@ -938,7 +938,7 @@ class GradientEngine(BaseEngine):
             self._replace_experimental_data(experimentalData)
         try:
             self.prepareReconstruction()
-            with tqdm.trange(self.numIterations, desc=type(self).__name__) as self.pbar:
+            with trange(self.numIterations, desc=type(self).__name__) as self.pbar:
                 for iteration in self.pbar:
                     loss = self.runIteration(iteration)
                     self.reconstruction.error.append(loss)

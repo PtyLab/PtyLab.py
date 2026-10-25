@@ -1,9 +1,6 @@
 import logging
 
-try:  # pre 3.10
-    from collections import Callable
-except ImportError:
-    from collections.abc import Callable
+from collections.abc import Callable
 
 from functools import lru_cache
 

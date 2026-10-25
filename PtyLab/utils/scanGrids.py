@@ -146,7 +146,7 @@ class tsp_ga:
         self.figure.show()
 
         n = self.xy.shape[0]
-        numEl = np.sum(x for x in range(n))
+        numEl = sum(range(n))
         cities_ = np.linspace(0, n - 1, n).astype(int)
         cities = ["" for i in range(cities_.size)]
         for i in range(cities_.size):
@@ -211,7 +211,7 @@ class tsp_ga:
         # return self.genes
 
     def GA_Matlab(self):
-        globalMin = np.Inf
+        globalMin = np.inf
         distHistory = np.zeros((self.iterations, 1))
         tmpPop = []
         for i in range(4):
@@ -264,8 +264,8 @@ class tsp_ga:
                 routeInsertionPoints = np.transpose(
                     np.sort(np.ceil((len(geneP) - 2) * np.random.rand(1, 2)))
                 )
-                I = int(routeInsertionPoints[0])
-                J = int(routeInsertionPoints[1])
+                I = int(routeInsertionPoints[0, 0])
+                J = int(routeInsertionPoints[1, 0])
                 for k in range(4):  # Mutate the Best to get Three New Routes
                     tmpPop[k] = bestOf4Route.copy()
                     if k == 1:  # Flip

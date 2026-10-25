@@ -1,12 +1,12 @@
 # PtyLab.py: Unified Ptychography Toolbox
-![Python 3.10+](https://img.shields.io/badge/python-3.10+-green.svg)
+![Python 3.11+](https://img.shields.io/badge/python-3.11+-green.svg)
 [![PyPI](https://img.shields.io/pypi/v/ptylab.svg)](https://pypi.org/project/ptylab/)
 ![Tests](https://github.com/PtyLab/PtyLab.py/actions/workflows/test.yml/badge.svg)
 [![Docs](https://github.com/PtyLab/PtyLab.py/actions/workflows/docs.yml/badge.svg)](https://ptylab.github.io/PtyLab.py/)
 
 [**Key Features**](#key-features) | [**Getting Started**](#getting-started) | [**Installation**](https://ptylab.github.io/PtyLab.py/getting-started/installation/) | [**Documentation**](https://ptylab.github.io/PtyLab.py/)
 
-PtyLab is an inverse modeling toolbox for Conventional (CP) and Fourier (FP) ptychography in a unified framework. For more information please check the [paper](https://opg.optica.org/oe/fulltext.cfm?uri=oe-31-9-13763&id=529026).
+PtyLab is an inverse modeling toolbox for Conventional (CPM) and Fourier (FPM) ptychography in a unified framework. See the [paper](https://opg.optica.org/oe/fulltext.cfm?uri=oe-31-9-13763&id=529026) for details.
 
 ## Key Features
 
@@ -14,14 +14,17 @@ PtyLab is an inverse modeling toolbox for Conventional (CP) and Fourier (FP) pty
 - **Advanced corrections**: position correction, defocus correction (zPIE), angle correction (aPIE), orthogonal probe relaxation (OPR)
 - **Multi-modal**: multi-slice, multi-wavelength, mixed-state object and probe
 - **Multiple propagators**: Fraunhofer, Fresnel, Angular Spectrum (ASP), scaled ASP, polychromatic variants
-- **Unified array layout**: object and probe are 6D arrays `(nlambda, nosm, npsm, nslice, N, N)`, i.e. wavelengths, object and probe state mixtures, depth slices, then the frame
 - **GPU acceleration**: same code runs on CPU and GPU (NumPy/CuPy)
-- **Live monitor**: follow the object, probe and error metric as the iterations run, along with any corrected parameters such as scan positions, sample-detector distance wavelength or angle
-- **Differentiable ptychography** *(work-in-progress)*: Optional submodule based on PyTorch for flexible differentiable modeling in ptychography (see the [guide](https://ptylab.github.io/PtyLab.py/advanced/differentiable-ptychography/)).
+- **Live monitor**: follow the object, probe, error metric and any corrected parameters (scan positions, sample-detector distance, wavelength, angle) as the iterations run
+- **Differentiable ptychography** *(work in progress)*: optional PyTorch module for gradient-based reconstruction with custom models, losses and constraints
+
 
 ### How it works
 
-Implmentation of PtyLab.py essentially relies on 4 core classes: `ExperimentalData`, `Reconstruction`, `Params` and `Engine` and `Monitor` and the flow of data to reconstruction looks as below
+PtyLab.py is built around a 6D array `(nlambda, nosm, npsm, nslice, N, N)`, i.e. wavelengths, object and probe state mixtures, depth slices, then the frame. 
+
+As shown below, the data flow to a reconstruction involves five core classes: `ExperimentalData`, `Reconstruction`, `Params`, `Engine` and `Monitor`.
+
 
 ```mermaid
 flowchart LR
@@ -42,7 +45,7 @@ Try the demo in Google Colab:
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/PtyLab/PtyLab.py/blob/main/demo.ipynb)
 ![demo](https://raw.githubusercontent.com/PtyLab/PtyLab.py/main/assets/recon.gif)
 
-For more use cases, start with the [tutorials](https://ptylab.github.io/PtyLab.py/tutorials/) in our documentation, then see the [example_scripts](https://github.com/PtyLab/PtyLab.py/tree/main/example_scripts) directory.
+To explore more features, we have extensive [tutorials](https://ptylab.github.io/PtyLab.py/tutorials/) in our documentation.
 
 ## Installation
 
@@ -53,14 +56,13 @@ pip install -U ptylab
 ```
 For faster installs, we recommend [uv](https://docs.astral.sh/uv/getting-started/installation/): `uv pip install -U ptylab`
 
-To utilize GPU for faster reconstruction, enable GPU support:
+For GPU support:
 
 ```bash
-uv pip install -U "ptylab[gpu]" # supports CuPy with CUDA 12
+uv pip install -U "ptylab[cupy]" # supports CuPy with CUDA 12
 ```
-Check whether GPU is correctly configured with `uv run ptylab check gpu`. For additional information on other extras such as enabling the differentiable ptychography module or GUI, see the [installation guide](https://ptylab.github.io/PtyLab.py/getting-started/installation/).
+Check whether GPU is correctly configured with `uv run ptylab check gpu`. For additional information on other extras such as `torch` (differentiable ptychography) or `gui`, see the [installation guide](https://ptylab.github.io/PtyLab.py/getting-started/installation/).
 
-## Contributing
 ## Contributing
 
 Contributions are welcome! See the [contributing guide](https://ptylab.github.io/PtyLab.py/contributing/) for the development setup, tests and how to open a pull request.

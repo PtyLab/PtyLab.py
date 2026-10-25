@@ -1,6 +1,6 @@
 # Data Format
 
-PtyLab.py loads experimental data from **HDF5** files. All fields are stored at the root level of the file.
+PtyLab.py loads experimental data from **HDF5** files, with all fields at the root of the file.
 
 ## CPM required fields
 
@@ -17,17 +17,35 @@ PtyLab.py loads experimental data from **HDF5** files. All fields are stored at 
 | Field | Type | Unit | Description |
 |-------|------|------|-------------|
 | `entrancePupilDiameter` | `float64` | m | Diameter of the probe aperture |
-| `spectralDensity` | `float64 (nlambda,)` | — | Relative spectral weights for polychromatic reconstruction |
+| `spectralDensity` | `float64 (nlambda,)` | m | Wavelengths of a polychromatic beam, one per reconstructed wavelength |
 | `theta` | `float64` | rad | Tilt angle for reflection ptychography |
 | `emptyBeam` | `float32 (Nd, Nd)` | counts | Reference probe image (for modulus-enforced probe) |
+
+## FPM fields
+
+Required:
+
+| Field | Type | Unit | Description |
+|-------|------|------|-------------|
+| `ptychogram` | `float32 (N, Nd, Nd)` | counts | Stack of N intensity images |
+| `wavelength` | `float64` | m | Illumination wavelength |
+| `encoder` | `float64 (N, 2)` | m | LED (x, y) positions |
+| `dxd` | `float64` | m | Camera pixel size; the object-plane pixel size is `dxd / magnification` |
+| `zled` | `float64` | m | LED-array to sample distance |
+| `magnification` | `float64` | — | Microscope magnification |
+
+Optional:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `NA` | `float64` | Numerical aperture of the objective |
 
 ## Loading data
 
 ```python
 from PtyLab import ExperimentalData
 
-data = ExperimentalData("path/to/data.hdf5", operationMode="CPM")
-data.loadData("path/to/data.hdf5")
+data = ExperimentalData("path/to/data.hdf5", operationMode="CPM")   # or "FPM"
 ```
 
 Or pass the filename directly to `easyInitialize`:
@@ -41,24 +59,23 @@ experimentalData, reconstruction, params, monitor, engine = PtyLab.easyInitializ
 )
 ```
 
-## Built-in example datasets
+## Example datasets
 
-PtyLab.py ships with simulation datasets for testing and tutorials. Use these special filename strings:
+Instead of a path, both accept these names:
 
 | Name | Description |
 |------|-------------|
-| `"example:simulation_cpm"` | Synthetic CPM ptychogram with known object and probe |
-| `"example:simulation_fpm"` | Synthetic FPM ptychogram |
+| `"example:simulation_cpm"` | Synthetic CPM ptychogram with known object and probe (`simu.hdf5`) |
+| `"example:simulation_fpm"` | Measured FPM dataset of a lung carcinoma sample (`LungCarcinomaSmallFPM.hdf5`) |
 | `"test:nodata"` | Empty object for unit testing (no diffraction data) |
 
 ```python
-data = ExperimentalData(operationMode="CPM")
-data.loadData("example:simulation_cpm")
+data = ExperimentalData("example:simulation_cpm", operationMode="CPM")
 ```
 
 ## Creating an HDF5 file
 
-Use `h5py` to create a compatible data file from your own measurements:
+Write your own measurements to a compatible file with `h5py`:
 
 ```python
 import h5py
@@ -76,4 +93,4 @@ with h5py.File("mydata.hdf5", "w") as f:
 ```
 
 !!! note
-    All distances must be in **meters**. The `ptychogram` should contain raw intensity values (counts), not amplitude. Negative values and NaNs are not supported.
+    All distances are in **meters**. The `ptychogram` holds intensities (counts), not amplitudes. Negative values and NaNs are not supported.
