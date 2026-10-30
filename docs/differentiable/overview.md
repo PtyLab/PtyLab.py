@@ -16,10 +16,10 @@
 
 ## Installation
 
-PyTorch is an optional dependency, installed with the `torch` extra (see [Installation](../getting-started/installation.md#differentiable-ptychography)):
+Install PtyLab with the `torch` extra. On Linux and Windows, `--torch-backend=cu126` picks the CUDA 12 build that matches CuPy; drop it on macOS (see [Installation](../getting-started/installation.md#differentiable-ptychography)):
 
 ```bash
-uv pip install "ptylab[cupy,torch]" --torch-backend=cu126
+uv pip install -U "ptylab[gpu,torch]" --torch-backend=cu126
 ```
 
 ## Quick start

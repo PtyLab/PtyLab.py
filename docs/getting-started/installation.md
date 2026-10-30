@@ -7,7 +7,7 @@ If you are contributing to the library instead, see the [contributing guide](../
 ## From PyPI
 
 !!! tip
-    The commands below use [uv](https://docs.astral.sh/uv/getting-started/installation/) for much faster installs. If you don't have it, drop the `uv` prefix and use plain `pip`.
+    The commands below use [uv](https://docs.astral.sh/uv/getting-started/installation/) for much faster installs. With plain `pip`, drop the `uv` prefix.
 
 === "CPU"
 
@@ -18,26 +18,18 @@ If you are contributing to the library instead, see the [contributing guide](../
 === "GPU"
 
     ```bash
-    uv pip install -U "ptylab[cupy]"
+    uv pip install -U "ptylab[gpu]" # installs cupy for CUDA 12
     ```
-
-The `cupy` extra installs [CuPy](https://cupy.dev/) for CUDA 12 and enables GPU acceleration of the reconstruction engines. CUDA 13 is not supported yet. The extra is not installed on macOS, where PtyLab runs on the CPU.
 
 ## Optional extras
 
-These extras install optional features:
+These extras install optional features; each links to its section below:
 
 | Extra | Installs | Needed for |
 |---|---|---|
-| `cupy` | CuPy (CUDA 12) | GPU reconstruction |
-| `gui` | pyqtgraph, PySide6 | the interactive Qt viewer (`show3Dslider` outside a notebook) |
-| `torch` | PyTorch | differentiable ptychography (`GradientEngine`) |
-
-For example to combine them in one command:
-
-```bash
-uv pip install -U "ptylab[cupy,gui]"
-```
+| `gpu` | CuPy (CUDA 12) | [GPU reconstruction](#verify-gpu-detection) |
+| `torch` | PyTorch | [differentiable ptychography](#differentiable-ptychography) (`GradientEngine`) |
+| `gui` | pyqtgraph, PySide6 | the [interactive Qt viewer](#interactive-viewer-qt) (`show3Dslider` outside a notebook) |
 
 ## Interactive viewer (Qt)
 
@@ -47,16 +39,27 @@ On a remote machine, the viewer window needs a graphical connection: a remote de
 
 ## Differentiable ptychography
 
-The module `PtyLab.Engines.GradientEngine`, based on PyTorch, implements differentiable (gradient-based) ptychography so that custom models, losses and constraints can be used. Install it with the `torch` extra:
+The module `PtyLab.Engines.GradientEngine`, based on PyTorch, implements differentiable (gradient-based) ptychography so that custom models, losses and constraints can be used. It needs PyTorch, installed with the `torch` extra:
 
-```bash
-uv pip install -U "ptylab[torch]" --torch-backend=cu126   # PyTorch on CUDA 12.6
-uv pip install -U "ptylab[torch]" --torch-backend=cpu     # no GPU
-```
+=== "GPU (Linux, Windows)"
 
-`--torch-backend=cu126` selects the PyTorch build for CUDA 12.6. Newer PyTorch builds also work, as long as they target a CUDA version below 13.0. Add the `cupy` extra (`ptylab[cupy,torch]`) to also run the classic engines on the GPU.
+    ```bash
+    uv pip install -U "ptylab[gpu,torch]" --torch-backend=cu126
+    ```
 
-`GradientEngine` runs on the GPU through PyTorch whenever CUDA is available, independently of CuPy, and falls back to the CPU otherwise.
+=== "CPU (Linux, Windows)"
+
+    ```bash
+    uv pip install -U "ptylab[torch]" --torch-backend=cu126
+    ```
+
+=== "macOS"
+
+    ```bash
+    uv pip install -U "ptylab[torch]"
+    ```
+
+`--torch-backend=cu126` installs the CUDA 12 build of PyTorch, which matches CuPy and also runs on the CPU.
 
 !!! warning
     `GradientEngine` is a work in progress. Its API should stay fixed, but this is not guaranteed for the time being. See [Differentiable Ptychography](../differentiable/overview.md) for the API.
@@ -72,17 +75,17 @@ uv pip install -U git+https://github.com/PtyLab/PtyLab.py.git
 Extras work the same way, for example with GPU support:
 
 ```bash
-uv pip install -U "ptylab[cupy] @ git+https://github.com/PtyLab/PtyLab.py.git"
+uv pip install -U "ptylab[gpu] @ git+https://github.com/PtyLab/PtyLab.py.git"
 ```
 
 ## Verify GPU detection
 
-After installing with the `cupy` extra, check whether the GPU is correctly configured:
+After installing with the `gpu` extra, check whether the GPU is correctly configured in your environment with:
 
 ```bash
 uv run ptylab check gpu
 ```
 
-This prints the CuPy CUDA device information, or warns if no GPU is found.
+This prints the GPUs that CuPy and PyTorch (if installed) find and the CUDA version each uses. It fails if a library cannot use the GPU.
 
 When CuPy finds a GPU, PtyLab uses it by default (`params.gpuSwitch = True`); set `params.gpuSwitch = False` to run on the CPU. The same code runs on both. For large datasets, `engine.convert2single()` switches to single precision (float32), which halves memory use and is faster on the GPU; call it after creating the engine and before `reconstruct()`.

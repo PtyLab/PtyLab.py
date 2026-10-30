@@ -27,23 +27,15 @@ git switch -c my-feature upstream/main
 
 ### Install
 
-Install the project with [uv](https://docs.astral.sh/uv/getting-started/installation/). `uv sync` creates a virtual environment and always includes the development tools (pytest, ruff); add the extras for your machine:
+Install the project with [uv](https://docs.astral.sh/uv/getting-started/installation/). `uv sync` creates a virtual environment with the development tools (pytest, ruff), the Qt viewer and PyTorch; add the `gpu` extra on a machine with an NVIDIA GPU:
 
 ```bash
-uv sync --all-extras                  # Linux/Windows with an NVIDIA GPU, or macOS
+uv sync --extra gpu
 ```
 
-This installs all extras: CuPy for CUDA 12 (`cupy`), PyTorch for CUDA 12.6 (`torch`) and the Qt viewer (`gui`).
+PyTorch comes as the CUDA 12 build on Linux and Windows, which matches CuPy, and the PyPI build on macOS.
 
-```bash
-uv sync --all-extras --no-extra cupy  # Linux/Windows without a GPU: skips CuPy
-```
-
-This installs the same extras without CuPy. PyTorch runs on the CPU when no GPU is found.
-
-Either command creates a `.venv` in the project root; select it in your IDE or run `source .venv/bin/activate`. `uv sync` removes any extra you leave out, so reuse the same flags on every sync.
-
-Check which GPUs CuPy and PyTorch detect with:
+This creates a `.venv` in the project root; select it in your IDE or run `source .venv/bin/activate`. `uv sync` removes any extra you leave out, so reuse the same flags on every sync. Check which GPUs CuPy and PyTorch detect with:
 
 ```bash
 uv run ptylab check gpu
@@ -69,7 +61,7 @@ Add tests for new implementations and run the suite with:
 uv run pytest tests
 ```
 
-Tests that need an unavailable dependency are skipped, for example the `GradientEngine` tests without the `torch` extra and the CUDA tests on a machine without a GPU. Check the skipped count in the summary to see what did not run.
+Tests that need an unavailable dependency are skipped, for example the CUDA tests on a machine without a GPU. Check the skipped count in the summary to see what did not run.
 
 ### Documentation
 

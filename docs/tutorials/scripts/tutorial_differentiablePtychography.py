@@ -11,7 +11,7 @@
 # - How to choose the estimated parameters and switch the loss
 #
 # !!! warning "Work in progress"
-#     `GradientEngine` needs the `torch` extra; see [Installation](../getting-started/installation.md#differentiable-ptychography). It supports CPM with the Fraunhofer, Fresnel, ASP and scaledASP propagators, and its API may still change.
+#     `GradientEngine` runs on PyTorch, installed with the `torch` extra; see [Installation](../getting-started/installation.md#differentiable-ptychography) for GPU builds. It supports CPM with the Fraunhofer, Fresnel, ASP and scaledASP propagators, and its API may still change.
 #
 # !!! note "Dataset"
 #     The dataset (`helicalbeam.hdf5`, about 350 MB) is downloaded automatically into the `example_data/` folder at the project root the first time you run the tutorial. If the file already exists it is not re-downloaded. It is the dataset of the [CPM Mixed States](tutorial_mixedStates.md) tutorial, from L. Loetgering et al., "Generation and characterization of focused helical x-ray beams," Sci. Adv. 6, eaax8836 (2020).
@@ -94,10 +94,10 @@ def make_reconstruction(npsm):
 # where $O$ is the object, $P$ the probe, $\mathbf x_j$ the scan position, $\mathcal D$ the propagation to the detector (here Fresnel) and $\mathbf q$ the detector pixel. The default loss compares predicted and measured amplitudes over all pixels $i$ of all frames:
 #
 # $$
-# \mathcal{L} = \frac{1}{P_\text{tot}}\sum_i \left(\sqrt{I_i + \epsilon} - \sqrt{y_i}\right)^2 ,
+# \mathcal{L} = \frac{1}{P_\text{tot}}\sum_i \left(\sqrt{I_i} - \sqrt{y_i}\right)^2 ,
 # $$
 #
-# where $y_i$ is the measured intensity, $P_\text{tot} = \sum_i y_i$ the total measured power, and $\epsilon$ a small constant that keeps the gradient finite at dark pixels. PyTorch computes $\partial\mathcal L/\partial O$ and $\partial\mathcal L/\partial P$, and the optimizer takes one step per iteration over the full scan. The error plotted below is $\mathcal L$.
+# where $y_i$ is the measured intensity and $P_\text{tot} = \sum_i y_i$ the total measured power. PyTorch computes $\partial\mathcal L/\partial O$ and $\partial\mathcal L/\partial P$, and the optimizer takes one step per iteration over the full scan. The error plotted below is $\mathcal L$.
 #
 # The engine is created like any other PtyLab engine. It runs on the GPU through PyTorch when CUDA is available, and on the CPU otherwise.
 
