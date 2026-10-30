@@ -15,7 +15,7 @@ except ModuleNotFoundError as exc:
     if exc.name != "torch":
         raise
     raise ImportError(
-        "GradientEngine requires PyTorch. Install with: uv pip install 'ptylab[torch]'"
+        'GradientEngine requires PyTorch. Install it with: uv pip install -U "ptylab[torch]"'
     ) from exc
 
 from PtyLab.Engines.BaseEngine import BaseEngine
