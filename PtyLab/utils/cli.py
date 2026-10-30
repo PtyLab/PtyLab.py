@@ -1,72 +1,97 @@
 import argparse
 import sys
 
+# CuPy and PyTorch both as CUDA 12 builds (PyPI only has CUDA 13 builds of PyTorch)
+GPU_INSTALL = 'uv pip install -U "ptylab[gpu,torch]" --torch-backend=cu126'
+
+
+def _cuda_version(v):
+    # CUDA encodes versions as 1000 * major + 10 * minor, e.g. 13020 -> "13.2"
+    return f"{v // 1000}.{v % 1000 // 10}"
+
+
+def _print_devices(lib, devices):
+    """Print the `(name, memory in bytes)` of each GPU a library finds."""
+    print(f"{lib} GPU available: {len(devices)} device(s)")
+    for i, (name, mem) in enumerate(devices):
+        print(f"  [{i}] {name}  ({mem / 1024**3:.1f} GB)")
+
 
 def _check_cupy_gpu():
+    """Print the CuPy GPU status; return (ok, CUDA major version of CuPy or None)."""
     try:
         import cupy as cp
-
-        n = cp.cuda.runtime.getDeviceCount()
-        if n == 0:
-            print("cupy is installed but no CUDA devices found.")
-            return False
-        print(f"GPU available: {n} device(s)")
-        for i in range(n):
-            props = cp.cuda.runtime.getDeviceProperties(i)
-            name = props["name"].decode()
-            mem_gb = props["totalGlobalMem"] / 1024**3
-            print(f"  [{i}] {name}  ({mem_gb:.1f} GB)")
-
-        if cp.is_available():
-            print("cupy GPU: OK")
-            return True
-        else:
-            print("cupy is installed but GPU is not available.")
-            return False
     except ImportError:
         print(
-            "cupy is not installed. If you are using a GPU, please check"
-            " the readme for the appropriate cupy flag for your CUDA version."
+            f"cupy is not installed. On an NVIDIA GPU, install it with `{GPU_INSTALL}`."
         )
-        return False
-    except Exception as e:
-        print(f"GPU check failed: {e}")
-        return False
+        return False, None
+
+    try:
+        rt = cp.cuda.runtime
+        driver, runtime = rt.driverGetVersion(), rt.runtimeGetVersion()
+        print(f"NVIDIA driver supports CUDA {_cuda_version(driver)}")
+        print(f"cupy {cp.__version__} uses CUDA {_cuda_version(runtime)}")
+        props = [rt.getDeviceProperties(i) for i in range(rt.getDeviceCount())]
+        _print_devices(
+            "cupy", [(p["name"].decode(), p["totalGlobalMem"]) for p in props]
+        )
+        if not (props and cp.is_available()):
+            print("cupy cannot use the GPU.")
+            return False, None
+        print("cupy GPU: OK")
+        return True, runtime // 1000
+    except Exception as e:  # noqa: BLE001 - report any CUDA or driver error, never crash
+        print(f"cupy GPU check failed: {e}")
+        return False, None
 
 
 def _check_torch_gpu():
+    """Print the PyTorch GPU status; return (ok, CUDA major version of PyTorch or None)."""
     try:
         import torch
     except ModuleNotFoundError as e:
-        if e.name == "torch":
-            print("PyTorch is not installed; skipping PyTorch GPU check.")
-            return True
-        print(f"PyTorch GPU check failed: {e}")
-        return False
-    except Exception as e:
-        print(f"PyTorch GPU check failed: {e}")
-        return False
+        if e.name != "torch":
+            print(f"PyTorch GPU check failed: {e}")
+            return False, None
+        # PyTorch is optional: only GradientEngine needs it
+        print("PyTorch is not installed (optional, `torch` extra); skipping its check.")
+        return True, None
 
     try:
+        # torch.version.cuda is the CUDA version of the build, None for the CPU build
+        if torch.version.cuda is None:
+            print(
+                f"PyTorch {torch.__version__} is the CPU build. Reinstall with `{GPU_INSTALL}`."
+            )
+            return False, None
+        print(f"PyTorch {torch.__version__} uses CUDA {torch.version.cuda}")
+        major = int(torch.version.cuda.split(".")[0])
         if not torch.cuda.is_available():
-            print("PyTorch is installed but CUDA GPU is not available.")
-            return False
-        n = torch.cuda.device_count()
-        print(f"PyTorch CUDA GPU available: {n} device(s)")
-        for i in range(n):
-            props = torch.cuda.get_device_properties(i)
-            mem_gb = props.total_memory / 1024**3
-            print(f"  [{i}] {props.name}  ({mem_gb:.1f} GB)")
-        print("PyTorch CUDA GPU: OK")
-        return True
-    except Exception as e:
+            print("PyTorch cannot use the GPU.")
+            return False, major
+        props = [
+            torch.cuda.get_device_properties(i)
+            for i in range(torch.cuda.device_count())
+        ]
+        _print_devices("PyTorch", [(p.name, p.total_memory) for p in props])
+        print("PyTorch GPU: OK")
+        return True, major
+    except Exception as e:  # noqa: BLE001 - report any CUDA or driver error, never crash
         print(f"PyTorch GPU check failed: {e}")
-        return False
+        return False, None
 
 
 def cmd_check_gpu():
-    cupy_ok = _check_cupy_gpu()
-    torch_ok = _check_torch_gpu()
+    cupy_ok, cupy_major = _check_cupy_gpu()
+    torch_ok, torch_major = _check_torch_gpu()
+    # A mixed CUDA major is not an error by itself: a CUDA 13 driver runs both. It
+    # happens with plain pip, where PyTorch comes from PyPI (CUDA 13 on Linux).
+    if cupy_major and torch_major and cupy_major != torch_major:
+        print(
+            f"Note: cupy uses CUDA {cupy_major} but PyTorch uses CUDA {torch_major}."
+            f" For matching CUDA 12 builds, reinstall with `{GPU_INSTALL}`."
+        )
     if not (cupy_ok and torch_ok):
         sys.exit(1)
 
@@ -97,7 +122,7 @@ def main():
     check = sub.add_parser("check", help="System checks")
     check_sub = check.add_subparsers(dest="target")
     check_sub.add_parser(
-        "gpu", help="Check CuPy and optional PyTorch CUDA GPU availability"
+        "gpu", help="Check CuPy and PyTorch GPU availability and CUDA versions"
     )
 
     docs = sub.add_parser(
