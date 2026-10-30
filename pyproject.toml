@@ -17,7 +17,6 @@ dependencies = [
     "tqdm~=4.65",
     "scikit-learn~=1.3",
     "ipywidgets>=8.1.8",
-    "torch>=2.6",
 ]
 
 [project.optional-dependencies]
@@ -28,11 +27,13 @@ gui = [
 # GPU support (CuPy, CUDA 12). CUDA 12 builds also run on CUDA 13 drivers. The
 # `ctk` extra (pip CUDA libraries) exists from CuPy 14 on.
 gpu = ["cupy-cuda12x[ctk]>=14; sys_platform != 'darwin'"]
+# PyTorch for GradientEngine (differentiable ptychography).
+torch = ["torch>=2.6"]
 
 # `uv sync` installs the `dev` group by default; `docs` is opt-in with `--group docs`.
 [dependency-groups]
 dev = [
-    "ptylab[gui]",  # Qt viewer for contributors; pip users opt in with the extra
+    "ptylab[gui,torch]",  # Qt viewer and PyTorch for contributors; pip users opt in with the extras
     "ruff>=0.16",
     "pytest~=9.0",
     "ipykernel>=6.29",
@@ -68,9 +69,9 @@ required-environments = [
 
 # PyTorch uses the same `cuda-toolkit` as CuPy, so it must be a CUDA 12 build too.
 # PyPI only has CUDA 13 builds of recent PyTorch, so take it from the PyTorch
-# cu126 index (Linux and Windows; macOS has no CUDA and stays on PyPI). The same
-# PyTorch is then locked with and without the `gpu` extra, so a plain `uv run`
-# never swaps it.
+# cu126 index (Linux and Windows; macOS has no CUDA and stays on PyPI). The dev
+# group always installs PyTorch, so the same build is locked with and without the
+# `gpu` extra, and a plain `uv run` never swaps it.
 [tool.uv.sources]
 torch = [{ index = "pytorch-cu126", marker = "sys_platform != 'darwin'" }]
 
