@@ -28,7 +28,7 @@ from .batching import (
     split_indices,
 )
 from .losses import amplitude_loss
-from .models import PtychographyModel, SharedProbe, probe_scale
+from .models import OPRProbe, PtychographyModel, SharedProbe, probe_scale
 from .phases import _SETTINGS, Phase
 from .propagation import KernelPropagator
 
@@ -43,8 +43,8 @@ class GradientEngine(BaseEngine):
     Estimate selected physical parameters from a full ptychographic scan by
     automatic differentiation.
 
-    The standard PtyLab constructor and `reconstruct()` entry point are
-    preserved. The model predicts the detector intensity of every frame,
+    The constructor and `reconstruct()` entry point are the same as for the
+    classic engines. The model predicts the detector intensity of every frame,
 
     $$
     I_j = \left|\mathcal{D}\left\lbrace O(\mathbf{r} + \mathbf{x}_j)\, P(\mathbf{r})\right\rbrace \right|^2 + b,
@@ -79,7 +79,7 @@ class GradientEngine(BaseEngine):
     runs a sequence of `Phase` settings, each with a fresh optimizer;
     `reconstruct()` is a single phase with the engine's current settings.
 
-    NumPy is used only at PtyLab boundaries: reading `ExperimentalData` and
+    NumPy is used only at the boundaries: reading `ExperimentalData` and
     `Reconstruction` arrays, building propagation kernels, and publishing
     detached results. Measurements, backgrounds and all per-iteration work are
     tensors on `device`.
@@ -171,8 +171,8 @@ class GradientEngine(BaseEngine):
             shot-noise variance $g\,b$, so $b$ is for Poisson backgrounds such
             as stray light. A noise-free offset (electronic bias, the mean of
             dark frames) is subtracted without clipping and kept non-negative.
-            A nonnegative scalar or one frame-shaped image in PtyLab's centered
-            order, as a NumPy array or tensor. It becomes the model parameter
+            A nonnegative scalar or one frame-shaped image in centered order
+            (as `fft2c`), as a NumPy array or tensor. It becomes the model parameter
             `"background"`: fixed by default, estimated (and kept nonnegative)
             when selected in `parameters`. Assigning it or calling `reset()`
             imports it again; otherwise a learned value is retained between runs.
@@ -184,7 +184,7 @@ class GradientEngine(BaseEngine):
             `mixed_poisson_gaussian_loss`, photon counts for `amplitude_loss`
             with `anscombe_offset_switch=True`). A nonnegative scalar, used
             for every detector pixel, or one $(N_p, N_p)$ map
-            $\sigma(\mathbf q)$ in PtyLab's centered order, for example the
+            $\sigma(\mathbf q)$ in centered order (as `fft2c`), for example the
             temporal standard deviation of any number of dark frames whose
             mean is subtracted from the data (it then also holds the
             dark-current shot noise). None leaves the loss's own
@@ -404,6 +404,30 @@ class GradientEngine(BaseEngine):
         self._backgroundPending = True
         return self
 
+    def relaxProbe(self):
+        """
+        Give every scan frame its own probe (orthogonal probe relaxation).
+
+        The shared probe is replaced by an `OPRProbe` in which every frame
+        starts as the current probe; the next `reconstruct()` estimates it
+        with a fresh optimizer, under the same `"probe.field"` name. Add
+        `OPRProjection` to the constraints to keep the stack low rank. To
+        start from a stack instead, set `reconstruction.probe_stack` (classic
+        `OPR` layout) and call `reset()` afterwards. Calling it again keeps
+        the stack.
+
+        Returns:
+            GradientEngine:
+                The engine, for chaining.
+        """
+        if self.model is None:
+            self.model = self.createModel()
+        if not isinstance(self.model.probe, OPRProbe):
+            self.model.to(self.device)
+            frames = len(self.reconstruction.positions)
+            self.model.probe = OPRProbe.from_probe(self.model.probe, frames)
+        return self
+
     def _set_probe_scale(self, photons_per_frame):
         """Rescale a scale-free probe for the data, keeping the physical probe."""
         probe = getattr(self.model, "probe", None)
@@ -412,18 +436,29 @@ class GradientEngine(BaseEngine):
 
     def _physical_probe(self):
         probe = self.model.probe
+        if isinstance(probe, OPRProbe):
+            return probe.shared_estimate()  # one six-axis probe for the stack
         if hasattr(probe, "physical_field"):
             return probe.physical_field()
         return probe.field
 
-    def snapshot(self):
+    def snapshot(self, stack=True):
         """
         Return detached CPU NumPy copies of the current physical parameters.
+
+        Args:
+            stack (bool, optional):
+                With an `OPRProbe`, also return the per-frame stack as
+                `"probe.stack"`. Defaults to True. During iterations only the
+                six-axis probe is copied, since the stack can be gigabytes.
 
         Returns:
             dict:
                 Arrays keyed by parameter name. `"probe.field"` is the physical
-                probe, not the scale-free parameter. A model background is
+                probe, not the scale-free parameter; with an `OPRProbe` it is
+                the dominant component (`OPRProbe.shared_estimate`) and
+                `"probe.stack"` the frame probes in the classic `OPR` layout
+                `(nlambda, 1, npsm, 1, Np, Np, frames)`. A model background is
                 included as `"background"` in centered order.
         """
         if self.model is None:
@@ -435,15 +470,21 @@ class GradientEngine(BaseEngine):
             "object": self.model.object.detach().cpu().numpy().copy(),
             "probe.field": self._physical_probe().detach().cpu().numpy().copy(),
         }
+        if stack and isinstance(self.model.probe, OPRProbe):
+            # (frames, ...) -> (..., frames), the classic OPR engine's layout
+            physical = self.model.probe.physical_field().detach().movedim(0, -1)
+            state["probe.stack"] = physical.cpu().numpy()
         if getattr(self.model, "background", None) is not None:
             state["background"] = self.centeredIntensity(self.model.background)
         return state
 
-    def _sync_reconstruction(self):
+    def _sync_reconstruction(self, stack=False):
         """Publish detached object and probe snapshots for monitoring and saving."""
-        state = self.snapshot()
+        state = self.snapshot(stack=stack)
         self.reconstruction.object = state["object"]
         self.reconstruction.probe = state["probe.field"]
+        if "probe.stack" in state:
+            self.reconstruction.probe_stack = state["probe.stack"]
 
     def _selection(self):
         if self.parameters is None:
@@ -875,7 +916,7 @@ class GradientEngine(BaseEngine):
         Return a detached NumPy copy of a detector image or stack.
 
         Intensities, measurements, backgrounds and `readoutSigma` maps all use
-        PtyLab's centered pixel order, so no reordering is needed. The method
+        the centered pixel order of `fft2c`, so no reordering is needed. The method
         is kept so existing code that converts for plotting keeps working.
 
         Args:
@@ -943,11 +984,13 @@ class GradientEngine(BaseEngine):
                     loss = self.runIteration(iteration)
                     self.reconstruction.error.append(loss)
                     self._sync_reconstruction()
-                    self.showReconstruction(iteration)
+                    # every figureUpdateFrequency iterations, and the last one
+                    last = iteration == self.numIterations - 1
+                    self.showReconstruction(iteration, force=last)
                     self.pbar.set_postfix(loss=loss)
         finally:
             if self.model is not None:
-                self._sync_reconstruction()
+                self._sync_reconstruction(stack=True)
 
     def run(self, phases):
         """
