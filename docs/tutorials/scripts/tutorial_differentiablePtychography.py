@@ -9,12 +9,13 @@
 # - How to recover object and probe from a flat start with `blind_recipe`
 # - How to reconstruct several probe modes (mixed states)
 # - How to choose the estimated parameters and switch the loss
+# - How to let the probe vary across the scan with orthogonal probe relaxation (OPR)
 #
 # !!! warning "Work in progress"
 #     `GradientEngine` runs on PyTorch, installed with the `torch` extra; see [Installation](../getting-started/installation.md#differentiable-ptychography) for GPU builds. It supports CPM with the Fraunhofer, Fresnel, ASP and scaledASP propagators, and its API may still change.
 #
 # !!! note "Dataset"
-#     The dataset (`helicalbeam.hdf5`, about 350 MB) is downloaded automatically into the `example_data/` folder at the project root the first time you run the tutorial. If the file already exists it is not re-downloaded. It is the dataset of the [CPM Mixed States](tutorial_mixedStates.md) tutorial, from L. Loetgering et al., "Generation and characterization of focused helical x-ray beams," Sci. Adv. 6, eaax8836 (2020).
+#     The datasets are downloaded automatically into the `example_data/` folder at the project root the first time you run the tutorial, and not again if they exist. Most sections use `helicalbeam.hdf5` (about 350 MB), the dataset of the [CPM Mixed States](tutorial_mixedStates.md) tutorial, from L. Loetgering et al., "Generation and characterization of focused helical x-ray beams," Sci. Adv. 6, eaax8836 (2020). The last section uses `OPR_dp_processed.hdf5` (about 180 MB), the dataset of the [CPM Orthogonal Probe Relaxation](tutorial_OPR.md) tutorial.
 #
 # !!! tip "Prerequisites"
 #     Complete [CPM Example Data](tutorial_CPM.md) before this tutorial. [CPM Mixed States](tutorial_mixedStates.md) explains the mixed-state model in more depth.
@@ -28,7 +29,10 @@ import numpy as np
 
 import PtyLab
 from PtyLab.Engines.GradientEngine import (
+    AbsorbingObject,
+    AbsorbingProbeBoundary,
     GradientEngine,
+    OPRProjection,
     ProbeCentering,
     ProbeModeOrthogonalization,
     blind_recipe,
@@ -135,7 +139,7 @@ plt.legend()
 plt.show()
 
 # %% [markdown]
-# The estimates are written back to `reconstruction.object` and `reconstruction.probe` as NumPy arrays, in PtyLab's 6-D layout `(nlambda, nosm, npsm, nslice, N, N)`.
+# The estimates are written back to `reconstruction.object` and `reconstruction.probe` as NumPy arrays, in the 6-D layout of `Reconstruction` `(nlambda, nosm, npsm, nslice, N, N)`.
 
 
 # %%
@@ -239,3 +243,100 @@ show_estimates(mixed, "4 probe modes, after 200 more iterations with the Anscomb
 # %%
 ## save the result as HDF5, plus a PNG of the monitor figure, like with the classic engines
 mixed.saveResults("helicalbeam_gradient.hdf5", snapshot=monitor)
+
+
+# %% [markdown]
+# ## Orthogonal probe relaxation
+#
+# The last section reconstructs the drifting EUV beam of the [CPM Orthogonal Probe Relaxation](tutorial_OPR.md) tutorial, which explains the model. The data and the geometry are loaded as there. Every scan position gets its own probe, so this run needs a GPU with about 16 GB; a smaller `engine.batchSize`, such as 64, lowers the peak.
+
+# %%
+fileName = "OPR_dp_processed.hdf5"
+filePath = getExampleDataFolder() / fileName
+
+if not filePath.exists():
+    print(f"Downloading {fileName}..")
+    urllib.request.urlretrieve(
+        "https://ndownloader.figshare.com/files/38461082", filePath
+    )
+    print("Download complete.")
+else:
+    print(f"{fileName} found, skipping download.")
+
+experimentalData = PtyLab.ExperimentalData(filePath, operationMode="CPM")
+experimentalData.setOrientation(1)
+experimentalData.zo = 31.0e-3  # sample-detector distance
+experimentalData.dxd = 2 * 13.5e-6  # detector pixel size, 13.5 um pixels binned 2 x 2
+experimentalData.wavelength = 13.5e-9
+experimentalData._setData()
+
+params = PtyLab.Params()
+params.propagatorType = "Fraunhofer"
+params.gpuSwitch = False
+
+reconstruction = PtyLab.Reconstruction(experimentalData, params)
+reconstruction.No = 2000  # object array size, in pixels
+reconstruction.npsm = 6  # number of probe modes
+reconstruction.initialProbe = "circ"
+experimentalData.entrancePupilDiameter = 10e-6
+reconstruction.initialObject = "ones"
+np.random.seed(0)
+reconstruction.initializeObjectProbe()
+
+monitor = PtyLab.Monitor()
+monitor.figureUpdateFrequency = 100
+monitor.objectPlot = "complex"
+monitor.objectZoom = 2
+monitor.probeZoom = 0.1
+
+# %% [markdown]
+# First a shared probe from the flat start, with `blind_recipe`. The constraints replace the switches of the OPR tutorial: `ProbeModeOrthogonalization` for `orthogonalizationSwitch`, `AbsorbingProbeBoundary` for `absorbingProbeBoundary` and `AbsorbingObject` for `absObjectSwitch`.
+
+# %%
+constraints = [
+    ProbeModeOrthogonalization(step=10),
+    AbsorbingProbeBoundary(),
+    AbsorbingObject(beta=0.01),
+]
+engine = GradientEngine(reconstruction, experimentalData, params, monitor)
+history = engine.run(blind_recipe(iterations=200, constraints=constraints))
+object_mixed = reconstruction.object.copy()  # mixed states, one probe for all positions
+
+# %% [markdown]
+# Then OPR. `relaxProbe()` copies the probe to every scan position, and `OPRProjection` keeps the stack in a subspace of `rank` basis probes after every step, blended with `relax` (`params.OPR_subspace` and `params.OPR_alpha` of the `OPR` engine). All six modes vary. The PIE-like preconditioned optimizer takes small steps where the object is dimly lit, which keeps the edge of the scan cleaner than Adam does.
+
+# %%
+engine_OPR = engine.relaxProbe()  # the same engine, now with one probe per position
+engine_OPR.optimizerType = "preconditioned"
+engine_OPR.parameters = {"object": {"lr": 0.3}, "probe.field": {"lr": 0.3}}
+engine_OPR.constraints = [OPRProjection(rank=5, relax=0.05), *constraints]
+engine_OPR.numIterations = 100
+engine_OPR.reconstruct()
+
+# %% [markdown]
+# The probes are written to `reconstruction.probe_stack`, in the layout of the `OPR` engine `(nlambda, nosm, npsm, nslice, Np, Np, numFrames)`, and `reconstruction.probe` holds their dominant component. The power of the first mode at each position shows the drift during the scan.
+
+# %%
+stack = reconstruction.probe_stack[0, 0, 0, 0]  # mode 1: (Np, Np, numFrames)
+power = np.sum(np.abs(stack) ** 2, axis=(0, 1))
+plt.plot(power / power.mean())
+plt.xlabel("frame index")
+plt.ylabel("relative power of mode 1")
+plt.show()
+
+# %%
+crop = (slice(400, 1600), slice(400, 1600))  # the scanned area
+object_OPR = reconstruction.object[0, 0, 0, 0][crop]
+fig, axes = plt.subplots(1, 2, figsize=(12, 5.5), layout="constrained")
+for ax, obj, title in zip(
+    axes,
+    [object_mixed[0, 0, 0, 0][crop], object_OPR],
+    ["mixed states", "mixed states + OPR"],
+):
+    obj = obj * np.exp(1j * np.angle(np.vdot(obj, object_OPR)))  # same global phase
+    # brightness saturates at twice the median amplitude of the centre
+    scale = 2 * np.median(np.abs(obj[300:900, 300:900])) / np.abs(obj).max()
+    hsvplot(obj, ax=ax, amplitudeScalingFactor=scale)
+    ax.set_title(f"object, {title} (6 modes)")
+    ax.axis("off")
+plt.show()
