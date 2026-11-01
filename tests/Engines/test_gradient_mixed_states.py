@@ -411,3 +411,107 @@ def test_orthogonalization_leaves_a_single_mode_alone_and_runs_in_a_reconstructi
     gram = _gram(engine)
     off_diagonal = gram - torch.diag(torch.diagonal(gram))
     assert off_diagonal.abs().max() < 1e-5 * gram.abs().max()
+
+
+def _object_gram(engine):
+    """Gram matrix G_ab = sum_x O_a^* O_b of the object states."""
+    states = engine.model.object[0, :, 0, 0].detach().flatten(-2)
+    return states.conj() @ states.T
+
+
+@pytest.mark.parametrize("npsm", [1, 3])
+def test_object_orthogonalization_gives_orthogonal_sorted_states_and_keeps_predictions(
+    npsm,
+):
+    from PtyLab.Engines.GradientEngine import (
+        ObjectStateOrthogonalization,
+        ProbeModeOrthogonalization,
+    )
+
+    engine = mixed_engine(2, npsm)
+    engine.prepareReconstruction()
+    before = _all_intensities(engine)
+    total = torch.diagonal(_object_gram(engine)).real.sum()
+    ObjectStateOrthogonalization()(engine, 0)
+    # Independent of the probe rotation: both together keep the frames too.
+    ProbeModeOrthogonalization()(engine, 0)
+
+    gram = _object_gram(engine)
+    off_diagonal = gram - torch.diag(torch.diagonal(gram))
+    assert off_diagonal.abs().max() < 1e-5 * gram.abs().max()
+    powers = torch.diagonal(gram).real
+    assert (powers[:-1] >= powers[1:]).all()
+    torch.testing.assert_close(powers.sum(), total, rtol=1e-5, atol=0)
+    torch.testing.assert_close(
+        _all_intensities(engine), before, rtol=1e-5, atol=1e-6 * before.max()
+    )
+
+
+def test_object_orthogonalization_matches_ptylab_up_to_a_phase_per_state():
+    from PtyLab.Engines.GradientEngine import ObjectStateOrthogonalization
+    from PtyLab.utils.utils import orthogonalizeModes
+
+    engine = mixed_engine(2, 1)
+    engine.prepareReconstruction()
+    states = engine.model.object[0, :, 0, 0].detach().numpy()
+    expected, powers, _ = orthogonalizeModes(states.astype(np.complex128), "snapShots")
+    ObjectStateOrthogonalization()(engine, 0)
+    actual = engine.model.object[0, :, 0, 0].detach().numpy()
+
+    for a in range(2):
+        overlap = abs(np.vdot(actual[a], expected[a]))
+        norms = np.linalg.norm(actual[a]) * np.linalg.norm(expected[a])
+        assert overlap == pytest.approx(norms, rel=1e-5)
+    assert engine.reconstruction.purityObject == pytest.approx(
+        np.sqrt(np.sum(powers**2)), rel=1e-5
+    )
+
+
+def test_object_orthogonalization_mixes_adam_moments_with_the_states():
+    from PtyLab.Engines.GradientEngine import ObjectStateOrthogonalization
+
+    engine = mixed_engine(2, 1)
+    engine.prepareReconstruction()
+    engine.runIteration(0)  # creates Adam state
+    obj = engine.model.object
+    state = engine.optimizer.state[obj]
+    first, second = state["exp_avg"].clone(), state["exp_avg_sq"].clone()
+    old = obj[0, :, 0, 0].detach().flatten(-2).to(torch.complex128)
+
+    ObjectStateOrthogonalization()(engine, 0)
+
+    new = obj[0, :, 0, 0].detach().flatten(-2).to(torch.complex128)
+    V = torch.linalg.lstsq(old.T, new.T).solution.T.to(obj.dtype)
+    # m'_b = sum_a V_ba m_a;  v'_b = sum_a |V_ba|^2 v_a.
+    torch.testing.assert_close(
+        state["exp_avg"], torch.einsum("ba,lastyx->lbstyx", V, first)
+    )
+    weights = V.abs().square().to(second.dtype)
+    torch.testing.assert_close(
+        state["exp_avg_sq"], torch.einsum("ba,lastyx->lbstyx", weights, second)
+    )
+
+
+def test_object_orthogonalization_leaves_one_state_alone_and_runs_in_a_reconstruction():
+    from PtyLab.Engines.GradientEngine import (
+        ObjectStateOrthogonalization,
+        ProbeModeOrthogonalization,
+    )
+
+    single = mixed_engine(1, 3)
+    single.prepareReconstruction()
+    before = single.model.object.detach().clone()
+    ObjectStateOrthogonalization()(single, 0)
+    torch.testing.assert_close(single.model.object, before, rtol=0, atol=0)
+
+    engine = mixed_engine(2, 3)
+    engine.constraints = [
+        ObjectStateOrthogonalization(step=5),
+        ProbeModeOrthogonalization(step=5),
+    ]
+    engine.numIterations = 21  # the last step, 20, orthogonalizes
+    engine.reconstruct()
+    assert engine.reconstruction.error[-1] < 0.5 * engine.reconstruction.error[0]
+    gram = _object_gram(engine)
+    off_diagonal = gram - torch.diag(torch.diagonal(gram))
+    assert off_diagonal.abs().max() < 1e-5 * gram.abs().max()

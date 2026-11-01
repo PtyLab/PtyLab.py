@@ -10,6 +10,7 @@ torch = pytest.importorskip("torch")
 from test_gradient_engine import engine  # noqa: E402,F401  (shared fixture)
 
 from PtyLab.Engines.GradientEngine import (  # noqa: E402
+    AbsorbingObject,
     AbsorbingProbeBoundary,
     Constraint,
     ObjectAmplitudeClamp,
@@ -104,6 +105,54 @@ def test_object_amplitude_clamp_keeps_phase(engine, relax):
     expected = relax * before.abs() + (1 - relax) * before.abs().clamp(max=1.0)
     torch.testing.assert_close(after.abs(), expected)
     torch.testing.assert_close(torch.angle(after), torch.angle(before))
+
+
+@pytest.mark.parametrize("relax", [0.0, 0.5])
+def test_absorbing_object_matches_the_classic_switch(engine, relax):
+    engine.device = "cpu"
+    obj = engine.reconstruction.object
+    rng = np.random.default_rng(0)
+    obj[...] = rng.uniform(0.2, 1.5, obj.shape) * np.exp(
+        1j * rng.uniform(-3, 3, obj.shape)
+    )
+    engine.reset()
+    # BaseEngine.applyConstraints with absObjectSwitch, beta = (1 - relax) * 0.1
+    beta = (1 - relax) * 0.1
+    expected = (1 - beta) * obj + beta * abs(obj)
+    AbsorbingObject(beta=0.1, relax=relax)(engine, 0)
+    after = engine.model.object.detach().numpy()
+    np.testing.assert_allclose(
+        after, expected.astype(after.dtype), rtol=1e-6, atol=1e-6
+    )
+
+
+def test_absorbing_object_keeps_a_real_positive_object_and_adam_state(engine):
+    engine.device = "cpu"
+    engine.reconstruction.object[...] = 0.8
+    engine.reset()
+    engine.numIterations = 1
+    engine.reconstruct()
+    state = {
+        k: v.clone()
+        for k, v in engine.optimizer.state[engine.model.object].items()
+        if torch.is_tensor(v)
+    }
+    with torch.no_grad():
+        engine.model.object.fill_(0.8)
+    AbsorbingObject(beta=0.5)(engine, 0)
+    torch.testing.assert_close(
+        engine.model.object.detach(), torch.full_like(engine.model.object, 0.8)
+    )
+    for key, value in state.items():
+        torch.testing.assert_close(
+            engine.optimizer.state[engine.model.object][key], value
+        )
+
+
+def test_absorbing_object_rejects_bad_beta():
+    for beta in (0, 1.5, True):
+        with pytest.raises(ValueError):
+            AbsorbingObject(beta=beta)
 
 
 def _ptylab_probe_window(engine):
@@ -275,3 +324,11 @@ def test_blind_recipe_passes_readout_sigma_to_both_phases(engine):
         assert seen[0] == 0.0
         torch.testing.assert_close(seen[-1], torch.as_tensor(sigma))
         assert engine.readoutSigma is engine_sigma  # restored after run()
+
+
+def test_reconstruct_draws_the_monitor_at_the_last_iteration(engine):
+    calls = []
+    engine.showReconstruction = lambda loop, force=False: calls.append((loop, force))
+    engine.numIterations = 3
+    engine.reconstruct()
+    assert calls == [(0, False), (1, False), (2, True)]
