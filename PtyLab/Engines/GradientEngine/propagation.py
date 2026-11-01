@@ -15,7 +15,7 @@ class KernelPropagator:
 
     Construct once per reconstruction, then call with a complex Torch exit wave.
     All leading field dimensions are preserved, and the kernels follow the
-    existing PtyLab propagation conventions.
+    conventions of `PtyLab.Operators.Operators`.
     """
 
     @staticmethod
