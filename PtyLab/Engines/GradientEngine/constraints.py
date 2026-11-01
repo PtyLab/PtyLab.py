@@ -23,6 +23,8 @@ from numbers import Integral, Real
 
 import torch
 
+from .models import OPRProbe, frame_modes
+
 
 class Constraint:
     r"""
@@ -154,39 +156,75 @@ def multiply_parameter(engine, parameter, factor):
             value.mul_(factor)
 
 
-def mix_probe_modes(engine, parameter, wavelength, matrix):
+def snapshot_basis(states):
     r"""
-    Replace the probe modes of one wavelength by linear combinations of them.
+    Return the snapshot orthogonalization of a set of states.
+
+    For states $S_m$ (rows of `states`) it diagonalizes the Gram matrix
 
     $$
-    P'_n = \sum_m M_{nm} P_m ,
+    G_{mn} = \sum_{\mathbf{r}} S_m^*(\mathbf{r})\,S_n(\mathbf{r}) = \sum_k W_{mk}\,\lambda_k\,W^*_{nk},
+    $$
+
+    sorts $\lambda_1 \geq \lambda_2 \geq \ldots$ and returns $V = W^T$, as
+    `PtyLab.utils.utils.orthogonalizeModes(..., method="snapShots")`. The states
+    $S'_n = \sum_m V_{nm} S_m$ are orthogonal with powers $\lambda_n$.
+
+    Args:
+        states (torch.Tensor):
+            Complex tensor of shape `(..., n, pixels)`; leading axes are
+            batched.
+
+    Returns:
+        tuple:
+            `(V, eigenvalues)` of shapes `(..., n, n)` and `(..., n)`.
+    """
+    # G = conj(S) S^T as in orthogonalizeModes; eigh in double precision, since weak
+    # states have eigenvalues many orders below the strongest.
+    gram = (states.conj() @ states.transpose(-2, -1)).to(torch.complex128)
+    eigenvalues, W = torch.linalg.eigh(gram)
+    order = eigenvalues.argsort(dim=-1, descending=True)  # strongest first
+    eigenvalues = eigenvalues.gather(-1, order)
+    W = W.gather(-1, order.unsqueeze(-2).expand_as(W))
+    # V = W^T: row n holds the weights of the new state n.
+    return W.transpose(-2, -1).to(states.dtype), eigenvalues
+
+
+def mix_states(engine, parameter, dim, matrix):
+    r"""
+    Replace the states along one axis by linear combinations of them.
+
+    $$
+    S'_n = \sum_m M_{nm} S_m ,
     $$
 
     and the same for the optimizer state. First moments (Adam `exp_avg`)
-    mix exactly like the modes. Adam's second moments (`exp_avg_sq`, real and
-    imaginary parts separately) cannot be mixed linearly; they become
+    mix exactly like the states. Adam's second moments (`exp_avg_sq`, real
+    and imaginary parts separately) cannot be mixed linearly; they become
     $v'_n = \sum_m |M_{nm}|^2 v_m$, which is exact if the gradients of
-    different modes are uncorrelated.
+    different states are uncorrelated.
 
     Args:
         engine (GradientEngine):
             Engine whose optimizer holds the state.
 
         parameter (torch.Tensor):
-            Probe parameter of shape `(nlambda, 1, npsm, 1, Np, Np)`, changed
-            in place.
+            Parameter changed in place, for example the probe
+            `(nlambda, 1, npsm, 1, Np, Np)` with `dim=2` or the object
+            `(nlambda, nosm, 1, 1, No, No)` with `dim=1`.
 
-        wavelength (int):
-            Index on the first axis.
+        dim (int):
+            State axis.
 
         matrix (torch.Tensor):
-            Complex mixing matrix $M$ of shape `(npsm, npsm)`.
+            Complex mixing matrix $M$ of shape `(*parameter.shape[:dim], n, n)`:
+            one matrix per index of the axes before `dim`.
     """
 
     def mix(tensor, weights):
-        # tensor[wavelength]: (1, npsm, 1, Np, Np); mix along the mode axis.
-        mixed = torch.einsum("nm,amsyx->ansyx", weights, tensor[wavelength])
-        tensor[wavelength] = mixed
+        # (*batch, n, ...) -> (*batch, n, rest): mix rows, write back in place.
+        flat = tensor.reshape(*tensor.shape[: dim + 1], -1)
+        tensor.copy_((weights @ flat).reshape(tensor.shape))
 
     mix(parameter, matrix)
     for key, value in _moments(engine, parameter).items():
@@ -325,6 +363,51 @@ class ObjectAmplitudeClamp(Constraint):
         phase = torch.where(amplitude > 0, obj / amplitude.clamp_min(1e-30), 1)
         target = clamped * phase
         obj.copy_(self.relax * obj + (1 - self.relax) * target)
+
+
+class AbsorbingObject(Constraint):
+    r"""
+    Pull the object towards a pure-absorption object, as `Params.absObjectSwitch`.
+
+    Each call blends the object with its modulus,
+
+    $$
+    O \leftarrow (1 - \beta)\,O + \beta\,|O|,
+    $$
+
+    with $\beta$ = `beta`. It shrinks the phase of every pixel towards 0
+    and leaves the amplitude of real positive pixels unchanged. It suits
+    samples whose phase carries little information, and damps phase noise in
+    weakly lit pixels. Called once per iteration it matches the classic
+    engines' constraint; with `updatePerBatch` it runs after every step.
+
+    Optimizer state is unchanged: this is a small pull, not a move of the
+    parameter. With relaxation $\rho$ the pull is $(1 - \rho)\beta$.
+
+    Args:
+        beta (float, optional):
+            Pull $\beta$ in $(0, 1]$ per call, as `Params.absObjectBeta`.
+            Defaults to 0.01.
+
+        **schedule (dict):
+            `start`, `step`, `end` and `relax`, as in `Constraint`.
+
+    Raises:
+        ValueError:
+            If `beta` is not in $(0, 1]$.
+    """
+
+    def __init__(self, beta=0.01, **schedule):
+        super().__init__(**schedule)
+        if isinstance(beta, bool) or not isinstance(beta, Real) or not 0 < beta <= 1:
+            raise ValueError("beta must lie in (0, 1].")
+        self.beta = float(beta)
+
+    def apply(self, engine):
+        obj = engine.model.object
+        beta = (1 - self.relax) * self.beta  # relaxation keeps a fraction of O
+        modulus = obj.abs()  # before the in-place scaling below
+        obj.mul_(1 - beta).add_(modulus, alpha=beta)
 
 
 class PhaseRampRemoval(Constraint):
@@ -474,21 +557,41 @@ class PhaseRampRemoval(Constraint):
         multiply_parameter(engine, probe, probe_factor)
 
 
+def _orthogonalize_states(engine, parameter, dim, relax):
+    """Rotate the states on axis `dim` of `parameter` into orthogonal ones.
+
+    Returns the purities, one per index of the axes before `dim`, or None for
+    a single state.
+    """
+    count = parameter.shape[dim]
+    if count < 2:
+        return None
+    # (*batch, n, ...) -> (*batch, n, pixels); one basis per batch index.
+    V, eigenvalues = snapshot_basis(parameter.reshape(*parameter.shape[: dim + 1], -1))
+    identity = torch.eye(count, dtype=V.dtype, device=V.device)
+    mix_states(engine, parameter, dim, relax * identity + (1 - relax) * V)
+    # Purity sqrt(sum w_k^2), w_k = lambda_k / sum(lambda), as in
+    # BaseEngine.orthogonalization.
+    weights = eigenvalues.clamp(min=0)
+    weights = weights / weights.sum(-1, keepdim=True)
+    return weights.square().sum(-1).sqrt().flatten().tolist()
+
+
 class ProbeModeOrthogonalization(Constraint):
     r"""
     Rotate the probe modes into orthogonal modes, strongest first.
 
     This is the snapshot orthogonalization (`orthogonalizeModes` with
     `method="snapShots"`, used by mPIE's `orthogonalizationSwitch`), computed
-    in Torch on the engine's device. It diagonalizes the Gram matrix of the
-    modes,
+    in Torch on the engine's device (see `snapshot_basis`). It diagonalizes
+    the Gram matrix of the modes of each wavelength,
 
     $$
     G_{mn} = \sum_{\mathbf{r}} P_m^*(\mathbf{r})\,P_n(\mathbf{r}) = \sum_k W_{mk}\,\lambda_k\,W^*_{nk},
     $$
 
     with eigenvalues sorted as $\lambda_1 \geq \lambda_2 \geq \ldots$, and
-    takes $V = W^T$ as in PtyLab. The new modes $P'_n = \sum_m V_{nm} P_m$ are
+    takes $V = W^T$ as `orthogonalizeModes` does. The new modes $P'_n = \sum_m V_{nm} P_m$ are
     orthogonal, $\sum_{\mathbf{r}} P'^*_m P'_n = \lambda_n\,\delta_{mn}$, so
     their powers are the eigenvalues of $G$. A unitary
     rotation of the modes leaves every predicted intensity unchanged, so this
@@ -496,39 +599,63 @@ class ProbeModeOrthogonalization(Constraint):
 
     With relaxation $\rho$ the modes become $\rho P + (1 - \rho)P'$, that is
     the mixing matrix $\rho I + (1 - \rho) V$, which is no longer unitary.
-    The optimizer state is mixed with the same matrix (see
-    `mix_probe_modes`). It takes the schedule arguments `start`, `step`,
-    `end` and `relax` of `Constraint`.
+    The optimizer state is mixed with the same matrix (see `mix_states`).
+    For an `OPRProbe` the modes of every frame are orthogonalized separately,
+    like `params.OPR_orthogonalize_modes` in the classic `OPR` engine.
+    It takes the schedule arguments `start`, `step`, `end` and `relax` of
+    `Constraint`.
 
     Notes:
         Each eigenvector is fixed only up to a phase, so the result agrees
-        with PtyLab's up to one phase factor per mode, which no intensity
+        with `orthogonalizeModes` up to one phase factor per mode, which no intensity
         sees.
     """
 
     def apply(self, engine):
-        field = engine.model.probe.field  # (nlambda, 1, npsm, 1, Np, Np)
-        modes = field.shape[2]
-        if modes < 2:
-            return
-        identity = torch.eye(modes, dtype=field.dtype, device=field.device)
-        for wavelength in range(field.shape[0]):
-            modes_2d = field[wavelength, 0, :, 0].flatten(-2)  # (npsm, Np*Np)
-            # G = conj(p) p^T as in PtyLab; eigh in double precision, since
-            # weak modes have eigenvalues many orders below the strongest.
-            gram = (modes_2d.conj() @ modes_2d.T).to(torch.complex128)
-            eigenvalues, W = torch.linalg.eigh(gram)
-            # Strongest first; V = W^T (rows are the new modes), as in PtyLab.
-            V = W[:, eigenvalues.argsort(descending=True)].T.to(field.dtype)
-            matrix = self.relax * identity + (1 - self.relax) * V
-            mix_probe_modes(engine, field, wavelength, matrix)
-            # Purity sqrt(sum w_k^2), w_k = lambda_k / sum(lambda), as in
-            # BaseEngine.orthogonalization; the monitor shows it.
-            weights = eigenvalues.clamp(min=0) / eigenvalues.clamp(min=0).sum()
-            engine.reconstruction.purityProbe = float(weights.square().sum().sqrt())
-            engine.reconstruction.purityProbeHist.append(
-                engine.reconstruction.purityProbe
-            )
+        # Shared (nlambda, 1, npsm, 1, Np, Np) or OPR stack with frames first:
+        # the mode axis is -4 in both, so an OPR stack is orthogonalized per frame.
+        field = engine.model.probe.field
+        purities = _orthogonalize_states(engine, field, field.dim() - 4, self.relax)
+        if purities:
+            # One value per call, the mean over wavelengths (and frames), stored
+            # as BaseEngine does; the monitor shows it.
+            purity = sum(purities) / len(purities)
+            engine.reconstruction.purityProbe = purity
+            engine.reconstruction.purityProbeHist.append(purity)
+
+
+class ObjectStateOrthogonalization(Constraint):
+    r"""
+    Rotate the object states into orthogonal states, strongest first.
+
+    The object counterpart of `ProbeModeOrthogonalization`, as
+    `BaseEngine.orthogonalization` does for `nosm > 1` in the classic engines. For the object states
+    $O_a$ of each wavelength, over the whole object grid,
+
+    $$
+    G_{ab} = \sum_{\mathbf{x}} O_a^*(\mathbf{x})\,O_b(\mathbf{x}),\qquad
+    O'_b = \sum_a V_{ba} O_a ,
+    $$
+
+    with $V = W^T$ from the eigenvectors of $G$, strongest first. The
+    rotation is unitary over the object states only, so for every probe mode
+    $m$ the sum $\sum_a |\mathcal{D}\{O_a P_m\}|^2$, and every prediction, is
+    unchanged. It can therefore run together with
+    `ProbeModeOrthogonalization` (`BaseEngine.orthogonalization` orthogonalizes
+    the object only when there is one probe mode). The optimizer state is mixed as in
+    `mix_states`; `relax` blends as for the probe modes.
+
+    Notes:
+        The Gram matrix also counts unlit object pixels, as
+        `BaseEngine.orthogonalization` does;
+        they hold the start value and change $\lambda_k$ but not the fit.
+    """
+
+    def apply(self, engine):
+        obj = engine.model.object  # (nlambda, nosm, 1, 1, No, No)
+        purities = _orthogonalize_states(engine, obj, 1, self.relax)
+        for purity in purities or []:
+            engine.reconstruction.purityObject = purity
 
 
 class AbsorbingProbeBoundary(Constraint):
@@ -544,8 +671,8 @@ class AbsorbingProbeBoundary(Constraint):
     \sigma = \frac{3}{4}\,\frac{N_p}{2.355},
     $$
 
-    with $\mathbf{r}$ in pixels on PtyLab's probe grid (`Reconstruction.xp`,
-    `linspace(-Np/2, Np/2, Np)`) and $a$ = `aleph`. $W$ is the
+    with $\mathbf{r}$ in pixels on the probe grid of `Reconstruction.xp`
+    (`linspace(-Np/2, Np/2, Np)`) and $a$ = `aleph`. $W$ is the
     super-Gaussian window of `BaseEngine._probeWindow`: about 1 out to
     $0.4\,N_p$ from the centre and 0 beyond $0.5\,N_p$, so light near the
     window edges and corners decays by $1 - a$ per call while the beam is
@@ -598,7 +725,7 @@ class AbsorbingProbeBoundary(Constraint):
             torch.Tensor:
                 $W$ of shape `(size, size)`.
         """
-        # In pixels dxp cancels: |r|^2 / (2 sigma^2) with r on PtyLab's linspace grid.
+        # In pixels dxp cancels: |r|^2 / (2 sigma^2) with r on Reconstruction.xp's linspace grid.
         x = torch.linspace(
             -size / 2, size / 2, size, device=device, dtype=torch.float64
         )
@@ -614,3 +741,66 @@ class AbsorbingProbeBoundary(Constraint):
         for key, value in _moments(engine, field).items():
             # m scales like P; v (real and imaginary parts) like |P|^2.
             value.mul_(factor**2 if key in ("exp_avg_sq", "max_exp_avg_sq") else factor)
+
+
+class OPRProjection(Constraint):
+    r"""
+    Keep a per-frame probe stack low rank (orthogonal probe relaxation).
+
+    For each wavelength and probe mode, the frame probes are the rows of
+    $A$ ($A_{j\mathbf{r}} = P_j(\mathbf{r})$, $J$ frames). With the
+    eigenvectors $V$ of the small Gram matrix $G = AA^\dagger$ (see
+    `frame_modes`), the closest rank-$K$ stack is
+
+    $$
+    A_K = V_K V_K^\dagger A = \sum_{k=1}^{K} v_k\,(\sigma_k u_k^\dagger),
+    $$
+
+    so every frame probe becomes a combination of $K$ shared patterns
+    $\sigma_k u_k^\dagger$ with frame coefficients $v_{jk}$. With
+    relaxation $\rho$ the stack becomes $\rho A + (1 - \rho) A_K$; $\rho$
+    plays the role of `params.OPR_alpha` of the classic `OPR` engine (0.05
+    there). It needs an `OPRProbe` (`GradientEngine.relaxProbe`).
+
+    Adam's moments are left as they are: the projection removes the
+    directions outside the subspace, and the next step starts from there.
+
+    Args:
+        rank (int, optional):
+            Number $K$ of kept components, like `params.OPR_subspace`.
+            Defaults to 4.
+
+        **schedule (dict):
+            `start`, `step`, `end` and `relax`, as in `Constraint`.
+
+    Raises:
+        ValueError:
+            If `rank` is not a positive integer.
+    """
+
+    def __init__(self, rank=4, **schedule):
+        super().__init__(**schedule)
+        if isinstance(rank, bool) or not isinstance(rank, Integral) or rank < 1:
+            raise ValueError("rank must be a positive integer.")
+        self.rank = rank
+
+    def apply(self, engine):
+        probe = engine.model.probe
+        if not isinstance(probe, OPRProbe):
+            raise TypeError(
+                "OPRProjection needs an OPRProbe; call engine.relaxProbe()."
+            )
+        field = probe.field  # (J, nlambda, 1, npsm, 1, Np, Np)
+        if self.rank >= field.shape[0]:
+            return  # every stack of J frames has rank <= J
+        # One wavelength and mode at a time keeps the extra memory to one mode.
+        for wavelength in range(field.shape[1]):
+            for mode in range(field.shape[3]):
+                frames = field[:, wavelength, 0, mode, 0]  # (J, Np, Np), a view
+                rows = frames.flatten(-2)  # A: (J, N)
+                _, V = frame_modes(rows)
+                V = V[:, : self.rank]  # (J, K), strongest first
+                low_rank = V @ (V.conj().T @ rows)  # A_K = V_K V_K^† A
+                # rho A + (1 - rho) A_K, in place to keep one extra copy of A.
+                low_rank.mul_(1 - self.relax).add_(rows, alpha=self.relax)
+                frames.copy_(low_rank.view(frames.shape))

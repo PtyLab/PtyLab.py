@@ -11,13 +11,17 @@ _MODULES = {
     "GradientEngine": ".engine",
     "PtychographyModel": ".engine",
     "SharedProbe": ".engine",
+    "OPRProbe": ".models",
     "Phase": ".phases",
     "blind_recipe": ".phases",
     "Constraint": ".constraints",
     "ProbeCentering": ".constraints",
     "ObjectAmplitudeClamp": ".constraints",
+    "AbsorbingObject": ".constraints",
     "PhaseRampRemoval": ".constraints",
     "ProbeModeOrthogonalization": ".constraints",
+    "ObjectStateOrthogonalization": ".constraints",
+    "OPRProjection": ".constraints",
     "AbsorbingProbeBoundary": ".constraints",
 }
 __all__ = list(_MODULES)
