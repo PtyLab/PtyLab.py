@@ -12,7 +12,7 @@ from PtyLab.io import getExampleDataFolder, generate_simu_hdf5
 generate_simu_hdf5(getExampleDataFolder() / "simu.hdf5")
 ```
 
-The tutorials download their other datasets into `example_data/` on first run.
+The examples download their other datasets into `example_data/` on first run.
 
 ## Using `easyInitialize`
 
@@ -122,5 +122,5 @@ reconstruction.load_object("previous_result.hdf5")
 
 ## Next steps
 
-- [Tutorials](../tutorials/index.md): worked examples, end to end
+- [Examples](../tutorials/index.md): end-to-end runs on simulated and real data
 - [User Guide](../cpm/overview.md): the pipeline, data format, engines and all `Params` options, for when you need details

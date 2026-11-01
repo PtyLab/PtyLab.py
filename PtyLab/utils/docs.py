@@ -47,7 +47,7 @@ BUTTONS = (
 # shown below the introduction, and the buttons again at the end of the page
 DOWNLOAD_TOP = (
     '!!! tip "Run it yourself"\n'
-    "    Run this tutorial as a Jupyter notebook, or as a Python script with `python {stem}.py`.\n\n    "
+    "    Run this example as a Jupyter notebook, or as a Python script with `python {stem}.py`.\n\n    "
     + BUTTONS
 )
 DOWNLOAD_END = "---\n\n" + BUTTONS
@@ -217,7 +217,7 @@ def problems() -> list[str]:
             )
         if f"tutorials/{stem}.md" not in nav:
             found.append(
-                f"not in the mkdocs.yml nav: add tutorials/{stem}.md under Tutorials"
+                f"not in the mkdocs.yml nav: add tutorials/{stem}.md under Examples"
             )
         if f"({stem}.md)" not in index:
             found.append(
@@ -244,9 +244,7 @@ def render_command(names: list[str], all_: bool, timeout: int) -> int:
     else:
         selected = [s for s in scripts() if all_ or not is_current(s)]
         if not selected:
-            print(
-                "All tutorial pages are up to date (use --all to render them anyway)."
-            )
+            print("All example pages are up to date (use --all to render them anyway).")
     for script in selected:
         print(f"rendering scripts/{script.name} ...", flush=True)
         render(script, timeout)
@@ -267,5 +265,5 @@ def check_command() -> int:
     for problem in found:
         print(problem)
     if not found:
-        print("All tutorial pages are up to date.")
+        print("All example pages are up to date.")
     return 1 if found else 0

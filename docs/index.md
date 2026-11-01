@@ -5,7 +5,7 @@
 
 PtyLab is an inverse modeling toolbox for **conventional (CPM)** and **Fourier (FPM)** ptychography in a unified framework. See the [paper](https://opg.optica.org/oe/fulltext.cfm?uri=oe-31-9-13763&id=529026) for details.
 
-[Get started](getting-started/quickstart.md){ .md-button .md-button--primary } [Install](getting-started/installation.md){ .md-button } [Tutorials](tutorials/index.md){ .md-button }
+[Get started](getting-started/quickstart.md){ .md-button .md-button--primary } [Install](getting-started/installation.md){ .md-button } [Examples](tutorials/index.md){ .md-button }
 
 ## Key features
 
@@ -51,10 +51,10 @@ Try the demo in Google Colab:
 |---|---|
 | install PtyLab, with or without a GPU | [Installation](getting-started/installation.md) |
 | run a first reconstruction in a few lines | [Quick Start](getting-started/quickstart.md) |
-| follow worked examples on simulated and real data | [Tutorials](tutorials/index.md) |
+| follow worked examples on simulated and real data | [Examples](tutorials/index.md) |
 | look up the data format, engines or settings | [User Guide](cpm/overview.md) |
 | reconstruct with gradients, custom losses and constraints (PyTorch) | [Differentiable Ptychography](differentiable/overview.md) |
-| contribute code, tests or tutorials | [Contributing](contributing.md) |
+| contribute code, tests or examples | [Contributing](contributing.md) |
 
 ## Citation
 

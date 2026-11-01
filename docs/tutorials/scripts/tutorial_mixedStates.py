@@ -1,7 +1,7 @@
 # %% [markdown]
 # # CPM Mixed States
 #
-# This tutorial reconstructs measured soft X-ray data with several mutually incoherent probe modes, the *mixed-state* model. A single coherent probe cannot explain data recorded with a partially coherent beam; mixed states can, and they give a cleaner object and a probe whose modes show how coherent the beam was.
+# This example reconstructs measured soft X-ray data with several mutually incoherent probe modes, the *mixed-state* model. A single coherent probe cannot explain data recorded with a partially coherent beam; mixed states can, and they give a cleaner object and a probe whose modes show how coherent the beam was.
 #
 # **What you'll learn:**
 #

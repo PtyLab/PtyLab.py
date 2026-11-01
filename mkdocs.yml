@@ -38,14 +38,7 @@ nav:
   - Getting Started:
     - Installation: getting-started/installation.md
     - Quick Start: getting-started/quickstart.md
-  - User Guide:
-    - CPM Overview: cpm/overview.md
-    - FPM Overview: fpm/overview.md
-    - Data Format: cpm/data-format.md
-    - Engines: cpm/engines.md
-    - Configuration Reference: cpm/configuration.md
-    - Differentiable Ptychography: differentiable/overview.md
-  - Tutorials:
+  - Examples:
     - tutorials/index.md
     - "01 – CPM Simulation": tutorials/tutorial_CPM_sim.md
     - "02 – CPM Example Data": tutorials/tutorial_CPM.md
@@ -60,6 +53,13 @@ nav:
     - "11 – Scan Grids": tutorials/tutorial_scanGrids.md
     - "12 – CPM Orthogonal Probe Relaxation": tutorials/tutorial_OPR.md
     - "13 – CPM Differentiable Ptychography": tutorials/tutorial_differentiablePtychography.md
+  - User Guide:
+    - CPM Overview: cpm/overview.md
+    - FPM Overview: fpm/overview.md
+    - Data Format: cpm/data-format.md
+    - Engines: cpm/engines.md
+    - Configuration Reference: cpm/configuration.md
+    - Differentiable Ptychography: differentiable/overview.md
   - Contributing: contributing.md
   - API Reference:
     - api/index.md

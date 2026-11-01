@@ -1,7 +1,7 @@
 # %% [markdown]
 # # CPM Multi-Wavelength
 #
-# This tutorial reconstructs a mouse brain sample measured with a broadband beam. The beam contains 7 wavelengths, from 709 to 851 nm. PtyLab reconstructs one object and one probe per wavelength.
+# This example reconstructs a mouse brain sample measured with a broadband beam. The beam contains 7 wavelengths, from 709 to 851 nm. PtyLab reconstructs one object and one probe per wavelength.
 #
 # **What you'll learn:**
 #

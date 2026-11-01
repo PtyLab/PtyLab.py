@@ -1,7 +1,7 @@
 # %% [markdown]
 # # CPM Differentiable Ptychography
 #
-# This tutorial reconstructs measured soft X-ray data with `GradientEngine`, PtyLab's optional PyTorch engine. Instead of hand-derived update rules, it writes down a forward model and a loss, lets PyTorch compute the gradients, and updates the object and probe with an optimizer. It covers only the basic workflow; the [Differentiable Ptychography](../differentiable/overview.md) guide describes every option.
+# This example reconstructs measured soft X-ray data with `GradientEngine`, PtyLab's optional PyTorch engine. Instead of hand-derived update rules, it writes down a forward model and a loss, lets PyTorch compute the gradients, and updates the object and probe with an optimizer. It covers only the basic workflow; the [Differentiable Ptychography](../differentiable/overview.md) guide describes every option.
 #
 # **What you'll learn:**
 #
@@ -15,7 +15,7 @@
 #     `GradientEngine` runs on PyTorch, installed with the `torch` extra; see [Installation](../getting-started/installation.md#differentiable-ptychography) for GPU builds. It supports CPM with the Fraunhofer, Fresnel, ASP and scaledASP propagators, and its API may still change.
 #
 # !!! note "Dataset"
-#     The datasets are downloaded automatically into the `example_data/` folder at the project root the first time you run the tutorial, and not again if they exist. Most sections use `helicalbeam.hdf5` (about 350 MB), the dataset of the [CPM Mixed States](tutorial_mixedStates.md) tutorial, from L. Loetgering et al., "Generation and characterization of focused helical x-ray beams," Sci. Adv. 6, eaax8836 (2020). The last section uses `OPR_dp_processed.hdf5` (about 180 MB), the dataset of the [CPM Orthogonal Probe Relaxation](tutorial_OPR.md) tutorial.
+#     The datasets are downloaded automatically into the `example_data/` folder at the project root the first time you run the example, and not again if they exist. Most sections use `helicalbeam.hdf5` (about 350 MB), the dataset of the [CPM Mixed States](tutorial_mixedStates.md) example, from L. Loetgering et al., "Generation and characterization of focused helical x-ray beams," Sci. Adv. 6, eaax8836 (2020). The last section uses `OPR_dp_processed.hdf5` (about 180 MB), the dataset of the [CPM Orthogonal Probe Relaxation](tutorial_OPR.md) tutorial.
 #
 # !!! tip "Prerequisites"
 #     Complete [CPM Example Data](tutorial_CPM.md) before this tutorial. [CPM Mixed States](tutorial_mixedStates.md) explains the mixed-state model in more depth.
@@ -56,7 +56,7 @@ else:
 # %% [markdown]
 # ## Set up the data and the initial guesses
 #
-# `GradientEngine` uses the same `ExperimentalData`, `Reconstruction`, `Params` and `Monitor` as the classic engines. The data are loaded as in the [CPM Mixed States](tutorial_mixedStates.md) tutorial: orientation `4` (a transpose), and every second scan position, which halves the run time and leaves enough overlap.
+# `GradientEngine` uses the same `ExperimentalData`, `Reconstruction`, `Params` and `Monitor` as the classic engines. The data are loaded as in the [CPM Mixed States](tutorial_mixedStates.md) example: orientation `4` (a transpose), and every second scan position, which halves the run time and leaves enough overlap.
 
 # %%
 experimentalData = PtyLab.ExperimentalData(filePath, operationMode="CPM")
@@ -248,7 +248,7 @@ mixed.saveResults("helicalbeam_gradient.hdf5", snapshot=monitor)
 # %% [markdown]
 # ## Orthogonal probe relaxation
 #
-# The last section reconstructs the drifting EUV beam of the [CPM Orthogonal Probe Relaxation](tutorial_OPR.md) tutorial, which explains the model. The data and the geometry are loaded as there. Every scan position gets its own probe, so this run needs a GPU with about 16 GB; a smaller `engine.batchSize`, such as 64, lowers the peak.
+# The last section reconstructs the drifting EUV beam of the [CPM Orthogonal Probe Relaxation](tutorial_OPR.md) example, which explains the model. The data and the geometry are loaded as there. Every scan position gets its own probe, so this run needs a GPU with about 16 GB; a smaller `engine.batchSize`, such as 64, lowers the peak.
 
 # %%
 fileName = "OPR_dp_processed.hdf5"
@@ -290,7 +290,7 @@ monitor.objectZoom = 2
 monitor.probeZoom = 0.1
 
 # %% [markdown]
-# First a shared probe from the flat start, with `blind_recipe`. The constraints replace the switches of the OPR tutorial: `ProbeModeOrthogonalization` for `orthogonalizationSwitch`, `AbsorbingProbeBoundary` for `absorbingProbeBoundary` and `AbsorbingObject` for `absObjectSwitch`.
+# First a shared probe from the flat start, with `blind_recipe`. The constraints replace the switches of the OPR example: `ProbeModeOrthogonalization` for `orthogonalizationSwitch`, `AbsorbingProbeBoundary` for `absorbingProbeBoundary` and `AbsorbingObject` for `absObjectSwitch`.
 
 # %%
 constraints = [

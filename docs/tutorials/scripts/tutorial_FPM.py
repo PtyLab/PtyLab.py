@@ -1,7 +1,7 @@
 # %% [markdown]
 # # FPM Example Data
 #
-# This tutorial walks through a complete Fourier ptychographic microscopy (FPM) reconstruction. It loads a dataset recorded with an LED array, calibrates the LED positions, and recovers the high-resolution complex object and the pupil.
+# This example walks through a complete Fourier ptychographic microscopy (FPM) reconstruction. It loads a dataset recorded with an LED array, calibrates the LED positions, and recovers the high-resolution complex object and the pupil.
 #
 # **What you'll learn:**
 #

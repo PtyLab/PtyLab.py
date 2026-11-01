@@ -1,7 +1,7 @@
 # %% [markdown]
 # # CPM Interferometric Intensity Constraint
 #
-# This tutorial uses an extended forward model for reflection ptychography. Besides the reflection from the sample, the model includes a second reflection from a flat surface, which interferes with it like a reference wave. With this interferometric intensity constraint, the reconstruction becomes much less noisy.
+# This example uses an extended forward model for reflection ptychography. Besides the reflection from the sample, the model includes a second reflection from a flat surface, which interferes with it like a reference wave. With this interferometric intensity constraint, the reconstruction becomes much less noisy.
 #
 # **What you'll learn:**
 #

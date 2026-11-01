@@ -1,7 +1,7 @@
 # %% [markdown]
 # # CPM Orthogonal Probe Relaxation
 #
-# This tutorial reconstructs measured extreme-ultraviolet (EUV) data of a filamentous fungus, recorded while the illumination drifted. Mixed states model the partial coherence within each frame, but they still assume the same probe at every scan position. Orthogonal probe relaxation (OPR) lets the probe change from position to position, within a small set of shared basis probes.
+# This example reconstructs measured extreme-ultraviolet (EUV) data of a filamentous fungus, recorded while the illumination drifted. Mixed states model the partial coherence within each frame, but they still assume the same probe at every scan position. Orthogonal probe relaxation (OPR) lets the probe change from position to position, within a small set of shared basis probes.
 #
 # **What you'll learn:**
 #
@@ -117,7 +117,7 @@ monitor.objectZoom = 2
 monitor.probeZoom = 0.1
 
 # %% [markdown]
-# Besides the settings from earlier tutorials, two constraints help here:
+# Besides the settings from earlier examples, two constraints help here:
 #
 # | Setting | Effect |
 # |---------|--------|

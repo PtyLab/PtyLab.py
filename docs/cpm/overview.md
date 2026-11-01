@@ -113,7 +113,7 @@ The object and probe are 6D arrays of shape `(nlambda, nosm, npsm, nslice, N, N)
 Set the first four on the `Reconstruction` before `initializeObjectProbe()` to reconstruct several wavelengths, modes or slices.
 
 !!! note
-    Polychromatic reconstruction needs `spectralDensity` in the experimental data. Multislice reconstruction needs `nslice > 1` and the `e3PIE` engine; see [tutorial 05](../tutorials/tutorial_multiSlice.md).
+    Polychromatic reconstruction needs `spectralDensity` in the experimental data. Multislice reconstruction needs `nslice > 1` and the `e3PIE` engine; see [example 05](../tutorials/tutorial_multiSlice.md).
 
 ## Key concepts
 

@@ -1,6 +1,6 @@
-# Tutorials
+# Examples
 
-Hands-on tutorials covering CPM and FPM reconstruction from simulation and real data. 
+Hands-on examples covering CPM and FPM reconstruction from simulation and real data. 
 
 
 - [**01 – CPM Simulation**](tutorial_CPM_sim.md) — Simulate a CPM dataset and reconstruct it end-to-end.
@@ -18,7 +18,7 @@ Hands-on tutorials covering CPM and FPM reconstruction from simulation and real 
 - [**13 – CPM Differentiable Ptychography**](tutorial_differentiablePtychography.md) — Reconstruct with the PyTorch `GradientEngine`: forward model, loss, optimizer and mixed states.
 
 !!! note "Run time"
-    Most tutorials finish in a minute or two. The two marked *Long run* scan many calibration candidates and take several minutes even on a GPU, and much longer on a CPU. PtyLab uses the GPU automatically when CuPy finds one; see [installation](../getting-started/installation.md) for the CuPy extras.
+    Most examples finish in a minute or two. The two marked *Long run* scan many calibration candidates and take several minutes even on a GPU, and much longer on a CPU. PtyLab uses the GPU automatically when CuPy finds one; see [installation](../getting-started/installation.md) for the CuPy extras.
 
 !!! tip "Stuck?"
     The [User Guide](../cpm/overview.md) explains the [data format](../cpm/data-format.md), the [engines](../cpm/engines.md) and every [`Params` setting](../cpm/configuration.md). The [API Reference](../api/index.md) documents each class and function.

@@ -1,7 +1,7 @@
 # %% [markdown]
 # # CPM Multi-Slice
 #
-# This tutorial simulates a sample made of two layers 1 mm apart and reconstructs both layers separately with the multi-slice engine `e3PIE`. A conventional reconstruction treats the sample as one thin layer, which fails once the beam diffracts noticeably on its way through the sample.
+# This example simulates a sample made of two layers 1 mm apart and reconstructs both layers separately with the multi-slice engine `e3PIE`. A conventional reconstruction treats the sample as one thin layer, which fails once the beam diffracts noticeably on its way through the sample.
 #
 # **What you'll learn:**
 #
@@ -16,7 +16,7 @@
 #     No dataset is needed; the data are simulated in the tutorial.
 #
 # !!! tip "Prerequisites"
-#     Complete [CPM Simulation](tutorial_CPM_sim.md) before this tutorial; it uses the same geometry and probe.
+#     Complete [CPM Simulation](tutorial_CPM_sim.md) before this example; it uses the same geometry and probe.
 #
 # !!! info "Run time"
 #     The reconstructions take about half a minute on a GPU and considerably longer on a CPU.

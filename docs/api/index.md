@@ -1,6 +1,6 @@
 # API Reference
 
-These pages are generated from PtyLab's docstrings. Each class is listed with its methods, equations and source code. For how the pieces fit together, start with the [User Guide](../cpm/overview.md) or the [Tutorials](../tutorials/index.md).
+These pages are generated from PtyLab's docstrings. Each class is listed with its methods, equations and source code. For how the pieces fit together, start with the [User Guide](../cpm/overview.md) or the [Examples](../tutorials/index.md).
 
 ## How the main classes connect
 

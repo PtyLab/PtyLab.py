@@ -75,23 +75,23 @@ Then open [http://127.0.0.1:8000](http://127.0.0.1:8000) in your browser. The pa
 
 Write maths in LaTeX between `$...$` (inline) or `$$...$$` (display), and draw diagrams in a ` ```mermaid ` code block.
 
-### Tutorials
+### Examples
 
-Each tutorial is a Python script `tutorial_<name>.py` in `docs/tutorials/scripts/`, split into cells by `# %%` lines. If you add or change any of these scripts, re-render the tutorials with:
+Each example is a Python script `tutorial_<name>.py` in `docs/tutorials/scripts/`, split into cells by `# %%` lines. If you add or change any of these scripts, re-render the examples with:
 
 ```bash
-uv run ptylab docs render              # every tutorial whose script is new or changed
+uv run ptylab docs render              # every example whose script is new or changed
 ```
 
 For rendering just a specific one, even if its script did not change (for example, after changing the code it uses):
 
 ```bash
-uv run ptylab docs render <tutorial-name> # single tutorial (with or without .py)
+uv run ptylab docs render <script-name> # single example (with or without .py)
 ```
 
-This runs the script and saves the page and its figures in `docs/tutorials/` (`<tutorial-name>.md` and `<tutorial-name>_files/`), which should be committed as well. The `.ipynb` it also writes there is not committed. In the end, run `uv run ptylab docs check`, which reports pages that are out of date and tutorials missing from the index or the nav, as CI does.
+This runs the script and saves the page and its figures in `docs/tutorials/` (`<script-name>.md` and `<script-name>_files/`), which should be committed as well. The `.ipynb` it also writes there is not committed. In the end, run `uv run ptylab docs check`, which reports pages that are out of date and examples missing from the index or the nav, as CI does.
 
-New feature, such as an engine or a constraint? Please add a tutorial for it. List it in `docs/tutorials/index.md` and in the `nav` of `mkdocs.yml`.
+New feature, such as an engine or a constraint? Please add an example for it. List it in `docs/tutorials/index.md` and in the `nav` of `mkdocs.yml`.
 
 ## 3. Submit a pull request
 

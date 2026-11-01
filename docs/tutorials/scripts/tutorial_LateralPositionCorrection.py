@@ -1,7 +1,7 @@
 # %% [markdown]
 # # CPM Position Correction
 #
-# This tutorial shows how to correct errors in the scan positions. Such errors come from stage imperfections or thermal drift. PtyLab estimates the positions together with the object and probe during the reconstruction.
+# This example shows how to correct errors in the scan positions. Such errors come from stage imperfections or thermal drift. PtyLab estimates the positions together with the object and probe during the reconstruction.
 #
 # **What you'll learn:**
 #
