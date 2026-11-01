@@ -348,7 +348,7 @@ Every detector-plane array uses the centered pixel order of `fft2c`, as in the c
 | `models` | `PtychographyModel`, `SharedProbe`, `OPRProbe`, `probe_scale` |
 | `propagation` | `KernelPropagator`: fixed Fraunhofer, Fresnel, ASP and scaled-ASP kernels |
 | `losses` | Data objectives |
-| `regularizers` | Penalties on the model |
+| `regularizers` | `object_smoothness`, `object_tv` |
 | `constraints` | `Constraint`, `ProbeCentering`, `ObjectAmplitudeClamp`, `AbsorbingObject`, `PhaseRampRemoval`, `ProbeModeOrthogonalization`, `ObjectStateOrthogonalization`, `AbsorbingProbeBoundary`, `OPRProjection` |
 | `phases` | `Phase`, `blind_recipe` |
 

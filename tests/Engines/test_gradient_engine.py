@@ -190,6 +190,27 @@ def test_asp_rejects_different_pixel_spacings(engine):
         engine.reconstruct()
 
 
+def test_object_tv_value_and_flat_gradient():
+    from types import SimpleNamespace
+
+    from PtyLab.Engines.GradientEngine.regularizers import object_tv
+
+    # Reference: isotropic TV with forward differences on the (N-1, N-1) grid.
+    rng = np.random.default_rng(0)
+    obj = rng.normal(size=(2, 6, 6)) + 1j * rng.normal(size=(2, 6, 6))
+    dy = obj[:, 1:, :-1] - obj[:, :-1, :-1]
+    dx = obj[:, :-1, 1:] - obj[:, :-1, :-1]
+    expected = 2.0 * np.sqrt(abs(dy) ** 2 + abs(dx) ** 2 + 1e-3).mean()
+    model = SimpleNamespace(object=torch.as_tensor(obj))
+    value = object_tv(model, weight=2.0, epsilon=1e-3)
+    assert value.item() == pytest.approx(expected)
+
+    # A flat object has zero differences; epsilon keeps the gradient finite.
+    flat = torch.ones(1, 1, 1, 1, 8, 8, dtype=torch.complex64, requires_grad=True)
+    object_tv(SimpleNamespace(object=flat)).backward()
+    assert torch.isfinite(torch.view_as_real(flat.grad)).all()
+
+
 def test_component_regularizer_matches_subclass_hook(engine):
     from copy import deepcopy
     from functools import partial
