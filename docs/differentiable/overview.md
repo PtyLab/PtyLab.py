@@ -9,10 +9,11 @@
 
 - Conventional ptychography (CPM) only.
 - Mixed states: any number of object states (`nosm`) and probe states (`npsm`), see [Mixed states](#mixed-states).
-- Currently does not support multiwavelength or multislice yet. However this is being implemented in stages. The unified array layout of PtyLab is maintained for overall consistency in implementation.
+- Orthogonal probe relaxation: one probe per scan frame, kept low rank, see [Orthogonal probe relaxation](#orthogonal-probe-relaxation).
+- Currently does not support multiwavelength or multislice yet. However this is being implemented in stages. The six-axis object and probe layout of `Reconstruction` is kept for consistency with the other engines.
 - Propagators: `Fraunhofer`, `Fresnel`, `ASP` and `scaledASP`.
 - Centered data (`params.fftshiftSwitch = False`) and the standard intensity constraint.
-- PtyLab switches that have no gradient-based counterpart yet (position correction, TV regularization, OPR, momentum and others) are rejected at the start of a run. The full list is `GradientEngine.unsupportedSettings`.
+- `Params` switches that have no gradient-based counterpart yet (position correction, TV regularization, momentum and others) are rejected at the start of a run. The full list is `GradientEngine.unsupportedSettings`.
 
 ## Installation
 
@@ -91,7 +92,47 @@ from PtyLab.Engines.GradientEngine import ProbeCentering, ProbeModeOrthogonaliza
 engine.constraints = [ProbeCentering(), ProbeModeOrthogonalization(step=10)]
 ```
 
-PtyLab's `params.orthogonalizationSwitch` is not used by this engine; the constraint replaces it.
+Object states (`nosm > 1`) have the same freedom. `ObjectStateOrthogonalization` rotates them into orthogonal states, strongest first. Unlike the classic engines (`BaseEngine.orthogonalization`), which orthogonalize the object only when there is a single probe mode, both constraints can be used together, because each rotation leaves the intensities unchanged on its own:
+
+```python
+from PtyLab.Engines.GradientEngine import ObjectStateOrthogonalization
+
+engine.constraints = [ProbeCentering(), ProbeModeOrthogonalization(step=10), ObjectStateOrthogonalization(step=10)]
+```
+
+`params.orthogonalizationSwitch` is not used by this engine; the constraints replace it.
+
+## Orthogonal probe relaxation
+
+When the illumination changes from frame to frame, as with the pulse-to-pulse flux, pointing and wavefront changes of a high-harmonic source, one shared probe cannot fit every frame. Orthogonal probe relaxation (OPR) gives frame $j$ its own probe $P_j$ and keeps the stack of all frame probes low rank,
+
+$$
+P_j(\mathbf r) \approx \sum_{k=1}^{K} c_{jk}\,B_k(\mathbf r),
+$$
+
+with $K$ shared patterns $B_k$ and frame coefficients $c_{jk}$, as the classic `OPR` engine does. Every probe mode varies between frames; the modes still add incoherently within a frame.
+
+First fit a shared probe, then relax it:
+
+```python
+from PtyLab.Engines.GradientEngine import OPRProjection, ProbeModeOrthogonalization, blind_recipe
+
+engine.run(blind_recipe(1000))     # shared probe
+engine.relaxProbe()                # every frame starts from the shared probe
+engine.constraints = [OPRProjection(rank=4, relax=0.05), ProbeModeOrthogonalization(step=10)]
+engine.numIterations = 300
+engine.reconstruct()
+```
+
+- `relaxProbe()` replaces the shared probe by an `OPRProbe` of shape `(frames, nlambda, 1, npsm, 1, Np, Np)`. The parameter keeps the name `"probe.field"`, so `parameters`, learning rates and phases are unchanged.
+- `OPRProjection(rank=K)` replaces the stack by its closest rank-$K$ stack after every step, for each wavelength and mode. `relax` blends it with the unprojected stack, like `params.OPR_alpha`, and `rank` plays the role of `params.OPR_subspace`. The `params.OPR_*` switches are not used by this engine.
+- With an `OPRProbe`, `ProbeModeOrthogonalization` orthogonalizes the modes of each frame, like `params.OPR_orthogonalize_modes`.
+- `ProbeCentering`, `PhaseRampRemoval` and `AbsorbingProbeBoundary` act on the whole stack.
+- At the end of a run, `reconstruction.probe_stack` holds the frame probes in the layout of the classic `OPR` engine, `(nlambda, 1, npsm, 1, Np, Np, frames)`. `reconstruction.probe` holds the dominant component of the stack (`OPRProbe.shared_estimate`), the single probe that best represents all frames.
+- To start from a stack, for example one from the classic `OPR` engine, call `relaxProbe()`, set `reconstruction.probe_stack` and call `reset()`.
+- `engine.model.probe.frame_powers()` gives the power of every frame and mode; `mode_powers()` is their mean over the frames.
+
+The stack and Adam's two moments take three times `frames × npsm × Np² × 8` bytes: about 40 GB for 101 frames, 4 modes and 2048² pixels.
 
 ## Optimizers
 
@@ -135,11 +176,11 @@ dark = ...                                           # (n_dark, N, N) dark frame
 data.ptychogram = data.ptychogram - dark.mean(axis=0)  # negative values stay
 ```
 
-Set `engine.background` to a scalar or a frame-shaped image in PtyLab's centered order for a background that carries shot noise, such as stray light. It is fixed by default and estimated (kept nonnegative) when `"background"` is selected in `parameters`. Every loss counts $b$ as photons, with variance $g(I + b) + \sigma^2$. Do not put the dark mean into `engine.background`: its offset has no shot noise, so the loss would overestimate the variance of every dark pixel and give the weak high-angle signal too little weight. The offset would also inflate the total power and the probe scale.
+Set `engine.background` to a scalar or a frame-shaped image in centered order (zero frequency at the centre, as `fft2c`) for a background that carries shot noise, such as stray light. It is fixed by default and estimated (kept nonnegative) when `"background"` is selected in `parameters`. Every loss counts $b$ as photons, with variance $g(I + b) + \sigma^2$. Do not put the dark mean into `engine.background`: its offset has no shot noise, so the loss would overestimate the variance of every dark pixel and give the weak high-angle signal too little weight. The offset would also inflate the total power and the probe scale.
 
 ### Readout noise per pixel
 
-`read_out_sigma` can be bound in the loss as one number. When the noise differs between pixels (hot pixels, detector glow/amp-glow), it is preferable to give it to the engine instead as `engine.readoutSigma`, in the same units as the loss's `read_out_sigma`: either a scalar, used for every detector pixel, or one frame-shaped map $\sigma(\mathbf q)$ in PtyLab's centered order. The map is typically the temporal standard deviation of the dark frames whose mean was subtracted from the data (see [Detector background](#detector-background)); any number of dark frames can be used. It holds the readout noise and the dark-current shot noise, which is the noise left after the subtraction.
+`read_out_sigma` can be bound in the loss as one number. When the noise differs between pixels (hot pixels, detector glow/amp-glow), it is preferable to give it to the engine instead as `engine.readoutSigma`, in the same units as the loss's `read_out_sigma`: either a scalar, used for every detector pixel, or one frame-shaped map $\sigma(\mathbf q)$ in centered order (as `fft2c`). The map is typically the temporal standard deviation of the dark frames whose mean was subtracted from the data (see [Detector background](#detector-background)); any number of dark frames can be used. It holds the readout noise and the dark-current shot noise, which is the noise left after the subtraction.
 
 ```python
 engine.lossFunction = partial(poisson_loss, gain=g)
@@ -183,11 +224,14 @@ engine.constraints = [
 |---|---|
 | `ProbeCentering` | Rolls probe and object so that the probe's centre of mass stays at the window centre. Leaves Fraunhofer intensities unchanged. |
 | `ObjectAmplitudeClamp` | Limits the object amplitude to `[minimum, maximum]`, keeping the phase. |
+| `AbsorbingObject` | Pulls the object towards its modulus, $O \leftarrow (1 - \beta)O + \beta|O|$ with `beta` $= \beta$ (default 0.01), like `params.absObjectSwitch` with `params.absObjectBeta`. Shrinks the object phase towards 0; for samples whose phase carries little information. |
 | `PhaseRampRemoval` | Moves a linear phase ramp and a global phase from the object to the probe. Leaves all predicted intensities unchanged. |
-| `ProbeModeOrthogonalization` | Rotates the probe modes into orthogonal modes, strongest first, by the same snapshot method as PtyLab's `orthogonalizeModes`. Leaves all predicted intensities unchanged. |
-| `AbsorbingProbeBoundary` | Damps the probe near the edges of its window by the same super-Gaussian window as PtyLab's `absorbingProbeBoundary`: $P \leftarrow [(1 - a) + aW]P$ with `aleph` $= a$ (default 0.05). Keeps weak modes from drifting into the window corners, where they light object regions nothing else constrains. |
+| `ProbeModeOrthogonalization` | Rotates the probe modes into orthogonal modes, strongest first, by the same snapshot method as `PtyLab.utils.utils.orthogonalizeModes`, used by the classic engines. Leaves all predicted intensities unchanged. |
+| `ObjectStateOrthogonalization` | The same for the object states (`nosm > 1`), over the whole object grid. Leaves all predicted intensities unchanged, also together with `ProbeModeOrthogonalization`. |
+| `OPRProjection` | Replaces a per-frame probe stack (after `relaxProbe()`) by its closest rank-`rank` stack, for each wavelength and mode. See [Orthogonal probe relaxation](#orthogonal-probe-relaxation). |
+| `AbsorbingProbeBoundary` | Damps the probe near the edges of its window by the same super-Gaussian window as the classic engines' `params.absorbingProbeBoundary`: $P \leftarrow [(1 - a) + aW]P$ with `aleph` $= a$ (default 0.05). Keeps weak modes from drifting into the window corners, where they light object regions nothing else constrains. |
 
-Each constraint takes the schedule arguments `start`, `step`, `end` (iterations) and `relax` (fraction of the correction that is not applied). Constraints that move or scale a parameter also move or scale its optimizer state. PtyLab's `absorbingProbeBoundary` switch stays in `unsupportedSettings`; add `AbsorbingProbeBoundary()` to the list instead. Any callable `constraint(engine, iteration)` is accepted, and subclasses of `Constraint` get the schedule for free. Subclasses of `GradientEngine` can still override `afterStep(iteration)`, which runs after the constraints.
+Each constraint takes the schedule arguments `start`, `step`, `end` (iterations) and `relax` (fraction of the correction that is not applied). Constraints that move or scale a parameter also move or scale its optimizer state. The `params.absorbingProbeBoundary` and `params.absObjectSwitch` switches stay in `unsupportedSettings`; add `AbsorbingProbeBoundary()` or `AbsorbingObject()` to the list instead. Any callable `constraint(engine, iteration)` is accepted, and subclasses of `Constraint` get the schedule for free. Subclasses of `GradientEngine` can still override `afterStep(iteration)`, which runs after the constraints.
 
 ## Reconstruction Phases
 
@@ -258,20 +302,21 @@ Model tensors have these shapes:
 |---|---|
 | Object | `(nlambda, nosm, 1, nslice, No, No)` |
 | Probe | `(nlambda, 1, npsm, 1, Np, Np)` |
+| Probe stack (`OPRProbe`) | `(frames, nlambda, 1, npsm, 1, Np, Np)` |
 | Predicted intensity | `(batch, Np, Np)` |
 
-Every detector-plane array uses PtyLab's centered pixel order: predicted intensities, `engine.measuredIntensities`, `engine.background`, `engine.readoutSigma` and any per-pixel weights or masks in a custom loss. `engine.centeredIntensity(intensity)` returns a NumPy copy, for plotting.
+Every detector-plane array uses the centered pixel order of `fft2c`, as in the classic engines: predicted intensities, `engine.measuredIntensities`, `engine.background`, `engine.readoutSigma` and any per-pixel weights or masks in a custom loss. `engine.centeredIntensity(intensity)` returns a NumPy copy, for plotting.
 
 ## Modules
 
 | Module | Contents |
 |---|---|
 | `engine` | `GradientEngine` |
-| `models` | `PtychographyModel`, `SharedProbe`, `probe_scale` |
+| `models` | `PtychographyModel`, `SharedProbe`, `OPRProbe`, `probe_scale` |
 | `propagation` | `KernelPropagator`: fixed Fraunhofer, Fresnel, ASP and scaled-ASP kernels |
 | `losses` | Data objectives |
 | `regularizers` | Penalties on the model |
-| `constraints` | `Constraint`, `ProbeCentering`, `ObjectAmplitudeClamp`, `PhaseRampRemoval`, `ProbeModeOrthogonalization`, `AbsorbingProbeBoundary` |
+| `constraints` | `Constraint`, `ProbeCentering`, `ObjectAmplitudeClamp`, `AbsorbingObject`, `PhaseRampRemoval`, `ProbeModeOrthogonalization`, `ObjectStateOrthogonalization`, `AbsorbingProbeBoundary`, `OPRProjection` |
 | `phases` | `Phase`, `blind_recipe` |
 
 The docstrings of each module give the equations and all options; they are rendered in the [Gradient Engine API reference](../api/gradient-engine.md).
