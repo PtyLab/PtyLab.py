@@ -15,10 +15,10 @@
 #     - Dataset: M. Du et al., "Ptychographic optical coherence tomography," Opt. Lett. 46, 1337 (2021). [doi:10.1364/OL.416144](https://doi.org/10.1364/OL.416144)
 #
 # !!! note "Dataset"
-#     The dataset (`TwoLayer_bin4.hdf5`) is downloaded automatically into the `example_data/` folder at the project root the first time you run the tutorial. If the file already exists it is not re-downloaded.
+#     The dataset (`TwoLayer_bin4.hdf5`) is downloaded into `example_data/` at the project root on the first run.
 #
 # !!! tip "Prerequisites"
-#     Complete [CPM Simulation](tutorial_CPM_sim.md) before this tutorial. The angle calibration works like the scan in [CPM Purity-Based Calibration](tutorial_purityCalibration.md).
+#     Complete [CPM Simulation](tutorial_CPM_sim.md) before this example. The angle calibration works like the scan in [CPM Purity-Based Calibration](tutorial_purityCalibration.md).
 #
 # !!! info "Run time"
 #     The angle calibration runs about a dozen short reconstructions, one per candidate angle. The whole example takes about 10 minutes on a GPU and considerably longer on a CPU.

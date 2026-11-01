@@ -1,19 +1,31 @@
 # Differentiable Ptychography
 
-`PtyLab.Engines.GradientEngine` implements differentiable ptychography that implements gradient-based optimization for phase-retrieval. This module leverages the automatic differentiation capability of PyTorch. A forward model predicts the detector intensity of every scan frame, a loss compares it with the measurements, and an optimizer updates the parameters you select.
 
-!!! warning
-    The module is a work in progress. The API described here should stay stable, but this is not guaranteed yet. This page would also update with new changes.
+`PtyLab.Engines.GradientEngine` reconstructs with gradients from PyTorch's automatic differentiation. A forward model predicts the detector intensity of every scan frame, a loss compares it with the measurements, and an optimizer updates the parameters you select.
+
+```mermaid
+flowchart LR
+    est["Object and probe"] --> model["Forward model"]
+    model --> loss["Loss"]
+    meas[(Measured data)] --> loss
+    loss -->|gradients| opt["Optimizer step"]
+    opt -.->|next iteration| est
+```
+
+
 
 ## Scope
 
 - Conventional ptychography (CPM) only.
 - Mixed states: any number of object states (`nosm`) and probe states (`npsm`), see [Mixed states](#mixed-states).
 - Orthogonal probe relaxation: one probe per scan frame, kept low rank, see [Orthogonal probe relaxation](#orthogonal-probe-relaxation).
-- Currently does not support multiwavelength or multislice yet. However this is being implemented in stages. The six-axis object and probe layout of `Reconstruction` is kept for consistency with the other engines.
+- Currently, multi-wavelength and multislice are not supported yet. However, the object and probe keep the six-axis layout of `Reconstruction`, as in the other engines.
 - Propagators: `Fraunhofer`, `Fresnel`, `ASP` and `scaledASP`.
 - Centered data (`params.fftshiftSwitch = False`) and the standard intensity constraint.
-- `Params` switches that have no gradient-based counterpart yet (position correction, TV regularization, momentum and others) are rejected at the start of a run. The full list is `GradientEngine.unsupportedSettings`.
+- `Params` switches that have no gradient-based counterpart yet (position correction, momentum and others) are rejected at the start of a run. The full list is `GradientEngine.unsupportedSettings`. Regularization such as TV is added through [`engine.regularizers`](#regularizers) instead of the `Params` switches.
+
+!!! warning
+    The module is a work in progress. The API should stay fixed as well, but in case it doesn't, a deprecation warning would be raised.
 
 ## Installation
 
@@ -97,7 +109,11 @@ Object states (`nosm > 1`) have the same freedom. `ObjectStateOrthogonalization`
 ```python
 from PtyLab.Engines.GradientEngine import ObjectStateOrthogonalization
 
-engine.constraints = [ProbeCentering(), ProbeModeOrthogonalization(step=10), ObjectStateOrthogonalization(step=10)]
+engine.constraints = [
+    ProbeCentering(),
+    ProbeModeOrthogonalization(step=10),
+    ObjectStateOrthogonalization(step=10),
+]
 ```
 
 `params.orthogonalizationSwitch` is not used by this engine; the constraints replace it.
@@ -115,11 +131,18 @@ with $K$ shared patterns $B_k$ and frame coefficients $c_{jk}$, as the classic `
 First fit a shared probe, then relax it:
 
 ```python
-from PtyLab.Engines.GradientEngine import OPRProjection, ProbeModeOrthogonalization, blind_recipe
+from PtyLab.Engines.GradientEngine import (
+    OPRProjection,
+    ProbeModeOrthogonalization,
+    blind_recipe,
+)
 
-engine.run(blind_recipe(1000))     # shared probe
-engine.relaxProbe()                # every frame starts from the shared probe
-engine.constraints = [OPRProjection(rank=4, relax=0.05), ProbeModeOrthogonalization(step=10)]
+engine.run(blind_recipe(1000))  # shared probe
+engine.relaxProbe()  # every frame starts from the shared probe
+engine.constraints = [
+    OPRProjection(rank=4, relax=0.05),
+    ProbeModeOrthogonalization(step=10),
+]
 engine.numIterations = 300
 engine.reconstruct()
 ```
@@ -160,7 +183,7 @@ All losses expect intensities in detector units, sum over pixels and frames, and
 
 ## Detector background
 
-A camera frame holds more than the sample's photons. Each part goes where its noise is described correctly:
+A raw camera frame holds more than the sample's photons. Each part goes where the loss models its noise correctly:
 
 | Part of a raw frame | Noise | Where it goes |
 |---|---|---|
@@ -172,7 +195,7 @@ A camera frame holds more than the sample's photons. Each part goes where its no
 With dark frames taken at the scan's exposure, subtract their mean from the frames, without clipping, before `reconstruct()`. This removes the offset and the mean dark current in one step:
 
 ```python
-dark = ...                                           # (n_dark, N, N) dark frames, centered order
+dark = ...  # (n_dark, N, N) dark frames, centered order
 data.ptychogram = data.ptychogram - dark.mean(axis=0)  # negative values stay
 ```
 
@@ -180,11 +203,11 @@ Set `engine.background` to a scalar or a frame-shaped image in centered order (z
 
 ### Readout noise per pixel
 
-`read_out_sigma` can be bound in the loss as one number. When the noise differs between pixels (hot pixels, detector glow/amp-glow), it is preferable to give it to the engine instead as `engine.readoutSigma`, in the same units as the loss's `read_out_sigma`: either a scalar, used for every detector pixel, or one frame-shaped map $\sigma(\mathbf q)$ in centered order (as `fft2c`). The map is typically the temporal standard deviation of the dark frames whose mean was subtracted from the data (see [Detector background](#detector-background)); any number of dark frames can be used. It holds the readout noise and the dark-current shot noise, which is the noise left after the subtraction.
+`read_out_sigma` can be bound in the loss as one number. When the noise differs between pixels (hot pixels, amp glow), give it to the engine as `engine.readoutSigma` instead, in the same units: a scalar for every pixel, or one frame-shaped map $\sigma(\mathbf q)$ in centered order (as `fft2c`). The map is usually the standard deviation over the dark frames whose mean was subtracted from the data (see [Detector background](#detector-background)). It holds the readout noise and the dark-current shot noise, which is the noise left after the subtraction.
 
 ```python
 engine.lossFunction = partial(poisson_loss, gain=g)
-engine.readoutSigma = dark.std(axis=0)      # one sigma per detector pixel
+engine.readoutSigma = dark.std(axis=0)  # one sigma per detector pixel
 ```
 
 The engine passes the map to the loss as `read_out_sigma`. The loss must have a `read_out_sigma` argument, and must not bind its own: setting it in both places raises an error. `amplitude_loss` takes a map only with `anscombe_offset_switch=True`. A per-pixel standard deviation from $n$ dark frames has a relative error of about $1/\sqrt{2(n-1)}$, so use tens of frames.
@@ -201,6 +224,13 @@ from PtyLab.Engines.GradientEngine.regularizers import object_smoothness
 
 engine.regularizers = [partial(object_smoothness, weight=1e-4)]
 ```
+
+| Regularizer | Penalty | Effect |
+|---|---|---|
+| `object_smoothness` | $w\,\langle\lvert\Delta_y O\rvert^2\rangle + w\,\langle\lvert\Delta_x O\rvert^2\rangle$ | Squared differences between neighbouring pixels (L2 on the gradient). Smooths noise and edges alike. |
+| `object_tv` | $w\,\langle\sqrt{\lvert\Delta_y O\rvert^2 + \lvert\Delta_x O\rvert^2 + \epsilon}\rangle$ | Total variation (L1 on the gradient). Removes small noisy variations and keeps sharp edges. Replaces `params.objectTVregSwitch`. |
+
+$\Delta_y O$ and $\Delta_x O$ are the differences between neighbouring object pixels, $\langle\cdot\rangle$ the mean over pixels and modes, $w$ is `weight` (default 1e-4) and $\epsilon$ is `epsilon` (default 1e-6), which keeps the gradient finite where the object is flat. The losses are normalized by the total measured power, so a useful `weight` is usually between 1e-4 and 1e-2.
 
 ## Constraints
 
@@ -240,10 +270,12 @@ A reconstruction often needs different settings at different times. `engine.run(
 ```python
 from PtyLab.Engines.GradientEngine import Phase
 
-engine.run([
-    Phase(200, {"object": {"lr": 0.03}}, name="object only"),
-    Phase(800, {"object": {"lr": 0.03}, "probe.field": {"lr": 0.1}}),
-])
+engine.run(
+    [
+        Phase(200, {"object": {"lr": 0.03}}, name="object only"),
+        Phase(800, {"object": {"lr": 0.03}, "probe.field": {"lr": 0.1}}),
+    ]
+)
 ```
 
 `Phase` sets `parameters`, `optimizerType`, `loss`, `constraints` and `readoutSigma`. A field left at None takes the engine's own setting, not that of an earlier phase. `run` restores the engine's settings afterwards, writes the errors of all phases to `reconstruction.error`, and returns one history per phase.
@@ -260,7 +292,7 @@ For raw frames, subtract the dark mean from the data (see [Detector background](
 
 ```python
 data.ptychogram = data.ptychogram - dark.mean(axis=0)
-engine.background = stray        # optional: a Poisson background such as stray light
+engine.background = stray  # optional: a Poisson background such as stray light
 engine.run(
     blind_recipe(
         iterations=1000,
@@ -279,7 +311,7 @@ By default the whole scan is forwarded as one tensor and the optimizer takes one
 - `memoryBudget` (CUDA only) is a number of bytes. The engine measures and picks the largest batch whose iteration fits within it. `engine.suggestBatchSize(budget)` runs the same search on its own.
 - `dataDevice` sets where the measurements are kept. None keeps them on `device` unless they would take more than half of the free GPU memory; `"cpu"` keeps them in pinned host memory and copies each batch while the previous one is computed.
 - `updatePerBatch = True` takes one step per batch instead. Combine it with `params.positionOrder = "random"` so that each batch samples the whole scan.
-- `compile = True` evaluates the loss through `torch.compile`. Only the real-valued loss is compiled, and the gain is small; it is off by default.
+- `compile = True` runs the loss through `torch.compile`. Only the real-valued loss is compiled and the gain is small, so it is off by default.
 
 ## Custom models
 
@@ -287,6 +319,7 @@ The default model is a `PtychographyModel` that owns the object and a `SharedPro
 
 ```python
 from PtyLab.Engines.GradientEngine import GradientEngine, PtychographyModel, SharedProbe
+
 
 class MyEngine(GradientEngine):
     def createModel(self):

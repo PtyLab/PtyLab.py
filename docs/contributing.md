@@ -1,8 +1,8 @@
 # Contributing
 
-This page is for contributors of this library. To use PtyLab, see [Installation](getting-started/installation.md).
+This page is for contributors. To use PtyLab, see [Installation](getting-started/installation.md).
 
-Contributing follows three steps: [set up](#1-set-up) a local copy, [make your changes](#2-make-changes) with tests, and [submit a pull request](#3-submit-a-pull-request).
+There are three steps: [set up](#1-set-up) a local copy, [make your changes](#2-make-changes) with tests, and [submit a pull request](#3-submit-a-pull-request).
 
 ## 1. Set up
 
@@ -55,7 +55,7 @@ uv run ruff format path/to/changed_file.py
 
 ### Tests
 
-Add tests for new implementations and run the suite with:
+Add tests for new code and run the suite with:
 
 ```bash
 uv run pytest tests
@@ -83,15 +83,15 @@ Each example is a Python script `tutorial_<name>.py` in `docs/tutorials/scripts/
 uv run ptylab docs render              # every example whose script is new or changed
 ```
 
-For rendering just a specific one, even if its script did not change (for example, after changing the code it uses):
+To render one example, even if its script did not change (for example, after changing the code it uses):
 
 ```bash
 uv run ptylab docs render <script-name> # single example (with or without .py)
 ```
 
-This runs the script and saves the page and its figures in `docs/tutorials/` (`<script-name>.md` and `<script-name>_files/`), which should be committed as well. The `.ipynb` it also writes there is not committed. In the end, run `uv run ptylab docs check`, which reports pages that are out of date and examples missing from the index or the nav, as CI does.
+This runs the script and saves the page and its figures in `docs/tutorials/` (`<script-name>.md` and `<script-name>_files/`); commit these too. The `.ipynb` it also writes there is not committed. Finally, run `uv run ptylab docs check`, which reports pages that are out of date and examples missing from the index or the nav, as CI does.
 
-New feature, such as an engine or a constraint? Please add an example for it. List it in `docs/tutorials/index.md` and in the `nav` of `mkdocs.yml`.
+If you add a feature such as an engine or a constraint, please add an example for it. List it in `docs/tutorials/index.md` and in the `nav` of `mkdocs.yml`.
 
 ## 3. Submit a pull request
 

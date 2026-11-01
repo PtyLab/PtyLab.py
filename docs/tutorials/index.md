@@ -1,6 +1,6 @@
 # Examples
 
-Hands-on examples covering CPM and FPM reconstruction from simulation and real data. 
+Worked CPM and FPM reconstructions on simulated and real data.
 
 
 - [**01 – CPM Simulation**](tutorial_CPM_sim.md) — Simulate a CPM dataset and reconstruct it end-to-end.

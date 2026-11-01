@@ -15,10 +15,10 @@
 #     - mPIE: A. M. Maiden, D. Johnson and P. Li, "Further improvements to the ptychographical iterative engine," Optica 4, 736 (2017). [doi:10.1364/OPTICA.4.000736](https://doi.org/10.1364/OPTICA.4.000736)
 #
 # !!! note "Dataset"
-#     The dataset (`simu.hdf5`) is generated automatically into the `example_data/` folder at the project root the first time you run the tutorial. If the file already exists it is not re-generated.
+#     The dataset (`simu.hdf5`) is generated in `example_data/` at the project root on the first run.
 #
 # !!! tip "Prerequisites"
-#     Complete [CPM Simulation](tutorial_CPM_sim.md) before this tutorial.
+#     Complete [CPM Simulation](tutorial_CPM_sim.md) before this example.
 
 # %%
 import matplotlib

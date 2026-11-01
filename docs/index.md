@@ -1,7 +1,7 @@
 # PtyLab.py
 
 !!! warning "Work in progress"
-    This documentation is still being written, so some details may either be incomplete or might not match the current codebase. Please open an [issue](https://github.com/PtyLab/PtyLab.py/issues) if you find any inconsistencies.
+    This documentation is still being written, so some details may be incomplete or out of date. Please open an [issue](https://github.com/PtyLab/PtyLab.py/issues) if something does not match the code.
 
 PtyLab is an inverse modeling toolbox for **conventional (CPM)** and **Fourier (FPM)** ptychography in a unified framework. See the [paper](https://opg.optica.org/oe/fulltext.cfm?uri=oe-31-9-13763&id=529026) for details.
 
@@ -21,7 +21,7 @@ PtyLab is an inverse modeling toolbox for **conventional (CPM)** and **Fourier (
 
 PtyLab.py is built around a 6D array `(nlambda, nosm, npsm, nslice, N, N)`, i.e. wavelengths, object and probe state mixtures, depth slices, then the frame.
 
-As shown below, the data flow to a reconstruction involves five core classes: `ExperimentalData`, `Reconstruction`, `Params`, `Engine` and `Monitor`.
+A reconstruction uses five classes: `ExperimentalData`, `Reconstruction`, `Params`, `Engine` and `Monitor`.
 
 ```mermaid
 flowchart LR

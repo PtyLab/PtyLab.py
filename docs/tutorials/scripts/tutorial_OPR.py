@@ -14,13 +14,13 @@
 #     - Dataset: C. Liu et al., "Visualizing the ultra-structure of microorganisms using table-top extreme ultraviolet imaging," PhotoniX 4, 6 (2023). [doi:10.1186/s43074-023-00084-6](https://doi.org/10.1186/s43074-023-00084-6)
 #
 # !!! note "Dataset"
-#     The dataset (`OPR_dp_processed.hdf5`, about 180 MB) is downloaded automatically into the `example_data/` folder at the project root the first time you run the tutorial. If the file already exists it is not re-downloaded.
+#     The dataset (`OPR_dp_processed.hdf5`, about 180 MB) is downloaded into `example_data/` at the project root on the first run.
 #
 # !!! warning "GPU required"
 #     The `OPR` engine currently runs only on a GPU with CuPy installed; see [Installation](../getting-started/installation.md).
 #
 # !!! tip "Prerequisites"
-#     Complete [CPM Mixed States](tutorial_mixedStates.md) before this tutorial.
+#     Complete [CPM Mixed States](tutorial_mixedStates.md) before this example.
 #
 # !!! info "Run time"
 #     The reconstruction takes about a minute on a GPU; most of it is OPR, which keeps and updates a probe for each of the 707 scan positions.

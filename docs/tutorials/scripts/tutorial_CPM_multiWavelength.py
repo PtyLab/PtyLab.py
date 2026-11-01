@@ -13,10 +13,10 @@
 #     - Multi-wavelength ptychography (ptychographic information multiplexing): D. J. Batey, D. Claus and J. M. Rodenburg, "Information multiplexing in ptychography," Ultramicroscopy 138, 13–21 (2014). [doi:10.1016/j.ultramic.2013.12.003](https://doi.org/10.1016/j.ultramic.2013.12.003)
 #
 # !!! note "Dataset"
-#     The dataset (`Brain_smoothBeam_poly_bin8.hdf5`, ~500 MB) is downloaded automatically into the `example_data/` folder at the project root the first time you run the tutorial. If the file already exists it is not re-downloaded.
+#     The dataset (`Brain_smoothBeam_poly_bin8.hdf5`, ~500 MB) is downloaded into `example_data/` at the project root on the first run.
 #
 # !!! tip "Prerequisites"
-#     Complete [CPM Simulation](tutorial_CPM_sim.md) before this tutorial.
+#     Complete [CPM Simulation](tutorial_CPM_sim.md) before this example.
 
 # %%
 import matplotlib

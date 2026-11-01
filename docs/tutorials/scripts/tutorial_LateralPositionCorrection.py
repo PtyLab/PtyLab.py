@@ -13,10 +13,10 @@
 #     - Position correction: F. Zhang et al., "Translation position determination in ptychographic coherent diffraction imaging," Opt. Express 21, 13592 (2013). [doi:10.1364/OE.21.013592](https://doi.org/10.1364/OE.21.013592)
 #
 # !!! note "Dataset"
-#     The dataset (`simu.hdf5`) is generated automatically into the `example_data/` folder at the project root the first time you run the tutorial. If the file already exists it is not re-generated.
+#     The dataset (`simu.hdf5`) is generated in `example_data/` at the project root on the first run.
 #
 # !!! tip "Prerequisites"
-#     Complete [CPM Simulation](tutorial_CPM_sim.md) before this tutorial.
+#     Complete [CPM Simulation](tutorial_CPM_sim.md) before this example.
 
 # %% [markdown]
 # ## Position correction algorithm
@@ -26,7 +26,7 @@
 #
 # Please cite this paper if you use position correction in your results.
 #
-# The idea: when the object is updated at scan position $k$, the update is slightly shifted towards the true position of that patch. Cross-correlating the object patch before and after the update therefore gives an estimate $\mathbf{g}_k$ of the position error, in pixels.
+# When the object is updated at scan position $k$, the update is slightly shifted towards the true position of that patch. Cross-correlating the object patch before and after the update therefore gives an estimate $\mathbf{g}_k$ of the position error, in pixels.
 
 # %% [markdown]
 # ## Implementation in PtyLab

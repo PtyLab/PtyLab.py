@@ -1,13 +1,13 @@
 # Installation
 
-PtyLab.py requires **Python 3.11 or newer** and is distributed on [PyPI](https://pypi.org/project/ptylab/). Install it within a virtual environment of your liking (Ex: [conda](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html) or [uv venv](https://docs.astral.sh/uv/pip/environments/)).
+PtyLab.py requires **Python 3.11 or newer** and is distributed on [PyPI](https://pypi.org/project/ptylab/). Install it in a virtual environment, for example with [conda](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html) or [uv venv](https://docs.astral.sh/uv/pip/environments/).
 
 If you are contributing to the library instead, see the [contributing guide](../contributing.md).
 
 ## From PyPI
 
 !!! tip
-    The commands below use [uv](https://docs.astral.sh/uv/getting-started/installation/) for much faster installs. With plain `pip`, drop the `uv` prefix.
+    The commands below use [uv](https://docs.astral.sh/uv/getting-started/installation/), which installs faster. With plain `pip`, drop the `uv` prefix.
 
 === "CPU"
 

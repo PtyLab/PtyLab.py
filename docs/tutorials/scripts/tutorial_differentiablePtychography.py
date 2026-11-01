@@ -1,7 +1,7 @@
 # %% [markdown]
 # # CPM Differentiable Ptychography
 #
-# This example reconstructs measured soft X-ray data with `GradientEngine`, PtyLab's optional PyTorch engine. Instead of hand-derived update rules, it writes down a forward model and a loss, lets PyTorch compute the gradients, and updates the object and probe with an optimizer. It covers only the basic workflow; the [Differentiable Ptychography](../differentiable/overview.md) guide describes every option.
+# This example reconstructs measured soft X-ray data with `GradientEngine`, the optional PyTorch engine. Instead of hand-derived update rules, it writes down a forward model and a loss, lets PyTorch compute the gradients, and updates the object and probe with an optimizer. It covers only the basic workflow; the [Differentiable Ptychography](../differentiable/overview.md) guide describes every option.
 #
 # **What you'll learn:**
 #
@@ -15,10 +15,10 @@
 #     `GradientEngine` runs on PyTorch, installed with the `torch` extra; see [Installation](../getting-started/installation.md#differentiable-ptychography) for GPU builds. It supports CPM with the Fraunhofer, Fresnel, ASP and scaledASP propagators, and its API may still change.
 #
 # !!! note "Dataset"
-#     The datasets are downloaded automatically into the `example_data/` folder at the project root the first time you run the example, and not again if they exist. Most sections use `helicalbeam.hdf5` (about 350 MB), the dataset of the [CPM Mixed States](tutorial_mixedStates.md) example, from L. Loetgering et al., "Generation and characterization of focused helical x-ray beams," Sci. Adv. 6, eaax8836 (2020). The last section uses `OPR_dp_processed.hdf5` (about 180 MB), the dataset of the [CPM Orthogonal Probe Relaxation](tutorial_OPR.md) tutorial.
+#     The datasets are downloaded into `example_data/` at the project root on the first run. Most sections use `helicalbeam.hdf5` (about 350 MB), the dataset of the [CPM Mixed States](tutorial_mixedStates.md) example, from L. Loetgering et al., "Generation and characterization of focused helical x-ray beams," Sci. Adv. 6, eaax8836 (2020). The last section uses `OPR_dp_processed.hdf5` (about 180 MB), the dataset of the [CPM Orthogonal Probe Relaxation](tutorial_OPR.md) example.
 #
 # !!! tip "Prerequisites"
-#     Complete [CPM Example Data](tutorial_CPM.md) before this tutorial. [CPM Mixed States](tutorial_mixedStates.md) explains the mixed-state model in more depth.
+#     Complete [CPM Example Data](tutorial_CPM.md) before this example. [CPM Mixed States](tutorial_mixedStates.md) explains the mixed-state model in more depth.
 
 # %%
 import urllib.request
@@ -103,7 +103,7 @@ def make_reconstruction(npsm):
 #
 # where $y_i$ is the measured intensity and $P_\text{tot} = \sum_i y_i$ the total measured power. PyTorch computes $\partial\mathcal L/\partial O$ and $\partial\mathcal L/\partial P$, and the optimizer takes one step per iteration over the full scan. The error plotted below is $\mathcal L$.
 #
-# The engine is created like any other PtyLab engine. It runs on the GPU through PyTorch when CUDA is available, and on the CPU otherwise.
+# The engine is created like the classic engines. It runs on the GPU through PyTorch when CUDA is available, and on the CPU otherwise.
 
 # %%
 single = make_reconstruction(npsm=1)
@@ -217,7 +217,7 @@ for ax, rec, title in zip(axes, [single, mixed], ["1 mode", "4 modes"]):
 plt.show()
 
 # %% [markdown]
-# With four modes the edges and the grating are sharp, and the dominant mode carries about 70 % of the power, as with mPIE in the [CPM Mixed States](tutorial_mixedStates.md) tutorial.
+# With four modes the edges and the grating are sharp, and the dominant mode carries about 70 % of the power, as with mPIE in the [CPM Mixed States](tutorial_mixedStates.md) example.
 #
 # ## Choose what to estimate and which loss
 #
