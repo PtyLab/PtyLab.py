@@ -4,6 +4,7 @@ Torch components for the ptychographic forward model.
 
 import math
 
+import numpy as np
 import torch
 
 
@@ -118,6 +119,170 @@ class SharedProbe(torch.nn.Module):
             )
         with torch.no_grad():
             self.field.copy_(value / self.scale)
+
+
+class OPRProbe(SharedProbe):
+    r"""
+    One entrance probe per scan frame, for orthogonal probe relaxation (OPR).
+
+    Frame $j$ has its own probe $P_j = s\,F_j$, so pulse-to-pulse changes of
+    the source (flux, pointing, wavefront) can be fitted. On its own a free
+    probe per frame is far too flexible; `OPRProjection` keeps the stack in a
+    low-dimensional subspace after each step,
+
+    $$
+    P_j(\mathbf{r}) \approx \sum_{k=1}^{K} c_{jk}\,B_k(\mathbf{r}),
+    $$
+
+    as the classic `OPR` engine does. Every probe mode varies between frames;
+    the modes still add incoherently within a frame.
+
+    The parameter keeps the name `"probe.field"`, so `parameters`, learning
+    rates and phases work unchanged. Create it from a shared probe with
+    `from_probe` or `GradientEngine.relaxProbe`.
+
+    Args:
+        field (array_like):
+            Physical probe stack of shape
+            `(frames, nlambda, 1, npsm, 1, Np, Np)`.
+
+        scale (float, optional):
+            Probe scale $s$, rounded to a power of two. Defaults to 1.0.
+    """
+
+    @classmethod
+    def from_probe(cls, probe, frames):
+        """
+        Start every frame from the same shared probe.
+
+        Args:
+            probe (SharedProbe):
+                Shared probe; its scale is kept.
+
+            frames (int):
+                Number of scan frames.
+
+        Returns:
+            OPRProbe:
+                Stack on the device of `probe`.
+        """
+        field = probe.physical_field().detach()
+        stack = cls(field.expand(frames, *field.shape).clone(), probe.scale.item())
+        return stack.to(field.device)
+
+    def forward(self, indices):
+        """
+        Return the physical probes of the frames of a batch.
+
+        Args:
+            indices (torch.Tensor):
+                Frame indices of the batch.
+
+        Returns:
+            torch.Tensor:
+                Probes of shape `(batch, nlambda, 1, npsm, 1, Np, Np)`.
+        """
+        # Scale only the gathered frames, not the whole stack.
+        return self.scale * self.field[indices]
+
+    def frame_powers(self):
+        r"""
+        Return the power $\sum_{\mathbf{r}} |P_{jm}(\mathbf{r})|^2$ of every frame and mode.
+
+        Returns:
+            torch.Tensor:
+                Detached real powers of shape `(frames, nlambda, npsm)`.
+        """
+        with torch.no_grad():
+            power = squared_modulus(self.field).sum(dim=(-2, -1)) * self.scale**2
+        # (frames, nlambda, 1, npsm, 1) -> (frames, nlambda, npsm)
+        return power[:, :, 0, :, 0]
+
+    def mode_powers(self):
+        """
+        Return the power of each probe mode, averaged over the frames.
+
+        Returns:
+            torch.Tensor:
+                Detached real powers of shape `(nlambda, npsm)`.
+        """
+        return self.frame_powers().mean(dim=0)
+
+    def shared_estimate(self):
+        r"""
+        Return one six-axis probe that best represents the stack.
+
+        For each wavelength and mode, with the frames as rows of $A$
+        ($A_{j\mathbf{r}} = P_j(\mathbf{r})$) and $v_1$ the leading
+        eigenvector of $G = AA^\dagger$,
+
+        $$
+        \bar P = \frac{v_1^\dagger A}{\sqrt{J}},
+        $$
+
+        the dominant OPR component, with $\sum|\bar P|^2 = \lambda_1 / J$
+        (the mean frame power when one component dominates). If all frames
+        are equal, $\bar P$ is that probe. It is exported as
+        `reconstruction.probe` for monitoring and as a start for a shared run.
+
+        Returns:
+            torch.Tensor:
+                Detached probe of shape `(nlambda, 1, npsm, 1, Np, Np)`.
+        """
+        with torch.no_grad():
+            field = self.field
+            estimate = torch.empty_like(field[0])
+            for wavelength in range(field.shape[1]):
+                for mode in range(field.shape[3]):
+                    rows = field[:, wavelength, 0, mode, 0].flatten(-2)  # (J, N)
+                    _, V = frame_modes(rows)
+                    v = V[:, 0]
+                    # Eigenvector phase is free; pick it so the frames add in phase.
+                    phase = torch.sgn(v.sum())
+                    v = v * (phase.conj() if phase != 0 else 1)
+                    estimate[wavelength, 0, mode, 0] = (v.conj() @ rows).view(
+                        field.shape[-2:]
+                    ) / math.sqrt(len(rows))
+            return self.scale * estimate
+
+    def reset_from_array(self, field):
+        """
+        Copy a physical probe stack, or one shared probe for every frame.
+
+        Args:
+            field (array_like):
+                Stack with the shape of `field`, or a six-axis probe
+                `(nlambda, 1, npsm, 1, Np, Np)` copied to all frames.
+        """
+        value = torch.as_tensor(field, dtype=self.field.dtype, device=self.field.device)
+        if value.shape == self.field.shape[1:]:
+            value = value.expand_as(self.field)
+        super().reset_from_array(value)
+
+
+def frame_modes(rows):
+    r"""
+    Return the eigenvalues and eigenvectors of the frame Gram matrix.
+
+    With the frames as rows of $A$ (shape `(J, N)`), $G = AA^\dagger$ is only
+    $J \times J$. Its eigenvectors $V$ give the SVD $A = V\Sigma U^\dagger$
+    without forming the large $U$: $\lambda_k = \sigma_k^2$, and the best
+    rank-$K$ approximation is $V_K V_K^\dagger A$.
+
+    Args:
+        rows (torch.Tensor):
+            Complex matrix of shape `(J, N)`.
+
+    Returns:
+        tuple:
+            `(eigenvalues, V)`: real `(J,)` in descending order and the
+            eigenvectors as the columns of `(J, J)`, in the dtype of `rows`.
+    """
+    # Gram in the data precision, eigh in double: weak components lie many
+    # orders of magnitude below the strongest.
+    gram = (rows @ rows.conj().T).to(torch.complex128)
+    eigenvalues, V = torch.linalg.eigh(gram)  # ascending
+    return eigenvalues.flip(-1), V.flip(-1).to(rows.dtype)
 
 
 def probe_scale(photons_per_frame, frame_pixels):
@@ -313,6 +478,10 @@ class PtychographyModel(torch.nn.Module):
         """
         Import object, probe and positions while preserving parameter identity.
 
+        For an `OPRProbe`, a `reconstruction.probe_stack` in the classic `OPR`
+        layout `(nlambda, 1, npsm, 1, Np, Np, frames)` is imported if present;
+        otherwise `reconstruction.probe` is copied to every frame.
+
         Args:
             reconstruction (Reconstruction):
                 Source of the object, probe and positions.
@@ -330,7 +499,13 @@ class PtychographyModel(torch.nn.Module):
             )
         with torch.no_grad():
             self.object.copy_(obj)
-        self.probe.reset_from_array(reconstruction.probe)
+        stack = getattr(reconstruction, "probe_stack", None)
+        if isinstance(self.probe, OPRProbe) and stack is not None:
+            # PtyLab layout (nlambda, 1, npsm, 1, Np, Np, frames) -> frames first.
+            stack = torch.as_tensor(np.asarray(stack)).movedim(-1, 0)
+            self.probe.reset_from_array(stack)
+        else:
+            self.probe.reset_from_array(reconstruction.probe)
         self.set_positions(reconstruction.positions)
 
     def patch_indices(self, indices):
@@ -401,14 +576,25 @@ class PtychographyModel(torch.nn.Module):
                 0, self.patch_indices(indices).reshape(-1), probe_intensity.reshape(-1)
             )
             illumination = illumination.view(self.object.shape[-2:])
-            # (batch, nlambda, nosm, 1, nslice, Np, Np): sum frames and object
-            # states -> (nlambda, 1, 1, nslice, Np, Np), broadcast over probe states.
-            coverage = self.object_patches(indices).abs().square().sum(dim=0)
-            coverage = coverage.sum(dim=1, keepdim=True)
+            # (batch, nlambda, nosm, 1, nslice, Np, Np): sum object states
+            # -> (batch, nlambda, 1, 1, nslice, Np, Np), broadcast over probe states.
+            coverage = self.object_patches(indices).abs().square()
+            coverage = coverage.sum(dim=2, keepdim=True)
             coverage = coverage * getattr(self.probe, "scale", 1.0) ** 2
+            field = self.probe.field
+            if isinstance(self.probe, OPRProbe):
+                # One probe per frame: frame j's map is its own patch,
+                # D_F,j = s^2 sum_a |O_a(r + x_j)|^2; frames not in the batch get 0.
+                probe_map = torch.zeros(
+                    field.shape, dtype=coverage.dtype, device=field.device
+                )
+                probe_map[indices] = coverage.expand(len(indices), *field.shape[1:])
+            else:
+                # Shared probe: the maps of all frames add up.
+                probe_map = coverage.sum(dim=0).expand(field.shape)
         return {
             "object": illumination.expand(self.object.shape),
-            "probe.field": coverage.expand(self.probe.field.shape),
+            "probe.field": probe_map,
         }
 
     def detector_fields(self, indices):
