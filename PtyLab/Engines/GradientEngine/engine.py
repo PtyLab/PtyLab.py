@@ -309,6 +309,14 @@ class GradientEngine(BaseEngine):
             else PtychographyModel.validate
         )
         validator(r)
+        probe = getattr(self.model, "probe", None)
+        if isinstance(probe, OPRProbe) and len(probe.field) != len(r.positions):
+            # One probe per frame: new data with another frame count would
+            # index past the stack, or pair frames with the wrong probes.
+            raise ValueError(
+                f"The probe stack has {len(probe.field)} frames but the data have "
+                f"{len(r.positions)}; create a new engine for these data."
+            )
         if p.gpuSwitch or getattr(p, "gpuFlag", False):
             raise ValueError(
                 "Set params.gpuSwitch = False; select Torch's device via engine.device."
@@ -387,7 +395,14 @@ class GradientEngine(BaseEngine):
         self.model.set_propagation(self.propagation)
 
     def reset(self):
-        """Import the current `Reconstruction` object, probe and background."""
+        """
+        Import the current `Reconstruction` object, probe and background.
+
+        With an `OPRProbe`, `reconstruction.probe_stack` is imported if
+        present. A run exports both the stack and its dominant probe
+        `reconstruction.probe`; if that probe was changed since, the changed
+        probe is copied to every frame instead.
+        """
         PtychographyModel.validate(self.reconstruction)
         if self.model is None:
             self.model = self.createModel()
@@ -398,6 +413,14 @@ class GradientEngine(BaseEngine):
                 )
             self.model.to(self.device)
             self.model.reset_from_reconstruction(self.reconstruction)
+            exported = getattr(self, "_exportedProbe", None)
+            if (
+                isinstance(self.model.probe, OPRProbe)
+                and exported is not None
+                and not np.array_equal(self.reconstruction.probe, exported)
+            ):
+                # The exported stack is stale; the edited probe wins.
+                self.model.probe.reset_from_array(self.reconstruction.probe)
         self.model.to(self.device)
         frames = np.asarray(self.experimentalData.ptychogram)
         self._set_probe_scale(frames.sum(dtype=np.float64) / len(frames))
@@ -478,13 +501,26 @@ class GradientEngine(BaseEngine):
             state["background"] = self.centeredIntensity(self.model.background)
         return state
 
-    def _sync_reconstruction(self, stack=False):
-        """Publish detached object and probe snapshots for monitoring and saving."""
+    def _sync_reconstruction(self, stack=False, probe=True):
+        """
+        Publish detached object and probe snapshots for monitoring and saving.
+
+        With `probe=False` and an `OPRProbe`, only the object is published and
+        `reconstruction.probe` keeps its last export: the shared estimate is a
+        $J \times J$ eigendecomposition, 34-50 ms at 1600 frames against a
+        7 ms iteration.
+        """
+        if not probe and isinstance(self.model.probe, OPRProbe):
+            self.reconstruction.object = self.model.object.detach().cpu().numpy().copy()
+            return
         state = self.snapshot(stack=stack)
         self.reconstruction.object = state["object"]
         self.reconstruction.probe = state["probe.field"]
         if "probe.stack" in state:
             self.reconstruction.probe_stack = state["probe.stack"]
+            # A private copy: reset() compares with it to see whether
+            # reconstruction.probe was changed after this export.
+            self._exportedProbe = state["probe.field"].copy()
 
     def _selection(self):
         if self.parameters is None:
@@ -577,7 +613,9 @@ class GradientEngine(BaseEngine):
         $$
 
         with $\alpha$ = `preconditionerAlpha`, as in rPIE, and $P$ the
-        full-scan power that normalizes every loss.
+        full-scan power that normalizes every loss. $D$ is summed over
+        `batchIndices(indices)`, so `batchSize` bounds its memory as it does
+        the loss's.
 
         Args:
             indices (torch.Tensor):
@@ -587,7 +625,11 @@ class GradientEngine(BaseEngine):
             KeyError:
                 If the model has no curvature map for a selected parameter.
         """
-        curvature = self.model.gradient_preconditioners(indices)
+        curvature = {}
+        for batch in self.batchIndices(indices):
+            for name, values in self.model.gradient_preconditioners(batch).items():
+                total = curvature.get(name)
+                curvature[name] = values if total is None else total + values
         alpha = self.preconditionerAlpha
         for group in self.optimizer.param_groups:
             (parameter,) = group["params"]
@@ -679,6 +721,9 @@ class GradientEngine(BaseEngine):
     def prepareReconstruction(self):
         """Prepare data, retained components, propagation and a fresh optimizer."""
         self.validateSettings()
+        # Drop the previous run's copy first, so a later phase never holds
+        # two copies of the data or places them by the memory the old one used.
+        self.measuredIntensities = self._loader = None
         self.measuredIntensities = self._validate_data()
         self.preparePropagation()
         self._loader = MeasurementLoader(self.measuredIntensities, self.device)
@@ -983,9 +1028,11 @@ class GradientEngine(BaseEngine):
                 for iteration in self.pbar:
                     loss = self.runIteration(iteration)
                     self.reconstruction.error.append(loss)
-                    self._sync_reconstruction()
-                    # every figureUpdateFrequency iterations, and the last one
+                    # The monitor draws every figureUpdateFrequency iterations
+                    # and at the last one; only then is an OPR probe exported.
                     last = iteration == self.numIterations - 1
+                    draws = last or iteration % self.monitor.figureUpdateFrequency == 0
+                    self._sync_reconstruction(probe=draws)
                     self.showReconstruction(iteration, force=last)
                     self.pbar.set_postfix(loss=loss)
         finally:
