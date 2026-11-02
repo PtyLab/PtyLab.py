@@ -3,6 +3,12 @@
 #
 # This example reconstructs measured soft X-ray data with `GradientEngine`, the optional PyTorch engine. Instead of hand-derived update rules, it writes down a forward model and a loss, lets PyTorch compute the gradients, and updates the object and probe with an optimizer. It covers only the basic workflow; the [Differentiable Ptychography](../differentiable/overview.md) guide describes every option.
 #
+# **Installation:** `GradientEngine` runs on PyTorch. Install PtyLab with the `torch` extra. On Linux and Windows, `--torch-backend=cu126` picks the CUDA 12 build that matches CuPy; drop it on macOS (see [Installation](../getting-started/installation.md#differentiable-ptychography)):
+#
+# ```bash
+# uv pip install -U "ptylab[gpu,torch]" --torch-backend=cu126
+# ```
+#
 # **What you'll learn:**
 #
 # - How to create a `GradientEngine` from the usual PtyLab objects
@@ -10,9 +16,6 @@
 # - How to reconstruct several probe modes (mixed states)
 # - How to choose the estimated parameters and switch the loss
 # - How to let the probe vary across the scan with orthogonal probe relaxation (OPR)
-#
-# !!! warning "Work in progress"
-#     `GradientEngine` runs on PyTorch, installed with the `torch` extra; see [Installation](../getting-started/installation.md#differentiable-ptychography) for GPU builds. It supports CPM with the Fraunhofer, Fresnel, ASP and scaledASP propagators, and its API may still change.
 #
 # !!! note "Dataset"
 #     The datasets are downloaded into `example_data/` at the project root on the first run. Most sections use `helicalbeam.hdf5` (about 350 MB), the dataset of the [CPM Mixed States](tutorial_mixedStates.md) example, from L. Loetgering et al., "Generation and characterization of focused helical x-ray beams," Sci. Adv. 6, eaax8836 (2020). The last section uses `OPR_dp_processed.hdf5` (about 180 MB), the dataset of the [CPM Orthogonal Probe Relaxation](tutorial_OPR.md) example.
@@ -68,7 +71,6 @@ experimentalData._setData()
 
 params = PtyLab.Params()
 params.propagatorType = "Fresnel"  # the detector is in the Fresnel regime
-params.gpuSwitch = False  # controls CuPy only; PyTorch picks its own device
 
 # %% [markdown]
 # The function below creates a fresh reconstruction with a flat object (`ones`) and `npsm` copies of a `circ` probe, each with a small random perturbation of its own. The single-mode and the mixed-state runs below then start from the same guess.
@@ -272,7 +274,6 @@ experimentalData._setData()
 
 params = PtyLab.Params()
 params.propagatorType = "Fraunhofer"
-params.gpuSwitch = False
 
 reconstruction = PtyLab.Reconstruction(experimentalData, params)
 reconstruction.No = 2000  # object array size, in pixels
