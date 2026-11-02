@@ -30,6 +30,8 @@ def test_schedule_selects_start_step_and_end():
     constraint = Constraint(start=2, step=3, end=10)
     assert [i for i in range(15) if constraint.active(i)] == [2, 5, 8]
     assert [i for i in range(4) if Constraint().active(i)] == [0, 1, 2, 3]
+    # end is exclusive, also when it falls on a step.
+    assert [i for i in range(10) if Constraint(step=2, end=4).active(i)] == [0, 2]
 
 
 def test_engine_calls_constraints_after_each_step_with_the_iteration(engine):
@@ -235,20 +237,44 @@ def test_phase_ramp_removal_keeps_predictions_and_removes_the_ramp(engine, propa
 
 def test_phase_ramp_removal_rotates_adam_first_moment(engine):
     engine.device = "cpu"
+    # A clear global phase, so the factor is far from 1 and a plain rotation
+    # of the second moments would differ from their mean.
+    engine.reconstruction.object = engine.reconstruction.object * np.exp(0.7j)
     engine.prepareReconstruction()
     engine.runIteration(0)
     removal = PhaseRampRemoval(ramp=False)
     _, _, phi = removal.estimate(engine)
+    assert abs(phi) > 0.3
     obj = engine.model.object
     first = engine.optimizer.state[obj]["exp_avg"].clone()
     second = engine.optimizer.state[obj]["exp_avg_sq"].clone()
+    scale = second.real.abs().max()
+    assert (second.real - second.imag).abs().max() > 0.1 * scale
     removal(engine, 0)
     factor = complex(np.exp(-1j * phi))
-    torch.testing.assert_close(engine.optimizer.state[obj]["exp_avg"], first * factor)
+    # Moments are tiny (about 1e-8 for exp_avg_sq), so tolerances are relative
+    # to their size; the default atol would accept any value.
+    torch.testing.assert_close(
+        engine.optimizer.state[obj]["exp_avg"],
+        first * factor,
+        rtol=1e-5,
+        atol=1e-6 * first.abs().max().item(),
+    )
     mean = 0.5 * (second.real + second.imag)
     torch.testing.assert_close(
-        engine.optimizer.state[obj]["exp_avg_sq"], torch.complex(mean, mean)
+        engine.optimizer.state[obj]["exp_avg_sq"],
+        torch.complex(mean, mean),
+        rtol=1e-5,
+        atol=1e-6 * scale.item(),
     )
+
+
+def test_phase_ramp_weights_do_not_depend_on_batch_size(engine):
+    engine.device = "cpu"
+    engine.prepareReconstruction()
+    full = PhaseRampRemoval.weights(engine).clone()
+    engine.effectiveBatchSize = 3  # batches of 3 and 1
+    torch.testing.assert_close(PhaseRampRemoval.weights(engine), full)
 
 
 def test_run_matches_consecutive_reconstructions_and_restores_settings(engine):

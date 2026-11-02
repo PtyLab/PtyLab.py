@@ -749,6 +749,42 @@ def test_selected_background_is_estimated_and_stays_nonnegative(engine, truth, s
     assert learned == pytest.approx(truth, abs=0.02)
 
 
+def test_learned_background_is_kept_between_runs_until_assigned(engine):
+    _data_from_current_model(engine, 0.3)
+    engine.background = 0.0
+    engine.parameters = {"background": {"lr": 0.05}}
+    engine.numIterations = 50
+    engine.reconstruct()
+    learned = engine.snapshot()["background"]
+    assert learned > 0.1
+    # A run that does not estimate it keeps the learned value...
+    engine.parameters = {"object": {"lr": 1e-9}}
+    engine.numIterations = 1
+    engine.reconstruct()
+    assert engine.snapshot()["background"] == learned
+    # ...and assigning it imports the new value.
+    engine.background = 0.0
+    engine.reconstruct()
+    assert engine.snapshot()["background"] == 0
+
+
+def test_update_per_batch_steps_carry_their_share_of_the_penalty(engine):
+    # A penalty of constant value 5 and zero gradient: the steps take the
+    # same path with or without it, and their shares must add up to one 5.
+    from copy import deepcopy
+
+    engine.device = "cpu"
+    engine.updatePerBatch = True
+    engine.batchSize = 1  # four steps of one frame
+    penalized = deepcopy(engine)
+    penalized.regularizers = [lambda model: 0 * model.object.abs().sum() + 5.0]
+    losses = []
+    for run in (engine, penalized):
+        run.prepareReconstruction()
+        losses.append(run.runIteration(0))
+    assert losses[1] - losses[0] == pytest.approx(5.0, rel=1e-5)
+
+
 def test_readout_sigma_maps_reach_the_loss_unchanged(engine):
     from functools import partial
 

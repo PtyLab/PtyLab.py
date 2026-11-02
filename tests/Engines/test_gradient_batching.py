@@ -1,6 +1,7 @@
 """Memory-bounded batching of the optional Torch engine."""
 
 import copy
+from functools import partial
 
 import numpy as np
 import pytest
@@ -124,6 +125,66 @@ def test_memory_budget_bounds_the_peak_and_picks_the_batch():
     assert fresh.effectiveBatchSize == 6
     with pytest.raises(MemoryError):
         fresh.suggestBatchSize(1)
+
+
+@pytest.mark.parametrize("device", DEVICES)
+def test_preconditioned_step_does_not_depend_on_batch_size(engine, device):
+    # The curvature maps are summed batch by batch. A preconditioned step is
+    # linear in the gradient, so the stepped parameters are compared directly.
+    engine.device = device
+    engine.optimizerType = "preconditioned"
+    engine.parameters = {"object": {"lr": 0.3}, "probe.field": {"lr": 0.3}}
+    batched = copy.deepcopy(engine)
+    batched.batchSize = 3  # batches of 3 and 1
+    for run in (engine, batched):
+        run.prepareReconstruction()
+        run.runIteration(0)
+    for expected, actual in zip(engine.model.parameters(), batched.model.parameters()):
+        torch.testing.assert_close(actual, expected, rtol=1e-5, atol=1e-6)
+
+
+def _peak_mb(function):
+    torch.cuda.synchronize()
+    torch.cuda.reset_peak_memory_stats()
+    function()
+    torch.cuda.synchronize()
+    return torch.cuda.max_memory_allocated() / 2**20
+
+
+@needs_cuda
+def test_preconditioned_peak_is_bounded_by_the_batch_size():
+    # Curvature maps of the whole scan at once took 3x Adam's peak here.
+    _free_cuda_memory()
+    peaks = {}
+    for optimizer in ("adam", "preconditioned"):
+        run = _larger_engine(frames=64)
+        run.device = "cuda"
+        run.batchSize = 2
+        run.optimizerType = optimizer
+        run.parameters = {"object": {"lr": 0.1}, "probe.field": {"lr": 0.1}}
+        run.prepareReconstruction()
+        run.runIteration(0)  # optimizer state now allocated
+        peaks[optimizer] = _peak_mb(partial(run.runIteration, 1))
+        del run
+        _free_cuda_memory()
+    assert peaks["preconditioned"] < 1.2 * peaks["adam"]
+
+
+@needs_cuda
+def test_a_later_run_does_not_hold_two_copies_of_the_data():
+    # Each reconstruct() (each phase of run) loads the data again; the old copy
+    # must be gone first.
+    _free_cuda_memory()
+    run = _larger_engine(frames=256)
+    run.device = "cuda"
+    run.batchSize = 2  # small batches, so the data dominate the peak
+    run.numIterations = 1
+    data_mb = run.experimentalData.ptychogram.nbytes / 2**20
+    first = _peak_mb(run.reconstruct)
+    second = _peak_mb(run.reconstruct)
+    assert second < first + 0.5 * data_mb
+    del run
+    _free_cuda_memory()
 
 
 @pytest.mark.parametrize("device", DEVICES)

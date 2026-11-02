@@ -336,6 +336,84 @@ def test_export_snapshot_and_reset_round_trip():
     )
 
 
+def test_shared_probe_is_exported_only_when_the_monitor_draws(monkeypatch):
+    # The shared estimate is a J x J eigendecomposition, far costlier than an
+    # iteration at large J; mid-run, only the monitor's draws need it.
+    engine = opr_engine()
+    engine.relaxProbe()
+    engine.monitor.figureUpdateFrequency = 3
+    engine.numIterations = 7  # draws at 0, 3 and 6 (the last)
+    estimate = OPRProbe.shared_estimate
+    calls = []
+
+    def counted(probe):
+        calls.append(1)
+        return estimate(probe)
+
+    monkeypatch.setattr(OPRProbe, "shared_estimate", counted)
+    seen = {}
+
+    def show(loop, force=False):
+        r, model = engine.reconstruction, engine.model
+        seen[loop] = {
+            "calls": len(calls),
+            "force": force,
+            "probe fresh": np.array_equal(r.probe, estimate(model.probe).numpy()),
+            "object fresh": np.array_equal(r.object, model.object.detach().numpy()),
+        }
+
+    engine.showReconstruction = show
+    engine.reconstruct()
+
+    draws = {0, 3, 6}
+    for loop, state in seen.items():
+        assert state["object fresh"]  # the object is still exported every iteration
+        assert state["probe fresh"] == (loop in draws)
+        new_calls = state["calls"] - seen[loop - 1]["calls"] if loop else 1
+        assert new_calls == (loop in draws)
+    assert seen[6]["force"]
+    # The end of the run exports the probe and the stack as before.
+    np.testing.assert_array_equal(
+        engine.reconstruction.probe, estimate(engine.model.probe).numpy()
+    )
+
+
+def test_reset_after_a_run_imports_an_edited_probe_to_every_frame():
+    # A run leaves reconstruction.probe_stack behind; an edited probe must
+    # still win over that stale export.
+    engine = opr_engine()
+    engine.relaxProbe()
+    engine.numIterations = 2
+    engine.reconstruct()
+    r = engine.reconstruction
+    for edit in ("assigned", "in place"):
+        if edit == "assigned":
+            r.probe = np.full_like(r.probe, 0.25 + 0.5j)
+        else:
+            r.probe *= 2
+        expected = r.probe.copy()
+        engine.reset()
+        stack = engine.model.probe.physical_field().detach().numpy()
+        for frame in stack:
+            np.testing.assert_allclose(frame, expected, rtol=1e-6)
+        engine.reconstruct()  # exports a fresh stack and probe
+
+
+def test_data_with_another_frame_count_are_rejected():
+    from copy import deepcopy
+
+    engine = opr_engine()
+    engine.relaxProbe()
+    engine.numIterations = 1
+    engine.reconstruct()
+    data = deepcopy(engine.experimentalData)
+    data.encoder = data.encoder[:-1]  # 8 frames for a stack of 9
+    data.ptychogram = data.ptychogram[:-1]
+    data._setData()
+    with pytest.raises(ValueError, match="9 frames but the data have 8"):
+        engine.reconstruct(data)
+
+
 def test_shared_estimate_is_the_probe_of_an_equal_stack():
     engine = opr_engine(2)
     engine.relaxProbe()
