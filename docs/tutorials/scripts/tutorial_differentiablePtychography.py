@@ -13,7 +13,7 @@
 #
 # - How to create a `GradientEngine` from the usual PtyLab objects
 # - How to recover object and probe from a flat start with `blind_recipe`
-# - How to reconstruct several probe modes (mixed states)
+# - How to reconstruct several probe modes (mixed states), and when object states help
 # - How to choose the estimated parameters and switch the loss
 # - How to let the probe vary across the scan with orthogonal probe relaxation (OPR)
 #
@@ -164,15 +164,15 @@ show_estimates(single, "1 probe mode")
 #
 # ## Mixed states
 #
-# A partially coherent beam records an incoherent sum of diffraction patterns. The mixed-state model describes it with $M$ probe modes $P_m$, whose intensities add:
+# A partially coherent beam, or a sample that fluctuates during one exposure (for example by vibrating), records an incoherent sum of diffraction patterns. The mixed-state model describes it with probe modes $P_m$ and object states $O_a$, whose intensities add:
 #
 # $$
-# I_j(\mathbf q) = \sum_{m=1}^{M} \left|\mathcal{D}\{O(\mathbf r + \mathbf x_j)\,P_m(\mathbf r)\}\right|^2 .
+# I_j(\mathbf q) = \sum_{a}\sum_{m} \left|\mathcal{D}\{O_a(\mathbf r + \mathbf x_j)\,P_m(\mathbf r)\}\right|^2 .
 # $$
 #
-# The gradient engine needs no other change: set `reconstruction.npsm` before `initializeObjectProbe()`, and PyTorch differentiates through the sum. The modes must start different from each other, since exactly identical modes get identical gradients and never separate; the random perturbation in `make_reconstruction` takes care of that.
+# Set `reconstruction.npsm` (probe modes) and `reconstruction.nosm` (object states) before `initializeObjectProbe()`; PyTorch differentiates through the sum. The states must start different from each other, since identical states get identical gradients and never separate; the random perturbation in `make_reconstruction` takes care of that.
 #
-# Only the sum of the mode intensities is fixed by the data, so any unitary mixture of the modes fits equally well. `ProbeModeOrthogonalization(step=10)` rotates them every 10 iterations into orthogonal modes sorted by power, like `params.orthogonalizationSwitch` in the classic engines. It does not change the fit.
+# Only the summed intensity is fixed by the data, so mixtures of the states fit equally well. `ProbeModeOrthogonalization(step=10)` and `ObjectStateOrthogonalization(step=10)` rotate them into orthogonal states sorted by power, like `params.orthogonalizationSwitch` in the classic engines, without changing the fit. With both probe and object states, such constraints are needed for a unique result ([Li et al., 2016](https://doi.org/10.1364/OE.24.009038)). The sample here is static, so this example uses four probe modes and `nosm = 1`.
 
 # %%
 mixed = make_reconstruction(npsm=4)
@@ -223,7 +223,7 @@ plt.show()
 #
 # ## Choose what to estimate and which loss
 #
-# `engine.parameters` selects the estimated tensors and their learning rates; tensors that are not listed stay fixed. The probe rate is in scale-free units (the probe is stored divided by a fixed power of two), so the same value works across photon counts.
+# `engine.parameters` selects the estimated tensors and their learning rates; tensors that are not listed stay fixed. The probe rate is in scale-free units (the probe is stored divided by its typical amplitude), so the same value works across photon counts.
 #
 # `engine.lossFunction` sets the loss, with its options passed through `functools.partial`. Below, the 4-mode reconstruction continues with the Anscombe version of the amplitude loss, which suits photon-counting (Poisson) data better:
 #
@@ -265,6 +265,7 @@ if not filePath.exists():
 else:
     print(f"{fileName} found, skipping download.")
 
+# %%
 experimentalData = PtyLab.ExperimentalData(filePath, operationMode="CPM")
 experimentalData.setOrientation(1)
 experimentalData.zo = 31.0e-3  # sample-detector distance
