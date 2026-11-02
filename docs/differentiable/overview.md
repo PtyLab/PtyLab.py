@@ -40,7 +40,7 @@ engine = GradientEngine(reconstruction, experimentalData, params, monitor)
 engine.numIterations = 200
 engine.reconstruct()
 
-reconstruction.saveResults("result.hdf5")
+reconstruction.saveResults("result.hdf5", snapshot=monitor)  # plus a PNG of the monitor figure
 ```
 
 The constructor, `reconstruct()` and the results (`reconstruction.object`, `.probe`, `.error` as NumPy arrays) work as in the other engines. 
@@ -49,18 +49,18 @@ The engine runs on `"cuda"` if available, else on `"cpu"`; set `engine.device` t
 
 ## Selecting parameters
 
-`engine.parameters` maps model parameter names to optimizer options. Parameters that are not listed stay fixed. Besides `"object"` and `"probe.field"`, `"background"` can be estimated when `engine.background` is set.
+`engine.parameters` maps model parameter names to optimizer options. Parameters that are not listed stay fixed. Besides `"object"` and `"probe"`, `"background"` can be estimated when `engine.background` is set.
 
 ```python
 engine.parameters = {
     "object": {"lr": 0.03},
-    "probe.field": {"lr": 0.1},
+    "probe": {"lr": 0.1},
 }
 ```
 
 `parameters = None` (the default) estimates object and probe with `learningRateObject` (0.03) and `learningRateProbe` (0.1).
 
-**Scale-free probe.** The optimizer updates `probe.field` $= P / s$ instead of the probe $P$. Here $s = \sqrt{N_{\mathrm{frame}} / N_{\mathrm{pix}}}$ is the typical probe amplitude: the mean measured photons per frame $N_{\mathrm{frame}}$ spread evenly over the $N_{\mathrm{pix}}$ pixels of the probe window. `probe.field` is then of order 1 for any dataset, so one learning rate works across photon counts. `reconstruction.probe`, `engine.snapshot()` and `model.probe(indices)` stay physical. A rate `lr` tuned for the physical probe becomes `lr / engine.model.probe.scale.item()`.
+**Scale-free probe.** For `"probe"`, the optimizer updates $F = P / s$ instead of the probe $P$. Here $s = \sqrt{N_{\mathrm{frame}} / N_{\mathrm{pix}}}$ is the typical probe amplitude: the mean measured photons per frame $N_{\mathrm{frame}}$ spread evenly over the $N_{\mathrm{pix}}$ pixels of the probe window, rounded to a power of two so that $P = sF$ is exact in floating point. $F$ is then of order 1 for any dataset, so one learning rate works across photon counts. `reconstruction.probe`, `engine.snapshot()` and `model.probe(indices)` stay physical. A rate `lr` tuned for the physical probe becomes `lr / engine.model.probe.scale.item()`.
 
 Each `reconstruct()` starts a fresh optimizer from the current estimates. After editing `reconstruction.object` or `reconstruction.probe`, call `engine.reset()` so the model imports them.
 
@@ -121,7 +121,7 @@ from PtyLab.Engines.GradientEngine import (
     blind_recipe,
 )
 
-engine.run(blind_recipe(1000))  # shared probe
+engine.reconstruct(phases=blind_recipe(1000))  # shared probe
 engine.relaxProbe()  # every frame starts from the shared probe
 engine.constraints = [
     OPRProjection(rank=4, relax=0.05),
@@ -133,7 +133,7 @@ engine.reconstruct()
 
 | Item | What it does |
 |---|---|
-| `relaxProbe()` | Replaces the shared probe by an `OPRProbe` of shape `(frames, nlambda, 1, npsm, 1, Np, Np)`. The parameter is still `"probe.field"`, so `parameters` and phases are unchanged. |
+| `relaxProbe()` | Replaces the shared probe by an `OPRProbe` of shape `(frames, nlambda, 1, npsm, 1, Np, Np)`. The parameter is still `"probe"`, so `parameters` and phases are unchanged. |
 | `OPRProjection(rank, relax)` | Projects the stack onto its closest rank-`rank` stack after every step, per wavelength and mode. `rank` and `relax` play the roles of `params.OPR_subspace` and `params.OPR_alpha`; the `params.OPR_*` switches are not used. |
 | Other constraints | `ProbeModeOrthogonalization` works per frame (like `params.OPR_orthogonalize_modes`). `ProbeCentering`, `PhaseRampRemoval` and `AbsorbingProbeBoundary` act on the whole stack. |
 | `reconstruction.probe_stack` | The frame probes, in the classic `OPR` layout `(nlambda, 1, npsm, 1, Np, Np, frames)`. |
@@ -158,7 +158,7 @@ Set `engine.lossFunction` to one of the functions in `losses`. Options are passe
 
 ```python
 from functools import partial
-from PtyLab.Engines.GradientEngine.losses import poisson_loss
+from PtyLab.Engines.GradientEngine import poisson_loss
 
 engine.lossFunction = partial(poisson_loss, read_out_sigma=2.0)
 ```
@@ -170,7 +170,7 @@ engine.lossFunction = partial(poisson_loss, read_out_sigma=2.0)
 | `poisson_loss` | Poisson, optionally with Gaussian readout noise | `gain`, `read_out_sigma` |
 | `mixed_poisson_gaussian_loss` | Gaussian approximation of Poisson plus readout noise | `gain`, `read_out_sigma` |
 
-All losses expect intensities in detector units, sum over pixels and frames, and are normalized by the total measured power. Measured frames may contain negative values (offset-subtracted raw data).
+`poisson_loss` and `mixed_poisson_gaussian_loss` take intensities in detector units, with the detector `gain`. `amplitude_loss` with `anscombe_offset_switch=True` takes photon counts (unit gain). All losses sum over pixels and frames and are normalized by the total measured power. Measured frames may contain negative values (offset-subtracted raw data).
 
 ## Detector background
 
@@ -190,7 +190,7 @@ dark = ...  # (n_dark, N, N) dark frames, centered order
 data.ptychogram = data.ptychogram - dark.mean(axis=0)  # negative values stay
 ```
 
-`engine.background` is a background with shot noise, such as stray light: a scalar or a frame-shaped image in centered order (as `fft2c`). It is fixed, unless `"background"` is in `parameters`; then it is estimated and kept nonnegative. Every loss counts $b$ as photons, with variance $g(I + b) + \sigma^2$.
+`engine.background` is a background with shot noise, such as stray light: a scalar or a frame-shaped image in centered order (as `fft2c`). It is fixed, unless `"background"` is in `parameters`; then it is estimated and kept nonnegative. The noise-model losses (`poisson_loss`, `mixed_poisson_gaussian_loss`, `amplitude_loss`) count $b$ as photons, with variance $g(I + b) + \sigma^2$; `intensity_loss` assumes a constant variance.
 
 !!! note
     Do not put the dark mean into `engine.background`. It has no shot noise, so the loss would overestimate every pixel's variance and underweight the weak high-angle signal. It would also inflate the total power and the probe scale.
@@ -208,7 +208,7 @@ engine.readoutSigma = dark.std(axis=0)  # one sigma per detector pixel
 - `amplitude_loss` takes a map only with `anscombe_offset_switch=True`.
 - Use tens of dark frames: a per-pixel standard deviation from $n$ frames has a relative error of about $1/\sqrt{2(n-1)}$.
 
-`poisson_loss` can be negative, which the default `Monitor` currently fails to plot. Use `easyInitialize(..., dummyMonitor=True)` or `DummyMonitor()` with it.
+`poisson_loss` and `mixed_poisson_gaussian_loss` can be negative, which the default `Monitor` currently fails to plot. Use `easyInitialize(..., dummyMonitor=True)` or `DummyMonitor()` with it.
 
 ## Regularizers
 
@@ -216,7 +216,7 @@ engine.readoutSigma = dark.std(axis=0)  # one sigma per detector pixel
 
 ```python
 from functools import partial
-from PtyLab.Engines.GradientEngine.regularizers import object_smoothness
+from PtyLab.Engines.GradientEngine import object_smoothness
 
 engine.regularizers = [partial(object_smoothness, weight=1e-4)]
 ```
@@ -264,27 +264,27 @@ engine.constraints = [
 
 ## Reconstruction Phases
 
-`engine.run(phases)` runs a list of `Phase` records in order, for settings that change during a reconstruction. Each phase starts a fresh optimizer from the estimates of the previous one.
+`engine.reconstruct(phases=...)` runs a list of `Phase` records in order, for settings that change during a reconstruction. Each phase starts a fresh optimizer from the estimates of the previous one.
 
 ```python
 from PtyLab.Engines.GradientEngine import Phase
 
-engine.run(
-    [
+engine.reconstruct(
+    phases=[
         Phase(200, {"object": {"lr": 0.03}}, name="object only"),
-        Phase(800, {"object": {"lr": 0.03}, "probe.field": {"lr": 0.1}}),
+        Phase(800, {"object": {"lr": 0.03}, "probe": {"lr": 0.1}}),
     ]
 )
 ```
 
-A `Phase` sets `parameters`, `optimizerType`, `loss`, `constraints` and `readoutSigma`. A field left at None uses the engine's own setting, not that of the previous phase. Afterwards `run` restores the engine's settings, writes all errors to `reconstruction.error` and returns one history per phase.
+A `Phase` sets `parameters`, `optimizerType`, `lossFunction`, `constraints` and `readoutSigma`, with the names of the engine attributes. A field left at None uses the engine's own setting, not that of the previous phase. Afterwards `reconstruct` restores the engine's settings, writes all errors to `reconstruction.error` and returns one history per phase.
 
 `blind_recipe(iterations)` builds two phases for recovering object and probe from a flat start: 20 % of the iterations with the preconditioned optimizer on the amplitude loss, then Adam on the engine's loss.
 
 ```python
 from PtyLab.Engines.GradientEngine import ProbeCentering, blind_recipe
 
-engine.run(blind_recipe(iterations=1000, constraints=[ProbeCentering()]))
+engine.reconstruct(phases=blind_recipe(iterations=1000, constraints=[ProbeCentering()]))
 ```
 
 For raw frames, subtract the dark mean (see [Detector background](#detector-background)) and pass the readout noise to the recipe as a scalar or a per-pixel map. Only the Adam phase uses it; the start always runs the plain amplitude loss:
@@ -292,11 +292,11 @@ For raw frames, subtract the dark mean (see [Detector background](#detector-back
 ```python
 data.ptychogram = data.ptychogram - dark.mean(axis=0)
 engine.background = stray  # optional: a Poisson background such as stray light
-engine.run(
-    blind_recipe(
+engine.reconstruct(
+    phases=blind_recipe(
         iterations=1000,
-        loss=poisson_loss,
-        read_out_sigma=dark.std(axis=0),
+        lossFunction=poisson_loss,
+        readoutSigma=dark.std(axis=0),
         constraints=[ProbeCentering()],
     )
 )
@@ -314,13 +314,18 @@ The default model is a `PtychographyModel` that owns the object and a `SharedPro
 from PtyLab.Engines.GradientEngine import GradientEngine, PtychographyModel, SharedProbe
 
 
+class MyModel(PtychographyModel):
+    def forward(self, indices):
+        return 0.9 * super().forward(indices)  # detector efficiency
+
+
 class MyEngine(GradientEngine):
     def createModel(self):
         r = self.reconstruction
         return MyModel(r.object, SharedProbe(r.probe), r.positions)
 ```
 
-- A custom model is a `torch.nn.Module`. `forward(indices)` returns the predicted intensity of the selected frames, and `engine.parameters` selects by `named_parameters()` names.
+- A custom model is a `torch.nn.Module`. `forward(indices)` returns the predicted intensity of the selected frames, and `engine.parameters` selects by `named_parameters()` names (`"probe"` stands for the scale-free `probe.field` of a `SharedProbe`).
 - Implement `reset_from_reconstruction(reconstruction)` to support `engine.reset()`.
 - Easiest route: subclass `PtychographyModel` and override `detector_fields` or `forward`. This keeps positions, propagation and background handling.
 
@@ -331,16 +336,16 @@ class MyEngine(GradientEngine):
 | Probe stack (`OPRProbe`) | `(frames, nlambda, 1, npsm, 1, Np, Np)` |
 | Predicted intensity | `(batch, Np, Np)` |
 
-Every detector-plane array uses the centered order of `fft2c`, as in the classic engines: predicted intensities, `engine.measuredIntensities`, `engine.background`, `engine.readoutSigma` and any per-pixel weights or masks in a custom loss. `engine.centeredIntensity(intensity)` returns a NumPy copy, for plotting.
+Every detector-plane array uses the centered order of `fft2c`, as in the classic engines: predicted intensities, `engine.measuredIntensities`, `engine.background`, `engine.readoutSigma` and any per-pixel weights or masks in a custom loss.
 
 ## Modules
 
 - **engine**: `GradientEngine`
 - **models**: `PtychographyModel`, `SharedProbe`, `OPRProbe`, `probe_scale`
 - **propagation**: `KernelPropagator`: fixed Fraunhofer, Fresnel, ASP and scaled-ASP kernels
-- **losses**: data objectives
+- **losses**: `amplitude_loss`, `intensity_loss`, `poisson_loss`, `mixed_poisson_gaussian_loss`
 - **regularizers**: `object_smoothness`, `object_tv`
 - **constraints**: `Constraint`, `ProbeCentering`, `ObjectAmplitudeClamp`, `AbsorbingObject`, `PhaseRampRemoval`, `ProbeModeOrthogonalization`, `ObjectStateOrthogonalization`, `AbsorbingProbeBoundary`, `OPRProjection`
 - **phases**: `Phase`, `blind_recipe`
 
-The docstrings of each module give the equations and all options; they are rendered in the [Gradient Engine API reference](../api/gradient-engine.md).
+Every name above can be imported from `PtyLab.Engines.GradientEngine`. The docstrings of each module give the equations and all options; they are rendered in the [Gradient Engine API reference](../api/gradient-engine.md).
