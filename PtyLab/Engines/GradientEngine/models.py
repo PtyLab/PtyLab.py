@@ -538,6 +538,38 @@ class PtychographyModel(torch.nn.Module):
         patches = self.object.flatten(-2).index_select(-1, flat.reshape(-1))
         return patches.unflatten(-1, flat.shape).movedim(-3, 0)
 
+    def illumination(self, indices):
+        r"""
+        Return the probe power that the frames of a batch put on the object.
+
+        $$
+        D_O(\mathbf{x}) = \sum_{j} \sum_m |P_m(\mathbf{x} - \mathbf{x}_j)|^2,
+        $$
+
+        summed over the frames $j$ in `indices` and the probe states $m$.
+        Maps of disjoint batches add up to the map of their union.
+
+        Args:
+            indices (torch.Tensor):
+                Frame indices of the batch.
+
+        Returns:
+            torch.Tensor:
+                Detached real map of shape `(No, No)`.
+        """
+        with torch.no_grad():
+            probe_intensity = self.probe(indices).abs().square()
+            probe_intensity = probe_intensity.sum(dim=(1, 2, 3, 4))
+            illumination = torch.zeros(
+                self.object.shape[-2:].numel(),
+                dtype=probe_intensity.dtype,
+                device=self.object.device,
+            )
+            illumination.index_add_(
+                0, self.patch_indices(indices).reshape(-1), probe_intensity.reshape(-1)
+            )
+        return illumination.view(self.object.shape[-2:])
+
     def gradient_preconditioners(self, indices):
         r"""
         Return diagonal curvature maps for PIE-style preconditioning.
@@ -553,7 +585,9 @@ class PtychographyModel(torch.nn.Module):
         diagonals for a loss with constant curvature in the detector field, as
         used by PIE-type updates. Both are for the stored parameters: the probe
         map carries the $s^2$ of a scale-free probe, so a preconditioned step
-        moves the physical probe independently of $s$.
+        moves the physical probe independently of $s$. The maps of disjoint
+        batches add up to the map of their union, so the engine builds them
+        batch by batch.
 
         Args:
             indices (torch.Tensor):
@@ -564,18 +598,8 @@ class PtychographyModel(torch.nn.Module):
                 `"object"`: $D_O$ with the object's shape, and
                 `"probe.field"`: $D_F$.
         """
+        illumination = self.illumination(indices)
         with torch.no_grad():
-            probe_intensity = self.probe(indices).abs().square()
-            probe_intensity = probe_intensity.sum(dim=(1, 2, 3, 4))
-            illumination = torch.zeros(
-                self.object.shape[-2:].numel(),
-                dtype=probe_intensity.dtype,
-                device=self.object.device,
-            )
-            illumination.index_add_(
-                0, self.patch_indices(indices).reshape(-1), probe_intensity.reshape(-1)
-            )
-            illumination = illumination.view(self.object.shape[-2:])
             # (batch, nlambda, nosm, 1, nslice, Np, Np): sum object states
             # -> (batch, nlambda, 1, 1, nslice, Np, Np), broadcast over probe states.
             coverage = self.object_patches(indices).abs().square()
