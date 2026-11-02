@@ -50,6 +50,29 @@ class Constraint:
     Raises:
         ValueError:
             If the schedule or the relaxation is invalid.
+
+    Examples:
+        ```python
+        import torch
+        from PtyLab.Engines.GradientEngine import Constraint
+
+
+        class ObjectPhaseClamp(Constraint):
+            # Limit the object phase to [-limit, limit], keeping the amplitude.
+
+            def __init__(self, limit=1.0, **schedule):
+                super().__init__(**schedule)
+                self.limit = limit
+
+            def apply(self, engine):  # runs under torch.no_grad
+                obj = engine.model.object
+                phase = obj.angle().clamp(-self.limit, self.limit)
+                target = torch.polar(obj.abs(), phase)
+                obj.copy_(self.relax * obj + (1 - self.relax) * target)
+
+
+        engine.constraints = [ObjectPhaseClamp(limit=1.0, start=100, step=5)]
+        ```
     """
 
     def __init__(self, start=0, step=1, end=None, relax=0.0):
@@ -267,6 +290,13 @@ class ProbeCentering(Constraint):
     Notes:
         The roll is cyclic, so it assumes the probe is small at the window
         edge.
+
+    Examples:
+        ```python
+        from PtyLab.Engines.GradientEngine import ProbeCentering
+
+        engine.constraints = [ProbeCentering(threshold=2)]
+        ```
     """
 
     def __init__(self, threshold=2, **schedule):
@@ -341,6 +371,13 @@ class ObjectAmplitudeClamp(Constraint):
         ValueError:
             If both bounds are None, a bound is negative, or `minimum` exceeds
             `maximum`.
+
+    Examples:
+        ```python
+        from PtyLab.Engines.GradientEngine import ObjectAmplitudeClamp
+
+        engine.constraints = [ObjectAmplitudeClamp(maximum=1.0)]  # no gain
+        ```
     """
 
     def __init__(self, maximum=1.0, minimum=None, **schedule):
@@ -396,6 +433,13 @@ class AbsorbingObject(Constraint):
     Raises:
         ValueError:
             If `beta` is not in $(0, 1]$.
+
+    Examples:
+        ```python
+        from PtyLab.Engines.GradientEngine import AbsorbingObject
+
+        engine.constraints = [AbsorbingObject(beta=0.01, end=200)]  # first 200 only
+        ```
     """
 
     def __init__(self, beta=0.01, **schedule):
@@ -450,6 +494,13 @@ class PhaseRampRemoval(Constraint):
     Raises:
         ValueError:
             If neither `ramp` nor `global_phase` is selected.
+
+    Examples:
+        ```python
+        from PtyLab.Engines.GradientEngine import PhaseRampRemoval, ProbeCentering
+
+        engine.constraints = [ProbeCentering(), PhaseRampRemoval(step=10)]
+        ```
     """
 
     def __init__(self, ramp=True, global_phase=True, **schedule):
@@ -616,6 +667,18 @@ class ProbeModeOrthogonalization(Constraint):
         Each eigenvector is fixed only up to a phase, so the result agrees
         with `orthogonalizeModes` up to one phase factor per mode, which no intensity
         sees.
+
+    Examples:
+        ```python
+        from PtyLab.Engines.GradientEngine import ProbeModeOrthogonalization
+
+        reconstruction.npsm = 4
+        reconstruction.initializeObjectProbe()
+        engine = GradientEngine(reconstruction, experimentalData, params, monitor)
+        engine.constraints = [ProbeModeOrthogonalization(step=10)]
+        engine.reconstruct()
+        engine.model.probe.mode_powers()  # (nlambda, npsm), strongest first
+        ```
     """
 
     def apply(self, engine):
@@ -656,6 +719,19 @@ class ObjectStateOrthogonalization(Constraint):
         The Gram matrix also counts unlit object pixels, as
         `BaseEngine.orthogonalization` does;
         they hold the start value and change $\lambda_k$ but not the fit.
+
+    Examples:
+        ```python
+        from PtyLab.Engines.GradientEngine import (
+            ObjectStateOrthogonalization,
+            ProbeModeOrthogonalization,
+        )
+
+        engine.constraints = [
+            ProbeModeOrthogonalization(step=10),
+            ObjectStateOrthogonalization(step=10),  # needs nosm > 1
+        ]
+        ```
     """
 
     def apply(self, engine):
@@ -705,6 +781,13 @@ class AbsorbingProbeBoundary(Constraint):
     Raises:
         ValueError:
             If `aleph` is not in $(0, 1]$.
+
+    Examples:
+        ```python
+        from PtyLab.Engines.GradientEngine import AbsorbingProbeBoundary
+
+        engine.constraints = [AbsorbingProbeBoundary(aleph=0.05)]
+        ```
     """
 
     def __init__(self, aleph=0.05, **schedule):
@@ -783,6 +866,15 @@ class OPRProjection(Constraint):
     Raises:
         ValueError:
             If `rank` is not a positive integer.
+
+    Examples:
+        ```python
+        from PtyLab.Engines.GradientEngine import OPRProjection
+
+        engine.relaxProbe()  # one probe per frame, from the shared probe
+        engine.constraints = [OPRProjection(rank=4, relax=0.05)]
+        engine.reconstruct()
+        ```
     """
 
     def __init__(self, rank=4, **schedule):

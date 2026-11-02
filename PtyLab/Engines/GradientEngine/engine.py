@@ -201,7 +201,20 @@ class GradientEngine(BaseEngine):
 
         device (str):
             Torch device of the model. Initialized to `"cuda"` when available,
-            else `"cpu"`.
+            else `"cpu"`. `params.gpuSwitch` (CuPy, classic engines) is ignored.
+
+    Examples:
+        ```python
+        import PtyLab
+        from PtyLab.Engines.GradientEngine import GradientEngine
+
+        experimentalData, reconstruction, params, monitor, _ = PtyLab.easyInitialize(
+            "example:simulation_cpm", operationMode="CPM"
+        )
+        engine = GradientEngine(reconstruction, experimentalData, params, monitor)
+        engine.numIterations = 200
+        engine.reconstruct()  # results in reconstruction.object / .probe / .error
+        ```
     """
 
     unsupportedSettings = (
@@ -317,10 +330,6 @@ class GradientEngine(BaseEngine):
                 f"The probe stack has {len(probe.field)} frames but the data have "
                 f"{len(r.positions)}; create a new engine for these data."
             )
-        if p.gpuSwitch or getattr(p, "gpuFlag", False):
-            raise ValueError(
-                "Set params.gpuSwitch = False; select Torch's device via engine.device."
-            )
         if p.fftshiftSwitch or p.fftshiftFlag:
             raise NotImplementedError(
                 "GradientEngine requires centered data and fftshiftSwitch = False."
@@ -402,6 +411,13 @@ class GradientEngine(BaseEngine):
         present. A run exports both the stack and its dominant probe
         `reconstruction.probe`; if that probe was changed since, the changed
         probe is copied to every frame instead.
+
+        Examples:
+            ```python
+            reconstruction.object = previous_object  # an external edit, same shape
+            engine.reset()  # import it; without reset() the model keeps its estimate
+            engine.reconstruct()
+            ```
         """
         PtychographyModel.validate(self.reconstruction)
         if self.model is None:
@@ -442,6 +458,17 @@ class GradientEngine(BaseEngine):
         Returns:
             GradientEngine:
                 The engine, for chaining.
+
+        Examples:
+            ```python
+            from PtyLab.Engines.GradientEngine import OPRProjection
+
+            engine.reconstruct()  # fit a shared probe first
+            engine.relaxProbe()
+            engine.constraints = [OPRProjection(rank=4, relax=0.05)]
+            engine.reconstruct()
+            reconstruction.probe_stack.shape  # (nlambda, 1, npsm, 1, Np, Np, frames)
+            ```
         """
         if self.model is None:
             self.model = self.createModel()
@@ -483,6 +510,13 @@ class GradientEngine(BaseEngine):
                 `"probe.stack"` the frame probes in the classic `OPR` layout
                 `(nlambda, 1, npsm, 1, Np, Np, frames)`. A model background is
                 included as `"background"` in centered order.
+
+        Examples:
+            ```python
+            state = engine.snapshot()
+            state["object"].shape  # (nlambda, nosm, 1, nslice, No, No)
+            state["probe.field"]  # physical probe, not the scale-free parameter
+            ```
         """
         if self.model is None:
             return {
@@ -720,6 +754,12 @@ class GradientEngine(BaseEngine):
 
     def prepareReconstruction(self):
         """Prepare data, retained components, propagation and a fresh optimizer."""
+        # params.gpuSwitch is the classic engines' CuPy switch and is ignored here;
+        # Torch uses engine.device. Data a classic run left on the GPU (CuPy) are
+        # brought back to NumPy, which is what classic engines do after a run.
+        if getattr(self.params, "gpuFlag", 0):
+            self._move_data_to_cpu()
+            self.params.gpuFlag = 0
         self.validateSettings()
         # Drop the previous run's copy first, so a later phase never holds
         # two copies of the data or places them by the memory the old one used.
@@ -819,6 +859,13 @@ class GradientEngine(BaseEngine):
             Each measurement runs two iterations and restores parameters and
             optimizer state. Constraints and `afterStep` do run, and a random
             position order draws from NumPy's global generator.
+
+        Examples:
+            ```python
+            engine.device = "cuda"
+            result = engine.suggestBatchSize(8 * 2**30)  # 8 GiB
+            engine.batchSize = result["batch size"]
+            ```
         """
         if torch.device(self.device).type != "cuda":
             raise RuntimeError(
@@ -1061,6 +1108,19 @@ class GradientEngine(BaseEngine):
         Raises:
             TypeError:
                 If `phases` is empty or contains anything but `Phase` records.
+
+        Examples:
+            ```python
+            from PtyLab.Engines.GradientEngine import Phase
+
+            history = engine.run(
+                [
+                    Phase(200, {"object": {"lr": 0.03}}, name="object only"),
+                    Phase(800, {"object": {"lr": 0.03}, "probe.field": {"lr": 0.1}}),
+                ]
+            )
+            history[0]["error"]  # errors of the first phase
+            ```
         """
         phases = list(phases)
         if not phases or not all(isinstance(phase, Phase) for phase in phases):

@@ -16,6 +16,17 @@ class KernelPropagator:
     Construct once per reconstruction, then call with a complex Torch exit wave.
     All leading field dimensions are preserved, and the kernels follow the
     conventions of `PtyLab.Operators.Operators`.
+
+    Examples:
+        ```python
+        import torch
+        from PtyLab.Engines.GradientEngine.propagation import KernelPropagator
+
+        propagate = KernelPropagator(reconstruction, "Fresnel", device="cpu")
+        N = reconstruction.Np
+        exit_wave = torch.ones(N, N, dtype=torch.complex64)
+        propagate(exit_wave)  # detector field, same shape, centered order
+        ```
     """
 
     @staticmethod

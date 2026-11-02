@@ -26,6 +26,14 @@ def object_smoothness(model, weight=1e-4):
     Returns:
         torch.Tensor:
             Real scalar penalty.
+
+    Examples:
+        ```python
+        from functools import partial
+        from PtyLab.Engines.GradientEngine.regularizers import object_smoothness
+
+        engine.regularizers = [partial(object_smoothness, weight=1e-4)]
+        ```
     """
     obj = model.object
     dy = obj[..., 1:, :] - obj[..., :-1, :]
@@ -62,6 +70,14 @@ def object_tv(model, weight=1e-4, epsilon=1e-6):
     Returns:
         torch.Tensor:
             Real scalar penalty.
+
+    Examples:
+        ```python
+        from functools import partial
+        from PtyLab.Engines.GradientEngine.regularizers import object_tv
+
+        engine.regularizers = [partial(object_tv, weight=1e-3)]
+        ```
     """
     obj = model.object
     # Forward differences, cropped to the common (N - 1, N - 1) grid so that

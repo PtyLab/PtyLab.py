@@ -47,6 +47,21 @@ class Phase:
 
         name (str, optional):
             Label shown in progress output. Defaults to `""`.
+
+    Examples:
+        ```python
+        from PtyLab.Engines.GradientEngine import Phase, ProbeCentering
+        from PtyLab.Engines.GradientEngine.losses import poisson_loss
+
+        phase = Phase(
+            500,
+            {"object": {"lr": 0.03}, "probe.field": {"lr": 0.1}},
+            loss=poisson_loss,
+            constraints=[ProbeCentering()],
+            name="poisson",
+        )
+        engine.run([phase])
+        ```
     """
 
     iterations: int
@@ -140,6 +155,15 @@ def blind_recipe(
         ValueError:
             If `start_fraction` is outside $(0, 1)$ or `iterations` is too small
             for two phases.
+
+    Examples:
+        ```python
+        from PtyLab.Engines.GradientEngine import ProbeCentering, blind_recipe
+
+        phases = blind_recipe(1000, constraints=[ProbeCentering()])
+        [phase.iterations for phase in phases]  # [200, 800]
+        engine.run(phases)
+        ```
     """
     if not 0 < start_fraction < 1:
         raise ValueError("start_fraction must lie in (0, 1).")

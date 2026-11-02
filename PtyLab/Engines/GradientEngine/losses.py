@@ -87,6 +87,13 @@ def intensity_loss(
     Returns:
         torch.Tensor:
             Real scalar loss.
+
+    Examples:
+        ```python
+        from PtyLab.Engines.GradientEngine.losses import intensity_loss
+
+        engine.lossFunction = intensity_loss
+        ```
     """
     residual = predicted_intensity - measured_intensity
     return residual.square().sum() / total_power.square()
@@ -159,6 +166,14 @@ def poisson_loss(
         and clamping $z + s^2$ at zero biases dark pixels upward. The gradient
         $1 - (z + s^2)/m$ is bounded by the floor $m \geq s^2$, unlike the
         plain Poisson gradient $1 - z/m$ at a dark prediction.
+
+    Examples:
+        ```python
+        from functools import partial
+        from PtyLab.Engines.GradientEngine.losses import poisson_loss
+
+        engine.lossFunction = partial(poisson_loss, gain=1.0, read_out_sigma=2.0)
+        ```
     """
     if not isfinite(gain) or gain <= 0:
         raise ValueError("gain must be a positive finite scalar.")
@@ -242,6 +257,17 @@ def amplitude_loss(
             If a scalar `read_out_sigma` is not nonnegative and finite, `eps`
             is not positive and finite, or `read_out_sigma` is a tensor or a
             nonzero scalar without `anscombe_offset_switch=True`.
+
+    Examples:
+        ```python
+        from functools import partial
+        from PtyLab.Engines.GradientEngine.losses import amplitude_loss
+
+        engine.lossFunction = amplitude_loss  # the default
+        engine.lossFunction = partial(
+            amplitude_loss, anscombe_offset_switch=True, read_out_sigma=1.5
+        )
+        ```
     """
     _check_read_out_sigma(read_out_sigma)
     if not isfinite(eps) or eps <= 0:
@@ -314,6 +340,16 @@ def mixed_poisson_gaussian_loss(
         ValueError:
             If `gain` or a scalar `read_out_sigma` is not nonnegative and
             finite, or `eps` is not positive and finite.
+
+    Examples:
+        ```python
+        from functools import partial
+        from PtyLab.Engines.GradientEngine.losses import mixed_poisson_gaussian_loss
+
+        engine.lossFunction = partial(
+            mixed_poisson_gaussian_loss, gain=1.0, read_out_sigma=2.0
+        )
+        ```
     """
     if not isfinite(gain) or gain < 0:
         raise ValueError("gain must be a nonnegative finite scalar.")

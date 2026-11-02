@@ -34,6 +34,14 @@ class SharedProbe(torch.nn.Module):
     Notes:
         $s$ is kept a power of two, so converting between $F$ and the physical
         probe is exact in floating point.
+
+    Examples:
+        ```python
+        probe = engine.model.probe  # a SharedProbe after the first reconstruct()
+        probe.scale  # power of two s, set from the photons per frame
+        probe.physical_field()  # P = s F, differentiable
+        probe.mode_powers()  # (nlambda, npsm)
+        ```
     """
 
     def __init__(self, field, scale=1.0):
@@ -148,6 +156,13 @@ class OPRProbe(SharedProbe):
 
         scale (float, optional):
             Probe scale $s$, rounded to a power of two. Defaults to 1.0.
+
+    Examples:
+        ```python
+        engine.relaxProbe()  # engine.model.probe becomes an OPRProbe
+        engine.reconstruct()
+        engine.model.probe.frame_powers()  # (frames, nlambda, npsm)
+        ```
     """
 
     @classmethod
@@ -313,6 +328,13 @@ def probe_scale(photons_per_frame, frame_pixels):
     Raises:
         ValueError:
             If the scale is not positive and finite.
+
+    Examples:
+        ```python
+        from PtyLab.Engines.GradientEngine.models import probe_scale
+
+        probe_scale(1e6, 128**2)  # sqrt(1e6 / 128**2) = 7.8, rounded to 8.0
+        ```
     """
     return _power_of_two((float(photons_per_frame) / frame_pixels) ** 0.5)
 
@@ -380,6 +402,28 @@ class PtychographyModel(torch.nn.Module):
 
         positions (array_like):
             Integer patch origins of shape `(frames, 2)` in object pixels.
+
+    Examples:
+        ```python
+        import torch
+
+        indices = torch.arange(4, device=engine.device)
+        engine.model(indices)  # (4, Np, Np) predicted intensity, centered order
+
+        # Custom physics: subclass the model and return it from createModel().
+        from PtyLab.Engines.GradientEngine import PtychographyModel, SharedProbe
+
+
+        class MyModel(PtychographyModel):
+            def forward(self, indices):
+                return 0.9 * super().forward(indices)  # detector efficiency
+
+
+        class MyEngine(GradientEngine):
+            def createModel(self):
+                r = self.reconstruction
+                return MyModel(r.object, SharedProbe(r.probe), r.positions)
+        ```
     """
 
     def __init__(self, object_field, probe, positions):
