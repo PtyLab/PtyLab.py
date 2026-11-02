@@ -35,6 +35,9 @@ def data_device(device, requested, nbytes):
         return device if requested.type == device.type else requested
     if device.type == "cuda":
         free, _ = torch.cuda.mem_get_info(device)
+        # Blocks PyTorch has cached but not allocated (such as a previous
+        # run's data) are free for these data too.
+        free += torch.cuda.memory_reserved(device) - torch.cuda.memory_allocated(device)
         if nbytes > 0.5 * free:
             return torch.device("cpu")
     return device
