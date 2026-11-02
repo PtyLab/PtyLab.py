@@ -97,7 +97,8 @@ class Constraint:
 
         Args:
             iteration (int):
-                Iteration index within the current `reconstruct()` call.
+                Iteration index from 0 within the current run of
+                `numIterations`, that is within the current phase.
 
         Returns:
             bool:
@@ -660,8 +661,10 @@ class ProbeModeOrthogonalization(Constraint):
     The optimizer state is mixed with the same matrix (see `mix_states`).
     For an `OPRProbe` the modes of every frame are orthogonalized separately,
     like `params.OPR_orthogonalize_modes` in the classic `OPR` engine.
-    It takes the schedule arguments `start`, `step`, `end` and `relax` of
-    `Constraint`.
+
+    Args:
+        **schedule (dict):
+            `start`, `step`, `end` and `relax`, as in `Constraint`.
 
     Notes:
         Each eigenvector is fixed only up to a phase, so the result agrees
@@ -715,6 +718,10 @@ class ObjectStateOrthogonalization(Constraint):
     the object only when there is one probe mode). The optimizer state is mixed as in
     `mix_states`; `relax` blends as for the probe modes.
 
+    Args:
+        **schedule (dict):
+            `start`, `step`, `end` and `relax`, as in `Constraint`.
+
     Notes:
         The Gram matrix also counts unlit object pixels, as
         `BaseEngine.orthogonalization` does;
@@ -737,8 +744,9 @@ class ObjectStateOrthogonalization(Constraint):
     def apply(self, engine):
         obj = engine.model.object  # (nlambda, nosm, 1, 1, No, No)
         purities = _orthogonalize_states(engine, obj, 1, self.relax)
-        for purity in purities or []:
-            engine.reconstruction.purityObject = purity
+        if purities:
+            # The mean over wavelengths, as ProbeModeOrthogonalization stores it.
+            engine.reconstruction.purityObject = sum(purities) / len(purities)
 
 
 class AbsorbingProbeBoundary(Constraint):

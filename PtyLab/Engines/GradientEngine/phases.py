@@ -46,7 +46,8 @@ class Phase:
             Readout noise handed to the loss, as `engine.readoutSigma`.
 
         name (str, optional):
-            Label shown in progress output. Defaults to `""`.
+            Label of the phase in the history that `reconstruct` returns.
+            Defaults to `""`.
 
     Examples:
         ```python

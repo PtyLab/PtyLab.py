@@ -9,8 +9,8 @@ from importlib import import_module
 
 _MODULES = {
     "GradientEngine": ".engine",
-    "PtychographyModel": ".engine",
-    "SharedProbe": ".engine",
+    "PtychographyModel": ".models",
+    "SharedProbe": ".models",
     "OPRProbe": ".models",
     "probe_scale": ".models",
     "KernelPropagator": ".propagation",

@@ -63,7 +63,7 @@ class GradientEngine(BaseEngine):
     ```python
     engine.parameters = {
         "object": {"lr": 0.03},
-        "probe": {"lr": 0.01},
+        "probe": {"lr": 0.1},
     }
     ```
 
@@ -178,11 +178,11 @@ class GradientEngine(BaseEngine):
             Incoherent detector background $b$ that the model adds to every
             predicted frame, so the data are compared with
             $|\mathcal{D}\lbrace \psi\rbrace |^2 + b$ instead of being
-            background-subtracted. Every loss counts $b$ as photons, with
-            shot-noise variance $g\,b$, so $b$ is for Poisson backgrounds such
-            as stray light. A noise-free offset (electronic bias, the mean of
-            dark frames) is subtracted without clipping and kept non-negative.
-            A nonnegative scalar or one frame-shaped image in centered order
+            background-subtracted. The noise-model losses count $b$ as
+            photons, with shot-noise variance $g\,b$, so $b$ is for Poisson
+            backgrounds such as stray light. A noise-free offset (electronic
+            bias, the mean of dark frames) does not belong in $b$: subtract it
+            from the frames, without clipping. A nonnegative scalar or one frame-shaped image in centered order
             (as `fft2c`), as a NumPy array or tensor. It becomes the model parameter
             `"background"`: fixed by default, estimated (and kept nonnegative)
             when selected in `parameters`. Assigning it or calling `reset()`
@@ -196,8 +196,8 @@ class GradientEngine(BaseEngine):
             with `anscombe_offset_switch=True`). A nonnegative scalar, used
             for every detector pixel, or one $(N_p, N_p)$ map
             $\sigma(\mathbf q)$ in centered order (as `fft2c`), for example the
-            temporal standard deviation of any number of dark frames whose
-            mean is subtracted from the data (it then also holds the
+            temporal standard deviation of tens of dark frames whose mean is
+            subtracted from the data (it then also holds the
             dark-current shot noise). None leaves the loss's own
             `read_out_sigma`. Initialized to None.
 
@@ -416,9 +416,9 @@ class GradientEngine(BaseEngine):
 
     def reset(self):
         """
-        Import the current `Reconstruction` object, probe and background.
+        Import the current `Reconstruction` object and probe, and `background`.
 
-        With an `OPRProbe`, `reconstruction.probe_stack` is imported if
+        The probe scale is set again from the measured photons per frame. With an `OPRProbe`, `reconstruction.probe_stack` is imported if
         present. A run exports both the stack and its dominant probe
         `reconstruction.probe`; if that probe was changed since, the changed
         probe is copied to every frame instead.
@@ -956,7 +956,8 @@ class GradientEngine(BaseEngine):
 
         Args:
             iteration (int):
-                Iteration index within the current `reconstruct()` call.
+                Iteration index from 0 within the current run of
+                `numIterations`, that is within the current phase.
         """
         pass
 
@@ -970,7 +971,8 @@ class GradientEngine(BaseEngine):
 
         Args:
             iteration (int):
-                Iteration index within the current `reconstruct()` call.
+                Iteration index from 0 within the current run of
+                `numIterations`, that is within the current phase.
 
         Returns:
             float:
