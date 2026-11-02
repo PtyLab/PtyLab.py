@@ -16,6 +16,7 @@ PtyLab is an inverse modeling toolbox for Conventional (CPM) and Fourier (FPM) p
 - **Multiple propagators**: Fraunhofer, Fresnel, Angular Spectrum (ASP), scaled ASP, polychromatic variants
 - **GPU acceleration**: same code runs on CPU and GPU (NumPy/CuPy)
 - **Live monitor**: follow the object, probe, error metric and any corrected parameters (scan positions, sample-detector distance, wavelength, angle) as the iterations run
+- **Differentiable ptychography** *(work in progress)*: Optional Gradient-based reconstruction module with custom models, losses and constraints leveraging automatic differentiation of PyTorch.
 
 
 ### How it works
@@ -44,23 +45,23 @@ Try the demo in Google Colab:
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/PtyLab/PtyLab.py/blob/main/demo.ipynb)
 ![demo](https://raw.githubusercontent.com/PtyLab/PtyLab.py/main/assets/recon.gif)
 
-To explore more features, we have extensive [tutorials](https://ptylab.github.io/PtyLab.py/tutorials/) in our documentation.
+To explore more features, we have extensive [examples](https://ptylab.github.io/PtyLab.py/tutorials/) in our documentation.
 
 ## Installation
 
-Install from PyPI within your virtual environment:
+Install from PyPI within your virtual environment (assuming you have installed [uv](https://docs.astral.sh/uv/getting-started/installation/)):
 
 ```bash
-pip install -U ptylab
+uv pip install -U ptylab
 ```
-For faster installs, we recommend [uv](https://docs.astral.sh/uv/getting-started/installation/): `uv pip install -U ptylab`
 
-For GPU support:
+For GPU support (Linux or Windows):
 
 ```bash
-uv pip install -U "ptylab[gpu]" # supports CuPy with CUDA 12
+uv pip install -U "ptylab[gpu]"
 ```
-Check whether GPU is correctly configured with `uv run ptylab check gpu`. For additional information on other extras such as `gui`, see the [installation guide](https://ptylab.github.io/PtyLab.py/getting-started/installation/).
+
+Check whether the GPU is correctly configured with `ptylab check gpu`. For other extras such as `torch` and `gui`, see the [installation guide](https://ptylab.github.io/PtyLab.py/getting-started/installation/).
 
 ## Contributing
 

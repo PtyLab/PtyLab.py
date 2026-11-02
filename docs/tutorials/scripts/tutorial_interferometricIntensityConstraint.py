@@ -1,7 +1,7 @@
 # %% [markdown]
 # # CPM Interferometric Intensity Constraint
 #
-# This tutorial uses an extended forward model for reflection ptychography. Besides the reflection from the sample, the model includes a second reflection from a flat surface, which interferes with it like a reference wave. With this interferometric intensity constraint, the reconstruction becomes much less noisy.
+# This example uses an extended forward model for reflection ptychography. Besides the reflection from the sample, the model includes a second reflection from a flat surface, which interferes with it like a reference wave. With this interferometric intensity constraint, the reconstruction becomes much less noisy.
 #
 # **What you'll learn:**
 #
@@ -14,10 +14,10 @@
 #     - Surface reflection as the reference wave: M. Du et al., "Ptychographic optical coherence tomography," Opt. Lett. 46, 1337 (2021). [doi:10.1364/OL.416144](https://doi.org/10.1364/OL.416144)
 #
 # !!! note "Dataset"
-#     The dataset (`USAF_speckle_bin4.hdf5`) is downloaded automatically into the `example_data/` folder at the project root the first time you run the tutorial. If the file already exists it is not re-downloaded.
+#     The dataset (`USAF_speckle_bin4.hdf5`) is downloaded into `example_data/` at the project root on the first run.
 #
 # !!! tip "Prerequisites"
-#     Complete [CPM Reflection](tutorial_reflectionPtychography.md) before this tutorial.
+#     Complete [CPM Reflection](tutorial_reflectionPtychography.md) before this example.
 
 # %%
 import matplotlib

@@ -1,7 +1,7 @@
 # %% [markdown]
 # # CPM Mixed States
 #
-# This tutorial reconstructs measured soft X-ray data with several mutually incoherent probe modes, the *mixed-state* model. A single coherent probe cannot explain data recorded with a partially coherent beam; mixed states can, and they give a cleaner object and a probe whose modes show how coherent the beam was.
+# This example reconstructs measured soft X-ray data with several mutually incoherent probe modes, the *mixed-state* model. A single coherent probe cannot explain data recorded with a partially coherent beam; mixed states can, and they give a cleaner object and a probe whose modes show how coherent the beam was.
 #
 # **What you'll learn:**
 #
@@ -14,10 +14,10 @@
 #     - Dataset: L. Loetgering et al., "Generation and characterization of focused helical x-ray beams," Sci. Adv. 6, eaax8836 (2020). [doi:10.1126/sciadv.aax8836](https://doi.org/10.1126/sciadv.aax8836)
 #
 # !!! note "Dataset"
-#     The dataset (`helicalbeam.hdf5`, about 350 MB) is downloaded automatically into the `example_data/` folder at the project root the first time you run the tutorial. If the file already exists it is not re-downloaded. It is part of L. Loetgering et al., "Generation and characterization of focused helical x-ray beams," Sci. Adv. 6, eaax8836 (2020).
+#     The dataset (`helicalbeam.hdf5`, about 350 MB) is downloaded into `example_data/` at the project root on the first run.
 #
 # !!! tip "Prerequisites"
-#     Complete [CPM Example Data](tutorial_CPM.md) before this tutorial.
+#     Complete [CPM Example Data](tutorial_CPM.md) before this example.
 #
 # !!! info "Run time"
 #     The two reconstructions take about half a minute on a GPU and considerably longer on a CPU.

@@ -1,11 +1,11 @@
 # PtyLab.py
 
 !!! warning "Work in progress"
-    This documentation is still being written, so some details may either be incomplete or might not match the current codebase. Please open an [issue](https://github.com/PtyLab/PtyLab.py/issues) if you find any inconsistencies.
+    This documentation is still being written, so some details may be incomplete or out of date. Please open an [issue](https://github.com/PtyLab/PtyLab.py/issues) if something does not match the code.
 
 PtyLab is an inverse modeling toolbox for **conventional (CPM)** and **Fourier (FPM)** ptychography in a unified framework. See the [paper](https://opg.optica.org/oe/fulltext.cfm?uri=oe-31-9-13763&id=529026) for details.
 
-[Get started](getting-started/quickstart.md){ .md-button .md-button--primary } [Install](getting-started/installation.md){ .md-button } [Tutorials](tutorials/index.md){ .md-button }
+[Get started](getting-started/quickstart.md){ .md-button .md-button--primary } [Install](getting-started/installation.md){ .md-button } [Examples](tutorials/index.md){ .md-button }
 
 ## Key features
 
@@ -15,12 +15,13 @@ PtyLab is an inverse modeling toolbox for **conventional (CPM)** and **Fourier (
 - **Multiple propagators**: Fraunhofer, Fresnel, Angular Spectrum (ASP), scaled ASP, polychromatic variants
 - **GPU acceleration**: same code runs on CPU and GPU (NumPy/CuPy)
 - **Live monitor**: follow the object, probe, error metric and any corrected parameters (scan positions, sample-detector distance, wavelength, angle) as the iterations run
+- **Differentiable ptychography** *(work in progress)*: optional PyTorch module for gradient-based reconstruction with custom models, losses and constraints, see the [guide](differentiable/overview.md)
 
 ## How it works
 
 PtyLab.py is built around a 6D array `(nlambda, nosm, npsm, nslice, N, N)`, i.e. wavelengths, object and probe state mixtures, depth slices, then the frame.
 
-As shown below, the data flow to a reconstruction involves five core classes: `ExperimentalData`, `Reconstruction`, `Params`, `Engine` and `Monitor`.
+A reconstruction uses five classes: `ExperimentalData`, `Reconstruction`, `Params`, `Engine` and `Monitor`.
 
 ```mermaid
 flowchart LR
@@ -50,9 +51,10 @@ Try the demo in Google Colab:
 |---|---|
 | install PtyLab, with or without a GPU | [Installation](getting-started/installation.md) |
 | run a first reconstruction in a few lines | [Quick Start](getting-started/quickstart.md) |
-| follow worked examples on simulated and real data | [Tutorials](tutorials/index.md) |
+| follow worked examples on simulated and real data | [Examples](tutorials/index.md) |
 | look up the data format, engines or settings | [User Guide](cpm/overview.md) |
-| contribute code, tests or tutorials | [Contributing](contributing.md) |
+| reconstruct with gradients, custom losses and constraints (PyTorch) | [Differentiable Ptychography](differentiable/overview.md) |
+| contribute code, tests or examples | [Contributing](contributing.md) |
 
 ## Citation
 

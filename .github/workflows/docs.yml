@@ -32,10 +32,10 @@ jobs:
       - name: Install documentation dependencies
         run: uv sync --group docs
 
-      - name: Check that tutorial pages match their scripts
+      - name: Check that example pages match their scripts
         run: uv run ptylab docs check
 
-      - name: Write the tutorial notebooks for download
+      - name: Write the example notebooks for download
         run: uv run ptylab docs notebooks
 
       - name: Build documentation

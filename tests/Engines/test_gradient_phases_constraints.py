@@ -1,0 +1,373 @@
+"""Constraints and reconstruction phases of the optional Torch engine."""
+
+import copy
+
+import numpy as np
+import pytest
+
+torch = pytest.importorskip("torch")
+
+from test_gradient_engine import engine  # noqa: E402,F401  (shared fixture)
+
+from PtyLab.Engines.GradientEngine import (  # noqa: E402
+    AbsorbingObject,
+    AbsorbingProbeBoundary,
+    Constraint,
+    ObjectAmplitudeClamp,
+    Phase,
+    PhaseRampRemoval,
+    ProbeCentering,
+    blind_recipe,
+)
+
+
+def _all_intensities(engine):
+    with torch.no_grad():
+        return engine.forward(torch.arange(len(engine.positions))).clone()
+
+
+def test_schedule_selects_start_step_and_end():
+    constraint = Constraint(start=2, step=3, end=10)
+    assert [i for i in range(15) if constraint.active(i)] == [2, 5, 8]
+    assert [i for i in range(4) if Constraint().active(i)] == [0, 1, 2, 3]
+    # end is exclusive, also when it falls on a step.
+    assert [i for i in range(10) if Constraint(step=2, end=4).active(i)] == [0, 2]
+
+
+def test_engine_calls_constraints_after_each_step_with_the_iteration(engine):
+    calls = []
+
+    def record(_, iteration):
+        assert not torch.is_grad_enabled()
+        calls.append(iteration)
+
+    engine.device = "cpu"
+    engine.constraints = [record, ProbeCentering(start=1, step=2)]
+    engine.numIterations = 3
+    engine.reconstruct()
+    assert calls == [0, 1, 2]
+
+
+def test_probe_centering_rolls_probe_object_and_adam_state(engine):
+    # A probe that fits inside the window after a shift, so the roll is exact
+    # and far-field predictions do not change.
+    engine.device = "cpu"
+    probe = np.zeros_like(engine.reconstruction.probe)
+    probe[..., 2:6, 2:6] = engine.reconstruction.probe[..., 2:6, 2:6]
+    engine.reconstruction.probe = np.roll(probe, (2, -1), axis=(-2, -1))
+    engine.reset()
+    engine.prepareReconstruction()
+    engine.runIteration(0)  # creates Adam state
+    with torch.no_grad():
+        engine.model.probe.field.copy_(
+            torch.as_tensor(np.roll(probe, (2, -1), axis=(-2, -1)))
+            / engine.model.probe.scale
+        )
+    before = _all_intensities(engine)
+    fields = {
+        name: (p.detach().clone(), engine.optimizer.state[p]["exp_avg"].clone())
+        for name, p in engine.model.named_parameters()
+    }
+
+    ProbeCentering(threshold=1)(engine, 0)
+
+    row, col = ProbeCentering.centre_of_mass(engine.model.probe.field)
+    assert max(abs(row), abs(col)) < 1
+    for name, p in engine.model.named_parameters():
+        value, moment = fields[name]
+        torch.testing.assert_close(
+            p.detach(), torch.roll(value, (-2, 1), dims=(-2, -1))
+        )
+        torch.testing.assert_close(
+            engine.optimizer.state[p]["exp_avg"],
+            torch.roll(moment, (-2, 1), dims=(-2, -1)),
+        )
+    torch.testing.assert_close(_all_intensities(engine), before, rtol=1e-5, atol=1e-7)
+
+
+def test_probe_centering_below_threshold_does_nothing(engine):
+    engine.device = "cpu"
+    engine.prepareReconstruction()
+    before = engine.model.probe.field.detach().clone()
+    ProbeCentering(threshold=2)(engine, 0)
+    torch.testing.assert_close(
+        engine.model.probe.field.detach(), before, rtol=0, atol=0
+    )
+
+
+@pytest.mark.parametrize("relax", [0.0, 0.5])
+def test_object_amplitude_clamp_keeps_phase(engine, relax):
+    engine.device = "cpu"
+    obj = engine.reconstruction.object
+    obj[...] = np.linspace(0.2, 2.0, obj.size).reshape(obj.shape) * np.exp(0.7j)
+    engine.reset()
+    before = engine.model.object.detach().clone()
+    ObjectAmplitudeClamp(1.0, relax=relax)(engine, 0)
+    after = engine.model.object.detach()
+    expected = relax * before.abs() + (1 - relax) * before.abs().clamp(max=1.0)
+    torch.testing.assert_close(after.abs(), expected)
+    torch.testing.assert_close(torch.angle(after), torch.angle(before))
+
+
+@pytest.mark.parametrize("relax", [0.0, 0.5])
+def test_absorbing_object_matches_the_classic_switch(engine, relax):
+    engine.device = "cpu"
+    obj = engine.reconstruction.object
+    rng = np.random.default_rng(0)
+    obj[...] = rng.uniform(0.2, 1.5, obj.shape) * np.exp(
+        1j * rng.uniform(-3, 3, obj.shape)
+    )
+    engine.reset()
+    # BaseEngine.applyConstraints with absObjectSwitch, beta = (1 - relax) * 0.1
+    beta = (1 - relax) * 0.1
+    expected = (1 - beta) * obj + beta * abs(obj)
+    AbsorbingObject(beta=0.1, relax=relax)(engine, 0)
+    after = engine.model.object.detach().numpy()
+    np.testing.assert_allclose(
+        after, expected.astype(after.dtype), rtol=1e-6, atol=1e-6
+    )
+
+
+def test_absorbing_object_keeps_a_real_positive_object_and_adam_state(engine):
+    engine.device = "cpu"
+    engine.reconstruction.object[...] = 0.8
+    engine.reset()
+    engine.numIterations = 1
+    engine.reconstruct()
+    state = {
+        k: v.clone()
+        for k, v in engine.optimizer.state[engine.model.object].items()
+        if torch.is_tensor(v)
+    }
+    with torch.no_grad():
+        engine.model.object.fill_(0.8)
+    AbsorbingObject(beta=0.5)(engine, 0)
+    torch.testing.assert_close(
+        engine.model.object.detach(), torch.full_like(engine.model.object, 0.8)
+    )
+    for key, value in state.items():
+        torch.testing.assert_close(
+            engine.optimizer.state[engine.model.object][key], value
+        )
+
+
+def test_absorbing_object_rejects_bad_beta():
+    for beta in (0, 1.5, True):
+        with pytest.raises(ValueError):
+            AbsorbingObject(beta=beta)
+
+
+def _ptylab_probe_window(engine):
+    """PtyLab's own absorbing-boundary window (BaseEngine._probeWindow, NumPy)."""
+    engine.params.saveMemory = False
+    engine._probeWindow()
+    return torch.as_tensor(engine.probeWindow, dtype=torch.float32)
+
+
+def test_absorbing_boundary_window_matches_ptylab(engine):
+    window = AbsorbingProbeBoundary.window(engine.reconstruction.Np)
+    torch.testing.assert_close(window, _ptylab_probe_window(engine))
+    assert window.max() > 0.99 and window.min() < 1e-3  # varies across this probe
+
+
+CUDA = pytest.mark.skipif(not torch.cuda.is_available(), reason="needs CUDA")
+
+
+@pytest.mark.parametrize("device", ["cpu", pytest.param("cuda", marks=CUDA)])
+@pytest.mark.parametrize("relax", [0.0, 0.5])
+def test_absorbing_boundary_damps_probe_and_scales_adam_state(engine, relax, device):
+    # One call: P <- f P with f = rho + (1 - rho) [(1 - a) + a W], as PtyLab's
+    # applyConstraints; Adam's m scales by f and v by f^2.
+    engine.device = device
+    engine.prepareReconstruction()
+    engine.runIteration(0)  # creates Adam state
+    field = engine.model.probe.field
+    state = engine.optimizer.state[field]
+    before = field.detach().clone()
+    first, second = state["exp_avg"].clone(), state["exp_avg_sq"].clone()
+
+    AbsorbingProbeBoundary(aleph=0.2, relax=relax)(engine, 0)
+
+    factor = relax + (1 - relax) * (0.8 + 0.2 * _ptylab_probe_window(engine).to(device))
+    torch.testing.assert_close(field.detach(), before * factor)
+    torch.testing.assert_close(state["exp_avg"], first * factor)
+    torch.testing.assert_close(state["exp_avg_sq"], second * factor**2)
+
+
+def test_absorbing_boundary_in_a_reconstruction_darkens_the_window_edge(engine):
+    # Adam keeps its step size (m/sqrt(v) is unchanged by the scaling), so the
+    # edge settles where damping and steps balance: compare against no constraint.
+    engine.device = "cpu"
+    edge = _ptylab_probe_window(engine) < 0.01
+    plain = copy.deepcopy(engine)
+    for candidate, constraints in (
+        (plain, []),
+        (engine, [AbsorbingProbeBoundary(aleph=0.5)]),
+    ):
+        candidate.constraints = constraints
+        candidate.numIterations = 10
+        candidate.reconstruct()
+    edge_amplitude = [
+        np.abs(np.squeeze(c.reconstruction.probe))[edge.numpy()].mean()
+        for c in (plain, engine)
+    ]
+    assert edge_amplitude[1] < 0.5 * edge_amplitude[0]
+    assert engine.reconstruction.error[-1] < engine.reconstruction.error[0]
+
+
+@pytest.mark.parametrize("propagator", ["Fraunhofer", "Fresnel"])
+def test_phase_ramp_removal_keeps_predictions_and_removes_the_ramp(engine, propagator):
+    engine.device = "cpu"
+    engine.params.propagatorType = propagator
+    r = engine.reconstruction
+    rows, cols = np.mgrid[: r.No, : r.No]
+    rng = np.random.default_rng(3)
+    texture = np.exp(0.2j * rng.standard_normal((r.No, r.No)))
+    r.object[...] = texture * np.exp(1j * (0.4 * rows - 0.25 * cols + 1.1))
+    engine.prepareReconstruction()
+    before = _all_intensities(engine)
+
+    removal = PhaseRampRemoval()
+    removal(engine, 0)
+
+    torch.testing.assert_close(_all_intensities(engine), before, rtol=1e-4, atol=1e-6)
+    k_row, k_col, phi = removal.estimate(engine)
+    assert abs(k_row) < 1e-5 and abs(k_col) < 1e-5 and abs(phi) < 1e-5
+
+
+def test_phase_ramp_removal_rotates_adam_first_moment(engine):
+    engine.device = "cpu"
+    # A clear global phase, so the factor is far from 1 and a plain rotation
+    # of the second moments would differ from their mean.
+    engine.reconstruction.object = engine.reconstruction.object * np.exp(0.7j)
+    engine.prepareReconstruction()
+    engine.runIteration(0)
+    removal = PhaseRampRemoval(ramp=False)
+    _, _, phi = removal.estimate(engine)
+    assert abs(phi) > 0.3
+    obj = engine.model.object
+    first = engine.optimizer.state[obj]["exp_avg"].clone()
+    second = engine.optimizer.state[obj]["exp_avg_sq"].clone()
+    scale = second.real.abs().max()
+    assert (second.real - second.imag).abs().max() > 0.1 * scale
+    removal(engine, 0)
+    factor = complex(np.exp(-1j * phi))
+    # Moments are tiny (about 1e-8 for exp_avg_sq), so tolerances are relative
+    # to their size; the default atol would accept any value.
+    torch.testing.assert_close(
+        engine.optimizer.state[obj]["exp_avg"],
+        first * factor,
+        rtol=1e-5,
+        atol=1e-6 * first.abs().max().item(),
+    )
+    mean = 0.5 * (second.real + second.imag)
+    torch.testing.assert_close(
+        engine.optimizer.state[obj]["exp_avg_sq"],
+        torch.complex(mean, mean),
+        rtol=1e-5,
+        atol=1e-6 * scale.item(),
+    )
+
+
+def test_phase_ramp_weights_do_not_depend_on_batch_size(engine):
+    engine.device = "cpu"
+    engine.prepareReconstruction()
+    full = PhaseRampRemoval.weights(engine).clone()
+    engine.effectiveBatchSize = 3  # batches of 3 and 1
+    torch.testing.assert_close(PhaseRampRemoval.weights(engine), full)
+
+
+def test_reconstruct_with_phases_matches_consecutive_reconstructions(engine):
+    # reconstruct(phases=...) replaced engine.run(phases) with the same effect:
+    # each phase is a plain reconstruct() with its settings, the errors are
+    # concatenated and the engine's own settings come back.
+    engine.device = "cpu"
+    manual = copy.deepcopy(engine)
+    phases = [
+        Phase(2, {"object": {"lr": 0.02}}, name="object only"),
+        Phase(3, {"probe": {"lr": 0.05}}, optimizerType="preconditioned"),
+    ]
+    history = engine.reconstruct(phases=phases)
+
+    manual.parameters = {"object": {"lr": 0.02}}
+    manual.numIterations = 2
+    manual.reconstruct()
+    errors = list(manual.reconstruction.error)
+    manual.parameters = {"probe": {"lr": 0.05}}
+    manual.optimizerType = "preconditioned"
+    manual.numIterations = 3
+    manual.reconstruct()
+    errors += manual.reconstruction.error
+
+    assert [item["name"] for item in history] == ["object only", ""]
+    assert [len(item["error"]) for item in history] == [2, 3]
+    np.testing.assert_array_equal(engine.reconstruction.error, errors)
+    np.testing.assert_array_equal(
+        engine.reconstruction.object, manual.reconstruction.object
+    )
+    np.testing.assert_array_equal(
+        engine.reconstruction.probe, manual.reconstruction.probe
+    )
+    assert engine.parameters is None
+    assert engine.optimizerType == "adam"
+    assert engine.numIterations == 100
+
+
+def test_reconstruct_returns_none_and_asks_for_phases_by_keyword(engine):
+    engine.device = "cpu"
+    engine.numIterations = 1
+    assert engine.reconstruct() is None
+    with pytest.raises(TypeError, match="phases="):
+        engine.reconstruct(blind_recipe(10))
+    with pytest.raises(TypeError, match="nonempty"):
+        engine.reconstruct(phases=[])
+
+
+def test_blind_recipe_reduces_the_loss(engine):
+    engine.device = "cpu"
+    engine.reconstruct(phases=blind_recipe(30, constraints=[ProbeCentering()]))
+    error = engine.reconstruction.error
+    assert len(error) == 30 and error[-1] < 0.5 * error[0]
+
+
+def test_blind_recipe_passes_readout_sigma_to_both_phases(engine):
+    from PtyLab.Engines.GradientEngine.losses import amplitude_loss, poisson_loss
+
+    seen = []
+
+    def recording(loss):
+        """Record the sigma the loss receives, then evaluate it."""
+
+        def wrapped(predicted, measured, total_power, read_out_sigma=0.0):
+            seen.append(read_out_sigma)
+            return loss(predicted, measured, total_power, read_out_sigma=read_out_sigma)
+
+        return wrapped
+
+    engine.device = "cpu"
+    size = engine.reconstruction.Np
+    sigma = np.full((size, size), 0.5, dtype=np.float32)
+
+    # Either way the plain amplitude start gets 0 and the Adam phase the map:
+    # first from engine.readoutSigma, then from the recipe's own readoutSigma.
+    for engine_sigma, recipe_sigma in ((sigma, None), (None, sigma)):
+        engine.readoutSigma = engine_sigma
+        seen.clear()
+        phases = blind_recipe(
+            5, lossFunction=recording(poisson_loss), readoutSigma=recipe_sigma
+        )
+        assert phases[0].lossFunction is amplitude_loss
+        phases[0].lossFunction = recording(phases[0].lossFunction)
+        engine.reconstruct(phases=phases)
+        assert np.isfinite(engine.reconstruction.error).all()
+        assert seen[0] == 0.0
+        torch.testing.assert_close(seen[-1], torch.as_tensor(sigma))
+        assert engine.readoutSigma is engine_sigma  # restored after the phases
+
+
+def test_reconstruct_draws_the_monitor_at_the_last_iteration(engine):
+    calls = []
+    engine.showReconstruction = lambda loop, force=False: calls.append((loop, force))
+    engine.numIterations = 3
+    engine.reconstruct()
+    assert calls == [(0, False), (1, False), (2, True)]

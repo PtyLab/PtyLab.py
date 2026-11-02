@@ -1,4 +1,4 @@
-# Configuration Reference
+# Parameter Reference
 
 `Params` holds the settings shared by all engines. Create it once and pass it to both the `Reconstruction` and the engine.
 

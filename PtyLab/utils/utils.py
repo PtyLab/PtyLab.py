@@ -28,7 +28,7 @@ def fft2c(field, fftshiftSwitch=False, *args, **kwargs):
 
 def ifft2c(field, fftshiftSwitch=False):
     """
-    performs 2 - dimensional inverse Fourier transformation, where energy is preserved sum( abs(G)**2 ) == sum( abs(fft2c(g))**2 ) 
+    performs 2 - dimensional inverse Fourier transformation, where energy is preserved sum( abs(G)**2 ) == sum( abs(fft2c(g))**2 )
     if G is two - dimensional, fft2c(G) yields the 2D iDFT of G
     if G is multi - dimensional, fft2c(G) yields the 2D iDFT of G along the last two axes
     :param array:
@@ -209,6 +209,72 @@ def orthogonalizeModes(p, method=None):
         return xp.asarray(p), normalizedEigenvalues, U.T.conj()
 
 
+def correctGlobalPhase(estimate, reference, weight=None, ramp=False):
+    r"""
+    Align the phase of a reconstruction to a reference, such as the ground truth.
+
+    A reconstruction $\hat{x}$ matches the reference $x$ only up to a constant
+    phase. The best phase is
+
+    $$
+    \theta = \arg \langle \hat{x}, x \rangle_w, \qquad \langle a, b \rangle_w = \sum_{\mathbf{r}} w(\mathbf{r})\, a^*(\mathbf{r})\, b(\mathbf{r}),
+    $$
+
+    which solves $\min_\theta \| e^{i\theta} \hat{x} - x \|_w^2$. The result
+    is $e^{i\theta} \hat{x}$; the amplitude is not changed.
+
+    In blind ptychography $\hat{x}$ can also carry a linear phase ramp
+    $e^{-i\mathbf{k}\cdot\mathbf{r}}$, traded with the probe. With
+    `ramp=True`, $\mathbf{k}$ is first taken as the mean phase step between
+    neighbouring pixels of $c = \hat{x}^* x$ (no unwrapping needed),
+
+    $$
+    k_{\mathrm{row}} = \arg \sum_{\mathbf{r}} w(\mathbf{r})\, c(\mathbf{r} + \mathbf{e}_{\mathrm{row}})\, c^*(\mathbf{r}),
+    $$
+
+    likewise along columns, and $\theta$ is then found as above for
+    $e^{i\mathbf{k}\cdot\mathbf{r}} \hat{x}$.
+
+    Each frame on the last two axes gets its own phase (and ramp).
+
+    Args:
+        estimate (ndarray):
+            Complex reconstruction, NumPy or CuPy, with frames on the last two axes.
+
+        reference (ndarray):
+            Complex reference, broadcastable to `estimate`.
+
+        weight (ndarray, optional):
+            Real weight $w$ over the frame, for example the illumination or a
+            mask of the scanned area. Defaults to 1 everywhere.
+
+        ramp (bool, optional):
+            Also remove the relative linear phase ramp. Defaults to False.
+
+    Returns:
+        ndarray:
+            The aligned estimate, with the shape and dtype of `estimate`.
+    """
+    xp = getArrayModule(estimate)
+    w = xp.ones(estimate.shape[-2:]) if weight is None else xp.asarray(weight)
+    # c = x_hat* x: its phase is what the estimate lacks, theta (+ k.r).
+    c = reference * estimate.conj()
+    phase = 0.0
+    if ramp:
+        rows = xp.arange(estimate.shape[-2]) - estimate.shape[-2] // 2
+        cols = xp.arange(estimate.shape[-1]) - estimate.shape[-1] // 2
+        sum2d = {"axis": (-2, -1), "keepdims": True}
+        # Mean phase step between neighbouring pixels: k in radians per pixel.
+        step_row = w[..., :-1, :] * c[..., 1:, :] * c[..., :-1, :].conj()
+        step_col = w[..., :, :-1] * c[..., :, 1:] * c[..., :, :-1].conj()
+        k_row = xp.angle(xp.sum(step_row, **sum2d))
+        k_col = xp.angle(xp.sum(step_col, **sum2d))
+        phase = k_row * rows[:, None] + k_col * cols[None, :]
+    # Least-squares constant phase, after the ramp is taken out of c.
+    theta = xp.angle(xp.sum(w * c * xp.exp(-1j * phase), axis=(-2, -1), keepdims=True))
+    return (estimate * xp.exp(1j * (phase + theta))).astype(estimate.dtype)
+
+
 def zernikeAberrations(Xp, Yp, D, z_coeff):
     """
     Compute the first 19 Zernike aberrations based on Zernike polynomials
@@ -219,7 +285,7 @@ def zernikeAberrations(Xp, Yp, D, z_coeff):
     z_coeff - 19 element long list containing coefficients.
 
     minimal example:
-
+        ```python
         import matplotlib.pyplot as plt
         import numpy as np
 
@@ -237,6 +303,7 @@ def zernikeAberrations(Xp, Yp, D, z_coeff):
         plt.figure(1)
         plt.imshow(np.angle(Z))
         plt.show()
+        ```
     """
 
     aperture = circ(Xp, Yp, D)
@@ -266,27 +333,17 @@ def zernikeAberrations(Xp, Yp, D, z_coeff):
     # trefoil
     Z[10] = z_coeff[10] * 5 ** (1 / 2.0) * (6 * p**4 - 6 * p**2 + 1)
     # spherical
-    Z[11] = (
-        z_coeff[11] * 10 ** (1 / 2.0) * (4 * p**4 - 3 * p**2) * np.cos(2.0 * angle)
-    )
+    Z[11] = z_coeff[11] * 10 ** (1 / 2.0) * (4 * p**4 - 3 * p**2) * np.cos(2.0 * angle)
     # 2nd astigmatism
-    Z[12] = (
-        z_coeff[12] * 10 ** (1 / 2.0) * (4 * p**4 - 3 * p**2) * np.sin(2.0 * angle)
-    )
+    Z[12] = z_coeff[12] * 10 ** (1 / 2.0) * (4 * p**4 - 3 * p**2) * np.sin(2.0 * angle)
     # 2nd astigmatism
     Z[13] = z_coeff[13] * 10 ** (1 / 2.0) * (p**4) * np.cos(4.0 * angle)
     Z[14] = z_coeff[14] * 10 ** (1 / 2.0) * (p**4) * np.sin(4.0 * angle)
     Z[15] = (
-        z_coeff[15]
-        * 12 ** (1 / 2.0)
-        * (10 * p**5 - 12 * p**3 + 3 * p)
-        * np.cos(angle)
+        z_coeff[15] * 12 ** (1 / 2.0) * (10 * p**5 - 12 * p**3 + 3 * p) * np.cos(angle)
     )
     Z[16] = (
-        z_coeff[16]
-        * 12 ** (1 / 2)
-        * (10 * p**5 - 12 * p**3 + 3 * p)
-        * np.sin(angle)
+        z_coeff[16] * 12 ** (1 / 2) * (10 * p**5 - 12 * p**3 + 3 * p) * np.sin(angle)
     )
     Z[17] = z_coeff[17] * 12 ** (1 / 2) * (5 * p**5 - 4 * p**3) * np.cos(3 * angle)
     Z[18] = z_coeff[18] * 12 ** (1 / 2) * (5 * p**5 - 4 * p**3) * np.sin(3 * angle)

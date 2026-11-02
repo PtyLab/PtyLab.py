@@ -1,13 +1,13 @@
 # Installation
 
-PtyLab.py requires **Python 3.11 or newer** and is distributed on [PyPI](https://pypi.org/project/ptylab/). Install it within a virtual environment of your liking (Ex: [conda](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html) or [uv venv](https://docs.astral.sh/uv/pip/environments/)).
+PtyLab.py requires **Python 3.11 or newer** and is distributed on [PyPI](https://pypi.org/project/ptylab/). Install it in a virtual environment, for example with [conda](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html) or [uv venv](https://docs.astral.sh/uv/pip/environments/).
 
 If you are contributing to the library instead, see the [contributing guide](../contributing.md).
 
 ## From PyPI
 
 !!! tip
-    The commands below use [uv](https://docs.astral.sh/uv/getting-started/installation/) for much faster installs. If you don't have it, drop the `uv` prefix and use plain `pip`.
+    The commands below use [uv](https://docs.astral.sh/uv/getting-started/installation/), which installs faster. With plain `pip`, drop the `uv` prefix.
 
 === "CPU"
 
@@ -18,31 +18,59 @@ If you are contributing to the library instead, see the [contributing guide](../
 === "GPU"
 
     ```bash
-    uv pip install -U "ptylab[gpu]"
+    uv pip install -U "ptylab[gpu]" # installs cupy for CUDA 12
     ```
 
-The `gpu` extra installs [CuPy](https://cupy.dev/) for CUDA 12 and enables GPU acceleration of the reconstruction engines. CUDA 13 is not supported yet. The extra is not installed on macOS, where PtyLab runs on the CPU.
-
 ## Optional extras
-
-These extras install optional features:
 
 | Extra | Installs | Needed for |
 |---|---|---|
 | `gpu` | CuPy (CUDA 12) | GPU reconstruction |
-| `gui` | pyqtgraph, PySide6 | the interactive Qt viewer (`show3Dslider` outside a notebook) |
+| `torch` | PyTorch | differentiable ptychography (`GradientEngine`) |
+| `gui` | pyqtgraph, PySide6 | the interactive Qt viewer |
 
-For example to combine them in one command:
+## Verify GPU detection
+
+After installing with the `gpu` extra, run:
 
 ```bash
-uv pip install -U "ptylab[gpu,gui]"
+uv run ptylab check gpu
 ```
+
+It lists the GPUs that CuPy and PyTorch (if installed) find, with their CUDA versions, and fails if a library cannot use the GPU.
+
+PtyLab uses the GPU when CuPy finds one; set `params.gpuSwitch = False` to run on the CPU. For large datasets, call `engine.convert2single()` before `reconstruct()` to use single precision, which halves memory use.
+
+## Differentiable ptychography
+
+`GradientEngine` reconstructs with PyTorch gradients, so custom models, losses and constraints can be used. Install it with the `torch` extra:
+
+=== "GPU (Linux, Windows)"
+
+    ```bash
+    uv pip install -U "ptylab[gpu,torch]" --torch-backend=cu126
+    ```
+
+=== "CPU (Linux, Windows)"
+
+    ```bash
+    uv pip install -U "ptylab[torch]" --torch-backend=cu126
+    ```
+
+=== "macOS"
+
+    ```bash
+    uv pip install -U "ptylab[torch]"
+    ```
+
+`--torch-backend=cu126` picks the CUDA 12 build of PyTorch, which matches CuPy and also runs on the CPU.
+
+!!! warning
+    `GradientEngine` is a work in progress, and its API may still change. See [Differentiable Ptychography](../differentiable/overview.md).
 
 ## Interactive viewer (Qt)
 
-Outside a notebook, `show3Dslider` opens an interactive pyqtgraph (Qt) viewer when the `gui` extra is installed. Without it, or if Qt cannot start, it falls back to a matplotlib slider.
-
-On a remote machine, the viewer window needs a graphical connection: a remote desktop session (or equivalent), or X11 forwarding from Linux or macOS (`ssh -X`). Without a display, the matplotlib fallback is used.
+With the `gui` extra, `show3Dslider` opens a Qt viewer outside a notebook; otherwise it falls back to a matplotlib slider. On a remote machine the window needs a display, such as a remote desktop or `ssh -X`.
 
 ## Latest unreleased version
 
@@ -57,15 +85,3 @@ Extras work the same way, for example with GPU support:
 ```bash
 uv pip install -U "ptylab[gpu] @ git+https://github.com/PtyLab/PtyLab.py.git"
 ```
-
-## Verify GPU detection
-
-After installing with the `gpu` extra, check whether the GPU is correctly configured:
-
-```bash
-uv run ptylab check gpu
-```
-
-This prints the CuPy CUDA device information, or warns if no GPU is found.
-
-When CuPy finds a GPU, PtyLab uses it by default (`params.gpuSwitch = True`); set `params.gpuSwitch = False` to run on the CPU. The same code runs on both. For large datasets, `engine.convert2single()` switches to single precision (float32), which halves memory use and is faster on the GPU; call it after creating the engine and before `reconstruct()`.

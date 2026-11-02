@@ -1,7 +1,7 @@
 # %% [markdown]
 # # CPM Example Data
 #
-# This tutorial walks through a complete CPM reconstruction, step by step. It uses `simu.hdf5`, a simulated measurement stored in the same HDF5 format as real data. It covers loading the data, setting up the reconstruction and its parameters, and running an engine.
+# This example walks through a complete CPM reconstruction, step by step. It uses `simu.hdf5`, a simulated measurement stored in the same HDF5 format as real data. It covers loading the data, setting up the reconstruction and its parameters, and running an engine.
 #
 # **What you'll learn:**
 #
@@ -15,10 +15,10 @@
 #     - mPIE: A. M. Maiden, D. Johnson and P. Li, "Further improvements to the ptychographical iterative engine," Optica 4, 736 (2017). [doi:10.1364/OPTICA.4.000736](https://doi.org/10.1364/OPTICA.4.000736)
 #
 # !!! note "Dataset"
-#     The dataset (`simu.hdf5`) is generated automatically into the `example_data/` folder at the project root the first time you run the tutorial. If the file already exists it is not re-generated.
+#     The dataset (`simu.hdf5`) is generated in `example_data/` at the project root on the first run.
 #
 # !!! tip "Prerequisites"
-#     Complete [CPM Simulation](tutorial_CPM_sim.md) before this tutorial.
+#     Complete [CPM Simulation](tutorial_CPM_sim.md) before this example.
 
 # %%
 import matplotlib
@@ -44,7 +44,7 @@ else:
 # %% [markdown]
 # `PtyLab.easyInitialize` creates all five objects in one call, with default settings. The next cell shows it for reference.
 #
-# The rest of this tutorial creates each object step by step instead, so you can see and change every setting.
+# The rest of this example creates each object step by step instead, so you can see and change every setting.
 
 # %%
 ## optional
@@ -75,7 +75,7 @@ exampleData, reconstruction, params, monitor, ePIE_engine = PtyLab.easyInitializ
 # | `theta` | rad | sample tilt, for reflection-mode ptychography |
 # | `emptyBeam` | counts | image of the beam without a sample |
 #
-# FPM files use a different set of fields; see the [FPM tutorial](tutorial_FPM.md). [Data Format](../cpm/data-format.md) describes the file layout in full.
+# FPM files use a different set of fields; see the [FPM example](tutorial_FPM.md). [Data Format](../cpm/data-format.md) describes the file layout in full.
 #
 # Load the file into `exampleData`:
 

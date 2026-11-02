@@ -1,7 +1,7 @@
 # %% [markdown]
 # # CPM Simulation
 #
-# This tutorial introduces conventional ptychographic microscopy (CPM) by simulating a complete experiment from scratch. Starting from the geometry (wavelength, detector size, pixel size, sample-to-detector distance), it defines a probe and an object, computes the diffraction patterns, and reconstructs the object with the mPIE engine.
+# This example introduces conventional ptychographic microscopy (CPM) by simulating a complete experiment from scratch. Starting from the geometry (wavelength, detector size, pixel size, sample-to-detector distance), it defines a probe and an object, computes the diffraction patterns, and reconstructs the object with the mPIE engine.
 #
 # **What you'll learn:**
 #

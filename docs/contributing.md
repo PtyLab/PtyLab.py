@@ -1,8 +1,8 @@
 # Contributing
 
-This page is for contributors of this library. To use PtyLab, see [Installation](getting-started/installation.md).
+This page is for contributors. To use PtyLab, see [Installation](getting-started/installation.md).
 
-Contributing follows three steps: [set up](#1-set-up) a local copy, [make your changes](#2-make-changes) with tests, and [submit a pull request](#3-submit-a-pull-request).
+There are three steps: [set up](#1-set-up) a local copy, [make your changes](#2-make-changes) with tests, and [submit a pull request](#3-submit-a-pull-request).
 
 ## 1. Set up
 
@@ -27,23 +27,15 @@ git switch -c my-feature upstream/main
 
 ### Install
 
-Install the project with [uv](https://docs.astral.sh/uv/getting-started/installation/). `uv sync` creates a virtual environment and always includes the development tools (pytest, ruff); add the extras for your machine:
+Install the project with [uv](https://docs.astral.sh/uv/getting-started/installation/). `uv sync` creates a virtual environment with the development tools (pytest, ruff), the Qt viewer and PyTorch; add the `gpu` extra on a machine with an NVIDIA GPU:
 
 ```bash
-uv sync --all-extras                  # Linux/Windows with an NVIDIA GPU, or macOS
+uv sync --extra gpu
 ```
 
-This installs all extras: CuPy for CUDA 12 (`gpu`) and the Qt viewer (`gui`).
+PyTorch comes as the CUDA 12 build on Linux and Windows, which matches CuPy, and the PyPI build on macOS.
 
-```bash
-uv sync --all-extras --no-extra gpu   # Linux/Windows without a GPU: skips CuPy
-```
-
-This installs the same extras without CuPy.
-
-Either command creates a `.venv` in the project root; select it in your IDE or run `source .venv/bin/activate`. `uv sync` removes any extra you leave out, so reuse the same flags on every sync.
-
-Check whether CuPy detects the GPU with:
+This creates a `.venv` in the project root; select it in your IDE or run `source .venv/bin/activate`. `uv sync` removes any extra you leave out, so reuse the same flags on every sync. Check which GPUs CuPy and PyTorch detect with:
 
 ```bash
 uv run ptylab check gpu
@@ -63,7 +55,7 @@ uv run ruff format path/to/changed_file.py
 
 ### Tests
 
-Add tests for new implementations and run the suite with:
+Add tests for new code and run the suite with:
 
 ```bash
 uv run pytest tests
@@ -83,23 +75,23 @@ Then open [http://127.0.0.1:8000](http://127.0.0.1:8000) in your browser. The pa
 
 Write maths in LaTeX between `$...$` (inline) or `$$...$$` (display), and draw diagrams in a ` ```mermaid ` code block.
 
-### Tutorials
+### Examples
 
-Each tutorial is a Python script `tutorial_<name>.py` in `docs/tutorials/scripts/`, split into cells by `# %%` lines. If you add or change any of these scripts, re-render the tutorials with:
-
-```bash
-uv run ptylab docs render              # every tutorial whose script is new or changed
-```
-
-For rendering just a specific one, even if its script did not change (for example, after changing the code it uses):
+Each example is a Python script `tutorial_<name>.py` in `docs/tutorials/scripts/`, split into cells by `# %%` lines. If you add or change any of these scripts, re-render the examples with:
 
 ```bash
-uv run ptylab docs render <tutorial-name> # single tutorial (with or without .py)
+uv run ptylab docs render              # every example whose script is new or changed
 ```
 
-This runs the script and saves the page and its figures in `docs/tutorials/` (`<tutorial-name>.md` and `<tutorial-name>_files/`), which should be committed as well. The `.ipynb` it also writes there is not committed. In the end, run `uv run ptylab docs check`, which reports pages that are out of date and tutorials missing from the index or the nav, as CI does.
+To render one example, even if its script did not change (for example, after changing the code it uses):
 
-New feature, such as an engine or a constraint? Please add a tutorial for it. List it in `docs/tutorials/index.md` and in the `nav` of `mkdocs.yml`.
+```bash
+uv run ptylab docs render <script-name> # single example (with or without .py)
+```
+
+This runs the script and saves the page and its figures in `docs/tutorials/` (`<script-name>.md` and `<script-name>_files/`); commit these too. The `.ipynb` it also writes there is not committed. Finally, run `uv run ptylab docs check`, which reports pages that are out of date and examples missing from the index or the nav, as CI does.
+
+If you add a feature such as an engine or a constraint, please add an example for it. List it in `docs/tutorials/index.md` and in the `nav` of `mkdocs.yml`.
 
 ## 3. Submit a pull request
 

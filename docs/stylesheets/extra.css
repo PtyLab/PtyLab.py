@@ -15,3 +15,10 @@
 .md-typeset table:not([class]) {
   font-size: inherit;
 }
+
+/* Keep each inline code name on one line in tables, so a narrow column grows
+   to fit it instead of breaking the name mid-word. Cells still wrap between words. */
+.md-typeset table:not([class]) code {
+  white-space: nowrap;
+  word-break: normal;
+}

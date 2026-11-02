@@ -73,24 +73,10 @@ Instead of a path, both accept these names:
 data = ExperimentalData("example:simulation_cpm", operationMode="CPM")
 ```
 
-## Creating an HDF5 file
+## Your own data
 
-Write your own measurements to a compatible file with `h5py`:
+Write your measurements to an HDF5 file with the fields above, using any HDF5 library. All distances are in meters, and `ptychogram` holds intensities (counts), not amplitudes.
 
-```python
-import h5py
-import numpy as np
+## Saving results
 
-ptychogram = ...   # shape (N, Nd, Nd), dtype float32
-encoder = ...      # shape (N, 2), dtype float64, units: meters
-
-with h5py.File("mydata.hdf5", "w") as f:
-    f.create_dataset("ptychogram", data=ptychogram.astype(np.float32))
-    f.create_dataset("wavelength", data=np.float64(532e-9))   # 532 nm
-    f.create_dataset("encoder", data=encoder.astype(np.float64))
-    f.create_dataset("dxd", data=np.float64(6.5e-6))           # 6.5 µm pixels
-    f.create_dataset("zo", data=np.float64(50e-3))             # 50 mm distance
-```
-
-!!! note
-    All distances are in **meters**. The `ptychogram` holds intensities (counts), not amplitudes. Negative values and NaNs are not supported.
+`reconstruction.saveResults("result.hdf5")` writes the reconstructed object, probe and related state to an HDF5 file. `type="object"` or `type="probe"` saves only one of them.

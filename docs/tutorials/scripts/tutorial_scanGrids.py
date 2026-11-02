@@ -1,7 +1,7 @@
 # %% [markdown]
 # # Scan Grids
 #
-# This tutorial shows how to design the scan grid of a CPM experiment, the set of sample positions at which a diffraction pattern is recorded. It compares the grid types in `PtyLab.utils.scanGrids`, shortens the path the stage travels between positions, and writes the positions to a text file for the stage controller.
+# This example shows how to design the scan grid of a CPM experiment, the set of sample positions at which a diffraction pattern is recorded. It compares the grid types in `PtyLab.utils.scanGrids`, shortens the path the stage travels between positions, and writes the positions to a text file for the stage controller.
 #
 # **What you'll learn:**
 #
@@ -13,10 +13,10 @@
 #     - Fermat spiral scans: X. Huang et al., "Optimization of overlap uniformness for ptychography," Opt. Express 22, 12634 (2014). [doi:10.1364/OE.22.012634](https://doi.org/10.1364/OE.22.012634)
 #
 # !!! note "Dataset"
-#     No dataset is needed; this tutorial only generates positions.
+#     No dataset is needed; this example only generates positions.
 #
 # !!! tip "Prerequisites"
-#     Complete [CPM Simulation](tutorial_CPM_sim.md) before this tutorial; it uses a Fermat grid to simulate data.
+#     Complete [CPM Simulation](tutorial_CPM_sim.md) before this example; it uses a Fermat grid to simulate data.
 
 # %%
 import matplotlib.pyplot as plt

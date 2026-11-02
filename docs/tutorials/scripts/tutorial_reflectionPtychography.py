@@ -1,7 +1,7 @@
 # %% [markdown]
 # # CPM Reflection
 #
-# In reflection ptychography the sample is tilted with respect to the beam and the detector. This tilt distorts the diffraction patterns, and the distortion has to be removed before a standard engine can reconstruct the data. This tutorial goes through the usual steps: correct the tilted plane with the nominal angle, calibrate the angle from the data with the `aPIE` engine, and reconstruct at the calibrated angle with `mPIE`.
+# In reflection ptychography the sample is tilted with respect to the beam and the detector. This tilt distorts the diffraction patterns, and the distortion has to be removed before a standard engine can reconstruct the data. This example goes through the usual steps: correct the tilted plane with the nominal angle, calibrate the angle from the data with the `aPIE` engine, and reconstruct at the calibrated angle with `mPIE`.
 #
 # **What you'll learn:**
 #
@@ -15,13 +15,13 @@
 #     - Dataset: M. Du et al., "Ptychographic optical coherence tomography," Opt. Lett. 46, 1337 (2021). [doi:10.1364/OL.416144](https://doi.org/10.1364/OL.416144)
 #
 # !!! note "Dataset"
-#     The dataset (`TwoLayer_bin4.hdf5`) is downloaded automatically into the `example_data/` folder at the project root the first time you run the tutorial. If the file already exists it is not re-downloaded.
+#     The dataset (`TwoLayer_bin4.hdf5`) is downloaded into `example_data/` at the project root on the first run.
 #
 # !!! tip "Prerequisites"
-#     Complete [CPM Simulation](tutorial_CPM_sim.md) before this tutorial. The angle calibration works like the scan in [CPM Purity-Based Calibration](tutorial_purityCalibration.md).
+#     Complete [CPM Simulation](tutorial_CPM_sim.md) before this example. The angle calibration works like the scan in [CPM Purity-Based Calibration](tutorial_purityCalibration.md).
 #
 # !!! info "Run time"
-#     The angle calibration runs about a dozen short reconstructions, one per candidate angle. The whole tutorial takes about 10 minutes on a GPU and considerably longer on a CPU.
+#     The angle calibration runs about a dozen short reconstructions, one per candidate angle. The whole example takes about 10 minutes on a GPU and considerably longer on a CPU.
 
 # %% [markdown]
 # ## Method
@@ -159,7 +159,7 @@ plt.show()
 # - `thetaSearch = "stochastic"` (the default) is the search of de Beurs et al.: during one reconstruction, every iteration also tries a random nearby angle and keeps it if it lowers the error.
 # - `thetaSearch = "scan"` runs one short `mPIE` reconstruction per candidate angle, each from the same initial guess, and keeps the angle with the lowest error.
 #
-# This tutorial uses the scan. Each candidate is scored against the measured frames before resampling, so the interpolation in the correction does not favour any angle. The first grid has `thetaScanPoints` angles within $\pm$ `thetaScanRange` of the starting angle. Each of the `thetaScanRefinements` further grids spans one grid step on either side of the best angle so far, with the same number of points.
+# This example uses the scan. Each candidate is scored against the measured frames before resampling, so the interpolation in the correction does not favour any angle. The first grid has `thetaScanPoints` angles within $\pm$ `thetaScanRange` of the starting angle. Each of the `thetaScanRefinements` further grids spans one grid step on either side of the best angle so far, with the same number of points.
 #
 # As in the purity scan, each candidate must converge for the comparison to be fair. With the default mPIE step sizes of 0.25, some candidates converge within 100 iterations and others do not, which makes the error curve jumpy. Step sizes of 0.5 make all of them converge.
 

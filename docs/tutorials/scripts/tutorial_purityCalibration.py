@@ -1,7 +1,7 @@
 # %% [markdown]
 # # CPM Purity-Based Calibration
 #
-# This tutorial calibrates the sample-to-detector distance $z_o$ and the wavelength $\lambda$ from the data, with the `purityPIE` engine. An error in either scales the reconstruction geometry and blurs the result. `purityPIE` finds the value for which the reconstructed probe is most coherent.
+# This example calibrates the sample-to-detector distance $z_o$ and the wavelength $\lambda$ from the data, with the `purityPIE` engine. An error in either scales the reconstruction geometry and blurs the result. `purityPIE` finds the value for which the reconstructed probe is most coherent.
 #
 # **What you'll learn:**
 #
@@ -14,10 +14,10 @@
 #     - Purity-based calibration: C. Liu et al., "Purity-based self-calibration in ptychography," Opt. Lett. 50, 1581 (2025). [doi:10.1364/OL.543865](https://doi.org/10.1364/OL.543865)
 #
 # !!! note "Dataset"
-#     The dataset (`simu.hdf5`) is generated automatically into the `example_data/` folder at the project root the first time you run the tutorial. If the file already exists it is not re-generated.
+#     The dataset (`simu.hdf5`) is generated in `example_data/` at the project root on the first run.
 #
 # !!! tip "Prerequisites"
-#     Complete [CPM Mixed States](tutorial_mixedStates.md) before this tutorial; it introduces probe modes and purity.
+#     Complete [CPM Mixed States](tutorial_mixedStates.md) before this example; it introduces probe modes and purity.
 #
 # !!! info "Run time"
 #     Each calibration runs about a dozen short reconstructions, one per candidate value. Both together take about 3.5 minutes on a GPU and considerably longer on a CPU.

@@ -15,6 +15,7 @@ An engine runs one iterative reconstruction algorithm. All engines inherit from 
 | `purityPIE` | Purity-based calibration | Calibrating the sample-detector distance or the wavelength from the probe purity |
 | `e3PIE` | Multislice ePIE | Thick samples, reconstructed as several slices |
 | `OPR` | Orthogonal Probe Relaxation | Probe that varies across the scan (e.g. drift) |
+| `GradientEngine` | Differentiable ptychography (PyTorch) | Noise models as losses, regularizers and constraints; see [Differentiable Ptychography](../differentiable/overview.md) |
 
 !!! note
     `pcPIE` and `multiPIE` are deprecated and kept only for old scripts. Use `mPIE` instead: position correction is turned on with `params.positionCorrectionSwitch`, and mixed states with `reconstruction.npsm`, `nosm` and `nlambda`.
@@ -71,7 +72,7 @@ reconstruction.positions0                 # original positions (pixels)
 reconstruction.reset_positioncorrection() # go back to the encoder positions
 ```
 
-[Tutorial 07](../tutorials/tutorial_LateralPositionCorrection.md) explains the method and its equations.
+[Example 07](../tutorials/tutorial_LateralPositionCorrection.md) explains the method and its equations.
 
 ### e3PIE (multislice)
 
@@ -80,7 +81,7 @@ reconstruction.nslice = 3  # number of depth slices
 engine = Engines.e3PIE(reconstruction, experimentalData, params, monitor)
 ```
 
-Set `reconstruction.dz` and `reconstruction.refrIndex` before creating the engine, which computes the propagator between slices from them. [Tutorial 05](../tutorials/tutorial_multiSlice.md) shows the full setup.
+Set `reconstruction.dz` and `reconstruction.refrIndex` before creating the engine, which computes the propagator between slices from them. [Example 05](../tutorials/tutorial_multiSlice.md) shows the full setup.
 
 ### OPR (Orthogonal Probe Relaxation)
 

@@ -14,6 +14,9 @@ logs_tensorboard
 # docs (built site)
 site/
 
+# local
+GE_demos
+
 # misc
 notes/
 
