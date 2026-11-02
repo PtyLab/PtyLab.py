@@ -30,7 +30,7 @@ def object_smoothness(model, weight=1e-4):
     Examples:
         ```python
         from functools import partial
-        from PtyLab.Engines.GradientEngine.regularizers import object_smoothness
+        from PtyLab.Engines.GradientEngine import object_smoothness
 
         engine.regularizers = [partial(object_smoothness, weight=1e-4)]
         ```
@@ -74,7 +74,7 @@ def object_tv(model, weight=1e-4, epsilon=1e-6):
     Examples:
         ```python
         from functools import partial
-        from PtyLab.Engines.GradientEngine.regularizers import object_tv
+        from PtyLab.Engines.GradientEngine import object_tv
 
         engine.regularizers = [partial(object_tv, weight=1e-3)]
         ```

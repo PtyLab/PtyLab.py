@@ -145,8 +145,8 @@ class OPRProbe(SharedProbe):
     as the classic `OPR` engine does. Every probe mode varies between frames;
     the modes still add incoherently within a frame.
 
-    The parameter keeps the name `"probe.field"`, so `parameters`, learning
-    rates and phases work unchanged. Create it from a shared probe with
+    The parameter keeps the name `"probe.field"` (selected as `"probe"`), so
+    `parameters`, learning rates and phases work unchanged. Create it from a shared probe with
     `from_probe` or `GradientEngine.relaxProbe`.
 
     Args:

@@ -5,7 +5,7 @@ Assign a list to `engine.constraints`. After every optimizer step the engine
 calls each constraint as `constraint(engine, iteration)` under
 `torch.no_grad`. A constraint runs at iterations `start`, `start + step`, ...
 before `end` (exclusive; None means no end). `iteration` counts from zero
-within one `reconstruct()` call, so within one phase of `engine.run`.
+within one run of `numIterations`, so within one phase of `reconstruct(phases=...)`.
 
 The relaxation $\rho$ (`relax`) blends the result with the unconstrained value,
 

@@ -90,7 +90,7 @@ def intensity_loss(
 
     Examples:
         ```python
-        from PtyLab.Engines.GradientEngine.losses import intensity_loss
+        from PtyLab.Engines.GradientEngine import intensity_loss
 
         engine.lossFunction = intensity_loss
         ```
@@ -170,7 +170,7 @@ def poisson_loss(
     Examples:
         ```python
         from functools import partial
-        from PtyLab.Engines.GradientEngine.losses import poisson_loss
+        from PtyLab.Engines.GradientEngine import poisson_loss
 
         engine.lossFunction = partial(poisson_loss, gain=1.0, read_out_sigma=2.0)
         ```
@@ -261,7 +261,7 @@ def amplitude_loss(
     Examples:
         ```python
         from functools import partial
-        from PtyLab.Engines.GradientEngine.losses import amplitude_loss
+        from PtyLab.Engines.GradientEngine import amplitude_loss
 
         engine.lossFunction = amplitude_loss  # the default
         engine.lossFunction = partial(
@@ -344,7 +344,7 @@ def mixed_poisson_gaussian_loss(
     Examples:
         ```python
         from functools import partial
-        from PtyLab.Engines.GradientEngine.losses import mixed_poisson_gaussian_loss
+        from PtyLab.Engines.GradientEngine import mixed_poisson_gaussian_loss
 
         engine.lossFunction = partial(
             mixed_poisson_gaussian_loss, gain=1.0, read_out_sigma=2.0

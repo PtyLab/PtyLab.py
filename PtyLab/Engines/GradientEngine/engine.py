@@ -32,6 +32,10 @@ from .models import OPRProbe, PtychographyModel, SharedProbe, probe_scale
 from .phases import _SETTINGS, Phase
 from .propagation import KernelPropagator
 
+# Public parameter names -> model parameter names. The probe parameter is
+# scale-free (probe.field = P / s); users select it as "probe".
+_PARAMETER_NAMES = {"probe": "probe.field"}
+
 
 def _is_number(value, kind=Real):
     """Return whether `value` is a `kind` number; booleans are not numbers here."""
@@ -59,14 +63,15 @@ class GradientEngine(BaseEngine):
     ```python
     engine.parameters = {
         "object": {"lr": 0.03},
-        "probe.field": {"lr": 0.01},
+        "probe": {"lr": 0.01},
     }
     ```
 
     Omitted parameters remain fixed. `parameters = None` selects object and
     probe with `learningRateObject` and `learningRateProbe`.
 
-    The probe is optimized scale-free: `probe.field` stores $F = P/s$, with $s$
+    The probe is optimized scale-free: the `"probe"` parameter (the model's
+    `probe.field`) stores $F = P/s$, with $s$
     set from the measured photons per frame at every preparation and `reset()`
     (see `models.probe_scale`). Probe learning rates are therefore
     dimensionless, like the object's; an older Adam rate `lr` for the physical
@@ -75,9 +80,10 @@ class GradientEngine(BaseEngine):
 
     Every reconstruction call creates a fresh optimizer while retaining the
     component values from the previous call. `reset()` explicitly imports the
-    detached arrays currently stored on the `Reconstruction`. `run(phases)`
-    runs a sequence of `Phase` settings, each with a fresh optimizer;
-    `reconstruct()` is a single phase with the engine's current settings.
+    detached arrays currently stored on the `Reconstruction`.
+    `reconstruct(phases=...)` runs a sequence of `Phase` settings, each with a
+    fresh optimizer; plain `reconstruct()` is a single phase with the engine's
+    current settings.
 
     NumPy is used only at the boundaries: reading `ExperimentalData` and
     `Reconstruction` arrays, building propagation kernels, and publishing
@@ -104,8 +110,13 @@ class GradientEngine(BaseEngine):
             Full-scan iterations per `reconstruct()` call. Initialized to 100.
 
         parameters (Mapping or None):
-            Selected model parameters and their optimizer options. Initialized
-            to None.
+            Estimated parameters and their optimizer options, as
+            `{name: {"lr": rate}}`; parameters not listed stay fixed. Names are
+            `"object"`, `"probe"` (scale-free, the model's `probe.field`) and
+            `"background"` (when `background` is set); a custom model adds its
+            own `named_parameters()` names. None estimates object and probe
+            with `learningRateObject` and `learningRateProbe`. Initialized to
+            None.
 
         learningRateObject (float):
             Object learning rate when `parameters` is None. Initialized to
@@ -449,7 +460,7 @@ class GradientEngine(BaseEngine):
 
         The shared probe is replaced by an `OPRProbe` in which every frame
         starts as the current probe; the next `reconstruct()` estimates it
-        with a fresh optimizer, under the same `"probe.field"` name. Add
+        with a fresh optimizer, under the same `"probe"` name. Add
         `OPRProjection` to the constraints to keep the stack low rank. To
         start from a stack instead, set `reconstruction.probe_stack` (classic
         `OPR` layout) and call `reset()` afterwards. Calling it again keeps
@@ -499,15 +510,15 @@ class GradientEngine(BaseEngine):
         Args:
             stack (bool, optional):
                 With an `OPRProbe`, also return the per-frame stack as
-                `"probe.stack"`. Defaults to True. During iterations only the
+                `"probe_stack"`. Defaults to True. During iterations only the
                 six-axis probe is copied, since the stack can be gigabytes.
 
         Returns:
             dict:
-                Arrays keyed by parameter name. `"probe.field"` is the physical
+                Arrays keyed like the `Reconstruction` attributes. `"probe"` is the physical
                 probe, not the scale-free parameter; with an `OPRProbe` it is
                 the dominant component (`OPRProbe.shared_estimate`) and
-                `"probe.stack"` the frame probes in the classic `OPR` layout
+                `"probe_stack"` the frame probes in the classic `OPR` layout
                 `(nlambda, 1, npsm, 1, Np, Np, frames)`. A model background is
                 included as `"background"` in centered order.
 
@@ -515,24 +526,24 @@ class GradientEngine(BaseEngine):
             ```python
             state = engine.snapshot()
             state["object"].shape  # (nlambda, nosm, 1, nslice, No, No)
-            state["probe.field"]  # physical probe, not the scale-free parameter
+            state["probe"]  # physical probe, not the scale-free parameter
             ```
         """
         if self.model is None:
             return {
                 "object": np.array(self.reconstruction.object, copy=True),
-                "probe.field": np.array(self.reconstruction.probe, copy=True),
+                "probe": np.array(self.reconstruction.probe, copy=True),
             }
         state = {
             "object": self.model.object.detach().cpu().numpy().copy(),
-            "probe.field": self._physical_probe().detach().cpu().numpy().copy(),
+            "probe": self._physical_probe().detach().cpu().numpy().copy(),
         }
         if stack and isinstance(self.model.probe, OPRProbe):
             # (frames, ...) -> (..., frames), the classic OPR engine's layout
             physical = self.model.probe.physical_field().detach().movedim(0, -1)
-            state["probe.stack"] = physical.cpu().numpy()
+            state["probe_stack"] = physical.cpu().numpy()
         if getattr(self.model, "background", None) is not None:
-            state["background"] = self.centeredIntensity(self.model.background)
+            state["background"] = self.model.background.detach().cpu().numpy().copy()
         return state
 
     def _sync_reconstruction(self, stack=False, probe=True):
@@ -549,12 +560,12 @@ class GradientEngine(BaseEngine):
             return
         state = self.snapshot(stack=stack)
         self.reconstruction.object = state["object"]
-        self.reconstruction.probe = state["probe.field"]
-        if "probe.stack" in state:
-            self.reconstruction.probe_stack = state["probe.stack"]
+        self.reconstruction.probe = state["probe"]
+        if "probe_stack" in state:
+            self.reconstruction.probe_stack = state["probe_stack"]
             # A private copy: reset() compares with it to see whether
             # reconstruction.probe was changed after this export.
-            self._exportedProbe = state["probe.field"].copy()
+            self._exportedProbe = state["probe"].copy()
 
     def _selection(self):
         if self.parameters is None:
@@ -566,7 +577,14 @@ class GradientEngine(BaseEngine):
             raise TypeError("parameters must be a mapping or None.")
         if not self.parameters:
             raise ValueError("parameters must select at least one model parameter.")
-        return self.parameters
+        # "probe" is the public name of the scale-free probe parameter probe.field.
+        selection = {}
+        for name, options in self.parameters.items():
+            key = _PARAMETER_NAMES.get(name, name)
+            if key in selection:
+                raise ValueError(f"{name!r} and {key!r} refer to the same tensor.")
+            selection[key] = options
+        return selection
 
     def parameterGroups(self):
         """
@@ -997,29 +1015,11 @@ class GradientEngine(BaseEngine):
                     constraint(self, iteration)
                 self.afterStep(iteration)
 
-        self.reconstruction.Iestimated = self.centeredIntensity(last_intensity)
-        self.reconstruction.Imeasured = self.centeredIntensity(
-            self.measuredIntensities[self.positionIndices[-1]]
-        )
+        # NumPy copies of the last frame for the monitor (centered order)
+        last_measured = self.measuredIntensities[self.positionIndices[-1]]
+        self.reconstruction.Iestimated = last_intensity.detach().cpu().numpy().copy()
+        self.reconstruction.Imeasured = last_measured.detach().cpu().numpy().copy()
         return total_loss.item()
-
-    def centeredIntensity(self, intensity):
-        """
-        Return a detached NumPy copy of a detector image or stack.
-
-        Intensities, measurements, backgrounds and `readoutSigma` maps all use
-        the centered pixel order of `fft2c`, so no reordering is needed. The method
-        is kept so existing code that converts for plotting keeps working.
-
-        Args:
-            intensity (torch.Tensor):
-                Image or stack.
-
-        Returns:
-            np.ndarray:
-                Copy on the host.
-        """
-        return intensity.detach().cpu().numpy().copy()
 
     def _replace_experimental_data(self, experimentalData):
         """
@@ -1058,17 +1058,61 @@ class GradientEngine(BaseEngine):
         self.reconstruction.data = experimentalData
         self.reconstruction.reset_positioncorrection()
 
-    def reconstruct(self, experimentalData=None):
+    def reconstruct(self, experimentalData=None, phases=None):
         """
-        Run `numIterations` from the retained component values with a fresh optimizer.
+        Run the reconstruction from the retained estimates with a fresh optimizer.
+
+        Without `phases`, it runs `numIterations` with the engine's own
+        settings. With `phases`, it runs each `Phase` in order, each with a
+        fresh optimizer and starting from the estimates the previous phase
+        left. A phase sets its non-None fields on the engine for its own
+        iterations; its None fields take the engine's own settings, not those
+        of an earlier phase. The engine's settings are restored afterwards, and
+        `reconstruction.error` holds the errors of all phases in order.
 
         Args:
             experimentalData (ExperimentalData, optional):
                 Replacement data with the same acquisition geometry. If None,
                 the current data are used.
+            phases (Sequence, optional):
+                Nonempty sequence of `Phase` records, for example from
+                `blind_recipe`. If None, one run with the engine's settings.
+
+        Returns:
+            list or None:
+                With `phases`, one dict per phase with its `"name"` and
+                `"error"` history; otherwise None.
+
+        Raises:
+            TypeError:
+                If `phases` is empty or contains anything but `Phase` records.
+
+        Examples:
+            ```python
+            from PtyLab.Engines.GradientEngine import Phase, blind_recipe
+
+            engine.reconstruct()  # numIterations with the engine's settings
+            engine.reconstruct(phases=blind_recipe(iterations=1000))
+            history = engine.reconstruct(
+                phases=[
+                    Phase(200, {"object": {"lr": 0.03}}, name="object only"),
+                    Phase(800, {"object": {"lr": 0.03}, "probe": {"lr": 0.1}}),
+                ]
+            )
+            history[0]["error"]  # errors of the first phase
+            ```
         """
+        if phases is None and isinstance(experimentalData, (list, tuple)):
+            raise TypeError("Pass phases by keyword: engine.reconstruct(phases=...).")
         if experimentalData is not None:
             self._replace_experimental_data(experimentalData)
+        if phases is None:
+            self._run_iterations()
+            return None
+        return self._run_phases(phases)
+
+    def _run_iterations(self):
+        """Run `numIterations` with the current settings and a fresh optimizer."""
         try:
             self.prepareReconstruction()
             with trange(self.numIterations, desc=type(self).__name__) as self.pbar:
@@ -1086,45 +1130,11 @@ class GradientEngine(BaseEngine):
             if self.model is not None:
                 self._sync_reconstruction(stack=True)
 
-    def run(self, phases):
-        """
-        Run phases in order, each with a fresh optimizer.
-
-        Each `Phase` sets its non-None fields on the engine for its own
-        iterations, starting from the estimates the previous phase left. Its
-        None fields take the engine's own settings, not those of an earlier
-        phase. The engine's settings are restored afterwards, and
-        `reconstruction.error` holds the errors of all phases in order.
-
-        Args:
-            phases (Sequence):
-                Nonempty sequence of `Phase` records, for example from
-                `blind_recipe`.
-
-        Returns:
-            list:
-                One dict per phase with its `"name"` and `"error"` history.
-
-        Raises:
-            TypeError:
-                If `phases` is empty or contains anything but `Phase` records.
-
-        Examples:
-            ```python
-            from PtyLab.Engines.GradientEngine import Phase
-
-            history = engine.run(
-                [
-                    Phase(200, {"object": {"lr": 0.03}}, name="object only"),
-                    Phase(800, {"object": {"lr": 0.03}, "probe.field": {"lr": 0.1}}),
-                ]
-            )
-            history[0]["error"]  # errors of the first phase
-            ```
-        """
+    def _run_phases(self, phases):
+        """Run `phases` in order and restore the engine's settings; see `reconstruct`."""
         phases = list(phases)
         if not phases or not all(isinstance(phase, Phase) for phase in phases):
-            raise TypeError("run() needs a nonempty sequence of Phase records.")
+            raise TypeError("phases must be a nonempty sequence of Phase records.")
         # Every attribute a phase can set, so the engine's own values come back.
         names = (*_SETTINGS.values(), "numIterations")
         saved = {name: getattr(self, name) for name in names}
@@ -1137,7 +1147,7 @@ class GradientEngine(BaseEngine):
                     setattr(self, name, value)
                 self.numIterations = phase.iterations
                 try:
-                    self.reconstruct()
+                    self._run_iterations()
                 finally:
                     # Also keeps the errors of an interrupted phase.
                     history.append(

@@ -1,5 +1,5 @@
 """
-Reconstruction phases or ordered runs of optimizer settings for `GradientEngine.run`.
+Reconstruction phases: ordered optimizer settings for `GradientEngine.reconstruct(phases=...)`.
 """
 
 from collections.abc import Callable, Mapping, Sequence
@@ -11,7 +11,7 @@ from .losses import amplitude_loss
 _SETTINGS = {
     "parameters": "parameters",
     "optimizerType": "optimizerType",
-    "loss": "lossFunction",
+    "lossFunction": "lossFunction",
     "constraints": "constraints",
     "readoutSigma": "readoutSigma",
 }
@@ -36,7 +36,7 @@ class Phase:
         optimizerType (str, optional):
             `"adam"` or `"preconditioned"`, as `engine.optimizerType`.
 
-        loss (callable, optional):
+        lossFunction (callable, optional):
             Loss function, as `engine.lossFunction`.
 
         constraints (Sequence, optional):
@@ -50,24 +50,23 @@ class Phase:
 
     Examples:
         ```python
-        from PtyLab.Engines.GradientEngine import Phase, ProbeCentering
-        from PtyLab.Engines.GradientEngine.losses import poisson_loss
+        from PtyLab.Engines.GradientEngine import Phase, ProbeCentering, poisson_loss
 
         phase = Phase(
             500,
-            {"object": {"lr": 0.03}, "probe.field": {"lr": 0.1}},
-            loss=poisson_loss,
+            {"object": {"lr": 0.03}, "probe": {"lr": 0.1}},
+            lossFunction=poisson_loss,
             constraints=[ProbeCentering()],
             name="poisson",
         )
-        engine.run([phase])
+        engine.reconstruct(phases=[phase])
         ```
     """
 
     iterations: int
     parameters: Optional[Mapping[str, Mapping[str, Any]]] = None
     optimizerType: Optional[str] = None
-    loss: Optional[Callable] = None
+    lossFunction: Optional[Callable] = None
     constraints: Optional[Sequence[Callable]] = None
     readoutSigma: Optional[Any] = None
     name: str = ""
@@ -90,13 +89,13 @@ class Phase:
 
 def blind_recipe(
     iterations=1000,
-    loss=None,
+    lossFunction=None,
     start_fraction=0.2,
     object_lr=0.03,
     probe_lr=0.1,
     start_lr=0.3,
     constraints=None,
-    read_out_sigma=None,
+    readoutSigma=None,
 ):
     r"""
     Build two phases that recover object and probe from a flat start.
@@ -105,14 +104,17 @@ def blind_recipe(
        preconditioned descent on the plain amplitude loss, with object and
        probe at `start_lr`, and without readout noise. This finds the right
        basin from a generic `circ` probe.
-    2. Adam on `loss` runs for the rest, with object rate `object_lr` and
-       scale-free probe rate `probe_lr`, and readout noise `read_out_sigma`.
+    2. Adam on `lossFunction` runs for the rest, with object rate `object_lr`
+       and scale-free probe rate `probe_lr`, and readout noise `readoutSigma`.
+
+    The arguments named like engine attributes (`lossFunction`, `constraints`,
+    `readoutSigma`) set those attributes; the others are the recipe's own.
 
     Args:
         iterations (int, optional):
             Total number of full-scan iterations. Defaults to 1000.
 
-        loss (callable, optional):
+        lossFunction (callable, optional):
             Loss of the Adam phase. If None, the engine's loss is kept.
 
         start_fraction (float, optional):
@@ -131,13 +133,12 @@ def blind_recipe(
         constraints (Sequence, optional):
             Constraints of both phases. If None, the engine's are kept.
 
-        read_out_sigma (float or array_like, optional):
+        readoutSigma (float or array_like, optional):
             Readout noise $\sigma$ of the Adam phase, set as
             `engine.readoutSigma`: a scalar for every pixel, or one
             $(N_p, N_p)$ map in centered order, for example
             `dark.std(axis=0)` of dark frames whose mean is subtracted from
-            the data, in the units of `loss`'s
-            `read_out_sigma`. If None, the Adam phase keeps
+            the data, in the units of the data. If None, the Adam phase keeps
             `engine.readoutSigma`.
 
     Notes:
@@ -149,7 +150,7 @@ def blind_recipe(
 
     Returns:
         list:
-            The two `Phase` objects, for `GradientEngine.run`.
+            The two `Phase` objects, for `GradientEngine.reconstruct(phases=...)`.
 
     Raises:
         ValueError:
@@ -162,7 +163,7 @@ def blind_recipe(
 
         phases = blind_recipe(1000, constraints=[ProbeCentering()])
         [phase.iterations for phase in phases]  # [200, 800]
-        engine.run(phases)
+        engine.reconstruct(phases=phases)
         ```
     """
     if not 0 < start_fraction < 1:
@@ -173,9 +174,9 @@ def blind_recipe(
     return [
         Phase(
             start,
-            {"object": {"lr": start_lr}, "probe.field": {"lr": start_lr}},
+            {"object": {"lr": start_lr}, "probe": {"lr": start_lr}},
             optimizerType="preconditioned",
-            loss=amplitude_loss,
+            lossFunction=amplitude_loss,
             constraints=constraints,
             # Plain amplitude has no readout term; 0 overrides engine.readoutSigma.
             readoutSigma=0.0,
@@ -183,11 +184,11 @@ def blind_recipe(
         ),
         Phase(
             iterations - start,
-            {"object": {"lr": object_lr}, "probe.field": {"lr": probe_lr}},
+            {"object": {"lr": object_lr}, "probe": {"lr": probe_lr}},
             optimizerType="adam",
-            loss=loss,
+            lossFunction=lossFunction,
             constraints=constraints,
-            readoutSigma=read_out_sigma,
+            readoutSigma=readoutSigma,
             name="adam",
         ),
     ]

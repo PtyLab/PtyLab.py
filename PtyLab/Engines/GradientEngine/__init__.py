@@ -12,6 +12,8 @@ _MODULES = {
     "PtychographyModel": ".engine",
     "SharedProbe": ".engine",
     "OPRProbe": ".models",
+    "probe_scale": ".models",
+    "KernelPropagator": ".propagation",
     "Phase": ".phases",
     "blind_recipe": ".phases",
     "Constraint": ".constraints",
@@ -23,6 +25,12 @@ _MODULES = {
     "ObjectStateOrthogonalization": ".constraints",
     "OPRProjection": ".constraints",
     "AbsorbingProbeBoundary": ".constraints",
+    "amplitude_loss": ".losses",
+    "intensity_loss": ".losses",
+    "poisson_loss": ".losses",
+    "mixed_poisson_gaussian_loss": ".losses",
+    "object_smoothness": ".regularizers",
+    "object_tv": ".regularizers",
 }
 __all__ = list(_MODULES)
 
