@@ -38,9 +38,9 @@ from PtyLab.Engines.GradientEngine import (
     OPRProjection,
     ProbeCentering,
     ProbeModeOrthogonalization,
+    amplitude_loss,
     blind_recipe,
 )
-from PtyLab.Engines.GradientEngine.losses import amplitude_loss
 from PtyLab.io import getExampleDataFolder
 from PtyLab.utils.visualisation import hsvplot
 
@@ -120,7 +120,7 @@ print("device:", engine.device)
 # %% [markdown]
 # ## Blind reconstruction with `blind_recipe`
 #
-# From a flat start, plain Adam can settle in a poor solution. `blind_recipe` builds two phases, run with `engine.run`:
+# From a flat start, plain Adam can settle in a poor solution. `blind_recipe` builds two phases, run with `engine.reconstruct(phases=...)`:
 #
 # 1. The first 20 % of the iterations use a PIE-style preconditioned gradient descent, which finds the right basin.
 # 2. The rest use Adam on the engine's loss.
@@ -128,7 +128,9 @@ print("device:", engine.device)
 # `ProbeCentering` keeps the probe's centre of mass in the middle of its window after each step, like `params.comStabilizationSwitch` in the classic engines.
 
 # %%
-history = engine.run(blind_recipe(iterations=300, constraints=[ProbeCentering()]))
+history = engine.reconstruct(
+    phases=blind_recipe(iterations=300, constraints=[ProbeCentering()])
+)
 
 # %%
 # reconstruction.error holds the loss of every iteration of both phases
@@ -184,7 +186,9 @@ monitor.objectPlot = "abs"
 
 engine = GradientEngine(mixed, experimentalData, params, monitor)
 constraints = [ProbeCentering(), ProbeModeOrthogonalization(step=10)]
-history = engine.run(blind_recipe(iterations=300, constraints=constraints))
+history = engine.reconstruct(
+    phases=blind_recipe(iterations=300, constraints=constraints)
+)
 
 # %%
 plt.semilogy(single.error, label="1 mode")
@@ -231,10 +235,10 @@ plt.show()
 # \mathcal{L}_\text{A} = \frac{1}{P_\text{tot}}\sum_i \left(\sqrt{I_i + c} - \sqrt{y_i + c}\right)^2 ,\qquad c = \tfrac{3}{8} ,
 # $$
 #
-# where the shift $c$ makes the square root of Poisson counts have nearly constant variance. The Poisson and mixed Poisson-Gaussian losses are set the same way; see the [guide](../differentiable/overview.md#losses). Each `reconstruct()` starts a fresh optimizer from the current estimates. `run` restores the engine's own settings when it ends, so the constraints of the phases are set on the engine here.
+# where the shift $c$ makes the square root of Poisson counts have nearly constant variance. The Poisson and mixed Poisson-Gaussian losses are set the same way; see the [guide](../differentiable/overview.md#losses). Each `reconstruct()` starts a fresh optimizer from the current estimates. `reconstruct(phases=...)` restores the engine's own settings when it ends, so the constraints of the phases are set on the engine here.
 
 # %%
-engine.parameters = {"object": {"lr": 0.03}, "probe.field": {"lr": 0.1}}
+engine.parameters = {"object": {"lr": 0.03}, "probe": {"lr": 0.1}}
 engine.lossFunction = partial(amplitude_loss, anscombe_offset_switch=True)
 engine.constraints = constraints
 engine.numIterations = 200
@@ -301,7 +305,9 @@ constraints = [
     AbsorbingObject(beta=0.01),
 ]
 engine = GradientEngine(reconstruction, experimentalData, params, monitor)
-history = engine.run(blind_recipe(iterations=200, constraints=constraints))
+history = engine.reconstruct(
+    phases=blind_recipe(iterations=200, constraints=constraints)
+)
 object_mixed = reconstruction.object.copy()  # mixed states, one probe for all positions
 
 # %% [markdown]
@@ -310,9 +316,9 @@ object_mixed = reconstruction.object.copy()  # mixed states, one probe for all p
 # %%
 engine_OPR = engine.relaxProbe()  # the same engine, now with one probe per position
 engine_OPR.optimizerType = "preconditioned"
-engine_OPR.parameters = {"object": {"lr": 0.3}, "probe.field": {"lr": 0.3}}
+engine_OPR.parameters = {"object": {"lr": 0.3}, "probe": {"lr": 0.3}}
 engine_OPR.constraints = [OPRProjection(rank=5, relax=0.05), *constraints]
-engine_OPR.numIterations = 100
+engine_OPR.numIterations = 200
 engine_OPR.reconstruct()
 
 # %% [markdown]
