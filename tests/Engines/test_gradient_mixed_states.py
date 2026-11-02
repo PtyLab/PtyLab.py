@@ -33,7 +33,6 @@ def mixed_engine(nosm, npsm, propagator="Fraunhofer", seed=3):
     data.theta = None
     data._setData()
     params = Params()
-    params.gpuSwitch = False
     params.positionOrder = "sequential"
     params.propagatorType = propagator
     reconstruction = Reconstruction(data, params)

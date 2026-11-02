@@ -25,7 +25,6 @@ def engine():
     data.theta = None
     data._setData()
     params = Params()
-    params.gpuSwitch = False
     params.positionOrder = "sequential"
     reconstruction = Reconstruction(data, params)
     reconstruction.npsm = reconstruction.nosm = reconstruction.nlambda = (
@@ -91,6 +90,17 @@ def test_unsupported_settings_fail_explicitly(engine, name, value):
     setattr(engine.params, name, value)
     with pytest.raises(NotImplementedError):
         engine.reconstruct()
+
+
+def test_gpu_switch_is_ignored_and_cupy_data_come_back(engine):
+    engine.device = "cpu"
+    engine.params._gpuSwitch = True  # the default on a machine with CuPy
+    engine.params.gpuFlag = 1  # as if a classic run left the data on the GPU
+    moved = []
+    engine._move_data_to_cpu = lambda: moved.append(True)
+    engine.prepareReconstruction()
+    assert moved and engine.params.gpuFlag == 0
+    assert engine.params.gpuSwitch  # left as is, for the classic engines
 
 
 def test_raw_negative_measurements_are_accepted(engine):

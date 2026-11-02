@@ -53,7 +53,6 @@ def opr_engine(npsm=1, nosm=1, propagator="Fraunhofer", seed=3):
     data.theta = None
     data._setData()
     params = Params()
-    params.gpuSwitch = False
     params.positionOrder = "sequential"
     params.propagatorType = propagator
     reconstruction = Reconstruction(data, params)

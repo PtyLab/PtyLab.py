@@ -73,7 +73,6 @@ def _larger_engine(frames=16, size=128):
     data.spectralDensity = data.theta = None
     data._setData()
     params = Params()
-    params.gpuSwitch = False
     reconstruction = Reconstruction(data, params)
     reconstruction.npsm = reconstruction.nosm = 1
     reconstruction.nlambda = reconstruction.nslice = 1
