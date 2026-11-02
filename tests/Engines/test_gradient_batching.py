@@ -132,7 +132,7 @@ def test_preconditioned_step_does_not_depend_on_batch_size(engine, device):
     # linear in the gradient, so the stepped parameters are compared directly.
     engine.device = device
     engine.optimizerType = "preconditioned"
-    engine.parameters = {"object": {"lr": 0.3}, "probe.field": {"lr": 0.3}}
+    engine.parameters = {"object": {"lr": 0.3}, "probe": {"lr": 0.3}}
     batched = copy.deepcopy(engine)
     batched.batchSize = 3  # batches of 3 and 1
     for run in (engine, batched):
@@ -160,7 +160,7 @@ def test_preconditioned_peak_is_bounded_by_the_batch_size():
         run.device = "cuda"
         run.batchSize = 2
         run.optimizerType = optimizer
-        run.parameters = {"object": {"lr": 0.1}, "probe.field": {"lr": 0.1}}
+        run.parameters = {"object": {"lr": 0.1}, "probe": {"lr": 0.1}}
         run.prepareReconstruction()
         run.runIteration(0)  # optimizer state now allocated
         peaks[optimizer] = _peak_mb(partial(run.runIteration, 1))

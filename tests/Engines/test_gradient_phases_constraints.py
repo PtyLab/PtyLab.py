@@ -1,4 +1,4 @@
-"""Constraints and run phases of the optional Torch engine."""
+"""Constraints and reconstruction phases of the optional Torch engine."""
 
 import copy
 
@@ -277,20 +277,23 @@ def test_phase_ramp_weights_do_not_depend_on_batch_size(engine):
     torch.testing.assert_close(PhaseRampRemoval.weights(engine), full)
 
 
-def test_run_matches_consecutive_reconstructions_and_restores_settings(engine):
+def test_reconstruct_with_phases_matches_consecutive_reconstructions(engine):
+    # reconstruct(phases=...) replaced engine.run(phases) with the same effect:
+    # each phase is a plain reconstruct() with its settings, the errors are
+    # concatenated and the engine's own settings come back.
     engine.device = "cpu"
     manual = copy.deepcopy(engine)
     phases = [
         Phase(2, {"object": {"lr": 0.02}}, name="object only"),
-        Phase(3, {"probe.field": {"lr": 0.05}}, optimizerType="preconditioned"),
+        Phase(3, {"probe": {"lr": 0.05}}, optimizerType="preconditioned"),
     ]
-    history = engine.run(phases)
+    history = engine.reconstruct(phases=phases)
 
     manual.parameters = {"object": {"lr": 0.02}}
     manual.numIterations = 2
     manual.reconstruct()
     errors = list(manual.reconstruction.error)
-    manual.parameters = {"probe.field": {"lr": 0.05}}
+    manual.parameters = {"probe": {"lr": 0.05}}
     manual.optimizerType = "preconditioned"
     manual.numIterations = 3
     manual.reconstruct()
@@ -310,9 +313,19 @@ def test_run_matches_consecutive_reconstructions_and_restores_settings(engine):
     assert engine.numIterations == 100
 
 
+def test_reconstruct_returns_none_and_asks_for_phases_by_keyword(engine):
+    engine.device = "cpu"
+    engine.numIterations = 1
+    assert engine.reconstruct() is None
+    with pytest.raises(TypeError, match="phases="):
+        engine.reconstruct(blind_recipe(10))
+    with pytest.raises(TypeError, match="nonempty"):
+        engine.reconstruct(phases=[])
+
+
 def test_blind_recipe_reduces_the_loss(engine):
     engine.device = "cpu"
-    engine.run(blind_recipe(30, constraints=[ProbeCentering()]))
+    engine.reconstruct(phases=blind_recipe(30, constraints=[ProbeCentering()]))
     error = engine.reconstruction.error
     assert len(error) == 30 and error[-1] < 0.5 * error[0]
 
@@ -336,20 +349,20 @@ def test_blind_recipe_passes_readout_sigma_to_both_phases(engine):
     sigma = np.full((size, size), 0.5, dtype=np.float32)
 
     # Either way the plain amplitude start gets 0 and the Adam phase the map:
-    # first from engine.readoutSigma, then from the recipe's own read_out_sigma.
+    # first from engine.readoutSigma, then from the recipe's own readoutSigma.
     for engine_sigma, recipe_sigma in ((sigma, None), (None, sigma)):
         engine.readoutSigma = engine_sigma
         seen.clear()
         phases = blind_recipe(
-            5, loss=recording(poisson_loss), read_out_sigma=recipe_sigma
+            5, lossFunction=recording(poisson_loss), readoutSigma=recipe_sigma
         )
-        assert phases[0].loss is amplitude_loss
-        phases[0].loss = recording(phases[0].loss)
-        engine.run(phases)
+        assert phases[0].lossFunction is amplitude_loss
+        phases[0].lossFunction = recording(phases[0].lossFunction)
+        engine.reconstruct(phases=phases)
         assert np.isfinite(engine.reconstruction.error).all()
         assert seen[0] == 0.0
         torch.testing.assert_close(seen[-1], torch.as_tensor(sigma))
-        assert engine.readoutSigma is engine_sigma  # restored after run()
+        assert engine.readoutSigma is engine_sigma  # restored after the phases
 
 
 def test_reconstruct_draws_the_monitor_at_the_last_iteration(engine):

@@ -289,8 +289,11 @@ def test_batches_match_single_frame_step(engine, batch_size, propagator):
         candidate.regularizationLoss = Mock(wraps=candidate.regularizationLoss)
         candidate.optimizer.step = Mock(wraps=candidate.optimizer.step)
 
-    expected_intensity = reference.centeredIntensity(
+    expected_intensity = (
         reference.forward(torch.tensor([1], device=reference.device))[0]
+        .detach()
+        .cpu()
+        .numpy()
     )
     expected_loss = reference.runIteration(0)
     actual_loss = engine.runIteration(0)
@@ -492,24 +495,51 @@ def test_default_prediction_objective_and_update_match_field_reference(engine):
         engine.model.probe.field, probe_reference, rtol=3e-5, atol=2e-6
     )
     np.testing.assert_array_equal(
-        engine.snapshot()["probe.field"],
+        engine.snapshot()["probe"],
         scale * engine.model.probe.field.detach().numpy(),
     )
 
 
-@pytest.mark.parametrize("estimated_name", ["object", "probe.field"])
+def test_probe_is_the_public_name_of_the_scale_free_probe_parameter(engine):
+    engine.device = "cpu"
+    engine.parameters = {"probe": {"lr": 0.02}}
+    engine.prepareReconstruction()
+    (group,) = engine.optimizer.param_groups
+    assert group["name"] == "probe.field"
+    assert group["params"][0] is engine.model.probe.field
+    # The model's own name still works, but not both at once.
+    engine.parameters = {"probe": {"lr": 0.02}, "probe.field": {"lr": 0.02}}
+    with pytest.raises(ValueError, match="same tensor"):
+        engine.prepareReconstruction()
+
+
+def test_losses_and_regularizers_are_exported_from_the_package():
+    import PtyLab.Engines.GradientEngine as package
+    from PtyLab.Engines.GradientEngine import losses, models, propagation, regularizers
+
+    assert package.probe_scale is models.probe_scale
+    assert package.KernelPropagator is propagation.KernelPropagator
+
+    for name in ("amplitude_loss", "intensity_loss", "poisson_loss"):
+        assert getattr(package, name) is getattr(losses, name)
+    assert package.mixed_poisson_gaussian_loss is losses.mixed_poisson_gaussian_loss
+    assert package.object_tv is regularizers.object_tv
+    assert package.object_smoothness is regularizers.object_smoothness
+
+
+@pytest.mark.parametrize("estimated_name", ["object", "probe"])
 def test_omitted_parameter_stays_fixed_during_reconstruction(engine, estimated_name):
     engine.device = "cpu"
     engine.parameters = {estimated_name: {"lr": 0.02}}
     engine.numIterations = 2
     before = {
         "object": engine.reconstruction.object.copy(),
-        "probe.field": engine.reconstruction.probe.copy(),
+        "probe": engine.reconstruction.probe.copy(),
     }
     engine.reconstruct()
     after = engine.snapshot()
 
-    fixed_name = "probe.field" if estimated_name == "object" else "object"
+    fixed_name = "probe" if estimated_name == "object" else "object"
     np.testing.assert_array_equal(after[fixed_name], before[fixed_name])
     assert not np.allclose(after[estimated_name], before[estimated_name])
 
@@ -663,7 +693,7 @@ def test_preconditioned_step_divides_gradient_by_regularized_curvature(engine):
     engine.device = "cpu"
     engine.optimizerType = "preconditioned"
     engine.preconditionerAlpha = 0.25
-    engine.parameters = {"object": {"lr": 0.3}, "probe.field": {"lr": 0.2}}
+    engine.parameters = {"object": {"lr": 0.3}, "probe": {"lr": 0.2}}
     engine.prepareReconstruction()
     assert isinstance(engine.optimizer, torch.optim.SGD)
     before = {
@@ -704,17 +734,17 @@ def test_probe_scale_follows_the_data_and_keeps_the_physical_probe(engine):
     engine.prepareReconstruction()
     scale = engine.model.probe.scale.item()
     assert scale == 2.0 ** round(np.log2(scale))  # a power of two
-    np.testing.assert_array_equal(engine.snapshot()["probe.field"], probe)
+    np.testing.assert_array_equal(engine.snapshot()["probe"], probe)
 
     engine.experimentalData.ptychogram = 16 * engine.experimentalData.ptychogram
     engine.prepareReconstruction()
     assert engine.model.probe.scale.item() == 4 * scale
-    np.testing.assert_array_equal(engine.snapshot()["probe.field"], probe)
+    np.testing.assert_array_equal(engine.snapshot()["probe"], probe)
 
     engine.reconstruction.probe = 2 * probe
     engine.reset()
     assert engine.model.probe.scale.item() == 4 * scale
-    np.testing.assert_array_equal(engine.snapshot()["probe.field"], 2 * probe)
+    np.testing.assert_array_equal(engine.snapshot()["probe"], 2 * probe)
 
 
 def _data_from_current_model(engine, background):
@@ -722,9 +752,7 @@ def _data_from_current_model(engine, background):
     engine.device = "cpu"
     engine.prepareReconstruction()
     with torch.no_grad():
-        clean = engine.centeredIntensity(
-            engine.forward(torch.arange(len(engine.positions)))
-        )
+        clean = engine.forward(torch.arange(len(engine.positions))).numpy()
     engine.experimentalData.ptychogram = (clean + background).astype(np.float32)
 
 
@@ -734,11 +762,11 @@ def test_background_is_added_in_centered_order_and_can_be_removed(engine):
     image = np.arange(size * size, dtype=np.float32).reshape(size, size) / size**2
     engine.prepareReconstruction()
     indices = torch.arange(len(engine.positions))
-    without = engine.centeredIntensity(engine.forward(indices))
+    without = engine.forward(indices).detach().numpy()
 
     engine.background = image
     engine.prepareReconstruction()
-    with_background = engine.centeredIntensity(engine.forward(indices))
+    with_background = engine.forward(indices).detach().numpy()
     np.testing.assert_allclose(with_background, without + image, rtol=1e-6, atol=1e-6)
     assert not engine.model.background.requires_grad
 

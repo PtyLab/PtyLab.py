@@ -225,7 +225,7 @@ def test_mixed_reconstruction_reduces_the_loss_and_keeps_the_shapes(optimizer):
     engine = mixed_engine(2, 3)
     engine.optimizerType = optimizer
     if optimizer == "preconditioned":
-        engine.parameters = {"object": {"lr": 0.3}, "probe.field": {"lr": 0.3}}
+        engine.parameters = {"object": {"lr": 0.3}, "probe": {"lr": 0.3}}
     engine.numIterations = 30
     shapes = engine.reconstruction.object.shape, engine.reconstruction.probe.shape
     engine.reconstruct()

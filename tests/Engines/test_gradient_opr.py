@@ -321,9 +321,9 @@ def test_export_snapshot_and_reset_round_trip():
     np.testing.assert_allclose(np.moveaxis(r.probe_stack, -1, 0), model_stack)
     assert r.probe.shape == (1, 1, 2, 1, 8, 8)
     state = engine.snapshot(stack=False)
-    assert "probe.stack" not in state
+    assert "probe_stack" not in state
     np.testing.assert_allclose(
-        state["probe.field"], engine.model.probe.shared_estimate().numpy()
+        state["probe"], engine.model.probe.shared_estimate().numpy()
     )
 
     # reset() re-imports the exported stack after the model was changed.
