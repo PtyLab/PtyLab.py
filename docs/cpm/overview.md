@@ -60,7 +60,7 @@ CPM uses `"circ"` for the probe and `"ones"` for the object by default.
 
 ### 3. Configure parameters
 
-`Params` holds the settings shared by all engines: propagator type, constraint switches, regularization, position order and more. See the [Configuration Reference](configuration.md) for all options.
+`Params` holds the settings shared by all engines: propagator type, constraint switches, regularization, position order and more. See the [Parameter Reference](configuration.md) for all options.
 
 ### 4. Choose and configure an engine
 

@@ -58,7 +58,7 @@ nav:
     - FPM Overview: fpm/overview.md
     - Data Format: cpm/data-format.md
     - Engines: cpm/engines.md
-    - Configuration Reference: cpm/configuration.md
+    - Parameter Reference: cpm/configuration.md
     - Differentiable Ptychography: differentiable/overview.md
   - Contributing: contributing.md
   - API Reference:
