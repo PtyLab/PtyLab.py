@@ -23,6 +23,7 @@ from numbers import Integral, Real
 
 import torch
 
+from .batching import split_indices
 from .models import OPRProbe, frame_modes
 
 
@@ -476,7 +477,13 @@ class PhaseRampRemoval(Constraint):
         """
         model = engine.model
         indices = torch.arange(len(model.positions), device=model.object.device)
-        return model.gradient_preconditioners(indices)["object"]
+        # Batch by batch, so the engine's batch size bounds the memory; the
+        # size is None (one batch) before the first run.
+        size = getattr(engine, "effectiveBatchSize", None)
+        weight = sum(
+            model.illumination(batch) for batch in split_indices(indices, size)
+        )
+        return weight.expand(model.object.shape)
 
     def estimate(self, engine):
         r"""
