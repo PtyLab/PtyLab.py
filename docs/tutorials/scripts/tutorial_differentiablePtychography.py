@@ -18,7 +18,7 @@
 # - How to let the probe vary across the scan with orthogonal probe relaxation (OPR)
 #
 # !!! note "Dataset"
-#     The datasets are downloaded into `example_data/` at the project root on the first run. Most sections use `helicalbeam.hdf5` (about 350 MB), the dataset of the [CPM Mixed States](tutorial_mixedStates.md) example, from L. Loetgering et al., "Generation and characterization of focused helical x-ray beams," Sci. Adv. 6, eaax8836 (2020). The last section uses `OPR_dp_processed.hdf5` (about 180 MB), the dataset of the [CPM Orthogonal Probe Relaxation](tutorial_OPR.md) example.
+#     Two datasets are downloaded into `example_data/` at the project root on the first run: `helicalbeam.hdf5` (about 350 MB, from [CPM Mixed States](tutorial_mixedStates.md)) and, for the last section, `OPR_dp_processed.hdf5` (about 180 MB, from [CPM Orthogonal Probe Relaxation](tutorial_OPR.md)).
 #
 # !!! tip "Prerequisites"
 #     Complete [CPM Example Data](tutorial_CPM.md) before this example. [CPM Mixed States](tutorial_mixedStates.md) explains the mixed-state model in more depth.
@@ -235,7 +235,9 @@ plt.show()
 # \mathcal{L}_\text{A} = \frac{1}{P_\text{tot}}\sum_i \left(\sqrt{I_i + c} - \sqrt{y_i + c}\right)^2 ,\qquad c = \tfrac{3}{8} ,
 # $$
 #
-# where the shift $c$ makes the square root of Poisson counts have nearly constant variance. The Poisson and mixed Poisson-Gaussian losses are set the same way; see the [guide](../differentiable/overview.md#losses). Each `reconstruct()` starts a fresh optimizer from the current estimates. `reconstruct(phases=...)` restores the engine's own settings when it ends, so the constraints of the phases are set on the engine here.
+# where the shift $c$ makes the square root of Poisson counts have nearly constant variance. The Poisson and mixed Poisson-Gaussian losses are set the same way; see the [guide](../differentiable/overview.md#losses).
+#
+# The new run starts from the current object and probe, with a fresh optimizer. Its errors are added to `reconstruction.error`, so the error and purity plots continue where the last run stopped. The constraints are set again because `reconstruct(phases=...)` resets the engine's settings when it ends.
 
 # %%
 engine.parameters = {"object": {"lr": 0.03}, "probe": {"lr": 0.1}}
