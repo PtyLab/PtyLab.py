@@ -1,0 +1,16 @@
+{
+ "code": "ef35be5cba914cd821bafa4e4d3ab0a4bf9ffc48ebab7addf8860505910f3d4b",
+ "cells": [
+  "",
+  "",
+  "",
+  "```text\nBrain_smoothBeam_poly_bin8.hdf5 found, skipping download.\n```\n",
+  "```text\nFound encoder with shape (890, 2)\n```\n\n![](outputs/example_CPM_multiWavelength/cell06_1.png)\n",
+  "```text\n/tmp/ipykernel_3211818/3217139662.py:3: UserWarning: For faster update of the reconstruction plot, set `monitor.figureUpdateFrequency = 5` or higher.\n  monitor.figureUpdateFrequency = 1\n```\n",
+  "",
+  "![](outputs/example_CPM_multiWavelength/cell11_0.png)\n",
+  "```text\nStarting mPIE: 100 iterations on the GPU\n```\n\n![](outputs/example_CPM_multiWavelength/cell13_0.png)\n",
+  "![](outputs/example_CPM_multiWavelength/cell15_0.png)\n",
+  "```text\nThe reconstruction results (all) have been saved\nSaved monitor figure reconstruction_reconstruction.png\n```\n"
+ ]
+}

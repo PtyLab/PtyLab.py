@@ -96,10 +96,10 @@ def cmd_check_gpu():
         sys.exit(1)
 
 
-def cmd_docs(args):
+def cmd_examples(args):
     # jupytext and nbclient come with the dev group, which a plain `pip install ptylab` lacks
     try:
-        from PtyLab.utils import docs
+        from PtyLab.utils import examples
     except ImportError as e:
         if e.name not in ("jupytext", "nbclient", "nbformat"):
             raise  # a real error, e.g. a missing PtyLab module
@@ -109,10 +109,10 @@ def cmd_docs(args):
         sys.exit(1)
 
     if args.target == "render":
-        sys.exit(docs.render_command(args.names, args.all, args.timeout))
-    if args.target == "notebooks":
-        sys.exit(docs.notebooks_command())
-    sys.exit(docs.check_command())
+        sys.exit(examples.render_command(args.names, args.all, args.timeout))
+    if args.target == "build":
+        sys.exit(examples.build_command())
+    sys.exit(examples.check_command())
 
 
 def main():
@@ -125,37 +125,37 @@ def main():
         "gpu", help="Check CuPy and PyTorch GPU availability and CUDA versions"
     )
 
-    docs = sub.add_parser(
-        "docs", help="Build the example pages from docs/examples/scripts/"
+    examples = sub.add_parser(
+        "examples",
+        help="Run the examples in docs/examples/scripts/ and build their pages",
     )
-    docs_sub = docs.add_subparsers(dest="target")
-    render = docs_sub.add_parser(
+    examples_sub = examples.add_subparsers(dest="target")
+    render = examples_sub.add_parser(
         "render",
-        help="Run example scripts into docs pages (default: those out of date)",
+        help="Run example scripts and store their outputs (default: those whose code changed)",
     )
+    render.add_argument("names", nargs="*", help="examples to render, e.g. example_CPM")
     render.add_argument(
-        "names", nargs="*", help="examples to render, e.g. example_CPM"
-    )
-    render.add_argument(
-        "--all", action="store_true", help="render every example, even if up to date"
+        "--all", action="store_true", help="run every example, even if up to date"
     )
     render.add_argument(
         "--timeout", type=int, default=3600, help="seconds allowed per cell"
     )
-    docs_sub.add_parser(
-        "notebooks",
-        help="Convert the example scripts into download notebooks (not executed)",
+    examples_sub.add_parser(
+        "build",
+        help="Write the example pages and download notebooks from the stored outputs (runs nothing)",
     )
-    docs_sub.add_parser(
-        "check", help="Check that every page matches its script and is in the nav"
+    examples_sub.add_parser(
+        "check",
+        help="Check that every example has outputs for its current code and is in the nav",
     )
 
     args = parser.parse_args()
 
     if args.command == "check" and args.target == "gpu":
         cmd_check_gpu()
-    elif args.command == "docs" and args.target in ("render", "notebooks", "check"):
-        cmd_docs(args)
+    elif args.command == "examples" and args.target in ("render", "build", "check"):
+        cmd_examples(args)
     else:
         parser.print_help()
         sys.exit(1)

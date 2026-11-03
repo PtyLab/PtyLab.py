@@ -1,0 +1,20 @@
+{
+ "code": "c683fafe1a53da1fa74dabc60d981035435e350f18db8d3478d3688a71db995a",
+ "cells": [
+  "",
+  "```text\nsimu.hdf5 found, skipping generation.\n```\n",
+  "```text\nFound encoder with shape (100, 2)\n```\n",
+  "```text\nFound encoder with shape (100, 2)\n```\n",
+  "![](outputs/example_CPM/cell07_0.png)\n",
+  "",
+  "",
+  "",
+  "```text\n/tmp/ipykernel_3211636/3958284327.py:3: UserWarning: For faster update of the reconstruction plot, set `monitor.figureUpdateFrequency = 5` or higher.\n  monitor.figureUpdateFrequency = 1  # the frequency of the plots\n```\n",
+  "",
+  "",
+  "",
+  "```text\nStarting ePIE: 10 iterations on the GPU\n```\n\n![](outputs/example_CPM/cell20_0.png)\n",
+  "```text\nStarting mPIE: 100 iterations on the GPU\n```\n\n![](outputs/example_CPM/cell21_0.png)\n",
+  "```text\nThe reconstruction results (all) have been saved\nSaved monitor figure reconstruction_reconstruction.png\n```\n"
+ ]
+}
