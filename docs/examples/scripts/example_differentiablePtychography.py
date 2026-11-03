@@ -3,12 +3,6 @@
 #
 # This example reconstructs measured soft X-ray data with `GradientEngine`, the optional PyTorch engine. Instead of hand-derived update rules, it writes down a forward model and a loss, lets PyTorch compute the gradients, and updates the object and probe with an optimizer. It covers only the basic workflow; the [Differentiable Ptychography](../differentiable/overview.md) guide describes every option.
 #
-# **Installation:** `GradientEngine` runs on PyTorch. Install PtyLab with the `torch` extra. On Linux and Windows, `--torch-backend=cu126` picks the CUDA 12 build that matches CuPy; drop it on macOS (see [Installation](../getting-started/installation.md#differentiable-ptychography)):
-#
-# ```bash
-# uv pip install -U "ptylab[gpu,torch]" --torch-backend=cu126
-# ```
-#
 # **What you'll learn:**
 #
 # - How to create a `GradientEngine` from the usual PtyLab objects
@@ -17,11 +11,10 @@
 # - How to choose the estimated parameters and switch the loss
 # - How to let the probe vary across the scan with orthogonal probe relaxation (OPR)
 #
-# !!! note "Dataset"
-#     Two datasets are downloaded into `example_data/` at the project root on the first run: `helicalbeam.hdf5` (about 350 MB, from [CPM Mixed States](example_mixedStates.md)) and, for the last section, `OPR_dp_processed.hdf5` (about 180 MB, from [CPM Orthogonal Probe Relaxation](example_OPR.md)).
-#
-# !!! tip "Prerequisites"
-#     Complete [CPM Example Data](example_CPM.md) before this example. [CPM Mixed States](example_mixedStates.md) explains the mixed-state model in more depth.
+# !!! note "Before you start"
+#     - **Read first:** [CPM Example Data](example_CPM.md); [CPM Mixed States](example_mixedStates.md) explains the mixed-state model in more depth.
+#     - **Data:** `helicalbeam.hdf5` (about 350 MB) and, for the last section, `OPR_dp_processed.hdf5` (about 180 MB), downloaded into `example_data/` on the first run.
+#     - **Needs:** PyTorch, from the `torch` extra (see [Installation](../getting-started/installation.md#differentiable-ptychography)): `uv pip install -U "ptylab[gpu,torch]" --torch-backend=cu126`, without `--torch-backend` on macOS. The last section needs a GPU with about 16 GB.
 
 # %%
 import urllib.request
@@ -256,7 +249,7 @@ mixed.saveResults("helicalbeam_gradient.hdf5", snapshot=monitor)
 # %% [markdown]
 # ## Orthogonal probe relaxation
 #
-# The last section reconstructs the drifting EUV beam of the [CPM Orthogonal Probe Relaxation](example_OPR.md) example, which explains the model. The data and the geometry are loaded as there. Every scan position gets its own probe, so this run needs a GPU with about 16 GB; a smaller `engine.batchSize`, such as 64, lowers the peak.
+# The last section reconstructs the drifting EUV beam of the [CPM Orthogonal Probe Relaxation](example_OPR.md) example, which explains the model. The data and the geometry are loaded as there. Every scan position gets its own probe, which takes much GPU memory; a smaller `engine.batchSize`, such as 64, lowers the peak.
 
 # %%
 fileName = "OPR_dp_processed.hdf5"

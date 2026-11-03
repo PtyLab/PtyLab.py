@@ -1,5 +1,5 @@
 {
- "code": "946cfd919f4a5a811e664e5a5b08e442f0e2d4cac7dc7d80a3efc8c983103b14",
+ "code": "e240da96b1ccda9e31e82c95e1ab7923ff9ede900f443a86b3cd6df8febdc5f0",
  "cells": [
   "",
   "",
@@ -14,7 +14,7 @@
   "",
   "```text\n['ptychogram', 'wavelength', 'encoder', 'dxd', 'zo']\n['entrancePupilDiameter', 'spectralDensity', 'theta', 'emptyBeam']\n```\n",
   "",
-  "```text\n/tmp/ipykernel_3212334/4239310548.py:3: UserWarning: For faster update of the reconstruction plot, set `monitor.figureUpdateFrequency = 5` or higher.\n  monitor.figureUpdateFrequency = 1\n```\n",
+  "",
   "```text\nDisabling GPU switch. If this is unwanted, please set `self.gpuSwitch = True`\n```\n",
   "",
   "```text\nStarting mPIE: 100 iterations on the CPU\n```\n\n![](outputs/example_CPM_sim/cell28_0.png)\n",

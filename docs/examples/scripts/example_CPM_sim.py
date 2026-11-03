@@ -244,7 +244,7 @@ exampleData._setData()
 # %%
 ## initialize the Monitor class and set values
 monitor = Monitor()
-monitor.figureUpdateFrequency = 1
+monitor.figureUpdateFrequency = 5
 monitor.objectPlot = "complex"  # complex abs angle
 monitor.verboseLevel = "low"  # high: plot two figures, low: plot only one figure
 monitor.objectZoom = 1.5  # control object plot FoV

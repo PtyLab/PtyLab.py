@@ -1,5 +1,5 @@
 {
- "code": "c683fafe1a53da1fa74dabc60d981035435e350f18db8d3478d3688a71db995a",
+ "code": "3c9a309daa2f10fd5c938990fddfd332455e70c972881b82268797c7b1c5a22a",
  "cells": [
   "",
   "```text\nsimu.hdf5 found, skipping generation.\n```\n",
@@ -9,7 +9,7 @@
   "",
   "",
   "",
-  "```text\n/tmp/ipykernel_3211636/3958284327.py:3: UserWarning: For faster update of the reconstruction plot, set `monitor.figureUpdateFrequency = 5` or higher.\n  monitor.figureUpdateFrequency = 1  # the frequency of the plots\n```\n",
+  "",
   "",
   "",
   "",

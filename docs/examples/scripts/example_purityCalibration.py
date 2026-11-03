@@ -13,14 +13,10 @@
 # !!! quote "References"
 #     - Purity-based calibration: C. Liu et al., "Purity-based self-calibration in ptychography," Opt. Lett. 50, 1581 (2025). [doi:10.1364/OL.543865](https://doi.org/10.1364/OL.543865)
 #
-# !!! note "Dataset"
-#     The dataset (`simu.hdf5`) is generated in `example_data/` at the project root on the first run.
-#
-# !!! tip "Prerequisites"
-#     Complete [CPM Mixed States](example_mixedStates.md) before this example; it introduces probe modes and purity.
-#
-# !!! info "Run time"
-#     Each calibration runs about a dozen short reconstructions, one per candidate value. Both together take about 3.5 minutes on a GPU and considerably longer on a CPU.
+# !!! note "Before you start"
+#     - **Read first:** [CPM Mixed States](example_mixedStates.md), which introduces probe modes and purity.
+#     - **Data:** `simu.hdf5`, generated in `example_data/` on the first run.
+#     - **Run time:** about 3.5 minutes on a GPU, much longer on a CPU; each calibration runs a dozen short reconstructions.
 
 # %% [markdown]
 # ## Method

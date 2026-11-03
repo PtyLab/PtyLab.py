@@ -12,11 +12,9 @@
 # !!! quote "References"
 #     - Position correction: F. Zhang et al., "Translation position determination in ptychographic coherent diffraction imaging," Opt. Express 21, 13592 (2013). [doi:10.1364/OE.21.013592](https://doi.org/10.1364/OE.21.013592)
 #
-# !!! note "Dataset"
-#     The dataset (`simu.hdf5`) is generated in `example_data/` at the project root on the first run.
-#
-# !!! tip "Prerequisites"
-#     Complete [CPM Simulation](example_CPM_sim.md) before this example.
+# !!! note "Before you start"
+#     - **Read first:** [CPM Simulation](example_CPM_sim.md).
+#     - **Data:** `simu.hdf5`, generated in `example_data/` on the first run.
 
 # %% [markdown]
 # ## Position correction algorithm
@@ -150,7 +148,7 @@ reconstruction.probe = reconstruction.probe * np.exp(
 
 # set monitor properties
 monitor = Monitor()
-monitor.figureUpdateFrequency = 1
+monitor.figureUpdateFrequency = 5
 monitor.objectPlot = "complex"  # complex abs angle
 monitor.verboseLevel = "high"  # high: plot two figures, low: plot only one figure
 monitor.objectZoom = 1.5  # control object plot FoV

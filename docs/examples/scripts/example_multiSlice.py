@@ -12,14 +12,10 @@
 # !!! quote "References"
 #     - Multi-slice ptychography and `e3PIE`: A. M. Maiden, M. J. Humphry and J. M. Rodenburg, "Ptychographic transmission microscopy in three dimensions using a multi-slice approach," J. Opt. Soc. Am. A 29, 1606 (2012). [doi:10.1364/JOSAA.29.001606](https://doi.org/10.1364/JOSAA.29.001606)
 #
-# !!! note "Dataset"
-#     No dataset is needed; the data are simulated in the example.
-#
-# !!! tip "Prerequisites"
-#     Complete [CPM Simulation](example_CPM_sim.md) before this example; it uses the same geometry and probe.
-#
-# !!! info "Run time"
-#     The reconstructions take about half a minute on a GPU and considerably longer on a CPU.
+# !!! note "Before you start"
+#     - **Read first:** [CPM Simulation](example_CPM_sim.md); this example uses the same geometry and probe.
+#     - **Data:** simulated in the example.
+#     - **Run time:** about half a minute on a GPU, much longer on a CPU.
 
 # %% [markdown]
 # ## Multi-slice model

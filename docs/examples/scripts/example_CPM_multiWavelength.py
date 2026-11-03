@@ -12,11 +12,9 @@
 # !!! quote "References"
 #     - Multi-wavelength ptychography (ptychographic information multiplexing): D. J. Batey, D. Claus and J. M. Rodenburg, "Information multiplexing in ptychography," Ultramicroscopy 138, 13–21 (2014). [doi:10.1016/j.ultramic.2013.12.003](https://doi.org/10.1016/j.ultramic.2013.12.003)
 #
-# !!! note "Dataset"
-#     The dataset (`Brain_smoothBeam_poly_bin8.hdf5`, ~500 MB) is downloaded into `example_data/` at the project root on the first run.
-#
-# !!! tip "Prerequisites"
-#     Complete [CPM Simulation](example_CPM_sim.md) before this example.
+# !!! note "Before you start"
+#     - **Read first:** [CPM Simulation](example_CPM_sim.md).
+#     - **Data:** `Brain_smoothBeam_poly_bin8.hdf5` (about 500 MB), downloaded into `example_data/` on the first run.
 
 # %%
 import matplotlib
@@ -83,7 +81,7 @@ plt.show()
 # %%
 # Set monitor properties
 monitor = Monitor()
-monitor.figureUpdateFrequency = 1
+monitor.figureUpdateFrequency = 5
 monitor.verboseLevel = "low"  # high: plot two figures, low: plot only one figure
 monitor.probeZoom = 1  # control probe plot FoV
 monitor.objectZoom = 1  # control object plot FoV

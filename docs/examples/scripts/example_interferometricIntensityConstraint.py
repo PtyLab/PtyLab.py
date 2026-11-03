@@ -13,11 +13,9 @@
 #     - Forward model with a reference wave (Sec. 5.9): L. Loetgering et al., "PtyLab.m/py/jl: a cross-platform, open-source inverse modeling toolbox for conventional and Fourier ptychography," Opt. Express 31, 13763 (2023). [doi:10.1364/OE.485370](https://doi.org/10.1364/OE.485370)
 #     - Surface reflection as the reference wave: M. Du et al., "Ptychographic optical coherence tomography," Opt. Lett. 46, 1337 (2021). [doi:10.1364/OL.416144](https://doi.org/10.1364/OL.416144)
 #
-# !!! note "Dataset"
-#     The dataset (`USAF_speckle_bin4.hdf5`) is downloaded into `example_data/` at the project root on the first run.
-#
-# !!! tip "Prerequisites"
-#     Complete [CPM Reflection](example_reflectionPtychography.md) before this example.
+# !!! note "Before you start"
+#     - **Read first:** [CPM Reflection](example_reflectionPtychography.md).
+#     - **Data:** `USAF_speckle_bin4.hdf5` (about 50 MB), downloaded into `example_data/` on the first run.
 
 # %%
 import matplotlib
