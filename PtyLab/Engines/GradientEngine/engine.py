@@ -793,7 +793,10 @@ class GradientEngine(BaseEngine):
         self._import_background()
         self._readoutSigma = self._readout_sigma_tensor()
         self.optimizer = self.createOptimizer()
-        self.reconstruction.error = []
+        # reconstruction.error keeps growing over runs, as in the classic engines:
+        # the monitor counts iterations as len(error), so a reset would restart them.
+        if not hasattr(self.reconstruction, "error"):
+            self.reconstruction.error = []
         self.effectiveBatchSize = self.batchSize
         if self.memoryBudget is not None and torch.device(self.device).type == "cuda":
             self.effectiveBatchSize = self.suggestBatchSize(self.memoryBudget)[
@@ -1069,8 +1072,9 @@ class GradientEngine(BaseEngine):
         fresh optimizer and starting from the estimates the previous phase
         left. A phase sets its non-None fields on the engine for its own
         iterations; its None fields take the engine's own settings, not those
-        of an earlier phase. The engine's settings are restored afterwards, and
-        `reconstruction.error` holds the errors of all phases in order.
+        of an earlier phase. The engine's settings are restored afterwards. The
+        errors of every iteration are appended to `reconstruction.error`, which
+        keeps those of earlier runs, as in the classic engines.
 
         Args:
             experimentalData (ExperimentalData, optional):
@@ -1140,7 +1144,7 @@ class GradientEngine(BaseEngine):
         # Every attribute a phase can set, so the engine's own values come back.
         names = (*_SETTINGS.values(), "numIterations")
         saved = {name: getattr(self, name) for name in names}
-        history, errors = [], []
+        history = []
         try:
             for phase in phases:
                 # A field left at None means the engine's own value, not the
@@ -1148,16 +1152,18 @@ class GradientEngine(BaseEngine):
                 for name, value in {**saved, **phase.settings()}.items():
                     setattr(self, name, value)
                 self.numIterations = phase.iterations
+                start = len(getattr(self.reconstruction, "error", []))
                 try:
                     self._run_iterations()
                 finally:
                     # Also keeps the errors of an interrupted phase.
                     history.append(
-                        {"name": phase.name, "error": list(self.reconstruction.error)}
+                        {
+                            "name": phase.name,
+                            "error": list(self.reconstruction.error[start:]),
+                        }
                     )
-                    errors.extend(self.reconstruction.error)
         finally:
             for name, value in saved.items():
                 setattr(self, name, value)
-            self.reconstruction.error = errors
         return history
