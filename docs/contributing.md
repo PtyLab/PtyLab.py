@@ -94,12 +94,10 @@ uv run ptylab examples render example_<name>
 
 - To add an example, write the script, list it in `docs/examples/index.md` and in the `nav` of `mkdocs.yml`, and run `render`. If you add a feature such as an engine or a constraint, please add an example for it.
 
-**Before you push**, run the same test as CI:
-
+- Before you push, run the below command:
 ```bash
 uv run ptylab examples check
 ```
-
 It lists any example that still needs `render`, or that is missing from the index or the nav.
 
 ## 3. Submit a pull request
