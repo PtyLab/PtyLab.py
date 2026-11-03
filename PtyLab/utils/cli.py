@@ -126,7 +126,7 @@ def main():
     )
 
     docs = sub.add_parser(
-        "docs", help="Build the example pages from docs/tutorials/scripts/"
+        "docs", help="Build the example pages from docs/examples/scripts/"
     )
     docs_sub = docs.add_subparsers(dest="target")
     render = docs_sub.add_parser(
@@ -134,7 +134,7 @@ def main():
         help="Run example scripts into docs pages (default: those out of date)",
     )
     render.add_argument(
-        "names", nargs="*", help="examples to render, e.g. tutorial_CPM"
+        "names", nargs="*", help="examples to render, e.g. example_CPM"
     )
     render.add_argument(
         "--all", action="store_true", help="render every example, even if up to date"

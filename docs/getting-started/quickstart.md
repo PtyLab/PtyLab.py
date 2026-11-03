@@ -2,7 +2,7 @@
 
 PtyLab supports both **conventional ptychography (CPM)** and **Fourier ptychography (FPM)**. This page uses CPM; see the [FPM Overview](../fpm/overview.md) for the differences.
 
-[Example 02](../tutorials/tutorial_CPM.md) runs the same steps with explanations and plots.
+[Example 02](../examples/example_CPM.md) runs the same steps with explanations and plots.
 
 If you have no dataset of your own, use the simulated `simu.hdf5`. If it does not exist yet, generate it with:
 
@@ -122,5 +122,5 @@ reconstruction.load_object("previous_result.hdf5")
 
 ## Next steps
 
-- [Examples](../tutorials/index.md): end-to-end runs on simulated and real data
+- [Examples](../examples/index.md): end-to-end runs on simulated and real data
 - [User Guide](../cpm/overview.md): the pipeline, data format, engines and all `Params` options, for when you need details

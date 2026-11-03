@@ -277,7 +277,7 @@ engine.reconstruct(
 )
 ```
 
-A `Phase` sets `parameters`, `optimizerType`, `lossFunction`, `constraints` and `readoutSigma`, with the names of the engine attributes. A field left at None uses the engine's own setting, not that of the previous phase. Afterwards `reconstruct` restores the engine's settings, writes all errors to `reconstruction.error` and returns one history per phase.
+A `Phase` sets `parameters`, `optimizerType`, `lossFunction`, `constraints` and `readoutSigma`, with the names of the engine attributes. A field left at None uses the engine's own setting, not that of the previous phase. Afterwards `reconstruct` restores the engine's settings and returns one history per phase. As in the classic engines, every `reconstruct()` call appends its errors to `reconstruction.error`, so the monitor's iteration count keeps going over phases and calls.
 
 `blind_recipe(iterations)` builds two phases for recovering object and probe from a flat start: 20 % of the iterations with the preconditioned optimizer on the amplitude loss, then Adam on the engine's loss.
 

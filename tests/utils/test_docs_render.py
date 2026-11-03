@@ -20,7 +20,7 @@ print(x)
 def example(tmp_path, monkeypatch):
     """A one-page docs folder; `runs` counts how often the script is executed."""
     monkeypatch.setattr(docs, "PAGES", tmp_path)
-    script = tmp_path / "tutorial_test.py"
+    script = tmp_path / "example_test.py"
     script.write_text(SCRIPT, encoding="utf-8")
     runs = []
 
@@ -37,7 +37,7 @@ def test_text_change_reuses_the_outputs(example):
     docs.render(script, run=False)  # no page yet: runs
     script.write_text(SCRIPT.replace("Some text.", "Other text."), encoding="utf-8")
     docs.render(script, run=False)
-    page = (script.parent / "tutorial_test.md").read_text(encoding="utf-8")
+    page = (script.parent / "example_test.md").read_text(encoding="utf-8")
     assert len(runs) == 1
     assert "Other text." in page and "output 1.1" in page
     assert docs.is_current(script)
@@ -51,7 +51,7 @@ def test_code_change_or_named_render_runs_again(example):
     script.write_text(SCRIPT.replace("x = 1", "x = 2"), encoding="utf-8")
     docs.render(script, run=False)
     assert len(runs) == 3
-    assert "output 3.0" in (script.parent / "tutorial_test.md").read_text(
+    assert "output 3.0" in (script.parent / "example_test.md").read_text(
         encoding="utf-8"
     )
 

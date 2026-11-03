@@ -1,19 +1,19 @@
-"""Run the tutorial scripts in docs/tutorials/scripts/ and write them as pages in docs/tutorials/.
+"""Run the example scripts in docs/examples/scripts/ and write them as pages in docs/examples/.
 
-Each tutorial is a percent-format script (`# %%` code cells, `# %% [markdown]`
+Each example is a percent-format script (`# %%` code cells, `# %% [markdown]`
 text cells). It is executed cell by cell in a Jupyter kernel, and the result is
-written to docs/tutorials/ as `<name>.md`, with its figures in `<name>_files/`.
+written to docs/examples/ as `<name>.md`, with its figures in `<name>_files/`.
 The first line of each page records a hash of the script, so a page that is out
 of date is found without running anything. The second line records a hash of the
 code cells only: if only the text changed, `render` rebuilds the page from the
 outputs already on it, without running the script.
 
-The page offers the tutorial for download as a script and as a `<name>.ipynb`
+The page offers the example for download as a script and as a `<name>.ipynb`
 notebook without outputs. The notebooks are not committed: they are converted
 from the scripts, without running them, before each documentation build.
 
-    uv run ptylab docs render                # tutorials whose script changed (text only: no run)
-    uv run ptylab docs render tutorial_CPM   # one, always run
+    uv run ptylab docs render                # examples whose script changed (text only: no run)
+    uv run ptylab docs render example_CPM   # one, always run
     uv run ptylab docs render --all          # all
     uv run ptylab docs notebooks             # the download notebooks, before a build
     uv run ptylab docs check                 # CI
@@ -35,7 +35,7 @@ from nbclient import NotebookClient
 
 REPO = Path(__file__).resolve().parents[2]
 PAGES = (
-    REPO / "docs" / "tutorials"
+    REPO / "docs" / "examples"
 )  # pages, figures and notebooks generated from the scripts, plus index.md
 SOURCES = PAGES / "scripts"  # the scripts, written by hand
 SITE = "https://ptylab.github.io/PtyLab.py/"
@@ -53,7 +53,7 @@ BUTTONS = (
 # shown below the introduction, and the buttons again at the end of the page
 DOWNLOAD_TOP = (
     '!!! tip "Run it yourself"\n'
-    "    Run this example as a Jupyter notebook, or as a Python script with `python {stem}.py`.\n\n    "
+    "    Run this example as a Jupyter notebook, or as a Python script.\n\n    "
     + BUTTONS
 )
 DOWNLOAD_END = "---\n\n" + BUTTONS
@@ -64,9 +64,9 @@ MD_LINK = re.compile(r"\]\(((?:\.\./)?[\w/-]+)\.md\)")
 def scripts() -> list[Path]:
     if not SOURCES.is_dir() or not PAGES.is_dir():
         raise SystemExit(
-            "ptylab docs only works in a git checkout of PtyLab.py (docs/tutorials/scripts/ not found)."
+            "ptylab docs only works in a git checkout of PtyLab.py (docs/examples/scripts/ not found)."
         )
-    return sorted(SOURCES.glob("tutorial_*.py"))
+    return sorted(SOURCES.glob("example_*.py"))
 
 
 def source_hash(script: Path) -> str:
@@ -107,7 +107,7 @@ def notebook_text(script: Path) -> str:
         if cell.cell_type == "markdown":
             # links to other docs pages point to the website, since the .md files are not downloaded
             cell.source = MD_LINK.sub(
-                lambda m: f"]({SITE}{posixpath.normpath('tutorials/' + m.group(1))}/)",
+                lambda m: f"]({SITE}{posixpath.normpath('examples/' + m.group(1))}/)",
                 cell.source,
             )
     return nbformat.writes(notebook) + "\n"
@@ -178,7 +178,7 @@ def render_outputs(outputs, stem: str, files_dir: Path, cell_index: int) -> list
 def execute(notebook, stem: str, timeout: int) -> list[str]:
     """Run the notebook; return the rendered outputs of each code cell and rewrite the figures."""
     with tempfile.TemporaryDirectory() as workdir:
-        # Run in a scratch directory so results saved by the tutorial stay out of the repo.
+        # Run in a scratch directory so results saved by the example stay out of the repo.
         PageClient(
             notebook,
             timeout=timeout,
@@ -251,33 +251,33 @@ def problems() -> list[str]:
         stem = script.stem
         if not is_current(script):
             found.append(
-                f"out of date: docs/tutorials/{stem}.md (run `uv run ptylab docs render {stem}`)"
+                f"out of date: docs/examples/{stem}.md (run `uv run ptylab docs render {stem}`)"
             )
-        if f"tutorials/{stem}.md" not in nav:
+        if f"examples/{stem}.md" not in nav:
             found.append(
-                f"not in the mkdocs.yml nav: add tutorials/{stem}.md under Examples"
+                f"not in the mkdocs.yml nav: add examples/{stem}.md under Examples"
             )
         if f"({stem}.md)" not in index:
             found.append(
-                f"not listed in docs/tutorials/index.md: add a line linking {stem}.md"
+                f"not listed in docs/examples/index.md: add a line linking {stem}.md"
             )
     sources = {s.stem for s in scripts()}
-    for page in sorted(PAGES.glob("tutorial_*.md")):
+    for page in sorted(PAGES.glob("example_*.md")):
         if page.stem not in sources:
             found.append(
-                f"no script for docs/tutorials/{page.name}: delete its .md and _files/"
+                f"no script for docs/examples/{page.name}: delete its .md and _files/"
             )
     return found
 
 
 def render_command(names: list[str], all_: bool, timeout: int) -> int:
     if names:
-        # a named tutorial is always rendered, even if it is current
+        # a named example is always rendered, even if it is current
         selected = [SOURCES / f"{Path(name).stem}.py" for name in names]
         missing = [s.name for s in selected if not s.exists()]
         if missing:
             raise SystemExit(
-                f"not found in docs/tutorials/scripts/: {', '.join(missing)}"
+                f"not found in docs/examples/scripts/: {', '.join(missing)}"
             )
     else:
         selected = [s for s in scripts() if all_ or not is_current(s)]
@@ -297,7 +297,7 @@ def render_command(names: list[str], all_: bool, timeout: int) -> int:
 def notebooks_command() -> int:
     for script in scripts():
         write_notebook(script)
-    print(f"Wrote {len(scripts())} notebooks to docs/tutorials/.")
+    print(f"Wrote {len(scripts())} notebooks to docs/examples/.")
     return 0
 
 
