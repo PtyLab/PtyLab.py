@@ -77,7 +77,7 @@ Write maths in LaTeX between `$...$` (inline) or `$$...$$` (display), and draw d
 
 ### Examples
 
-Each example is a Python script `tutorial_<name>.py` in `docs/tutorials/scripts/`, split into cells by `# %%` lines. If you add or change any of these scripts, re-render the examples with:
+Each example is a Python script `example_<name>.py` in `docs/examples/scripts/`, split into cells by `# %%` lines. If you add or change any of these scripts, re-render the examples with:
 
 ```bash
 uv run ptylab docs render              # every example whose script is new or changed
@@ -89,9 +89,9 @@ To render one example, even if its script did not change (for example, after cha
 uv run ptylab docs render <script-name> # single example (with or without .py)
 ```
 
-This runs the script and saves the page and its figures in `docs/tutorials/` (`<script-name>.md` and `<script-name>_files/`); commit these too. The `.ipynb` it also writes there is not committed. Finally, run `uv run ptylab docs check`, which reports pages that are out of date and examples missing from the index or the nav, as CI does.
+This runs the script and saves the page and its figures in `docs/examples/` (`<script-name>.md` and `<script-name>_files/`); commit these too. The `.ipynb` it also writes there is not committed. Finally, run `uv run ptylab docs check`, which reports pages that are out of date and examples missing from the index or the nav, as CI does.
 
-If you add a feature such as an engine or a constraint, please add an example for it. List it in `docs/tutorials/index.md` and in the `nav` of `mkdocs.yml`.
+If you add a feature such as an engine or a constraint, please add an example for it. List it in `docs/examples/index.md` and in the `nav` of `mkdocs.yml`.
 
 ## 3. Submit a pull request
 

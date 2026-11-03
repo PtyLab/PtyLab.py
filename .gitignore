@@ -23,8 +23,8 @@ notes/
 # files
 *.hdf5
 *.png
-# figures of the rendered tutorial pages, written by `ptylab docs render`
-!docs/tutorials/*_files/*.png
-# download notebooks of the tutorials, written by `ptylab docs notebooks` before a build
-docs/tutorials/*.ipynb
+# figures of the rendered example pages, written by `ptylab docs render`
+!docs/examples/*_files/*.png
+# download notebooks of the examples, written by `ptylab docs notebooks` before a build
+docs/examples/*.ipynb
 *.lock
