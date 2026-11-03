@@ -13,14 +13,10 @@
 #     - Mixed states: P. Thibault and A. Menzel, "Reconstructing state mixtures from diffraction measurements," Nature 494, 68–71 (2013). [doi:10.1038/nature11806](https://doi.org/10.1038/nature11806)
 #     - Dataset: L. Loetgering et al., "Generation and characterization of focused helical x-ray beams," Sci. Adv. 6, eaax8836 (2020). [doi:10.1126/sciadv.aax8836](https://doi.org/10.1126/sciadv.aax8836)
 #
-# !!! note "Dataset"
-#     The dataset (`helicalbeam.hdf5`, about 350 MB) is downloaded into `example_data/` at the project root on the first run.
-#
-# !!! tip "Prerequisites"
-#     Complete [CPM Example Data](example_CPM.md) before this example.
-#
-# !!! info "Run time"
-#     The two reconstructions take about half a minute on a GPU and considerably longer on a CPU.
+# !!! note "Before you start"
+#     - **Read first:** [CPM Example Data](example_CPM.md).
+#     - **Data:** `helicalbeam.hdf5` (about 350 MB), downloaded into `example_data/` on the first run.
+#     - **Run time:** about half a minute on a GPU, much longer on a CPU.
 
 # %% [markdown]
 # ## Mixed-state model

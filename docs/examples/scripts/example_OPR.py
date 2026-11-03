@@ -13,17 +13,11 @@
 #     - Orthogonal probe relaxation: M. Odstrčil et al., "Ptychographic coherent diffractive imaging with orthogonal probe relaxation," Opt. Express 24, 8360 (2016). [doi:10.1364/OE.24.008360](https://doi.org/10.1364/OE.24.008360)
 #     - Dataset: C. Liu et al., "Visualizing the ultra-structure of microorganisms using table-top extreme ultraviolet imaging," PhotoniX 4, 6 (2023). [doi:10.1186/s43074-023-00084-6](https://doi.org/10.1186/s43074-023-00084-6)
 #
-# !!! note "Dataset"
-#     The dataset (`OPR_dp_processed.hdf5`, about 180 MB) is downloaded into `example_data/` at the project root on the first run.
-#
-# !!! warning "GPU required"
-#     The `OPR` engine currently runs only on a GPU with CuPy installed; see [Installation](../getting-started/installation.md).
-#
-# !!! tip "Prerequisites"
-#     Complete [CPM Mixed States](example_mixedStates.md) before this example.
-#
-# !!! info "Run time"
-#     The reconstruction takes about a minute on a GPU; most of it is OPR, which keeps and updates a probe for each of the 707 scan positions.
+# !!! note "Before you start"
+#     - **Read first:** [CPM Mixed States](example_mixedStates.md).
+#     - **Data:** `OPR_dp_processed.hdf5` (about 180 MB), downloaded into `example_data/` on the first run.
+#     - **Needs:** a GPU with CuPy; the `OPR` engine does not run on the CPU yet (see [Installation](../getting-started/installation.md)).
+#     - **Run time:** about a minute on a GPU.
 
 # %% [markdown]
 # ## OPR model

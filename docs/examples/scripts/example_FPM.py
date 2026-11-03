@@ -15,6 +15,9 @@
 #     - Fourier ptychography: G. Zheng, R. Horstmeyer and C. Yang, "Wide-field, high-resolution Fourier ptychographic microscopy," Nat. Photonics 7, 739–745 (2013). [doi:10.1038/nphoton.2013.187](https://doi.org/10.1038/nphoton.2013.187)
 #     - LED position calibration: R. Eckert, Z. F. Phillips and L. Waller, "Efficient illumination angle self-calibration in Fourier ptychography," Appl. Opt. 57, 5434 (2018). [doi:10.1364/AO.57.005434](https://doi.org/10.1364/AO.57.005434)
 #     - Phase curvature: T. Aidukas, L. Loetgering and A. R. Harvey, "Addressing phase-curvature in Fourier ptychography," Opt. Express 30, 22421 (2022). [doi:10.1364/OE.458657](https://doi.org/10.1364/OE.458657)
+#
+# !!! note "Before you start"
+#     - **Data:** `LungCarcinomaFPM.hdf5` (about 11 MB), downloaded into `example_data/` on the first run.
 
 # %%
 import matplotlib.pyplot as plt

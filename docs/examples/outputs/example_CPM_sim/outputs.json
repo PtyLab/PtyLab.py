@@ -1,0 +1,23 @@
+{
+ "code": "e240da96b1ccda9e31e82c95e1ab7923ff9ede900f443a86b3cd6df8febdc5f0",
+ "cells": [
+  "",
+  "",
+  "",
+  "```text\nText(0.5, 1.0, 'probe intensity')\n```\n\n![](outputs/example_CPM_sim/cell08_1.png)\n",
+  "![](outputs/example_CPM_sim/cell10_0.png)\n",
+  "![](outputs/example_CPM_sim/cell12_0.png)\n",
+  "![](outputs/example_CPM_sim/cell14_0.png)\n",
+  "",
+  "",
+  "![](outputs/example_CPM_sim/cell20_0.png)\n",
+  "",
+  "```text\n['ptychogram', 'wavelength', 'encoder', 'dxd', 'zo']\n['entrancePupilDiameter', 'spectralDensity', 'theta', 'emptyBeam']\n```\n",
+  "",
+  "",
+  "```text\nDisabling GPU switch. If this is unwanted, please set `self.gpuSwitch = True`\n```\n",
+  "",
+  "```text\nStarting mPIE: 100 iterations on the CPU\n```\n\n![](outputs/example_CPM_sim/cell28_0.png)\n",
+  "```text\nThe reconstruction results (all) have been saved\nSaved monitor figure result_reconstruction.png\n```\n"
+ ]
+}

@@ -14,11 +14,9 @@
 #     - ePIE: A. M. Maiden and J. M. Rodenburg, "An improved ptychographical phase retrieval algorithm for diffractive imaging," Ultramicroscopy 109, 1256–1262 (2009). [doi:10.1016/j.ultramic.2009.05.012](https://doi.org/10.1016/j.ultramic.2009.05.012)
 #     - mPIE: A. M. Maiden, D. Johnson and P. Li, "Further improvements to the ptychographical iterative engine," Optica 4, 736 (2017). [doi:10.1364/OPTICA.4.000736](https://doi.org/10.1364/OPTICA.4.000736)
 #
-# !!! note "Dataset"
-#     The dataset (`simu.hdf5`) is generated in `example_data/` at the project root on the first run.
-#
-# !!! tip "Prerequisites"
-#     Complete [CPM Simulation](example_CPM_sim.md) before this example.
+# !!! note "Before you start"
+#     - **Read first:** [CPM Simulation](example_CPM_sim.md).
+#     - **Data:** `simu.hdf5`, generated in `example_data/` on the first run.
 
 # %%
 import matplotlib
@@ -135,7 +133,7 @@ monitor = PtyLab.Monitor()
 # %%
 ## Set monitor properties
 monitor.verboseLevel = "low"  # low (default): plot only one figure (object/probe/error), high: add a second figure showing measured and estimated diffraction patterns
-monitor.figureUpdateFrequency = 1  # the frequency of the plots
+monitor.figureUpdateFrequency = 5  # redraw the plots every 5 iterations
 monitor.objectPlot = "complex"  # options: complex, abs, angle
 monitor.objectZoom = 1.5  # control object plot FoV
 monitor.probeZoom = 0.5  # control probe plot FoV

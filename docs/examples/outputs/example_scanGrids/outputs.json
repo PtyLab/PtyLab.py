@@ -1,0 +1,12 @@
+{
+ "code": "c2baab76704acf8c9796db0fc1be668a3534a342c412f32c71f3d0fb6614ac49",
+ "cells": [
+  "",
+  "![](outputs/example_scanGrids/cell03_0.png)\n",
+  "```text\nRaster       mean step  20.0, min  20.0, max  20.0\nConcentric   mean step  19.9, min  19.1, max  20.6\nFermat       mean step  16.6, min  10.0, max  17.1\n```\n",
+  "![](outputs/example_scanGrids/cell06_0.png)\n",
+  "```text\npath length in generated order: 12238 grid units\ndistance: 2375 um, numIteration: 0, \ndistance: 2055 um, numIteration: 1000, \ndistance: 1967 um, numIteration: 2000, \ndistance: 1945 um, numIteration: 3000, \ndistance: 1891 um, numIteration: 4000, \npath length after optimization: 1879 grid units\n```\n",
+  "![](outputs/example_scanGrids/cell09_0.png)\n",
+  "```text\nnumber of positions: 100 \ny (row) [um] | x (col) [um] \n0.0 0.0 \n-28.17595156146098 2.4730049749655962 \n-24.002431256746053 37.73437814202297 \n```\n"
+ ]
+}
