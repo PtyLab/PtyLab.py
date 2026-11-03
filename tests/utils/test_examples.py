@@ -66,3 +66,12 @@ def test_empty_outputs_leave_no_gap(example, monkeypatch):
     examples.render(script)
     assert examples.build(script)
     assert "x = 1\n```\n\nSome text." in page(script)
+
+
+@pytest.mark.parametrize("answer, runs_expected", [("", 0), ("n", 0), ("y", 1)])
+def test_render_all_asks_first(example, monkeypatch, answer, runs_expected):
+    script, runs = example
+    monkeypatch.setattr("builtins.input", lambda question: answer)
+    monkeypatch.setattr(examples, "problems", lambda: [])  # no mkdocs.yml in tmp_path
+    examples.render_command([], all_=True, timeout=10)
+    assert len(runs) == runs_expected

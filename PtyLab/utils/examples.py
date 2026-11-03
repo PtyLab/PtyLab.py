@@ -26,6 +26,7 @@ Only works in a git checkout of PtyLab.py, which has the docs/ folder.
 import base64
 import hashlib
 import json
+import os
 import posixpath
 import re
 import shutil
@@ -34,6 +35,7 @@ from pathlib import Path
 
 import jupytext
 import nbformat
+from jupyter_client.manager import KernelManager
 from nbclient import NotebookClient
 
 REPO = Path(__file__).resolve().parents[2]
@@ -56,6 +58,12 @@ DOWNLOAD_TOP = (
 )
 DOWNLOAD_END = "---\n\n" + BUTTONS
 ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+# Warnings name the cell as a temporary file (/tmp/ipykernel_<pid>/<hash>.py) that
+# changes on every run; replaced, so a rerun does not change outputs.json for nothing.
+CELL_FILE = re.compile(r"\S*ipykernel_\d+[/\\]\d+\.py")
+# The monitor advises an interactive backend for verboseLevel="high", which a static
+# page cannot use; hidden while rendering. Notebook readers still see it.
+HIDDEN_WARNINGS = "ignore:For diffraction data plot:UserWarning"
 MD_LINK = re.compile(r"\]\(((?:\.\./)?[\w/-]+)\.md\)")
 
 
@@ -113,7 +121,7 @@ def notebook_text(script: Path) -> str:
 
 def clean_text(text: str) -> str:
     # Progress bars (tqdm) redraw a line with "\r"; keep only the last state of each line.
-    text = ANSI.sub("", text)
+    text = CELL_FILE.sub("<cell>", ANSI.sub("", text))
     return "\n".join(line.rsplit("\r", 1)[-1] for line in text.splitlines())
 
 
@@ -177,13 +185,28 @@ def render_outputs(outputs, stem: str, files_dir: Path, cell_index: int) -> list
 def execute(notebook, stem: str, timeout: int) -> list[str]:
     """Run the notebook; return the rendered outputs of each code cell and rewrite the figures."""
     with tempfile.TemporaryDirectory() as workdir:
-        # Run in a scratch directory so results saved by the example stay out of the repo.
-        PageClient(
-            notebook,
-            timeout=timeout,
-            kernel_name="python3",
-            resources={"metadata": {"path": workdir}},
-        ).execute()
+        # The kernel talks through socket files in the scratch directory rather than a
+        # local TCP port, which ipykernel warns about (unencrypted). Windows has no
+        # socket transport, so it keeps TCP and the warning.
+        socket = (
+            {} if os.name == "nt" else {"transport": "ipc", "ip": f"{workdir}/kernel"}
+        )
+        km = KernelManager(kernel_name="python3", **socket)
+        filters = ",".join(
+            filter(None, [os.environ.get("PYTHONWARNINGS"), HIDDEN_WARNINGS])
+        )
+        try:
+            # Run in a scratch directory so results saved by the example stay out of the repo.
+            PageClient(
+                notebook,
+                km=km,
+                timeout=timeout,
+                resources={"metadata": {"path": workdir}},
+            ).execute(env={**os.environ, "PYTHONWARNINGS": filters})
+        finally:
+            # a kernel manager we pass in is not shut down by nbclient
+            if km.has_kernel:
+                km.shutdown_kernel(now=True)
     files_dir = OUTPUTS / stem
     shutil.rmtree(files_dir, ignore_errors=True)
     # Figures are named by the cell's index among all cells, so they are found by cell.
@@ -277,6 +300,14 @@ def build_command() -> int:
     return check_command() if len(built) < len(scripts()) else 0
 
 
+def confirm(question: str) -> bool:
+    """Ask a yes/no question; only "y" or "yes" counts as yes (Enter, or no terminal, is no)."""
+    try:
+        return input(question).strip().lower() in ("y", "yes")
+    except EOFError:
+        return False
+
+
 def render_command(names: list[str], all_: bool, timeout: int) -> int:
     if names:
         # a named example is always run, even if its outputs are current
@@ -287,6 +318,11 @@ def render_command(names: list[str], all_: bool, timeout: int) -> int:
                 f"not found in docs/examples/scripts/: {', '.join(missing)}"
             )
     else:
+        if all_ and not confirm(
+            "This runs all examples, which can take half an hour or more. Continue? [y/N] "
+        ):
+            print("Cancelled.")
+            return 1
         selected = [s for s in scripts() if all_ or not is_current(s)]
         if not selected:
             print("All example outputs are up to date (use --all to run them anyway).")
