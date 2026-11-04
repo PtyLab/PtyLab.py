@@ -65,9 +65,10 @@ Tests that need an unavailable dependency are skipped, for example the CUDA test
 
 ### Documentation
 
-Documentation changes are deployed automatically once a pull request is merged into `main`. Check them locally first:
+The documentation is written in Markdown in `docs/`, and its navigation is set in `mkdocs.yml`. Changes go live when a pull request is merged into `main`. Preview them locally with:
 
 ```bash
+uv run ptylab examples render          # creates the example pages, see Examples below
 uv run --group docs zensical serve
 ```
 
@@ -75,25 +76,43 @@ Then open [http://127.0.0.1:8000](http://127.0.0.1:8000) in your browser. The pa
 
 Write maths in LaTeX between `$...$` (inline) or `$$...$$` (display), and draw diagrams in a ` ```mermaid ` code block.
 
-### Examples
+#### Examples
 
-Each example is a Python script `tutorial_<name>.py` in `docs/tutorials/scripts/`, split into cells by `# %%` lines. If you add or change any of these scripts, re-render the examples with:
+Each page under Examples is made from a Python script `docs/examples/scripts/example_<name>.py`, split into cells by `# %%` lines. The page shows the script with the outputs of its code cells (printed text and figures), which are saved in `docs/examples/outputs/example_<name>/`.
 
+- After changing an example, run the same command as for the preview:
 ```bash
-uv run ptylab docs render              # every example whose script is new or changed
+uv run ptylab examples render
+```
+It reruns only the examples whose script you changed, which can take a few minutes, and then updates the pages. Commit the script together with its folder in `docs/examples/outputs/`.
+
+
+- If anything changes at the package level, re-render the affected example:
+```bash
+uv run ptylab examples render example_<name>
 ```
 
-To render one example, even if its script did not change (for example, after changing the code it uses):
+- To add an example, write the script, list it in `docs/examples/index.md` and in the `nav` of `mkdocs.yml`, and run `render`. If you add a feature such as an engine or a constraint, please add an example for it.
 
+- Before you push, run the below command:
 ```bash
-uv run ptylab docs render <script-name> # single example (with or without .py)
+uv run ptylab examples check
 ```
-
-This runs the script and saves the page and its figures in `docs/tutorials/` (`<script-name>.md` and `<script-name>_files/`); commit these too. The `.ipynb` it also writes there is not committed. Finally, run `uv run ptylab docs check`, which reports pages that are out of date and examples missing from the index or the nav, as CI does.
-
-If you add a feature such as an engine or a constraint, please add an example for it. List it in `docs/tutorials/index.md` and in the `nav` of `mkdocs.yml`.
+It lists any example that still needs `render`, or that is missing from the index or the nav.
 
 ## 3. Submit a pull request
+
+### Opening the pull request
+
+Push your branch to your fork and open a [pull request](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request-from-a-fork) against `main` of PtyLab/PtyLab.py:
+
+```bash
+git push -u origin my-feature
+```
+
+Fill in each section of the [pull request template](https://github.com/PtyLab/PtyLab.py/blob/main/.github/pull_request_template.md): why the change is needed, how it was tested, and any notes. Keep it short and in simple words.
+
+If `main` has moved on, update your branch with `git fetch upstream` and `git rebase upstream/main`.
 
 ### Using LLMs
 
@@ -105,15 +124,3 @@ You may use LLMs to generate code, as long as the pull request:
 - adds appropriate tests for new functions.
 
 By opening a pull request, you confirm that you understand all of the code in it. Very large pull requests will be closed, with a request to resubmit them as smaller, logically separate pull requests.
-
-### Opening the pull request
-
-Push your branch to your fork and open a [pull request](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request-from-a-fork) against `main` of PtyLab/PtyLab.py:
-
-```bash
-git push -u origin my-feature
-```
-
-GitHub fills the description with the [pull request template](https://github.com/PtyLab/PtyLab.py/blob/main/.github/pull_request_template.md). Fill in each section rather than replacing it: why the change is needed, how it was tested (a demo figure or screenshot helps), and any notes such as deprecations or changed reconstruction results. Keep the description short: list the changes per file as brief bullet points in simple words. Preferably write it yourself. If an LLM drafts it, edit it until it is easy to read, without unnecessary length or jargon.
-
-If `main` has moved on in the meantime, update your branch with `git fetch upstream` and `git rebase upstream/main`.

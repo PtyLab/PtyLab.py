@@ -1,0 +1,19 @@
+{
+ "code": "6e71c60f0d78309fdd5935544550c0e7a8768f9701dcf75b0e5912000a873dce",
+ "cells": [
+  "",
+  "",
+  "```text\nLungCarcinomaFPM.hdf5 found, skipping download.\n```\n",
+  "```text\nFound encoder with shape (81, 2)\n```\n",
+  "",
+  "",
+  "",
+  "```text\nDisabling GPU switch. If this is unwanted, please set `self.gpuSwitch = True`\n```\n",
+  "```text\nRadius 30.960488594993688px, iteration 0\nRadius 29.460488594993688px, iteration 1\nRadius 29.460488594993688px, iteration 2\nInitial radius was 30.96px\nCalibrated radius is 29.46px\nInitial NA was 0.067\nCalibrated NA is 0.064\n```\n\n![](outputs/example_FPM/cell14_3.png)\n\n![](outputs/example_FPM/cell14_4.png)\n\n```text\n<SimilarityTransform(matrix=\n    [[ 1.05173803,  0.00385589, -0.76582643],\n     [-0.00385589,  1.05173803,  0.75903545],\n     [ 0.        ,  0.        ,  1.        ]]) at 0x7ac340b61c20>\n```\n",
+  "```text\nStarting qNewton: 200 iterations on the CPU\n```\n\n![](outputs/example_FPM/cell16_0.png)\n\n![](outputs/example_FPM/cell16_3.png)\n",
+  "```text\n<matplotlib.image.AxesImage at 0x7ac3379ca0d0>\n```\n\n![](outputs/example_FPM/cell17_1.png)\n",
+  "```text\n<matplotlib.image.AxesImage at 0x7ac33758a710>\n```\n\n![](outputs/example_FPM/cell19_1.png)\n",
+  "```text\nStarting qNewton: 200 iterations on the CPU\n```\n\n![](outputs/example_FPM/cell21_0.png)\n\n![](outputs/example_FPM/cell21_1.png)\n",
+  "```text\n<matplotlib.image.AxesImage at 0x7ac33712d590>\n```\n\n![](outputs/example_FPM/cell23_1.png)\n"
+ ]
+}

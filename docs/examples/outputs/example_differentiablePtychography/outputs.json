@@ -1,0 +1,24 @@
+{
+ "code": "1414e31e199519b9844a5661c2ef4ad38acbe8f92d0e17773016b4755b87a30d",
+ "cells": [
+  "```text\nhelicalbeam.hdf5 found, skipping download.\n```\n",
+  "```text\nFound encoder with shape (2, 1600)\nWarning: Automatically changing the shape of encoder. \n(1600, 2) [ 1.52465931e-22 -9.48676901e-22]\n```\n",
+  "",
+  "```text\ndevice: cuda\n```\n",
+  "![](outputs/example_differentiablePtychography/cell09_0.png)\n",
+  "![](outputs/example_differentiablePtychography/cell10_0.png)\n",
+  "![](outputs/example_differentiablePtychography/cell12_0.png)\n",
+  "![](outputs/example_differentiablePtychography/cell14_0.png)\n\n![](outputs/example_differentiablePtychography/cell14_2.png)\n",
+  "![](outputs/example_differentiablePtychography/cell15_0.png)\n",
+  "```text\nmode weights: [0.704 0.125 0.106 0.065]\n```\n\n![](outputs/example_differentiablePtychography/cell17_1.png)\n",
+  "![](outputs/example_differentiablePtychography/cell18_0.png)\n",
+  "![](outputs/example_differentiablePtychography/cell20_0.png)\n\n![](outputs/example_differentiablePtychography/cell20_1.png)\n\n![](outputs/example_differentiablePtychography/cell20_3.png)\n",
+  "```text\nThe reconstruction results (all) have been saved\nSaved monitor figure helicalbeam_gradient_reconstruction.png\nSaved monitor figure helicalbeam_gradient_history.png\n```\n",
+  "```text\nOPR_dp_processed.hdf5 found, skipping download.\n```\n",
+  "```text\nFound encoder with shape (707, 2)\n```\n",
+  "![](outputs/example_differentiablePtychography/cell26_0.png)\n\n![](outputs/example_differentiablePtychography/cell26_2.png)\n",
+  "![](outputs/example_differentiablePtychography/cell28_0.png)\n\n![](outputs/example_differentiablePtychography/cell28_1.png)\n",
+  "![](outputs/example_differentiablePtychography/cell30_0.png)\n",
+  "![](outputs/example_differentiablePtychography/cell31_0.png)\n"
+ ]
+}

@@ -32,11 +32,11 @@ jobs:
       - name: Install documentation dependencies
         run: uv sync --group docs
 
-      - name: Check that example pages match their scripts
-        run: uv run ptylab docs check
+      - name: Check that every example has outputs for its current code
+        run: uv run ptylab examples check
 
-      - name: Write the example notebooks for download
-        run: uv run ptylab docs notebooks
+      - name: Write the example pages and download notebooks
+        run: uv run ptylab examples build
 
       - name: Build documentation
         run: uv run --group docs zensical build --clean --strict

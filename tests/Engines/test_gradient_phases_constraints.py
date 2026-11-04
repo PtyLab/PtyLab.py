@@ -280,7 +280,7 @@ def test_phase_ramp_weights_do_not_depend_on_batch_size(engine):
 def test_reconstruct_with_phases_matches_consecutive_reconstructions(engine):
     # reconstruct(phases=...) replaced engine.run(phases) with the same effect:
     # each phase is a plain reconstruct() with its settings, the errors are
-    # concatenated and the engine's own settings come back.
+    # appended and the engine's own settings come back.
     engine.device = "cpu"
     manual = copy.deepcopy(engine)
     phases = [
@@ -292,15 +292,18 @@ def test_reconstruct_with_phases_matches_consecutive_reconstructions(engine):
     manual.parameters = {"object": {"lr": 0.02}}
     manual.numIterations = 2
     manual.reconstruct()
-    errors = list(manual.reconstruction.error)
     manual.parameters = {"probe": {"lr": 0.05}}
     manual.optimizerType = "preconditioned"
     manual.numIterations = 3
     manual.reconstruct()
-    errors += manual.reconstruction.error
+    # like the classic engines, a second reconstruct() appends to the errors,
+    # so the monitor's iteration count (len(error)) keeps going
+    errors = manual.reconstruction.error
+    assert len(errors) == 5
 
     assert [item["name"] for item in history] == ["object only", ""]
     assert [len(item["error"]) for item in history] == [2, 3]
+    np.testing.assert_array_equal(history[0]["error"] + history[1]["error"], errors)
     np.testing.assert_array_equal(engine.reconstruction.error, errors)
     np.testing.assert_array_equal(
         engine.reconstruction.object, manual.reconstruction.object

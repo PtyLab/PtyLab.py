@@ -1817,7 +1817,8 @@ class BaseEngine(object):
             self.logger.debug("Calculating position correction")
             # position gradients
             # shiftedImages = xp.zeros((self.rowShifts.shape + objectPatch.shape))
-            cc = xp.zeros((len(self.rowShifts), 1))
+            # complex cross-correlation per trial shift; its magnitude is taken below
+            cc = xp.zeros((len(self.rowShifts), 1), dtype=objectPatch.dtype)
 
             # use the real-space object (FFT for FPM)
             O = self.reconstruction.object

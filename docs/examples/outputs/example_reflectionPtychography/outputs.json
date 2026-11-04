@@ -1,0 +1,15 @@
+{
+ "code": "97ac148d23f9555adc80826907237ce8634ccb2480351e22d844be7818eb4800",
+ "cells": [
+  "",
+  "```text\nTwoLayer_bin4.hdf5 found, skipping download.\n```\n",
+  "```text\nFound encoder with shape (202, 2)\n```\n",
+  "",
+  "",
+  "![](outputs/example_reflectionPtychography/cell11_0.png)\n",
+  "```text\nStarting mPIE: 100 iterations on the GPU\nStarting mPIE: 100 iterations on the GPU\nStarting mPIE: 100 iterations on the GPU\nStarting mPIE: 100 iterations on the GPU\nStarting mPIE: 100 iterations on the GPU\nStarting mPIE: 100 iterations on the GPU\nStarting mPIE: 100 iterations on the GPU\nStarting mPIE: 100 iterations on the GPU\nStarting mPIE: 100 iterations on the GPU\nStarting mPIE: 100 iterations on the GPU\nStarting mPIE: 100 iterations on the GPU\n```\n",
+  "```text\ntrue angle    : 45.00 deg\nnominal angle : 40.00 deg\nbest angle    : 43.33 deg   (error -1.67 deg)\n```\n\n![](outputs/example_reflectionPtychography/cell16_1.png)\n",
+  "```text\nStarting mPIE: 200 iterations on the GPU\n\nfinal iteration: 199\nerror: 50.1\nestimated linear overlap: 85.8 %\nestimated area overlap: 79.8 %\n```\n\n![](outputs/example_reflectionPtychography/cell18_0.png)\n\n![](outputs/example_reflectionPtychography/cell18_4.png)\n",
+  "```text\nThe reconstruction results (all) have been saved\nSaved monitor figure TwoLayer_bin4.hdf5_reconstruction_reconstruction.png\nSaved monitor figure TwoLayer_bin4.hdf5_reconstruction_diffraction.png\n```\n"
+ ]
+}

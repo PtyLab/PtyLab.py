@@ -43,20 +43,20 @@ nav:
     - Installation: getting-started/installation.md
     - Quick Start: getting-started/quickstart.md
   - Examples:
-    - tutorials/index.md
-    - "01 – CPM Simulation": tutorials/tutorial_CPM_sim.md
-    - "02 – CPM Example Data": tutorials/tutorial_CPM.md
-    - "03 – FPM Example Data": tutorials/tutorial_FPM.md
-    - "04 – CPM Mixed States": tutorials/tutorial_mixedStates.md
-    - "05 – CPM Multi-Slice": tutorials/tutorial_multiSlice.md
-    - "06 – CPM Multi-Wavelength": tutorials/tutorial_CPM_multiWavelength.md
-    - "07 – CPM Position Correction": tutorials/tutorial_LateralPositionCorrection.md
-    - "08 – CPM Purity-Based Calibration": tutorials/tutorial_purityCalibration.md
-    - "09 – CPM Reflection": tutorials/tutorial_reflectionPtychography.md
-    - "10 – CPM Interferometric Intensity": tutorials/tutorial_interferometricIntensityConstraint.md
-    - "11 – Scan Grids": tutorials/tutorial_scanGrids.md
-    - "12 – CPM Orthogonal Probe Relaxation": tutorials/tutorial_OPR.md
-    - "13 – CPM Differentiable Ptychography": tutorials/tutorial_differentiablePtychography.md
+    - examples/index.md
+    - "01 – CPM Simulation": examples/example_CPM_sim.md
+    - "02 – CPM Example Data": examples/example_CPM.md
+    - "03 – FPM Example Data": examples/example_FPM.md
+    - "04 – CPM Mixed States": examples/example_mixedStates.md
+    - "05 – CPM Multi-Slice": examples/example_multiSlice.md
+    - "06 – CPM Multi-Wavelength": examples/example_CPM_multiWavelength.md
+    - "07 – CPM Position Correction": examples/example_LateralPositionCorrection.md
+    - "08 – CPM Purity-Based Calibration": examples/example_purityCalibration.md
+    - "09 – CPM Reflection": examples/example_reflectionPtychography.md
+    - "10 – CPM Interferometric Intensity": examples/example_interferometricIntensityConstraint.md
+    - "11 – Scan Grids": examples/example_scanGrids.md
+    - "12 – CPM Orthogonal Probe Relaxation": examples/example_OPR.md
+    - "13 – CPM Differentiable Ptychography": examples/example_differentiablePtychography.md
   - User Guide:
     - CPM Overview: cpm/overview.md
     - FPM Overview: fpm/overview.md

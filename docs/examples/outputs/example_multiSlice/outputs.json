@@ -1,0 +1,14 @@
+{
+ "code": "358de9884254cec1ca994b1d368b4b3d6b24a0ee5fa426d47a1be6661f7da2b0",
+ "cells": [
+  "",
+  "![](outputs/example_multiSlice/cell05_0.png)\n",
+  "",
+  "",
+  "```text\nStarting mPIE: 50 iterations on the GPU\n```\n\n![](outputs/example_multiSlice/cell11_0.png)\n",
+  "```text\nStarting e3PIE: 150 iterations on the GPU\n```\n\n![](outputs/example_multiSlice/cell13_0.png)\n",
+  "![](outputs/example_multiSlice/cell15_0.png)\n",
+  "![](outputs/example_multiSlice/cell17_0.png)\n",
+  "```text\nThe reconstruction results (all) have been saved\nSaved monitor figure multi_slice_reconstruction.png\n```\n"
+ ]
+}
