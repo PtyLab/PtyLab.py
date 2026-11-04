@@ -14,17 +14,64 @@ cache_size = 30
 
 @lru_cache(maxsize=cache_size)
 def __make_quad_phase(zo, wavelength, Np, dxp, on_gpu):
-    """
-    Make a quadratic phase profile corresponding to distance zo at wavelength wl. The result is cached and can be
-    called again with almost no time lost.
-    :param wavelength:  wavelength in meters
-    :param zo:
-    :param Np:
-    :param dxp:
-    :param on_gpu:
-    :return:
+    r"""
+    Construct and cache a spatial-domain quadratic Fresnel phase factor.
+
+    Evaluates
+
+    $$
+    Q(x, y) = \exp\left[\frac{i\pi}{\lambda z}(x^2 + y^2)\right]
+    $$
+
+    on a square grid. Used by the Fresnel propagators and the two-step
+    polychromatic kernel builder. This function constructs a phase factor
+    only; it does not propagate a field or apply amplitude normalization.
+
+    Args:
+        zo (float):
+            Nonzero propagation distance in meters. For real parameters,
+            reversing its sign conjugates the phase factor.
+
+        wavelength (float):
+            Positive wavelength in meters.
+
+        Np (int):
+            Number of samples along each side of the square grid.
+            Use an integer greater than 1.
+
+        dxp (float):
+            Positive nominal pixel size in meters. Scales the coordinate
+            interval; see the sampling limitation below.
+
+        on_gpu (bool):
+            If True, construct the array using CuPy on the GPU.
+            Otherwise, construct it using NumPy on the CPU.
+
+    Returns:
+        ndarray:
+            Complex phase array of shape ``(Np, Np)`` on the requested
+            backend. For real, valid parameters its magnitude is one,
+            up to floating-point precision.
+
+    Raises:
+        ImportError:
+            If ``on_gpu`` is True and CuPy could not be imported.
+
+    Notes:
+        The current coordinates are generated with
+        ``linspace(-Np / 2, Np / 2, Np) * dxp``, including both endpoints.
+        Their actual spacing is ``Np * dxp / (Np - 1)``, not ``dxp``.
+        This differs from the centered FFT grid and should be reviewed
+        before interpreting ``dxp`` as the actual sampling interval.
+
+        Up to 30 argument combinations are cached. Cache hits return the
+        stored array itself; treat it as read-only. GPU device identity
+        is not part of the cache key, so clear the cache when switching
+        GPU devices before reusing the same arguments.
     """
     if on_gpu:
+        if "cp" not in globals():
+            raise ImportError("CuPy is not installed but on_gpu=True was requested.")
         xp = cp
     else:
         xp = np
