@@ -24,8 +24,15 @@ cache_size = 5
 def propagate_fraunhofer(
     fields, params: Params, reconstruction: Reconstruction, z=None
 ):
-    """
+    r"""
     Propagate a field using the Fraunhofer approximation.
+
+    $$
+    u_{out} = F(u).
+    $$
+
+    Here $F$ is the unitary 2D Fourier transform, with ordering controlled
+    by ``params.fftshiftSwitch``.
 
     The propagation is implemented as a centered 2D Fourier transform.
     The Fourier-shift convention is controlled by
@@ -96,8 +103,15 @@ def propagate_fraunhofer_inv(
 
 
 def propagate_fresnel(fields, params: Params, reconstruction: Reconstruction, z=None):
-    """
+    r"""
     Propagate a field using the Fresnel approximation.
+
+    $$
+    u_{out} = F(u Q), \qquad Q = \exp[i\pi(x^2+y^2)/(\lambda z)].
+    $$
+
+    Here $F$ is the unitary 2D Fourier transform with the configured
+    ordering, and $Q$ is the source-plane quadratic phase.
 
     The input field is multiplied by a quadratic phase factor and then
     transformed using a centered 2D Fourier transform. If ``z`` is not
@@ -202,8 +216,16 @@ def propagate_ASP(
     z=None,
     fftflag=True,
 ):
-    """
+    r"""
     Propagate a field using the angular spectrum method.
+
+    $$
+    u_{out} = F^{-1}[H F(u)].
+    $$
+
+    Here $F$ is the unitary 2D Fourier transform and $H$ is the
+    band-limited angular-spectrum transfer function in matching ordering.
+    This equation describes forward propagation (``inverse=False``).
 
     The field is transformed to the spatial-frequency domain, multiplied
     by an angular-spectrum transfer function, and transformed back to the
@@ -308,8 +330,17 @@ def propagate_ASP_inv(*args, **kwargs):
 def propagate_twoStepPolychrome(
     fields, params: Params, reconstruction: Reconstruction, inverse=False, z=None
 ):
-    """
+    r"""
     Propagate a multi-wavelength field using the two-step polychrome method.
+
+    $$
+    u_{out,\lambda} = F\left[Q\,F^{-1}[H_\lambda F(u_\lambda)]\right].
+    $$
+
+    Here $F$ is the centered unitary 2D Fourier transform, $H_\lambda$
+    propagates over $z(1-\lambda_0/\lambda)$, and $Q$ is the quadratic
+    phase for reference wavelength $\lambda_0$ at distance $z$.
+    This equation describes forward propagation (``inverse=False``).
 
     The propagation combines wavelength-dependent angular-spectrum
     propagation with a quadratic phase correction and a final Fourier
@@ -431,8 +462,16 @@ def propagate_twoStepPolychrome_inv(
 def propagate_scaledASP(
     fields, params: Params, reconstruction: Reconstruction, inverse=False, z=None
 ):
-    """
+    r"""
     Propagate a field using the scaled angular spectrum method.
+
+    $$
+    u_{out} = F^{-1}[Q_2 F(Q_1 u)].
+    $$
+
+    Here $F$ is the centered unitary 2D Fourier transform; $Q_1$ and
+    $Q_2$ are the source-plane and frequency-domain scaled Fresnel
+    factors, including sampling masks. This describes ``inverse=False``.
 
     The propagation uses two phase factors to account for different
     sampling intervals in the object and detector planes. If ``z`` is not
@@ -536,8 +575,16 @@ def propagate_scaledASP_inv(
 def propagate_scaledPolychromeASP(
     fields, params: Params, reconstruction: Reconstruction, inverse=False, z=None
 ):
-    """
+    r"""
     Propagate a multi-wavelength field using the scaled angular spectrum method.
+
+    $$
+    u_{out,\lambda} = F^{-1}[Q_{2,\lambda} F(Q_{1,\lambda} u_\lambda)].
+    $$
+
+    Here $F$ is the centered unitary 2D Fourier transform; $Q_{1,\lambda}$
+    and $Q_{2,\lambda}$ are wavelength-dependent scaled Fresnel factors,
+    including sampling masks. This describes ``inverse=False``.
 
     Separate propagation factors are constructed for each wavelength in
     ``reconstruction.spectralDensity`` to account for wavelength-dependent
@@ -644,8 +691,16 @@ def propagate_scaledPolychromeASP_inv(
 def propagate_polychromeASP(
     fields, params: Params, reconstruction: Reconstruction, inverse=False, z=None
 ):
-    """
+    r"""
     Propagate a multi-wavelength field using the angular spectrum method.
+
+    $$
+    u_{out,\lambda} = F^{-1}[H_\lambda F(u_\lambda)].
+    $$
+
+    Here $F$ is the centered unitary 2D Fourier transform and $H_\lambda$
+    is the band-limited angular-spectrum kernel for each wavelength.
+    This equation describes forward propagation (``inverse=False``).
 
     A wavelength-dependent transfer function is constructed for each entry
     in ``reconstruction.spectralDensity``. If ``z`` is not provided,
@@ -864,8 +919,17 @@ def object2detector(fields, params: Params, reconstruction: Reconstruction):
 
 
 def aspw(u, z, wavelength, L, bandlimit=True, is_FT=False):
-    """
+    r"""
     Propagate a field using the angular spectrum plane-wave method.
+
+    $$
+    u_{out} = F^{-1}(H U), \qquad
+    U = \begin{cases}F(u), & \text{if is\_FT=False},\\
+    u, & \text{if is\_FT=True}.\end{cases}
+    $$
+
+    Here $F$ is the centered unitary 2D Fourier transform and $H$ is
+    the angular-spectrum transfer function returned by this function.
 
     The propagation uses a band-limited angular-spectrum transfer function
     to reduce sampling artifacts in numerical free-space propagation.[^matsushima2009]
