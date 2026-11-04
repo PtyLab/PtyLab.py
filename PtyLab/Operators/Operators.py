@@ -1675,6 +1675,78 @@ def __make_transferfunction_scaledASP(
     dxd,
     gpuSwitch,
 ):
+    """
+    Build and cache phase factors for single-wavelength scaled propagation.
+
+    Obtains the source-plane factor ``Q1`` and spatial-frequency factor
+    ``Q2`` by calling ``scaledASP`` on a dummy field. The propagated
+    dummy field is discarded.
+
+    Used internally by ``propagate_scaledASP`` and by the multi-wavelength
+    scaled-kernel builder. The factors use the Fresnel (paraxial)
+    approximation, with band limiting enabled and the output-plane
+    quadratic phase ``Q3`` omitted.
+
+    Args:
+        propagatorType (str or None):
+            Propagator identifier. Currently unused in the calculation,
+            but included in the cache key.
+
+        fftshiftSwitch (bool):
+            Propagation configuration flag. Must be False.
+
+        nlambda (int):
+            Number of wavelengths. Pass 1; multiple wavelengths are
+            handled by the separate polychromatic helper.
+
+        nosm (int):
+            Number of object modes.
+
+        npsm (int):
+            Number of probe modes.
+
+        Np (int):
+            Number of pixels along each side of the square propagation
+            grid. Use even values because the underlying scaled
+            propagator has an odd-grid coordinate inconsistency.
+
+        zo (float):
+            Nonzero propagation distance in meters.
+
+        wavelength (float):
+            Positive illumination wavelength in meters.
+
+        dxo (float):
+            Positive source-plane pixel size in meters.
+
+        dxd (float):
+            Positive destination-plane pixel size in meters.
+
+        gpuSwitch (bool):
+            If True, return CuPy arrays. Otherwise, return NumPy arrays.
+            The factors are constructed on the CPU in either case.
+
+    Returns:
+        tuple:
+            ``(Q1, Q2)``, two complex64 arrays with shape
+            ``(1, nosm, npsm, 1, Np, Np)``. Q1 acts in the source plane;
+            Q2 acts in spatial-frequency space. Both include the
+            applicable sampling masks from ``scaledASP``.
+
+    Raises:
+        ValueError:
+            If ``fftshiftSwitch`` is True or ``nlambda`` is greater
+            than 1.
+
+    Notes:
+        Results are cached using all arguments as the key. Treat the
+        returned arrays as read-only to avoid changing cached results.
+
+        The current nested loops overwrite the probe-mode count with
+        a loop index. For multiple object modes, some mode factors can
+        remain incorrectly initialized to ones. This limitation must
+        be resolved before relying on those configurations.
+    """
     if fftshiftSwitch:
         raise ValueError(
             "scaledASP propagatorType works only with fftshiftSwitch = False!"
@@ -1710,6 +1782,80 @@ def __make_transferfunction_scaledPolychromeASP(
     dxd,
     on_gpu,
 ):
+    """
+    Build and cache scaled-propagation phase factors for multiple wavelengths.
+
+    Calls ``__make_transferfunction_scaledASP`` separately for each
+    wavelength and assembles the resulting factors along the wavelength
+    axis. Used internally by ``propagate_scaledPolychromeASP``.
+
+    All channels share the propagation distance and source/destination
+    pixel sizes. The factors use the Fresnel (paraxial) approximation,
+    with band limiting enabled and the output-plane phase Q3 omitted.
+
+    Args:
+        fftshiftSwitch (bool):
+            Propagation configuration flag. Must be False.
+
+        nlambda (int):
+            Number of wavelength channels.
+
+        nosm (int):
+            Number of object modes.
+
+        npsm (int):
+            Number of probe modes.
+
+        zo (float):
+            Nonzero propagation distance in meters.
+
+        Np (int):
+            Number of pixels along each side of the square propagation
+            grid. Use even values because the underlying scaled
+            propagator has an odd-grid coordinate inconsistency.
+
+        spectralDensity_as_tuple (tuple[float, ...]):
+            Positive wavelengths in meters, ordered to match the field's
+            wavelength axis. Supply one wavelength per channel.
+            These values are wavelengths, not spectral intensity weights.
+            A tuple is required for compatibility with the cache.
+
+        dxo (float):
+            Positive source-plane pixel size in meters, shared by all
+            wavelength channels.
+
+        dxd (float):
+            Positive destination-plane pixel size in meters, shared by
+            all wavelength channels.
+
+        on_gpu (bool):
+            If True, return CuPy arrays. Otherwise, return NumPy arrays.
+            The underlying phase factors are calculated on the CPU
+            before any GPU transfer.
+
+    Returns:
+        tuple:
+            ``(Q1, Q2)``, two complex64 arrays with shape
+            ``(nlambda, nosm, npsm, 1, Np, Np)``. Q1 acts in the source
+            plane and Q2 in spatial-frequency space. Both include the
+            applicable sampling masks.
+
+    Raises:
+        ValueError:
+            If ``fftshiftSwitch`` is True.
+
+    Notes:
+        Results are cached using all arguments as the key. Treat the
+        returned arrays as read-only to avoid modifying cached results.
+        The underlying single-wavelength factors are cached separately.
+
+        This helper inherits the mode-loop bug in
+        ``__make_transferfunction_scaledASP``: for multiple object modes,
+        some factors can remain incorrectly initialized to ones.
+
+        This function constructs factors only. It does not propagate
+        fields, combine wavelength channels, or apply spectral weights.
+    """
     spectralDensity = np.array(spectralDensity_as_tuple)
     if fftshiftSwitch:
         raise ValueError(
