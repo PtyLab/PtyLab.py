@@ -1,9 +1,11 @@
 # PtyLab.py
 
-!!! warning "Work in progress"
-    This documentation is still being written, so some details may be incomplete or out of date. Please open an [issue](https://github.com/PtyLab/PtyLab.py/issues) if something does not match the code.
+!!! note "Work in Progress 🚧"
+    This documentation is currently work in progress, so some details may be missing. Please open an [issue](https://github.com/PtyLab/PtyLab.py/issues) if something does not match the code.
 
-PtyLab is an inverse modeling toolbox for **conventional (CPM)** and **Fourier (FPM)** ptychography in a unified framework. See the [paper](https://opg.optica.org/oe/fulltext.cfm?uri=oe-31-9-13763&id=529026) for details.
+PtyLab is an inverse modeling toolbox for **conventional (CPM)** and **Fourier (FPM)** ptychography in a unified framework. See the [paper](https://opg.optica.org/oe/fulltext.cfm?uri=oe-31-9-13763&id=529026) for details. 
+
+If you like the package, drop a star and if you use this in your research, please [cite](#citation) us too.
 
 [Get started](getting-started/quickstart.md){ .md-button .md-button--primary } [Install](getting-started/installation.md){ .md-button } [Examples](examples/index.md){ .md-button }
 
@@ -44,17 +46,6 @@ Try the demo in Google Colab:
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/PtyLab/PtyLab.py/blob/main/demo.ipynb)
 
 ![Reconstruction demo](https://raw.githubusercontent.com/PtyLab/PtyLab.py/main/assets/recon.gif)
-
-## Where to start
-
-| I want to | Go to |
-|---|---|
-| install PtyLab, with or without a GPU | [Installation](getting-started/installation.md) |
-| run a first reconstruction in a few lines | [Quick Start](getting-started/quickstart.md) |
-| follow worked examples on simulated and real data | [Examples](examples/index.md) |
-| look up the data format, engines or settings | [User Guide](cpm/overview.md) |
-| reconstruct with gradients, custom losses and constraints (PyTorch) | [Differentiable Ptychography](differentiable/overview.md) |
-| contribute code, tests or examples | [Contributing](contributing.md) |
 
 ## Citation
 

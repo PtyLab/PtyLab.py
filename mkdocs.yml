@@ -81,6 +81,9 @@ nav:
     - Input and Output: api/io.md
     - Utilities: api/utilities.md
 
+extra:
+  generator: false
+
 extra_css:
   - stylesheets/extra.css
 
