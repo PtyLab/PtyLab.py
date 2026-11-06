@@ -65,9 +65,6 @@ PtyLab uses the GPU when CuPy finds one; set `params.gpuSwitch = False` to run o
 
 `--torch-backend=cu126` picks the CUDA 12 build of PyTorch, which matches CuPy and also runs on the CPU.
 
-!!! warning
-    `GradientEngine` is a work in progress, and its API may still change. See [Differentiable Ptychography](../differentiable/overview.md).
-
 ## Interactive viewer (Qt)
 
 With the `gui` extra, `show3Dslider` opens a Qt viewer outside a notebook; otherwise it falls back to a matplotlib slider. On a remote machine the window needs a display, such as a remote desktop or `ssh -X`.
