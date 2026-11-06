@@ -45,19 +45,19 @@ PtyLab uses the GPU when CuPy finds one; set `params.gpuSwitch = False` to run o
 
 `GradientEngine` reconstructs with PyTorch gradients, so custom models, losses and constraints can be used. Install it with the `torch` extra:
 
-=== "GPU"
-
-    ```bash
-    uv pip install -U "ptylab[gpu,torch]" --torch-backend=cu126
-    ```
-
 === "CPU"
 
     ```bash
     uv pip install -U "ptylab[torch]"
     ```
 
-`--torch-backend` is a uv option. With plain `pip`, or if PyTorch does not install on your system, see the [PyTorch installation guide](https://pytorch.org/get-started/locally/).
+=== "GPU"
+
+    ```bash
+    uv pip install -U "ptylab[gpu,torch]" --torch-backend=cu126 
+    ```
+
+If there are installation issues on your system, see the [PyTorch installation guide](https://pytorch.org/get-started/locally/).
 
 ## Interactive viewer (Qt)
 
