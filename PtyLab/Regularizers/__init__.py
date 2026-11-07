@@ -65,7 +65,7 @@ def TV(field, aleph=1e-3):
     xp = getArrayModule(field)
 
     grad_x = xp.roll(field, -1, axis=-1) - xp.roll(field, 1, axis=-1)
-    grad_y = xp.roll(field, -1, axis=-2) - xp.roll(field, 1, axis=-1)
+    grad_y = xp.roll(field, -1, axis=-2) - xp.roll(field, 1, axis=-2)
     value = xp.sum(
         xp.sqrt(abs(grad_x * grad_x.conj()) + abs(grad_y * grad_y.conj()) + aleph)
     )
