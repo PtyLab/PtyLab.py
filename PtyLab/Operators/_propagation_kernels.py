@@ -40,8 +40,7 @@ def __make_quad_phase(zo, wavelength, Np, dxp, on_gpu):
             Use an integer greater than 1.
 
         dxp (float):
-            Positive nominal pixel size in meters. Scales the coordinate
-            interval; see the sampling limitation below.
+            Positive pixel spacing in meters.
 
         on_gpu (bool):
             If True, construct the array using CuPy on the GPU.
@@ -58,11 +57,9 @@ def __make_quad_phase(zo, wavelength, Np, dxp, on_gpu):
             If ``on_gpu`` is True and CuPy could not be imported.
 
     Notes:
-        The current coordinates are generated with
-        ``linspace(-Np / 2, Np / 2, Np) * dxp``, including both endpoints.
-        Their actual spacing is ``Np * dxp / (Np - 1)``, not ``dxp``.
-        This differs from the centered FFT grid and should be reviewed
-        before interpreting ``dxp`` as the actual sampling interval.
+        Coordinates use ``(arange(Np) - Np // 2) * dxp``, matching the
+        centered FFT grid. Samples are spaced by ``dxp``, with the origin
+        at index ``Np // 2`` for both odd and even grid sizes.
 
         Up to 30 argument combinations are cached. Cache hits return the
         stored array itself; treat it as read-only. GPU device identity
@@ -76,7 +73,7 @@ def __make_quad_phase(zo, wavelength, Np, dxp, on_gpu):
     else:
         xp = np
 
-    x_p = xp.linspace(-Np / 2, Np / 2, int(Np)) * dxp
+    x_p = (xp.arange(Np) - Np // 2) * dxp
     Xp, Yp = xp.meshgrid(x_p, x_p)
 
     quadraticPhase = xp.exp(1.0j * xp.pi / (wavelength * zo) * (Xp**2 + Yp**2))
