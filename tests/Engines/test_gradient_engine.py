@@ -194,6 +194,115 @@ def test_propagators_match_ptylab_and_pass_gradcheck(engine, propagator, size):
     )
 
 
+def _geometry(size, propagator):
+    from types import SimpleNamespace
+
+    dx = 5e-6
+    return SimpleNamespace(
+        Np=size,
+        dxp=dx,
+        dxo=dx,
+        dxd=dx if propagator == "ASP" else 1.3 * dx,
+        zo=1e-4,
+        wavelength=632.8e-9,
+        Lp=size * dx,
+    )
+
+
+@pytest.mark.parametrize("propagator", ["Fraunhofer", "Fresnel", "ASP", "scaledASP"])
+@pytest.mark.parametrize("size", [7, 8])
+def test_unshifted_propagation_is_the_centered_one_without_shifts(propagator, size):
+    from PtyLab.Engines.GradientEngine.propagation import KernelPropagator
+
+    propagate = KernelPropagator(_geometry(size, propagator), propagator)
+    rng = np.random.default_rng(3)
+    field = torch.tensor(
+        rng.normal(size=(2, size, size)) + 1j * rng.normal(size=(2, size, size))
+    )
+    shift, unshift = torch.fft.fftshift, torch.fft.ifftshift
+    # D(psi) = S K(S^-1 psi), with S = fftshift.
+    actual = shift(propagate.unshifted(unshift(field, dim=(-2, -1))), dim=(-2, -1))
+    torch.testing.assert_close(actual, propagate(field), rtol=1e-12, atol=1e-12)
+
+
+@pytest.mark.parametrize("propagator", ["Fraunhofer", "Fresnel", "ASP", "scaledASP"])
+@pytest.mark.parametrize("opr", [False, True])
+def test_model_forward_matches_centered_fields_with_gradients(propagator, opr):
+    from PtyLab.Engines.GradientEngine.models import (
+        OPRProbe,
+        PtychographyModel,
+        SharedProbe,
+        squared_modulus,
+    )
+    from PtyLab.Engines.GradientEngine.propagation import KernelPropagator
+
+    # Odd probe grid, two object and three probe states.
+    rng = np.random.default_rng(5)
+    size, No, frames = 7, 12, 4
+    obj = rng.normal(size=(1, 2, 1, 1, No, No)) + 1j * rng.normal(
+        size=(1, 2, 1, 1, No, No)
+    )
+    probe = rng.normal(size=(1, 1, 3, 1, size, size)) * (1 + 1j)
+    positions = rng.integers(0, No - size, size=(frames, 2))
+    probe_module = SharedProbe(probe, scale=2.0)
+    if opr:
+        probe_module = OPRProbe.from_probe(probe_module, frames)
+    model = PtychographyModel(obj, probe_module, positions)
+    model.set_propagation(KernelPropagator(_geometry(size, propagator), propagator))
+    indices = torch.tensor([3, 0, 2])
+    weights = torch.tensor(rng.random((3, size, size)), dtype=torch.float32)
+
+    def value_and_gradients(intensity):
+        model.zero_grad()
+        (weights * intensity).sum().backward()
+        return (
+            intensity.detach(),
+            model.object.grad.clone(),
+            model.probe.field.grad.clone(),
+        )
+
+    fast = value_and_gradients(model(indices))
+    centered = squared_modulus(model.detector_fields(indices)).sum(dim=(1, 2, 3, 4))
+    for actual, expected in zip(fast, value_and_gradients(centered)):
+        torch.testing.assert_close(actual, expected, rtol=1e-5, atol=1e-5)
+
+
+def test_object_gradient_is_the_adjoint_of_the_ptychographic_map():
+    from PtyLab.Engines.GradientEngine.models import PtychographyModel, SharedProbe
+    from PtyLab.Engines.GradientEngine.propagation import KernelPropagator
+
+    # For L = sum_j <w_j, I_j>, I_j = sum_m |D(P_m T_j O)|^2, the gradient
+    # Torch returns (twice the Wirtinger derivative dL/dO*) is
+    # sum_j T_j^H sum_m P_m^* D^H(2 w_j D(P_m T_j O)); for Fresnel
+    # D^H u = Q^* ifft2c(u). This is the ePIE direction, as in deepinv's A_vjp.
+    rng = np.random.default_rng(9)
+    size, No = 8, 14
+    obj = rng.normal(size=(1, 1, 1, 1, No, No)) + 1j * rng.normal(
+        size=(1, 1, 1, 1, No, No)
+    )
+    probe = rng.normal(size=(1, 1, 2, 1, size, size)) + 1j * rng.normal(
+        size=(1, 1, 2, 1, size, size)
+    )
+    positions = np.array([[0, 0], [3, 5], [6, 2]])
+    propagate = KernelPropagator(_geometry(size, "Fresnel"), "Fresnel")
+    model = PtychographyModel(obj, SharedProbe(probe), positions)
+    model.set_propagation(propagate)
+    weights = torch.tensor(rng.random((3, size, size)), dtype=torch.float32)
+    (weights * model(torch.arange(3))).sum().backward()
+
+    O = model.object.detach()[0, 0, 0, 0]
+    P = model.probe.physical_field().detach()[0, 0, :, 0]  # (modes, N, N)
+    Q = propagate.propagationKernels[0]
+    expected = torch.zeros_like(O)
+    for j, (row, col) in enumerate(positions):
+        fields = propagate(P * O[row : row + size, col : col + size])
+        back = Q.conj() * KernelPropagator.ifft2c(2 * weights[j] * fields)
+        expected[row : row + size, col : col + size] += (P.conj() * back).sum(dim=0)
+    torch.testing.assert_close(
+        model.object.grad[0, 0, 0, 0], expected, rtol=1e-4, atol=1e-4
+    )
+
+
 def test_asp_rejects_different_pixel_spacings(engine):
     engine.params.propagator = "ASP"
     with pytest.raises(ValueError, match="pixel spacings"):
