@@ -194,6 +194,45 @@ def test_propagators_match_ptylab_and_pass_gradcheck(engine, propagator, size):
     )
 
 
+@pytest.mark.parametrize("propagator", ["Fraunhofer", "Fresnel", "ASP", "scaledASP"])
+@pytest.mark.parametrize("opr", [False, True])
+def test_forward_matches_centered_fields(propagator, opr):
+    from types import SimpleNamespace
+
+    from PtyLab.Engines.GradientEngine import (
+        KernelPropagator,
+        OPRProbe,
+        PtychographyModel,
+        SharedProbe,
+    )
+
+    # forward shifts small tensors instead of every field; values and
+    # gradients must equal sum |detector_fields|^2. Odd grid, 2 x 3 states.
+    rng = np.random.default_rng(5)
+    N, No, dx = 7, 12, 5e-6
+    geometry = SimpleNamespace(
+        Np=N, dxp=dx, dxo=dx, dxd=dx if propagator == "ASP" else 1.3 * dx,
+        zo=1e-4, wavelength=632.8e-9, Lp=N * dx,
+    )  # fmt: skip
+    obj = np.exp(1j * rng.normal(size=(1, 2, 1, 1, No, No)))
+    probe = SharedProbe(rng.normal(size=(1, 1, 3, 1, N, N)) * (1 + 1j))
+    if opr:
+        probe = OPRProbe.from_probe(probe, 4)
+    model = PtychographyModel(obj, probe, rng.integers(0, No - N, (4, 2)))
+    model.set_propagation(KernelPropagator(geometry, propagator))
+    indices = torch.tensor([3, 0, 2])
+
+    def with_gradients(intensity):
+        model.zero_grad()
+        intensity.sum().backward()
+        return intensity.detach(), model.object.grad, model.probe.field.grad
+
+    fast = with_gradients(model(indices))
+    centered = model.detector_fields(indices).abs().square().sum(dim=(1, 2, 3, 4))
+    for actual, expected in zip(fast, with_gradients(centered)):
+        torch.testing.assert_close(actual, expected, rtol=1e-5, atol=1e-5)
+
+
 def test_asp_rejects_different_pixel_spacings(engine):
     engine.params.propagator = "ASP"
     with pytest.raises(ValueError, match="pixel spacings"):
