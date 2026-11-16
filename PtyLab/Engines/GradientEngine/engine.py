@@ -202,13 +202,10 @@ class GradientEngine(BaseEngine):
             `read_out_sigma`. Initialized to None.
 
         compile (bool):
-            Evaluate the loss through `torch.compile`. Only the real-valued
-            loss is compiled: TorchInductor generates no code for complex
-            operations, so compiling the complex forward model made it
-            slower. Each loss function is compiled once per engine, so a run
-            of phases recompiles only when a phase changes the loss. On the
-            512/128 CPM fixture the gain is within the noise. Initialized to
-            False.
+            Compile the loss with `torch.compile`. Only the real-valued loss
+            is compiled, not the complex forward model. Helps most with large
+            frames; the first iteration of each loss is slower while it
+            compiles. Initialized to False.
 
         device (str):
             Torch device of the model. Initialized to `"cuda"` when available,
