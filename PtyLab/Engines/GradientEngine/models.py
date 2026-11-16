@@ -359,6 +359,20 @@ def squared_modulus(field):
     return torch.view_as_real(field).square().sum(dim=-1)
 
 
+def _one_frame_if_shared(probe):
+    """Return one frame of the probe if all frames share it, else the probe.
+
+    `SharedProbe` returns one probe repeated for every frame of the batch,
+    without copying it. A shift or $|P|^2$ on that would make a real copy per
+    frame. Done on one frame, it is computed once and still multiplies with
+    every frame.
+    """
+    # stride 0 on the frame axis: every frame points to the same memory.
+    if probe.shape[0] > 1 and probe.stride(0) == 0:
+        return probe[:1]
+    return probe
+
+
 def _power_of_two(value):
     value = float(value)
     if not math.isfinite(value) or value <= 0:
@@ -602,8 +616,10 @@ class PtychographyModel(torch.nn.Module):
                 Detached real map of shape `(No, No)`.
         """
         with torch.no_grad():
-            probe_intensity = self.probe(indices).abs().square()
-            probe_intensity = probe_intensity.sum(dim=(1, 2, 3, 4))
+            # sum_m |P_m|^2: (1 or batch, Np, Np), broadcast to (batch, Np, Np).
+            probe = _one_frame_if_shared(self.probe(indices))
+            probe_intensity = squared_modulus(probe).sum(dim=(1, 2, 3, 4))
+            probe_intensity = probe_intensity.expand(len(indices), -1, -1)
             illumination = torch.zeros(
                 self.object.shape[-2:].numel(),
                 dtype=probe_intensity.dtype,
@@ -646,7 +662,7 @@ class PtychographyModel(torch.nn.Module):
         with torch.no_grad():
             # (batch, nlambda, nosm, 1, nslice, Np, Np): sum object states
             # -> (batch, nlambda, 1, 1, nslice, Np, Np), broadcast over probe states.
-            coverage = self.object_patches(indices).abs().square()
+            coverage = squared_modulus(self.object_patches(indices))
             coverage = coverage.sum(dim=2, keepdim=True)
             coverage = coverage * getattr(self.probe, "scale", 1.0) ** 2
             field = self.probe.field
@@ -688,7 +704,7 @@ class PtychographyModel(torch.nn.Module):
         return self.propagation(patches * entrance_probe)
 
     def forward(self, indices):
-        """
+        r"""
         Return the predicted detector intensity of a batch, plus any background.
 
         Args:
@@ -698,9 +714,34 @@ class PtychographyModel(torch.nn.Module):
         Returns:
             torch.Tensor:
                 Intensity of shape `(batch, Np, Np)`, in centered pixel order.
+
+        Notes:
+            For a propagation built on centered FFTs (`KernelPropagator` with
+            `centered`), the shifts are moved to smaller tensors. With
+            $S$ = `fftshift` and $K$ = `KernelPropagator.unshifted`,
+
+            $$
+            I_j = S\Big(\sum_{a,m} \big|K\lbrace S^{-1}O_a(\mathbf{r} + \mathbf{x}_j)\; S^{-1}P_m(\mathbf{r})\rbrace\big|^2\Big),
+            $$
+
+            using $S^{-1}(OP) = S^{-1}O\,S^{-1}P$ and $|Su|^2 = S|u|^2$. The
+            values are the same, but fewer and smaller tensors are shifted,
+            which is faster with several probe modes. `detector_fields` keeps
+            the centered fields; to change the physics, override `forward`
+            and call `super().forward`.
         """
-        fields = self.detector_fields(indices)
-        intensity = squared_modulus(fields).sum(dim=(1, 2, 3, 4))
+        if getattr(self.propagation, "centered", False):
+            # S^{-1}(O P) = S^{-1}O S^{-1}P; a shared probe is shifted once, not per frame.
+            patches = torch.fft.ifftshift(self.object_patches(indices), dim=(-2, -1))
+            probe = _one_frame_if_shared(self.probe(indices))
+            probe = torch.fft.ifftshift(probe, dim=(-2, -1))
+            fields = self.propagation.unshifted(patches * probe)
+            # |S u|^2 = S |u|^2: shift the mode-summed real intensity, (batch, Np, Np).
+            intensity = squared_modulus(fields).sum(dim=(1, 2, 3, 4))
+            intensity = torch.fft.fftshift(intensity, dim=(-2, -1))
+        else:
+            fields = self.detector_fields(indices)
+            intensity = squared_modulus(fields).sum(dim=(1, 2, 3, 4))
         if self.background is not None:
             intensity = intensity + self.background
         return intensity
