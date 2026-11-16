@@ -108,7 +108,10 @@ class KernelPropagator:
         """
         r = reconstruction
         self.propagator = propagator.lower()
-        self.propagationKernels = ()
+        # Fraunhofer, Fresnel and scaledASP are built on the centered fft2c, so
+        # their shifts can move to smaller tensors (see `unshifted`); ASP has none.
+        self.centered = self.propagator != "asp"
+        self.propagationKernels = self.unshiftedKernels = ()
         if self.propagator == "fraunhofer":
             return
         if self.propagator in ("fresnel", "scaledasp") and r.zo == 0:
@@ -139,6 +142,14 @@ class KernelPropagator:
         self.propagationKernels = tuple(
             torch.tensor(kernel, device=device) for kernel in kernels
         )
+        # The same kernels in unshifted FFT order, for `unshifted`. ASP's
+        # transfer function is already in that order.
+        self.unshiftedKernels = self.propagationKernels
+        if self.centered:
+            self.unshiftedKernels = tuple(
+                torch.fft.ifftshift(kernel, dim=(-2, -1))
+                for kernel in self.propagationKernels
+            )
 
     def __call__(self, exit_wave):
         r"""
@@ -183,4 +194,54 @@ class KernelPropagator:
             # u = F_c^{-1}(F_c(psi * Q_source) * H_scaled).
             source_phase, transfer = kernels
             return self.ifft2c(self.fft2c(exit_wave * source_phase) * transfer)
+        raise NotImplementedError(f"Unsupported propagator: {self.propagator}")
+
+    def unshifted(self, exit_wave):
+        r"""
+        Propagate an exit wave given in unshifted FFT order, without the centering shifts.
+
+        With $S$ = `fftshift` and $S^{-1}$ = `ifftshift` over the last two
+        axes, this computes $K$ in
+
+        $$
+        \mathcal{D}\lbrace\psi\rbrace = S\,K\lbrace S^{-1}\psi\rbrace,
+        $$
+
+        where $\mathcal{D}$ is `__call__`. With $\mathcal{F}$ the unshifted
+        unitary FFT and $\tilde k = S^{-1}k$ a kernel in unshifted order,
+
+        - Fraunhofer: $K\lbrace x\rbrace = \mathcal{F}\lbrace x\rbrace$,
+        - Fresnel: $K\lbrace x\rbrace = \mathcal{F}\lbrace x\tilde Q\rbrace$,
+        - ASP: $K\lbrace x\rbrace = \mathcal{F}^{-1}\lbrace \mathcal{F}\lbrace x\rbrace H\rbrace$,
+          a circular convolution, which commutes with the shifts,
+        - scaledASP:
+          $K\lbrace x\rbrace = \mathcal{F}^{-1}\lbrace \mathcal{F}\lbrace x\tilde Q_s\rbrace \tilde H_s\rbrace$;
+          the inner shifts of $\mathcal{F}_c^{-1}\mathcal{F}_c$ cancel.
+
+        A shift only reorders pixels, so these identities are exact for even
+        and odd grids. `PtychographyModel.forward` uses them to shift the
+        object patches, the probe and the mode-summed intensity instead of
+        every mode's exit wave and detector field.
+
+        Args:
+            exit_wave (torch.Tensor):
+                Complex exit wave $S^{-1}\psi$ with spatial axes last.
+
+        Returns:
+            torch.Tensor:
+                Detector field $S^{-1}\mathcal{D}\lbrace\psi\rbrace$ with the shape
+                of `exit_wave`.
+        """
+        kernels = [kernel.to(dtype=exit_wave.dtype) for kernel in self.unshiftedKernels]
+        if self.propagator == "fraunhofer":
+            return torch.fft.fft2(exit_wave, norm="ortho")
+        if self.propagator == "fresnel":
+            return torch.fft.fft2(exit_wave * kernels[0], norm="ortho")
+        if self.propagator == "asp":
+            spectrum = torch.fft.fft2(exit_wave, norm="ortho")
+            return torch.fft.ifft2(spectrum * kernels[0], norm="ortho")
+        if self.propagator == "scaledasp":
+            source_phase, transfer = kernels
+            spectrum = torch.fft.fft2(exit_wave * source_phase, norm="ortho")
+            return torch.fft.ifft2(spectrum * transfer, norm="ortho")
         raise NotImplementedError(f"Unsupported propagator: {self.propagator}")
