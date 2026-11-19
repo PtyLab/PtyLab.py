@@ -28,4 +28,6 @@ notes/
 # example pages and download notebooks, written by `ptylab examples build`
 docs/examples/example_*.md
 docs/examples/example_*.ipynb
+# gallery images on docs/examples/index.md, also written by `build`
+docs/examples/thumbnails/
 *.lock

@@ -3,11 +3,43 @@
 !!! note "Work in Progress 🚧"
     This documentation is currently work in progress, so some details may be missing. Please open an [issue](https://github.com/PtyLab/PtyLab.py/issues) if something does not match the code.
 
-PtyLab is an inverse modeling toolbox for **conventional (CPM)** and **Fourier (FPM)** ptychography in a unified framework. See the [paper](https://opg.optica.org/oe/fulltext.cfm?uri=oe-31-9-13763&id=529026) for details. 
+PtyLab is an inverse modeling toolbox for **conventional (CPM)** and **Fourier (FPM)** ptychography in a unified framework. See the [paper](https://opg.optica.org/oe/fulltext.cfm?uri=oe-31-9-13763&id=529026) for details. If you like the package, drop a star and if you use this in your research, please [cite](#citation) us too.
 
-If you like the package, drop a star and if you use this in your research, please [cite](#citation) us too.
+<div class="grid cards" markdown>
 
-[Get started](getting-started/quickstart.md){ .md-button .md-button--primary } [Install](getting-started/installation.md){ .md-button } [Examples](examples/index.md){ .md-button }
+-   :material-rocket-launch-outline:{ .lg .middle } **Getting Started**
+
+    ---
+
+    Install PtyLab.py and run a first reconstruction.
+
+    [:octicons-arrow-right-24: Quick Start](getting-started/quickstart.md)
+
+-   :material-notebook-outline:{ .lg .middle } **Examples**
+
+    ---
+
+    CPM and FPM reconstructions on simulated and real data.
+
+    [:octicons-arrow-right-24: Examples](examples/index.md)
+
+-   :material-book-open-variant:{ .lg .middle } **User Guide**
+
+    ---
+
+    Data format, engines and parameters explained.
+
+    [:octicons-arrow-right-24: User Guide](user-guide/index.md)
+
+-   :material-code-braces:{ .lg .middle } **API Reference**
+
+    ---
+
+    Every class and function, from the docstrings.
+
+    [:octicons-arrow-right-24: API Reference](api/index.md)
+
+</div>
 
 ## Key features
 

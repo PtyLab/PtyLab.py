@@ -92,7 +92,7 @@ It reruns only the examples whose script you changed, which can take a few minut
 uv run ptylab examples render example_<name>
 ```
 
-- To add an example, write the script, list it in `docs/examples/index.md` and in the `nav` of `mkdocs.yml`, and run `render`. If you add a feature such as an engine or a constraint, please add an example for it.
+- To add an example, write the script, add it to the gallery in `docs/examples/index.md` and to the `nav` of `mkdocs.yml`, and run `render`. Its last figure becomes the gallery image. If you add a feature such as an engine or a constraint, please add an example for it.
 
 - Before you push, run the below command:
 ```bash
