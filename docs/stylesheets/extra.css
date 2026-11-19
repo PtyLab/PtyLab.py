@@ -45,7 +45,9 @@
 .md-typeset .gallery img {
   aspect-ratio: 1;
   width: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  padding: 0.3rem;
+  background: #fff; /* the figures have a white background, also in dark mode */
   border-radius: 0.3rem;
   border: 1px solid var(--md-default-fg-color--lightest);
   transition: transform 0.15s, box-shadow 0.15s;
