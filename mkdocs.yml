@@ -44,20 +44,21 @@ nav:
     - Quick Start: getting-started/quickstart.md
   - Examples:
     - examples/index.md
-    - "01 – CPM Simulation": examples/example_CPM_sim.md
-    - "02 – CPM Example Data": examples/example_CPM.md
-    - "03 – FPM Example Data": examples/example_FPM.md
-    - "04 – CPM Mixed States": examples/example_mixedStates.md
-    - "05 – CPM Multi-Slice": examples/example_multiSlice.md
-    - "06 – CPM Multi-Wavelength": examples/example_CPM_multiWavelength.md
-    - "07 – CPM Position Correction": examples/example_LateralPositionCorrection.md
-    - "08 – CPM Purity-Based Calibration": examples/example_purityCalibration.md
-    - "09 – CPM Reflection": examples/example_reflectionPtychography.md
-    - "10 – CPM Interferometric Intensity": examples/example_interferometricIntensityConstraint.md
-    - "11 – Scan Grids": examples/example_scanGrids.md
-    - "12 – CPM Orthogonal Probe Relaxation": examples/example_OPR.md
-    - "13 – CPM Differentiable Ptychography": examples/example_differentiablePtychography.md
+    - CPM Simulation: examples/example_CPM_sim.md
+    - CPM Example Data: examples/example_CPM.md
+    - FPM Example Data: examples/example_FPM.md
+    - CPM Mixed States: examples/example_mixedStates.md
+    - CPM Multi-Slice: examples/example_multiSlice.md
+    - CPM Multi-Wavelength: examples/example_CPM_multiWavelength.md
+    - CPM Position Correction: examples/example_LateralPositionCorrection.md
+    - CPM Purity-Based Calibration: examples/example_purityCalibration.md
+    - CPM Reflection: examples/example_reflectionPtychography.md
+    - CPM Interferometric Intensity: examples/example_interferometricIntensityConstraint.md
+    - Scan Grids: examples/example_scanGrids.md
+    - CPM Orthogonal Probe Relaxation: examples/example_OPR.md
+    - CPM Differentiable Ptychography: examples/example_differentiablePtychography.md
   - User Guide:
+    - user-guide/index.md
     - CPM Overview: cpm/overview.md
     - FPM Overview: fpm/overview.md
     - Data Format: cpm/data-format.md
@@ -112,6 +113,10 @@ markdown_extensions:
       generic: true
   - footnotes
   - attr_list
+  - md_in_html
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   
 plugins:
   - search
