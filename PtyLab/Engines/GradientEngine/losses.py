@@ -149,7 +149,7 @@ def amplitude_loss(
 
     $$
     \mathcal{L} = \frac{\lVert \sqrt{I + c} - \sqrt{y + c} \rVert^2}{P},
-    \qquad c = \tfrac{3}{8}\,g + \frac{\sigma^2}{g}.
+    \qquad c = \frac{3}{8}\,g + \frac{\sigma^2}{g}.
     $$
 
     $\sqrt{y + c}$ is the generalized Anscombe transform (Mäkitalo and Foi,
