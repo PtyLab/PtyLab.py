@@ -165,12 +165,12 @@ engine.lossFunction = partial(poisson_loss, read_out_sigma=2.0)
 
 | Loss | Noise model | Options |
 |---|---|---|
-| `amplitude_loss` (default) | Conventional amplitude objective; with `anscombe_offset_switch=True`, the generalized Anscombe transform | `anscombe_offset_switch`, `read_out_sigma` |
+| `amplitude_loss` (default) | Conventional amplitude objective; with `anscombe_offset_switch=True`, the generalized Anscombe transform | `anscombe_offset_switch`, `gain`, `read_out_sigma` |
 | `intensity_loss` | Gaussian with constant variance | |
 | `poisson_loss` | Poisson, optionally with Gaussian readout noise | `gain`, `read_out_sigma` |
 | `mixed_poisson_gaussian_loss` | Gaussian approximation of Poisson plus readout noise | `gain`, `read_out_sigma` |
 
-`poisson_loss` and `mixed_poisson_gaussian_loss` take intensities in detector units, with the detector `gain`. `amplitude_loss` with `anscombe_offset_switch=True` takes photon counts (unit gain). All losses sum over pixels and frames and are normalized by the total measured power. Measured frames may contain negative values (offset-subtracted raw data).
+`poisson_loss`, `mixed_poisson_gaussian_loss` and `amplitude_loss` with `anscombe_offset_switch=True` take intensities in detector units, with the detector `gain`. All losses sum over pixels and frames and are normalized by the total measured power. Measured frames may contain negative values (offset-subtracted raw data).
 
 ## Detector background
 

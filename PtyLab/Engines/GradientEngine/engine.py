@@ -191,10 +191,8 @@ class GradientEngine(BaseEngine):
 
         readoutSigma (float or array_like or None):
             Readout noise $\sigma$ handed to the loss as `read_out_sigma`, in
-            the loss's units (detector units for `poisson_loss` and
-            `mixed_poisson_gaussian_loss`, photon counts for `amplitude_loss`
-            with `anscombe_offset_switch=True`). A nonnegative scalar, used
-            for every detector pixel, or one $(N_p, N_p)$ map
+            detector units. A nonnegative scalar, used for every detector
+            pixel, or one $(N_p, N_p)$ map
             $\sigma(\mathbf q)$ in centered order (as `fft2c`), for example the
             temporal standard deviation of tens of dark frames whose mean is
             subtracted from the data (it then also holds the

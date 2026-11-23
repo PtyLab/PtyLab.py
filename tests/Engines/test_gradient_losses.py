@@ -150,11 +150,12 @@ def test_poisson_is_stationary_at_the_mean_of_unclamped_data(gain, sigma):
     assert gradient.sum().item() == pytest.approx(0.0, abs=1e-12)
 
 
-def test_generalized_anscombe_shifts_both_sides_before_clamping():
+@pytest.mark.parametrize("gain", [1.0, 2.5])
+def test_generalized_anscombe_shifts_both_sides_before_clamping(gain):
     sigma = 1.0
     intensity = torch.tensor([0.0, 0.5, 2.0], dtype=torch.float64, requires_grad=True)
     measured = torch.tensor([-0.8, 0.3, 2.4], dtype=torch.float64)
-    offset = 0.375 + sigma**2
+    offset = 0.375 * gain + sigma**2 / gain
     expected = np.sum(
         (
             np.sqrt(intensity.detach().numpy() + offset)
@@ -168,12 +169,33 @@ def test_generalized_anscombe_shifts_both_sides_before_clamping():
         measured,
         torch.tensor(1.0),
         anscombe_offset_switch=True,
+        gain=gain,
         read_out_sigma=sigma,
     )
 
     assert loss.item() == pytest.approx(expected, rel=1e-12)
     loss.backward()
     assert torch.isfinite(intensity.grad).all()
+
+
+@pytest.mark.parametrize("gain, sigma", [(1.0, 0.0), (2.5, 1.5), (0.4, 3.0)])
+def test_generalized_anscombe_stabilizes_the_variance(gain, sigma):
+    # For y = g N + η, the shifted amplitude sqrt(y + c) has variance g/4 at
+    # every photon level, so the mean per-pixel loss at the true intensity
+    # stays at g/4 from low to high counts.
+    rng = np.random.default_rng(0)
+    samples = 200_000
+    for photons in (20.0, 500.0):
+        measured = gain * rng.poisson(photons, samples) + rng.normal(0, sigma, samples)
+        loss = amplitude_loss(
+            torch.full((samples,), gain * photons, dtype=torch.float64),
+            torch.tensor(measured, dtype=torch.float64),
+            torch.tensor(float(samples), dtype=torch.float64),
+            anscombe_offset_switch=True,
+            gain=gain,
+            read_out_sigma=sigma,
+        )
+        assert loss.item() == pytest.approx(gain / 4, rel=0.01)
 
 
 def test_amplitude_clamps_negative_raw_measurements():
@@ -189,7 +211,7 @@ def test_amplitude_clamps_negative_raw_measurements():
 @pytest.mark.parametrize(
     "loss",
     [
-        partial(amplitude_loss, anscombe_offset_switch=True),
+        partial(amplitude_loss, anscombe_offset_switch=True, gain=2.0),
         partial(poisson_loss, gain=2.0),
         partial(mixed_poisson_gaussian_loss, gain=2.0),
     ],
@@ -224,3 +246,8 @@ def test_plain_amplitude_refuses_a_read_out_sigma_map():
             torch.tensor(1.0),
             read_out_sigma=torch.ones(2, 2),
         )
+
+
+def test_plain_amplitude_refuses_a_gain():
+    with pytest.raises(ValueError, match="anscombe_offset_switch"):
+        amplitude_loss(torch.ones(2), torch.ones(2), torch.tensor(1.0), gain=2.0)
