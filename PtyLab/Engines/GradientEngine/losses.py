@@ -1,42 +1,23 @@
 r"""
-Differentiable objectives for predicted and measured detector intensity.
+Losses comparing the predicted intensity $I$ with the measured intensity $y$.
 
-Each objective returns one real scalar for a frame or batch. Losses sum over
-pixels and frames, and `GradientEngine` applies one optimizer step per full
-scan. Below, $I_i$ is the predicted intensity, $y_i$ the measured intensity
-and $P$ the total measured power of the scan.
+Each loss returns a real scalar, summed over all pixels and frames and
+normalized by the total measured power $P$ of the scan. Notation:
 
-Unit convention: `predicted_intensity` is expected in detector units throughout
-this module,
+- $\lVert\cdot\rVert$: Euclidean norm over all pixels and frames.
+- $\sqrt{\cdot}$, $\log$, products and quotients act per pixel.
+- $g$: detector gain, the signal one photon produces in detector units
+  (camera counts, ADU). A pixel that receives $\bar N$ photons on average
+  has the predicted intensity $I = g\bar N$. For a photon-counting
+  detector, $g = 1$ and $I$ is in photons.
+- $\sigma$: readout noise standard deviation (`read_out_sigma`), a scalar or
+  a tensor that broadcasts against the intensities, e.g. a per-pixel map
+  `(N, N)` in centered order.
 
-$$
-I = g\,\mathrm{E}[N],
-$$
-
-where $N$ is the photon count and $g$ the detector gain. For a unit-gain
-detector ($g = 1$, the default everywhere below), detector units and photon
-counts coincide. Any $g \neq 1$ must be applied consistently across whichever
-loss is selected, so that `predicted_intensity` means the same physical
-quantity regardless of the objective `GradientEngine` is configured to use.
-
-Raw data: `measured_intensity` may be negative (offset-subtracted frames with
-readout noise). Noise-free parts of the signal (electronic bias, the mean of
-dark frames) are subtracted from the data, without clipping. A Poisson
-background such as stray light belongs in the prediction, which the model
-provides through `engine.background`: the noise-model losses (`poisson_loss`,
-`mixed_poisson_gaussian_loss` and `amplitude_loss`) put it in the shot-noise
-variance $g\,(I + b) + \sigma^2$, so a noise-free offset inside $b$ would be
-counted as photons and down-weight every dark pixel. `intensity_loss` assumes
-a constant variance.
-`poisson_loss` with `read_out_sigma` and `amplitude_loss` with
-`anscombe_offset_switch=True` and `read_out_sigma` model such data without
-clipping. The plain `amplitude_loss` clamps negative measurements to zero
-before its square root.
-
-Readout noise: `read_out_sigma` is a scalar or a tensor that broadcasts against
-the intensities, for example one value per detector pixel `(N, N)` or one map
-per frame of the batch `(B, N, N)`. A tensor is in centered pixel order, like the
-intensities, and is not validated here; `engine.readoutSigma` validates it.
+$y$ may be negative (offset-subtracted raw data); only the plain
+`amplitude_loss` clamps it to zero. See
+[Detector background](../differentiable/overview.md#detector-background)
+for where background and dark frames belong.
 """
 
 from math import isfinite
@@ -45,13 +26,10 @@ import torch
 
 
 def _check_read_out_sigma(read_out_sigma):
-    """Check that a scalar `read_out_sigma` is a valid noise level.
+    """Raise if a scalar `read_out_sigma` is negative, NaN or infinite.
 
-    Any nonnegative finite scalar is accepted and used for every pixel:
-    broadcasting makes it equal to a constant map, without building one. Only a
-    negative, NaN or infinite scalar raises. Tensors are checked once by
-    `GradientEngine` (`readoutSigma`) instead of on every call, which would
-    force a device synchronization per batch.
+    Tensors pass through because `GradientEngine.readoutSigma` validates them
+    once per run, which saves a device synchronization per batch.
     """
     if torch.is_tensor(read_out_sigma):
         return
@@ -65,30 +43,19 @@ def intensity_loss(
     total_power,
 ):
     r"""
-    Squared intensity residual normalized by the squared total scan power.
+    Squared intensity error, for Gaussian noise with constant variance.
 
     $$
-    \mathcal{L} = \frac{1}{P^2}\sum_i \left(I_i - y_i\right)^2
+    \mathcal{L} = \frac{\lVert I - y \rVert^2}{P^2}
     $$
-
-    The objective is proportional to a Gaussian negative log-likelihood with
-    constant variance, for example spatially uniform readout noise. High
-    photon counts alone do not imply constant variance: Poisson variance still
-    grows with intensity.
 
     Args:
-        predicted_intensity (torch.Tensor):
-            Predicted detector intensity $I$.
-
-        measured_intensity (torch.Tensor):
-            Measured detector intensity $y$, with the same shape.
-
-        total_power (torch.Tensor):
-            Total measured power $P$ of the full scan.
+        predicted_intensity (torch.Tensor): Predicted intensity $I$.
+        measured_intensity (torch.Tensor): Measured intensity $y$, same shape.
+        total_power (torch.Tensor): Total measured power $P$ of the scan.
 
     Returns:
-        torch.Tensor:
-            Real scalar loss.
+        torch.Tensor: Real scalar loss.
 
     Examples:
         ```python
@@ -113,61 +80,30 @@ def poisson_loss(
     Poisson negative log-likelihood, optionally with Gaussian readout noise.
 
     $$
-    \mathcal{L} = \frac{1}{P}\sum_i \left[m_i - \left(z_i + s^2\right) \log\max\left(m_i, \epsilon\right)\right]
+    \mathcal{L} = \frac{1}{P}\sum \left(\tilde I - \tilde y \log \tilde I\right),
+    \qquad \tilde I = \frac{I}{g} + s^2,\quad \tilde y = \frac{y}{g} + s^2,\quad s = \frac{\sigma}{g}.
     $$
 
-    with
-
-    $$
-    m_i = \frac{I_i}{g} + s^2,\qquad z_i = \frac{y_i}{g},\qquad s = \frac{\sigma}{g}.
-    $$
-
-    $I$ and $y$ are in detector units ($I = g\,\mathrm{E}[N]$), so $I/g$ and
-    $y/g$ are photon counts and the minimum lies at $I = y$ for every gain.
-    With $\sigma = 0$ this is the ordinary Poisson negative log-likelihood,
-    without terms independent of the prediction and with the logarithm clipped
-    near zero.
-
-    With readout noise $y = gN + \eta$, $\eta \sim \mathcal{N}(0, \sigma^2)$,
-    the shifted count $z + s^2$ has the mean and variance of
-    $\mathrm{Poisson}(I/g + s^2)$, the CCD approximation of Snyder et al.
+    With $\sigma = 0$ this is the plain Poisson likelihood. With $\sigma > 0$,
+    $\tilde y$ has the mean and variance of $\mathrm{Poisson}(\tilde I)$
+    (Snyder et al.), so the loss models raw negative $y$ directly. The minimum
+    is at $I = y$ for any gain.
 
     Args:
-        predicted_intensity (torch.Tensor):
-            Predicted detector intensity $I$ in detector units.
-
-        measured_intensity (torch.Tensor):
-            Measured detector intensity $y$ in detector units, with the same
-            shape. Raw negative values are allowed.
-
-        total_power (torch.Tensor):
-            Total measured power $P$ of the full scan.
-
-        gain (float, optional):
-            Detector gain $g$ in detector units per photon. Defaults to 1.0.
-
-        read_out_sigma (float or torch.Tensor, optional):
-            Readout noise standard deviation $\sigma$ in detector units: a
-            scalar, or a tensor that broadcasts against the intensities (for
-            example one value per pixel). Defaults to 0.0.
-
-        eps (float, optional):
-            Floor $\epsilon$ of the logarithm's argument. Defaults to 1e-10.
+        predicted_intensity (torch.Tensor): Predicted intensity $I$, detector units.
+        measured_intensity (torch.Tensor): Measured intensity $y$, detector units, same shape.
+        total_power (torch.Tensor): Total measured power $P$ of the scan.
+        gain (float, optional): Detector gain $g$.
+        read_out_sigma (float or torch.Tensor, optional): Readout noise
+            $\sigma$, detector units.
+        eps (float, optional): Lower bound on $\tilde I$ inside the log.
 
     Returns:
-        torch.Tensor:
-            Real scalar loss.
+        torch.Tensor: Real scalar loss (can be negative).
 
     Raises:
-        ValueError:
-            If `gain` or `eps` is not positive and finite, or a scalar
-            `read_out_sigma` is not nonnegative and finite.
-
-    Notes:
-        $y$ is deliberately not clamped: raw negative values are valid data,
-        and clamping $z + s^2$ at zero biases dark pixels upward. The gradient
-        $1 - (z + s^2)/m$ is bounded by the floor $m \geq s^2$, unlike the
-        plain Poisson gradient $1 - z/m$ at a dark prediction.
+        ValueError: If `gain` or `eps` is outside $(0, \infty)$, or a scalar
+            `read_out_sigma` is outside $[0, \infty)$.
 
     Examples:
         ```python
@@ -195,70 +131,52 @@ def amplitude_loss(
     measured_intensity,
     total_power,
     anscombe_offset_switch=False,
+    gain=1.0,
     read_out_sigma=0.0,
     eps=1e-12,
 ):
     r"""
-    Squared amplitude residual, optionally after the generalized Anscombe shift.
-
-    By default this is the conventional ptychographic amplitude objective,
+    Squared amplitude error, optionally with the generalized Anscombe shift.
 
     $$
-    \mathcal{L} = \frac{1}{P}\sum_i \left(\sqrt{\max(I_i, 0) + \epsilon} - \sqrt{\max(y_i, 0)}\right)^2.
+    \mathcal{L} = \frac{\lVert \sqrt{I} - \sqrt{y} \rVert^2}{P}
     $$
 
-    The small $\epsilon$ keeps autodiff finite at a dark predicted pixel
-    without changing the measured amplitude. Negative measurements (raw data
-    with readout noise) are clamped to zero, which biases dark pixels upward.
+    This is the default ptychographic objective. Negative $I$ and $y$ are
+    clamped to zero, which biases dark pixels upward.
 
-    With `anscombe_offset_switch=True`, both sides are shifted by $c$ before
-    the square root:
+    With `anscombe_offset_switch=True`, both sides are shifted first:
 
     $$
-    \mathcal{L} = \frac{1}{P}\sum_i \left(\sqrt{\max(I_i, 0) + c} - \sqrt{\max(y_i + c, 0)}\right)^2,\qquad c = \frac{3}{8} + \sigma^2.
+    \mathcal{L} = \frac{\lVert \sqrt{I + c} - \sqrt{y + c} \rVert^2}{P},
+    \qquad c = \tfrac{3}{8}\,g + \frac{\sigma^2}{g}.
     $$
 
-    With $\sigma = 0$ this is the Anscombe transform for Poisson counts. With
-    Gaussian readout noise of standard deviation $\sigma$ (in photon counts,
-    unit gain) it is the generalized Anscombe transform, which stabilizes the
-    variance of Poisson plus readout data. The shift keeps $y + c$ positive
-    for almost every raw, unclipped pixel, so negative measurements are
-    modelled rather than clipped.
+    $\sqrt{y + c}$ is the generalized Anscombe transform (Mäkitalo and Foi,
+    2013) up to the constant factor $2/\sqrt{g}$. It gives Poisson plus
+    readout noise the same variance at every intensity, and the shift lifts
+    almost all raw negative $y$ above zero, so they enter the loss as
+    measured. For $g = 1$ and $\sigma = 0$ it is the classic Anscombe
+    transform with $c = 3/8$.
 
     Args:
-        predicted_intensity (torch.Tensor):
-            Predicted detector intensity $I$ in photon counts.
-
-        measured_intensity (torch.Tensor):
-            Measured detector intensity $y$ in photon counts, with the same
-            shape.
-
-        total_power (torch.Tensor):
-            Total measured power $P$ of the full scan.
-
-        anscombe_offset_switch (bool, optional):
-            If True, apply the fixed $3/8$ Anscombe offset plus $\sigma^2$ to
-            both sides. Defaults to False.
-
-        read_out_sigma (float or torch.Tensor, optional):
-            Readout noise standard deviation $\sigma$ in photon counts: a
-            scalar, or a tensor that broadcasts against the intensities (for
-            example one value per pixel). Only used with
-            `anscombe_offset_switch=True`. Defaults to 0.0.
-
-        eps (float, optional):
-            Stabilizer $\epsilon$ of the predicted amplitude without the shift.
-            Defaults to 1e-12.
+        predicted_intensity (torch.Tensor): Predicted intensity $I$, detector units.
+        measured_intensity (torch.Tensor): Measured intensity $y$, detector units, same shape.
+        total_power (torch.Tensor): Total measured power $P$ of the scan.
+        anscombe_offset_switch (bool, optional): Apply the shift $c$.
+        gain (float, optional): Detector gain $g$. Only used with the shift.
+        read_out_sigma (float or torch.Tensor, optional): Readout noise
+            $\sigma$, detector units. Only used with the shift.
+        eps (float, optional): Added to $I$ under the square root when the
+            shift is off, to keep gradients finite at $I = 0$.
 
     Returns:
-        torch.Tensor:
-            Real scalar loss.
+        torch.Tensor: Real scalar loss.
 
     Raises:
-        ValueError:
-            If a scalar `read_out_sigma` is not nonnegative and finite, `eps`
-            is not positive and finite, or `read_out_sigma` is a tensor or a
-            nonzero scalar without `anscombe_offset_switch=True`.
+        ValueError: If `gain` or `eps` is outside $(0, \infty)$, a scalar
+            `read_out_sigma` is outside $[0, \infty)$, or `gain` or
+            `read_out_sigma` is set while `anscombe_offset_switch=False`.
 
     Examples:
         ```python
@@ -267,19 +185,23 @@ def amplitude_loss(
 
         engine.lossFunction = amplitude_loss  # the default
         engine.lossFunction = partial(
-            amplitude_loss, anscombe_offset_switch=True, read_out_sigma=1.5
+            amplitude_loss, anscombe_offset_switch=True, gain=2.0, read_out_sigma=1.5
         )
         ```
     """
+    if not isfinite(gain) or gain <= 0:
+        raise ValueError("gain must be a positive finite scalar.")
     _check_read_out_sigma(read_out_sigma)
     if not isfinite(eps) or eps <= 0:
         raise ValueError("eps must be a positive finite scalar.")
     if anscombe_offset_switch:
-        # c = 3/8 + σ², per pixel when σ is a map.
-        offset = 0.375 + read_out_sigma**2
+        # c = 3g/8 + σ²/g, per pixel when σ is a map.
+        offset = 0.375 * gain + read_out_sigma**2 / gain
         predicted_amplitude = torch.sqrt(predicted_intensity.clamp_min(0.0) + offset)
         measured_amplitude = torch.sqrt((measured_intensity + offset).clamp_min(0.0))
     else:
+        if gain != 1:
+            raise ValueError("gain requires anscombe_offset_switch=True.")
         # A map is refused whatever its values: checking them would need a sync.
         if torch.is_tensor(read_out_sigma) or read_out_sigma != 0:
             raise ValueError("read_out_sigma requires anscombe_offset_switch=True.")
@@ -298,50 +220,32 @@ def mixed_poisson_gaussian_loss(
     eps=1e-8,
 ):
     r"""
-    Gaussian approximation to a mixed Poisson-Gaussian noise objective.
+    Gaussian approximation of Poisson plus readout noise.
 
     $$
-    \mathcal{L} = \frac{1}{2P}\sum_i \left[\frac{(I_i - y_i)^2}{v_i} + \log v_i\right],\qquad v_i = g\max(I_i, 0) + \sigma^2 + \epsilon.
+    \mathcal{L} = \frac{1}{2P}\left(\left\lVert \frac{I - y}{\sqrt{v}} \right\rVert^2 + \sum \log v\right),
+    \qquad v = gI + \sigma^2.
     $$
 
-    If $y = gN + \eta$ with $N$ Poisson and
-    $\eta \sim \mathcal{N}(0, \sigma^2)$, then $I = g\,\mathrm{E}[N]$ and
-    $\mathrm{Var}(y) = gI + \sigma^2$. This is a Gaussian negative log-likelihood with
-    prediction-dependent variance, not the exact Poisson-Gaussian convolution
-    likelihood, and its accuracy can be poor at low counts.
+    $v$ is the variance of $y$ for Poisson photons plus Gaussian readout
+    noise. The loss approximates the exact Poisson-Gaussian likelihood and
+    loses accuracy at low counts.
 
     Args:
-        predicted_intensity (torch.Tensor):
-            Predicted detector intensity $I$ in detector units.
-
-        measured_intensity (torch.Tensor):
-            Measured detector intensity $y$ in detector units, with the same
-            shape.
-
-        total_power (torch.Tensor):
-            Total measured power $P$ of the full scan.
-
-        gain (float, optional):
-            Detector gain $g$ in detector units per photon. Defaults to 1.0.
-
-        read_out_sigma (float or torch.Tensor, optional):
-            Readout noise standard deviation $\sigma$ in detector units: a
-            scalar, or a tensor that broadcasts against the intensities (for
-            example one value per pixel). Defaults to 0.0.
-
-        eps (float, optional):
-            Variance floor $\epsilon$ in squared detector units. Defaults to
-            1e-8.
+        predicted_intensity (torch.Tensor): Predicted intensity $I$, detector units.
+        measured_intensity (torch.Tensor): Measured intensity $y$, detector units, same shape.
+        total_power (torch.Tensor): Total measured power $P$ of the scan.
+        gain (float, optional): Detector gain $g$.
+        read_out_sigma (float or torch.Tensor, optional): Readout noise
+            $\sigma$, detector units.
+        eps (float, optional): Added to $v$ to keep it positive.
 
     Returns:
-        torch.Tensor:
-            Real scalar loss. The omitted additive constant means it can be
-            negative.
+        torch.Tensor: Real scalar loss (can be negative).
 
     Raises:
-        ValueError:
-            If `gain` or a scalar `read_out_sigma` is not nonnegative and
-            finite, or `eps` is not positive and finite.
+        ValueError: If `gain` or a scalar `read_out_sigma` is outside
+            $[0, \infty)$, or `eps` is outside $(0, \infty)$.
 
     Examples:
         ```python
