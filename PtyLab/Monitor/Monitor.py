@@ -17,6 +17,8 @@ from .Plots import (
 # allowed values of the Monitor settings; type hints only, values are not checked
 ObjectPlot = Literal["complex", "abs", "angle"]
 VerboseLevel = Literal["low", "high"]
+# A zoom factor, or "full"/None for the whole array (see `BaseEngine` ROI setup)
+Zoom = float | Literal["full"] | None
 
 
 def tracked_values(frame: MonitorFrame) -> dict:
@@ -213,8 +215,8 @@ class Monitor(AbstractMonitor):
         self._figureUpdateFrequency = 1
         self.objectPlot: ObjectPlot = "complex"
         self._verboseLevel: VerboseLevel = "low"
-        self.objectZoom = 1
-        self.probeZoom = 1
+        self.objectZoom: Zoom = 1
+        self.probeZoom: Zoom = 1
         self.objectPlotContrast = 1
         self.probePlotContrast = 1
         self.cmapDiffraction = setColorMap()
@@ -366,8 +368,8 @@ class DummyMonitor(AbstractMonitor):
     (e.g. `update_focusing_metric` when `params.TV_autofocus` is on) exists here too.
     """
 
-    objectZoom = 1
-    probeZoom = 1
+    objectZoom: Zoom = 1
+    probeZoom: Zoom = 1
     # the engines only call the monitor every `figureUpdateFrequency` iterations
     figureUpdateFrequency = 1000000
     verboseLevel = "low"
